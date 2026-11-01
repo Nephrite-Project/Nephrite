@@ -2965,8 +2965,7 @@ static bool extract_evex_params(DisasContext *s, X86DecodedInsn *decode)
 }
 
 
-static bool decode_ops(DisasContext *s, CPUX86State *env, X86DecodeFunc decode_func,
-                       X86DecodedInsn *decode)
+static bool decode_ops(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode)
 {
     X86OpEntry *e = &decode->e;
 
@@ -3824,7 +3823,7 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
         }
     }
 
-    if (!decode_ops(s, env, decode_func, &decode)) {
+    if (!decode_ops(s, env, &decode)) {
         goto illegal_op;
     }
     /* Faults of fetching the instruction come before decoding's. */
