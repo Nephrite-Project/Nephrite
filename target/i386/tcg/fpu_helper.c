@@ -2778,7 +2778,7 @@ static void do_xsave_access(X86Access *ac, target_ulong ptr, uint64_t rfbm,
     if (opt & XSTATE_FP_MASK) {
         do_xsave_fpu(ac, ptr);
     }
-    if (rfbm & XSTATE_SSE_MASK) {
+    if (rfbm & (XSTATE_SSE_MASK | XSTATE_YMM_MASK)) {
         /* Note that saving MXCSR is not suppressed by XSAVEOPT.  */
         do_xsave_mxcsr(ac, ptr);
     }
@@ -3074,10 +3074,12 @@ static void do_xrstor(X86Access *ac, target_ulong ptr,
             memset(env->fpregs, 0, sizeof(env->fpregs));
         }
     }
-    if (rfbm & XSTATE_SSE_MASK) {
+    if (rfbm & (XSTATE_SSE_MASK | XSTATE_YMM_MASK)) {
         /* Note that the standard form of XRSTOR loads MXCSR from memory
            whether or not the XSTATE_BV bit is set.  */
         do_xrstor_mxcsr(ac, ptr);
+    }
+    if (rfbm & XSTATE_SSE_MASK) {
         if (xstate_bv & XSTATE_SSE_MASK) {
             do_xrstor_sse(ac, ptr);
         } else {
