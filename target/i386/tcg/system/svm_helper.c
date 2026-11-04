@@ -399,6 +399,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (!(clean & SVM_CLEAN_I)) {
         c->intercept = x86_ldq_phys(cs, env->vm_vmcb +
                                     offsetof(struct vmcb, control.intercept));
+        c->intercept_vec5 =
+            x86_ldl_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.intercept_vec5));
         c->intercept_cr_read =
             x86_lduw_phys(cs, env->vm_vmcb +
                           offsetof(struct vmcb, control.intercept_cr_read));
@@ -428,6 +431,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->svm_pause_count = c->pause_filter_count;
     env->svm_last_pause = 0;
     env->intercept = c->intercept;
+    env->intercept_vec5 = c->intercept_vec5;
     env->intercept_cr_read = c->intercept_cr_read;
     env->intercept_cr_write = c->intercept_cr_write;
     env->intercept_dr_read = c->intercept_dr_read;
@@ -922,6 +926,11 @@ bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type)
             return true;
         }
         break;
+    case SVM_EXIT_INVLPGB ... SVM_EXIT_IDLE_HLT:
+        if (env->intercept_vec5 & (1 << (type - SVM_EXIT_INVLPGB))) {
+            return true;
+        }
+        break;
     default:
         if (env->intercept & (1ULL << (type - SVM_EXIT_INTR))) {
             return true;
@@ -1262,6 +1271,7 @@ load_host:
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     env->hflags &= ~HF_GUEST_MASK;
     env->intercept = 0;
+    env->intercept_vec5 = 0;
     env->intercept_exceptions = 0;
 
     /*

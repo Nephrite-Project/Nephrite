@@ -583,7 +583,7 @@ void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
     }
 }
 
-G_NORETURN void HELPER(hlt)(CPUX86State *env)
+static G_NORETURN void do_hlt(CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
 
@@ -591,6 +591,20 @@ G_NORETURN void HELPER(hlt)(CPUX86State *env)
     cs->halted = 1;
     cs->exception_index = EXCP_HLT;
     cpu_loop_exit(cs);
+}
+
+G_NORETURN void HELPER(hlt)(CPUX86State *env)
+{
+    /*
+     * The idle HLT intercept takes a HLT only where no virtual interrupt or
+     * virtual NMI is pending (AMD64 Architecture Programmer's Manual Volume
+     * 2, 24593 rev. 3.45, 15.9).
+     */
+    if ((env->hflags & HF_GUEST_MASK) && !(env->int_ctl & V_IRQ_MASK) &&
+        !(svm_vnmi_enabled(env) && (env->int_ctl & V_NMI_PENDING_MASK))) {
+        cpu_svm_check_intercept_param(env, SVM_EXIT_IDLE_HLT, 0, GETPC());
+    }
+    do_hlt(env);
 }
 
 void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
@@ -616,6 +630,6 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {
         HELPER(pause)(env);
     } else {
-        HELPER(hlt)(env);
+        do_hlt(env);
     }
 }

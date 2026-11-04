@@ -919,6 +919,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_GMET            (1U << 17)
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
+#define CPUID_SVM_IDLE_HLT        (1U << 30)
 
 /* Support RDFSBASE/RDGSBASE/WRFSBASE/WRGSBASE */
 #define CPUID_7_0_EBX_FSGSBASE          (1U << 0)
@@ -2044,6 +2045,7 @@ typedef struct SVMStateCache {
     uint16_t intercept_dr_write;
     uint32_t intercept_exceptions;
     uint64_t intercept;
+    uint32_t intercept_vec5;
     uint64_t tsc_offset;
     uint16_t pause_filter_thresh;
     uint16_t pause_filter_count;
@@ -2300,6 +2302,8 @@ typedef struct CPUArchState {
     uint64_t vm_vmcb;
     uint64_t tsc_offset;
     uint64_t intercept;
+    /* VMCB offset 014h: the intercepts of exit codes A0h to A6h. */
+    uint32_t intercept_vec5;
     uint16_t intercept_cr_read;
     uint16_t intercept_cr_write;
     uint16_t intercept_dr_read;

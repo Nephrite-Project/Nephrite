@@ -192,7 +192,8 @@ struct QEMU_PACKED vmcb_control_area {
     uint16_t intercept_dr_write;
     uint32_t intercept_exceptions;
     uint64_t intercept;
-    uint8_t reserved_1[40];
+    uint32_t intercept_vec5;
+    uint8_t reserved_1[36];
     uint16_t pause_filter_thresh;
     uint16_t pause_filter_count;
     uint64_t iopm_base_pa;

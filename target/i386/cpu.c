@@ -973,7 +973,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_SVM_DECODEASSIST | CPUID_SVM_PAUSEFILTER | \
           CPUID_SVM_PFTHRESHOLD | CPUID_SVM_V_VMSAVE_VMLOAD | \
           CPUID_SVM_VGIF | CPUID_SVM_GMET | CPUID_SVM_VNMI | \
-          CPUID_SVM_SVME_ADDR_CHK | CPUID_SVM_KERNEL_FEATURES)
+          CPUID_SVM_SVME_ADDR_CHK | CPUID_SVM_IDLE_HLT | \
+          CPUID_SVM_KERNEL_FEATURES)
 
 #define TCG_KVM_FEATURES 0
 
@@ -1186,7 +1187,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vgif", "gmet", NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, "vnmi", NULL, NULL,
-            "svme-addr-chk", NULL, NULL, NULL,
+            "svme-addr-chk", NULL, "idle-hlt", NULL,
         },
         .cpuid = { .eax = 0x8000000A, .reg = R_EDX, },
         .tcg_features = TCG_SVM_FEATURES,
