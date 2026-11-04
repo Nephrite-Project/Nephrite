@@ -2816,6 +2816,10 @@ static void do_xsave_chk(CPUX86State *env, target_ulong ptr, uintptr_t ra)
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
 
+    if (env->cr[0] & CR0_TS_MASK) {
+        raise_exception_ra(env, EXCP07_PREX, ra);
+    }
+
     /* The operand must be 64 byte aligned.  */
     if (ptr & 63) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
