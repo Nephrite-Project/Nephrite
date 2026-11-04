@@ -2066,6 +2066,13 @@ typedef struct SVMStateCache {
     SegmentCache segs[4];
     /* CR2 */
     uint64_t cr2;
+    /* LBR, where LBR virtualization loaded it */
+    bool lbr_virt;
+    uint64_t dbgctl;
+    uint64_t br_from;
+    uint64_t br_to;
+    uint64_t last_excp_from;
+    uint64_t last_excp_to;
 } SVMStateCache;
 
 typedef struct CPUArchState {
@@ -2326,6 +2333,8 @@ typedef struct CPUArchState {
     uint8_t svm_insn_bytes[15];
     uint8_t svm_insn_fetched;
     bool svm_insn_bytes_valid;
+    /* LBR virtualization has swapped DebugCtl and the last branch MSRs. */
+    bool svm_lbr_virt;
 
     /* DebugCtl, and the last control transfers it has had recorded. */
     uint64_t debugctl;

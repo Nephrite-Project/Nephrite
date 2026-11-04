@@ -113,6 +113,51 @@ static uint32_t svm_clean_bits(CPUX86State *env)
                         env->vm_vmcb + offsetof(struct vmcb, control.clean));
 }
 
+/*
+ * DebugCtl and the last branch MSRs, as LBR virtualization swaps them with
+ * those of the save area at ADDR (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.45, 15.23.1).
+ */
+static void svm_store_lbr(CPUX86State *env, hwaddr addr)
+{
+    CPUState *cs = env_cpu(env);
+
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.dbgctl), env->debugctl);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.br_from),
+                 env->lbr_from);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.br_to), env->lbr_to);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.last_excp_from),
+                 env->lbr_int_from);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.last_excp_to),
+                 env->lbr_int_to);
+}
+
+static void svm_load_lbr(CPUX86State *env, hwaddr addr)
+{
+    CPUState *cs = env_cpu(env);
+
+    env->debugctl = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                     save.dbgctl)) &
+                    (DEBUGCTL_LBR | DEBUGCTL_BTF);
+    env->lbr_from = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                     save.br_from));
+    env->lbr_to = x86_ldq_phys(cs, addr + offsetof(struct vmcb, save.br_to));
+    env->lbr_int_from = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                         save.last_excp_from));
+    env->lbr_int_to = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                       save.last_excp_to));
+}
+
+/* The guest's DebugCtl and last branch MSRs, which the cache now holds. */
+static void svm_cache_lbr(CPUX86State *env, SVMStateCache *c)
+{
+    c->dbgctl = env->debugctl;
+    c->br_from = env->lbr_from;
+    c->br_to = env->lbr_to;
+    c->last_excp_from = env->lbr_int_from;
+    c->last_excp_to = env->lbr_int_to;
+}
+
 /* A segment as #VMEXIT stores it and VMRUN would load it back. */
 static void svm_cache_seg(CPUX86State *env, SegmentCache *dst,
                           const SegmentCache *src)
@@ -571,6 +616,25 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (is_efer_invalid_state(env)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
+
+    if ((env->features[FEAT_SVM] & CPUID_SVM_LBRV) &&
+        (x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
+                                                  control.lbr_ctl)) &
+         LBR_CTL_ENABLE_MASK)) {
+        svm_store_lbr(env, env->vm_hsave);
+        if ((clean & SVM_CLEAN_LBR) && c->lbr_virt) {
+            env->debugctl = c->dbgctl;
+            env->lbr_from = c->br_from;
+            env->lbr_to = c->br_to;
+            env->lbr_int_from = c->last_excp_from;
+            env->lbr_int_to = c->last_excp_to;
+        } else {
+            svm_load_lbr(env, env->vm_vmcb);
+            svm_cache_lbr(env, c);
+        }
+        env->svm_lbr_virt = true;
+    }
+    c->lbr_virt = env->svm_lbr_virt;
 
     /* The guest state just loaded is what the processor now caches. */
     c->vmcb = env->vm_vmcb;
@@ -1154,11 +1218,17 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.dr6), env->dr[6]);
     x86_stb_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cpl),
              env->hflags & HF_CPL_MASK);
+    if (env->svm_lbr_virt) {
+        svm_store_lbr(env, env->vm_vmcb);
+    }
 
     /* The guest state just stored is what the processor now caches. */
     if (env->svm_cache.valid) {
         SVMStateCache *c = &env->svm_cache;
 
+        if (env->svm_lbr_virt) {
+            svm_cache_lbr(env, c);
+        }
         for (int i = 0; i < ARRAY_SIZE(svm_cached_segs); i++) {
             svm_cache_seg(env, &c->segs[i],
                           &env->segs[svm_cached_segs[i].reg]);
@@ -1197,6 +1267,11 @@ load_host:
 
     /* Clears the TSC_OFFSET inside the processor. */
     env->tsc_offset = 0;
+
+    if (env->svm_lbr_virt) {
+        svm_load_lbr(env, env->vm_hsave);
+        env->svm_lbr_virt = false;
+    }
 
     env->gdt.base  = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.gdtr.base));
