@@ -432,6 +432,11 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "INTR");
             /* XXX: is it always correct? */
             do_interrupt_x86_hardirq(env, vector, 1);
+            /*
+             * Delivered: an exception index left set would be delivered
+             * again, as an exception, at the vCPU's next kick.
+             */
+            cs->exception_index = -1;
             break;
         case SVM_EVTINJ_TYPE_NMI:
             cs->exception_index = EXCP02_NMI;
