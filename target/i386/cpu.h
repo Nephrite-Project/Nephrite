@@ -373,6 +373,12 @@ typedef enum X86Seg {
  * page tables but does make their fetch faults set I/D.
  */
 #define PG_MODE_NESTED_SMEP (1 << 5)
+/*
+ * Not a page format bit either: GMET, with which the nested U/S bit only
+ * keeps supervisor code from executing (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, 15.25.13).
+ */
+#define PG_MODE_GMET     (1 << 6)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */
@@ -2964,6 +2970,12 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 #define MMU_GUEST_IDX      8
 #define MMU_HOST_IDX_MAP   ((1 << MMU_PHYS_IDX) - 1)
 #define MMU_GUEST_IDX_MAP  (MMU_HOST_IDX_MAP << MMU_GUEST_IDX)
+
+/*
+ * With GMET, the nested translations of guest supervisor accesses, whose
+ * fetches the nested U/S bit restricts, past the guest's indexes.
+ */
+#define MMU_NESTED_SUP_IDX 14
 
 #ifdef CONFIG_USER_ONLY
 #ifdef TARGET_X86_64

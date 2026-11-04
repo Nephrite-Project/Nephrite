@@ -75,7 +75,8 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr)
     if (unlikely(flags & TLB_INVALID_MASK)) {
         TranslateFault *err = inout->err;
 
-        assert(inout->ptw_idx == MMU_NESTED_IDX);
+        assert(inout->ptw_idx == MMU_NESTED_IDX ||
+               inout->ptw_idx == MMU_NESTED_SUP_IDX);
         *err = (TranslateFault){
             .error_code = inout->env->error_code,
             .cr2 = addr,
@@ -448,12 +449,12 @@ do_check_protect_pse36:
      * Note that NPT is walked (for both paging structures and final guest
      * addresses) using the address with the A20 bit set.
      */
-    if (in->ptw_idx == MMU_NESTED_IDX) {
+    if (in->ptw_idx != MMU_PHYS_IDX) {
         CPUTLBEntryFull *full;
         int flags, nested_page_size;
 
         flags = probe_access_full_mmu(env, paddr, 0, access_type,
-                                      MMU_NESTED_IDX, &pte_trans.haddr, &full);
+                                      in->ptw_idx, &pte_trans.haddr, &full);
         if (unlikely(flags & TLB_INVALID_MASK)) {
             *err = (TranslateFault){
                 .error_code = env->error_code,
@@ -565,11 +566,27 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         break;
 
     case MMU_NESTED_IDX:
+    case MMU_NESTED_SUP_IDX:
         if (likely(use_stage2)) {
+            bool lma = env->nested_pg_mode & PG_MODE_LMA;
+
             in.cr3 = env->nested_cr3;
             in.pg_mode = env->nested_pg_mode;
-            in.mmu_idx =
-                env->nested_pg_mode & PG_MODE_LMA ? MMU_USER64_IDX : MMU_USER32_IDX;
+            in.mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
+            /*
+             * Nested accesses are user ones, but with GMET the U/S bit only
+             * keeps code of guest CPL 0 to 2 from executing (AMD64
+             * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+             * 15.25.13): they are supervisor ones, read-only pages kept
+             * from writes, with SMEP for those of guest supervisor accesses.
+             */
+            if (env->nested_pg_mode & PG_MODE_GMET) {
+                in.mmu_idx = lma ? MMU_KNOSMAP64_IDX : MMU_KNOSMAP32_IDX;
+                in.pg_mode |= PG_MODE_WP;
+                if (mmu_idx == MMU_NESTED_SUP_IDX) {
+                    in.pg_mode |= PG_MODE_SMEP;
+                }
+            }
             in.ptw_idx = MMU_PHYS_IDX;
 
             if (!mmu_translate(env, &in, out, err, ra)) {
@@ -588,7 +605,12 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
             in.cr3 = env->cr[3];
             in.mmu_idx = mmu_idx;
-            in.ptw_idx = use_stage2 ? MMU_NESTED_IDX : MMU_PHYS_IDX;
+            in.ptw_idx = MMU_PHYS_IDX;
+            if (use_stage2) {
+                in.ptw_idx = (env->nested_pg_mode & PG_MODE_GMET) &&
+                             !is_mmu_index_user(mmu_idx) ?
+                             MMU_NESTED_SUP_IDX : MMU_NESTED_IDX;
+            }
             in.pg_mode = get_pg_mode(env);
 
             if (in.pg_mode & PG_MODE_LMA) {

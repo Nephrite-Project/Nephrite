@@ -160,6 +160,7 @@
 #define SVM_CR0_SELECTIVE_MASK (1 << 3 | 1) /* TS and MP */
 
 #define SVM_NPT_ENABLED     (1 << 0)
+#define SVM_NPT_GMET        (1 << 3)
 
 /* VMCB Clean field bits */
 #define SVM_CLEAN_I         (1 << 0)

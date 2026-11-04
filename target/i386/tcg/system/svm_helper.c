@@ -216,7 +216,8 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
         break;
     }
     if (flush_guest) {
-        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
+        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
+                                1 << MMU_NESTED_SUP_IDX);
     }
     env->svm_tlb_asid = asid;
     env->svm_tlb_cr4 = env->cr[4];
@@ -487,6 +488,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         env->nested_pg_mode = get_pg_mode(env) & PG_MODE_SVM_MASK;
         if (env->cr[4] & CR4_SMEP_MASK) {
             env->nested_pg_mode |= PG_MODE_NESTED_SMEP;
+        }
+        if ((nested_ctl & SVM_NPT_GMET) &&
+            (env->features[FEAT_SVM] & CPUID_SVM_GMET)) {
+            env->nested_pg_mode |= PG_MODE_GMET;
         }
     }
 
