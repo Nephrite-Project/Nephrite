@@ -3123,7 +3123,8 @@ static inline bool ctl_has_irq(CPUX86State *env)
         return (env->int_ctl & V_IRQ_MASK);
     }
 
-    return (env->int_ctl & V_IRQ_MASK) && (int_prio >= tpr);
+    /* Only a priority greater than V_TPR's is taken. */
+    return (env->int_ctl & V_IRQ_MASK) && (int_prio > tpr);
 }
 
 static inline bool x86_cpu_interrupts_enabled(const CPUX86State *env)
