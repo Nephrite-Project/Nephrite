@@ -3629,8 +3629,11 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 
     /*
      * Instruction decoding completed (possibly with #GP if the
-     * 15-byte boundary was exceeded).
+     * 15-byte boundary was exceeded).  Its length gives the next RIP
+     * that SVM intercepts report.
      */
+    tcg_set_insn_start_param(dc->base.insn_start, 2,
+                             dc->pc - dc->base.pc_next);
     dc->base.pc_next = dc->pc;
     if (dc->base.is_jmp == DISAS_NEXT) {
         if (dc->flags & (HF_TF_MASK | HF_INHIBIT_IRQ_MASK)) {

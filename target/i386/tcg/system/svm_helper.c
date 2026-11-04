@@ -421,6 +421,19 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                                           offsetof(struct vmcb,
                                                    control.event_inj_err));
 
+        /*
+         * With NRIPS, software interrupts and the traps of INT3 and INTO
+         * return to the next RIP the VMCB gives (AMD64 Architecture
+         * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.20); without
+         * it, to the guest's RIP.
+         */
+        target_ulong next_eip = env->eip;
+
+        if (env->features[FEAT_SVM] & CPUID_SVM_NRIPSAVE) {
+            next_eip = x86_ldq_phys(cs, env->vm_vmcb +
+                                    offsetof(struct vmcb, control.next_rip));
+        }
+
         qemu_log_mask(CPU_LOG_TB_IN_ASM, "Injecting(%#hx): ", valid_err);
         /* FIXME: need to implement valid_err */
         switch (event_inj & SVM_EVTINJ_TYPE_MASK) {
@@ -452,8 +465,17 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             }
             cs->exception_index = vector;
             env->error_code = event_inj_err;
-            env->exception_is_int = 0;
-            env->exception_next_eip = -1;
+            /*
+             * Vectors 3 and 4 are the traps of INT3 and INTO, with their
+             * privilege checks.
+             */
+            if (vector == EXCP03_INT3 || vector == EXCP04_INTO) {
+                env->exception_is_int = 1;
+                env->exception_next_eip = next_eip;
+            } else {
+                env->exception_is_int = 0;
+                env->exception_next_eip = -1;
+            }
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "EXEPT");
             cpu_loop_exit(cs);
             break;
@@ -461,7 +483,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             cs->exception_index = vector;
             env->error_code = event_inj_err;
             env->exception_is_int = 1;
-            env->exception_next_eip = env->eip;
+            env->exception_next_eip = next_eip;
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "SOFT");
             cpu_loop_exit(cs);
             break;
@@ -732,12 +754,52 @@ void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
     }
 }
 
+/*
+ * The intercepts that save the next sequential RIP: those of instructions,
+ * MSR and IOIO accesses, and the exceptions INT3, INTO, and BOUND raise
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.7.1).
+ */
+static bool svm_exit_saves_next_rip(uint64_t exit_code)
+{
+    switch (exit_code) {
+    case SVM_EXIT_READ_CR0 ... SVM_EXIT_WRITE_DR0 + 15:
+    case SVM_EXIT_EXCP_BASE + EXCP03_INT3:
+    case SVM_EXIT_EXCP_BASE + EXCP04_INTO:
+    case SVM_EXIT_EXCP_BASE + EXCP05_BOUND:
+    case SVM_EXIT_CR0_SEL_WRITE ... SVM_EXIT_MSR:
+    case SVM_EXIT_VMRUN ... SVM_EXIT_RDPRU:
+    case SVM_EXIT_INVLPGB ... SVM_EXIT_TLBSYNC:
+    case SVM_EXIT_IDLE_HLT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/* The RIP a trap after the current instruction would push. */
+static target_ulong svm_next_rip(CPUX86State *env)
+{
+    target_ulong next = env->eip + env->svm_insn_len;
+
+    if (env->hflags & HF_CS64_MASK) {
+        return next;
+    }
+    return env->hflags & HF_CS32_MASK ? (uint32_t)next : (uint16_t)next;
+}
+
 void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
                 uintptr_t retaddr)
 {
     CPUState *cs = env_cpu(env);
 
     cpu_restore_state(cs, retaddr);
+
+    if (env->features[FEAT_SVM] & CPUID_SVM_NRIPSAVE) {
+        x86_stq_phys(cs,
+                     env->vm_vmcb + offsetof(struct vmcb, control.next_rip),
+                     svm_exit_saves_next_rip(exit_code) ?
+                     svm_next_rip(env) : 0);
+    }
 
     qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmexit(%08x, %016" PRIx64 ", %016"
                   PRIx64 ", " TARGET_FMT_lx ")!\n",

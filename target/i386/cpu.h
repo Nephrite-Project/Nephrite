@@ -2228,6 +2228,8 @@ typedef struct CPUArchState {
     uint32_t nested_pg_mode;
     uint8_t v_tpr;
     uint32_t int_ctl;
+    /* The length of the instruction an SVM intercept reports. */
+    uint32_t svm_insn_len;
 
     /* KVM states, automatically cleared on reset */
     uint8_t nmi_injected;

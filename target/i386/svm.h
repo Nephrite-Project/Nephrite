@@ -133,6 +133,14 @@
 #define SVM_EXIT_MONITOR        0x08a
 #define SVM_EXIT_MWAIT          0x08b
 #define SVM_EXIT_XSETBV         0x08d
+#define SVM_EXIT_RDPRU          0x08e
+#define SVM_EXIT_INVLPGB        0x0a0
+#define SVM_EXIT_INVLPGB_ILLEGAL 0x0a1
+#define SVM_EXIT_INVPCID        0x0a2
+#define SVM_EXIT_MCOMMIT        0x0a3
+#define SVM_EXIT_TLBSYNC        0x0a4
+#define SVM_EXIT_BUSLOCK        0x0a5
+#define SVM_EXIT_IDLE_HLT       0x0a6
 #define SVM_EXIT_NPF            0x400
 
 #define SVM_EXIT_ERR            -1
@@ -178,7 +186,12 @@ struct QEMU_PACKED vmcb_control_area {
     uint32_t event_inj_err;
     uint64_t nested_cr3;
     uint64_t lbr_ctl;
-    uint8_t reserved_5[832];
+    uint32_t clean;
+    uint32_t reserved_5;
+    uint64_t next_rip;
+    uint8_t insn_len;
+    uint8_t insn_bytes[15];
+    uint8_t reserved_6[800];
 };
 
 struct QEMU_PACKED vmcb_seg {

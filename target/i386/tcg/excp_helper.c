@@ -115,6 +115,7 @@ void raise_interrupt2(CPUX86State *env, int intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
     } else {
+        env->svm_insn_len = next_eip_addend;
         cpu_svm_check_intercept_param(env, SVM_EXIT_SWINT, 0, retaddr);
     }
 
@@ -145,6 +146,7 @@ G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
     CPUState *cs = env_cpu(env);
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
 
+    env->svm_insn_len = next_eip_addend;
     cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno, 0, 0);
 
     cs->exception_index = intno;
