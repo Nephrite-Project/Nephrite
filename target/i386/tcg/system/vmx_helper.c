@@ -113,6 +113,7 @@
 #define VMCS_GUEST_INTERRUPTIBILITY 0x4824
 #define VMCS_GUEST_ACTIVITY 0x4826
 #define VMCS_GUEST_SYSENTER_CS 0x482a
+#define VMCS_PREEMPTION_TIMER 0x482e
 #define VMCS_HOST_SYSENTER_CS 0x4c00
 #define VMCS_CR0_MASK 0x6000
 #define VMCS_CR4_MASK 0x6002
@@ -1593,6 +1594,87 @@ static void vmx_save_pdptes(CPUX86State *env)
     }
 }
 
+/*
+ * The VMX-preemption timer counts down by one each time bit
+ * VMX_MISC_TIMER_RATE of the TSC changes, from the value VM entry loaded
+ * (Intel SDM 325462-093 Vol. 3C, 28.5.1 and 29.7.4).
+ */
+static uint64_t vmx_timer_tsc(CPUX86State *env)
+{
+    return (cpu_get_tsc(env) + env->tsc_written_delta) >> VMX_MISC_TIMER_RATE;
+}
+
+static uint32_t vmx_timer_left(CPUX86State *env)
+{
+    uint64_t gone = vmx_timer_tsc(env) - env->vmx.timer_start;
+
+    return gone >= env->vmx.timer_value ? 0 : env->vmx.timer_value - gone;
+}
+
+static bool vmx_timer_expired(const CPUX86State *env)
+{
+    return env->vmx.timer_on && !vmx_timer_left((CPUX86State *)env);
+}
+
+/*
+ * Software read the TSC: past the VMX-preemption timer's deadline, the
+ * timer's VM exit comes before the next instruction (Intel SDM 325462-093
+ * Vol. 3C, 28.5.1 and 28.2), not when its QEMU timer gets to run. The
+ * instructions that read the TSC end their TB in guest mode.
+ */
+void x86_vmx_tsc_seen(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+
+    if (env->vmx.nonroot && vmx_timer_expired(env)) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+    }
+}
+
+static void vmx_timer_arm(CPUX86State *env)
+{
+    uint64_t ticks = (uint64_t)vmx_timer_left(env) << VMX_MISC_TIMER_RATE;
+
+    timer_mod(env_archcpu(env)->vmx_timer,
+              qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+              cpu_tsc_ticks_ns(env, ticks));
+}
+
+/* An expiry has the processor look at it; early calls arm again. */
+static void vmx_timer_cb(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    if (!env->vmx.timer_on) {
+        return;
+    }
+    if (vmx_timer_left(env)) {
+        vmx_timer_arm(env);
+        return;
+    }
+    cpu_interrupt(CPU(cpu), CPU_INTERRUPT_VMX);
+}
+
+void x86_vmx_init(X86CPU *cpu)
+{
+    cpu->vmx_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, vmx_timer_cb, cpu);
+}
+
+static void vmx_timer_start(CPUX86State *env)
+{
+    env->vmx.timer_on = true;
+    env->vmx.timer_value = VMCS(PREEMPTION_TIMER);
+    env->vmx.timer_start = vmx_timer_tsc(env);
+    /* One that expires during VM entry exits before any instruction. */
+    if (env->vmx.timer_value) {
+        vmx_timer_arm(env);
+    } else {
+        cpu_set_interrupt(env_cpu(env), CPU_INTERRUPT_VMX);
+    }
+}
+
 /* The guest state a VM exit saves (Intel SDM 325462-093 Vol. 3C, 30.3). */
 static void vmx_save_guest(CPUX86State *env)
 {
@@ -1648,6 +1730,10 @@ static void vmx_save_guest(CPUX86State *env)
     VMCS_SET(GUEST_ACTIVITY, cs->halted || env->vmx.exit_hlt ?
                              VMX_ACTIVITY_HLT : VMX_ACTIVITY_ACTIVE);
     env->vmx.exit_hlt = false;
+    if (env->vmx.timer_on &&
+        (exit_ctl & VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER)) {
+        VMCS_SET(PREEMPTION_TIMER, vmx_timer_left(env));
+    }
     VMCS_SET(GUEST_PENDING_DBG, env->vmx.exit_pending_dbg);
     env->vmx.exit_pending_dbg = 0;
     env->vmx.db_held = 0;
@@ -1766,6 +1852,8 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.nonroot = false;
     env->vmx.mtf = false;
     env->vmx.mtf_pending = false;
+    env->vmx.timer_on = false;
+    timer_del(env_archcpu(env)->vmx_timer);
     env->monitor_armed = false;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_VMX);
     cs->halted = 0;
@@ -2782,6 +2870,9 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     }
     env->vmx.vmcs_launched = 1;
     env->vmx.mtf = VMCS(PROC_CONTROLS) & VMX_CPU_BASED_MONITOR_TRAP_FLAG;
+    if (VMCS(PIN_CONTROLS) & VMX_PIN_BASED_VMX_PREEMPTION_TIMER) {
+        vmx_timer_start(env);
+    }
     if (VMCS(PROC_CONTROLS) & (VMX_CPU_BASED_VIRTUAL_INTR_PENDING |
                                VMX_CPU_BASED_VIRTUAL_NMI_PENDING)) {
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
@@ -2833,6 +2924,13 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
     /* A held #DB has the priority of traps on the previous instruction. */
     if ((request & CPU_INTERRUPT_VMX) && env->vmx.db_held &&
         !(shadow && env->shadow_movss)) {
+        return CPU_INTERRUPT_VMX;
+    }
+    /*
+     * The VMX-preemption timer's exits come after debug traps, before the
+     * NMI window and NMIs (Intel SDM 325462-093 Vol. 3C, 28.2).
+     */
+    if ((request & CPU_INTERRUPT_VMX) && vmx_timer_expired(env)) {
         return CPU_INTERRUPT_VMX;
     }
     /*
@@ -2920,6 +3018,9 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
                                   env->shadow_movss)) {
             env->vmx.exit_hlt = false;
             raise_debug_exception(env, 0, 0);
+        }
+        if (vmx_timer_expired(env)) {
+            x86_vmx_exit(env, VMX_EXIT_PREEMPTION_TIMER, 0, 0);
         }
         if ((proc & VMX_CPU_BASED_VIRTUAL_NMI_PENDING) &&
             !env->vmx.vnmi_blocked && !(env->hflags & HF_INHIBIT_IRQ_MASK)) {

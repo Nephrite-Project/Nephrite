@@ -1037,6 +1037,9 @@ void HELPER(rdmsr)(CPUX86State *env)
     }
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
+    if ((uint32_t)env->regs[R_ECX] == MSR_IA32_TSC) {
+        x86_vmx_tsc_seen(env);
+    }
 }
 
 /*

@@ -110,6 +110,9 @@ static void do_rdtsc(CPUX86State *env, uint32_t intercept, uintptr_t retaddr)
     val = x86_tsc_read(env);
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
+#if !defined(CONFIG_USER_ONLY)
+    x86_vmx_tsc_seen(env);
+#endif
 }
 
 void HELPER(rdtsc)(CPUX86State *env)

@@ -2111,6 +2111,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_LDTR_TR 47
 #define VMX_EXIT_INVEPT 50
 #define VMX_EXIT_RDTSCP 51
+#define VMX_EXIT_PREEMPTION_TIMER 52
 #define VMX_EXIT_INVVPID 53
 #define VMX_EXIT_WBINVD 54
 #define VMX_EXIT_XSETBV 55
@@ -2158,6 +2159,13 @@ typedef struct X86VMXState {
     /* The "monitor trap flag" control, and an MTF VM exit pending. */
     bool mtf;
     bool mtf_pending;
+    /*
+     * The VMX-preemption timer: running, the value VM entry loaded, and
+     * the TSC shifted right by the timer's rate then.
+     */
+    bool timer_on;
+    uint32_t timer_value;
+    uint64_t timer_start;
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;
@@ -2835,6 +2843,8 @@ struct ArchCPU {
     struct MemoryRegion *cpu_as_root, *cpu_as_mem, *smram;
     /* TCG: the address space of SVM AVIC's guest vAPIC page. */
     struct MemoryRegion *avic_page;
+    /* TCG: the VMX-preemption timer's expiry. */
+    QEMUTimer *vmx_timer;
     Notifier machine_done;
 
     struct kvm_msrs *kvm_msr_buf;
