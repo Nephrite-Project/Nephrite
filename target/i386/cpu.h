@@ -2128,6 +2128,7 @@ typedef struct CPUArchState {
     uint32_t hflags; /* TB flags, see HF_xxx constants. These flags
                         are known at translation time. */
     uint32_t hflags2; /* various other flags, see HF2_xxx constants. */
+    bool nmi_second; /* another NMI came before the pending one was taken */
     /* How far LAM shifts user and supervisor data addresses: 0, 7, or 16 */
     target_ulong lam_shift_user;
     target_ulong lam_shift_sup;

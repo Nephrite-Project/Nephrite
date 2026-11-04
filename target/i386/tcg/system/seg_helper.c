@@ -218,7 +218,12 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         break;
     case CPU_INTERRUPT_NMI:
         cpu_svm_check_intercept_param(env, SVM_EXIT_NMI, 0, 0);
-        cpu_reset_interrupt(cs, CPU_INTERRUPT_NMI);
+        /* A second NMI stays pending, blocked until IRET. */
+        if (env->nmi_second) {
+            env->nmi_second = false;
+        } else {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_NMI);
+        }
         env->hflags2 |= HF2_NMI_MASK;
         do_interrupt_x86_hardirq(env, EXCP02_NMI, 1);
         break;

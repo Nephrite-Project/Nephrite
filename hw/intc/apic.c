@@ -151,6 +151,22 @@ static void apic_vapic_base_update(APICCommonState *s)
     apic_sync_vapic(s, SYNC_TO_VAPIC);
 }
 
+/*
+ * Delivery of an NMI is not immediate here, so, as Linux 7.3's KVM does,
+ * two may be pending while NMIs are not blocked: one taken at once, the
+ * other latched behind it.
+ */
+static void apic_raise_nmi(X86CPU *cpu)
+{
+    CPUState *cs = CPU(cpu);
+
+    if ((cs->interrupt_request & CPU_INTERRUPT_NMI) &&
+        !(cpu->env.hflags2 & HF2_NMI_MASK)) {
+        cpu->env.nmi_second = true;
+    }
+    cpu_interrupt(cs, CPU_INTERRUPT_NMI);
+}
+
 static void apic_local_deliver(APICCommonState *s, int vector)
 {
     uint32_t lvt = s->lvt[vector];
@@ -167,7 +183,7 @@ static void apic_local_deliver(APICCommonState *s, int vector)
         break;
 
     case APIC_DM_NMI:
-        cpu_interrupt(CPU(s->cpu), CPU_INTERRUPT_NMI);
+        apic_raise_nmi(s->cpu);
         break;
 
     case APIC_DM_EXTINT:
@@ -264,7 +280,7 @@ static void apic_bus_deliver(const uint32_t *deliver_bitmask,
 
         case APIC_DM_NMI:
             foreach_apic(apic_iter, deliver_bitmask,
-                cpu_interrupt(CPU(apic_iter->cpu), CPU_INTERRUPT_NMI)
+                apic_raise_nmi(apic_iter->cpu)
             );
             return;
 
