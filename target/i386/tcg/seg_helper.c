@@ -137,8 +137,9 @@ static int x86_mmu_index_kernel_pl(CPUX86State *env, unsigned pl)
         !(env->hflags & HF_SMAP_MASK) ? MMU_KNOSMAP64_IDX :
         (pl < 3 && (env->eflags & AC_MASK)
          ? MMU_KNOSMAP64_IDX : MMU_KSMAP64_IDX);
+    int mmu_index_guest = (env->hflags & HF_GUEST_MASK) ? MMU_GUEST_IDX : 0;
 
-    return mmu_index_base + mmu_index_32;
+    return mmu_index_base + mmu_index_32 + mmu_index_guest;
 }
 
 int cpu_mmu_index_kernel(CPUX86State *env)

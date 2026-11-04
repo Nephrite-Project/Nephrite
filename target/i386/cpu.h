@@ -2902,6 +2902,16 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 #define MMU_PHYS_IDX       6
 #define MMU_NESTED_IDX     7
 
+/*
+ * SVM guest mode has indexes of its own for those below MMU_PHYS_IDX, each
+ * MMU_GUEST_IDX past the host's, so that a guest's translations and the
+ * host's stay apart, as the processor keeps those of different ASIDs apart
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16).
+ */
+#define MMU_GUEST_IDX      8
+#define MMU_HOST_IDX_MAP   ((1 << MMU_PHYS_IDX) - 1)
+#define MMU_GUEST_IDX_MAP  (MMU_HOST_IDX_MAP << MMU_GUEST_IDX)
+
 #ifdef CONFIG_USER_ONLY
 #ifdef TARGET_X86_64
 #define MMU_USER_IDX MMU_USER64_IDX
@@ -2910,19 +2920,25 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 #endif
 #endif
 
+/* The host's index that one of SVM guest mode stands for, or the index. */
+static inline int mmu_index_host(int mmu_index)
+{
+    return mmu_index >= MMU_GUEST_IDX ? mmu_index - MMU_GUEST_IDX : mmu_index;
+}
+
 static inline bool is_mmu_index_smap(int mmu_index)
 {
-    return (mmu_index & ~1) == MMU_KSMAP64_IDX;
+    return (mmu_index_host(mmu_index) & ~1) == MMU_KSMAP64_IDX;
 }
 
 static inline bool is_mmu_index_user(int mmu_index)
 {
-    return (mmu_index & ~1) == MMU_USER64_IDX;
+    return (mmu_index_host(mmu_index) & ~1) == MMU_USER64_IDX;
 }
 
 static inline bool is_mmu_index_32(int mmu_index)
 {
-    assert(mmu_index < MMU_PHYS_IDX);
+    assert(mmu_index_host(mmu_index) < MMU_PHYS_IDX);
     return mmu_index & 1;
 }
 

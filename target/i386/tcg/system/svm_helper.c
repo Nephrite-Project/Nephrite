@@ -366,9 +366,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         if (env->cr[4] & CR4_SMEP_MASK) {
             env->nested_pg_mode |= PG_MODE_NESTED_SMEP;
         }
-
-        tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
     }
+
+    /* The guest's translations are made afresh for each VMRUN. */
+    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
 
     /* enable intercepts */
     env->hflags |= HF_GUEST_MASK;
