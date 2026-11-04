@@ -407,9 +407,25 @@ void HELPER(wrmsr)(CPUX86State *env)
             env->mcg_ctl = val;
         }
         break;
-    case MSR_IA32_TSC:
-        /* The counter takes the value written, not scaled or offset. */
-        env->tsc_written_delta = val - cpu_get_tsc(env);
+    case MSR_IA32_TSC: {
+        /*
+         * The counter takes the value written, not scaled or offset, and
+         * IA32_TSC_ADJUST moves as far; a write of IA32_TSC_ADJUST moves
+         * the counter as far as it moves (Intel SDM 325462-093 Vol. 3B,
+         * 20.17.3).
+         */
+        int64_t delta = val - cpu_get_tsc(env);
+
+        env->tsc_adjust += delta - env->tsc_written_delta;
+        env->tsc_written_delta = delta;
+        break;
+    }
+    case MSR_TSC_ADJUST:
+        if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_TSC_ADJUST)) {
+            goto error;
+        }
+        env->tsc_written_delta += val - env->tsc_adjust;
+        env->tsc_adjust = val;
         break;
     case MSR_TSC_AUX:
         env->tsc_aux = val;
@@ -629,6 +645,12 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_IA32_TSC:
         val = x86_tsc_read(env);
+        break;
+    case MSR_TSC_ADJUST:
+        if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_TSC_ADJUST)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->tsc_adjust;
         break;
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env)) {

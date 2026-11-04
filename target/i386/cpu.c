@@ -986,6 +986,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define CPUID_7_0_EBX_KERNEL_FEATURES 0
 #endif
 #define TCG_7_0_EBX_FEATURES (CPUID_7_0_EBX_SMEP | CPUID_7_0_EBX_SMAP | \
+          CPUID_7_0_EBX_TSC_ADJUST | \
           CPUID_7_0_EBX_BMI1 | CPUID_7_0_EBX_BMI2 | CPUID_7_0_EBX_ADX | \
           CPUID_7_0_EBX_CLFLUSHOPT |            \
           CPUID_7_0_EBX_CLWB | CPUID_7_0_EBX_MPX | CPUID_7_0_EBX_FSGSBASE | \
