@@ -1591,6 +1591,8 @@ const char *x86_exception_name(int excp);
 #define CPU_INTERRUPT_VIRQ      CPU_INTERRUPT_TGT_INT_0
 #define CPU_INTERRUPT_SIPI      CPU_INTERRUPT_TGT_INT_1
 #define CPU_INTERRUPT_TPR       CPU_INTERRUPT_TGT_INT_2
+/* VMX non-root operation has a window or timer to look at. */
+#define CPU_INTERRUPT_VMX       CPU_INTERRUPT_TGT_INT_3
 
 /* Use a clearer name for this.  */
 #define CPU_INTERRUPT_INIT      CPU_INTERRUPT_RESET
@@ -2066,6 +2068,50 @@ typedef struct CPUCaches {
 struct kvm_msrs;
 struct hv_vp_register_page;
 
+/* Basic exit reasons (Intel SDM 325462-093 Vol. 3D, Appendix C). */
+#define VMX_EXIT_EXCEPTION_NMI 0
+#define VMX_EXIT_EXTERNAL_INTERRUPT 1
+#define VMX_EXIT_TRIPLE_FAULT 2
+#define VMX_EXIT_INIT 3
+#define VMX_EXIT_INTERRUPT_WINDOW 7
+#define VMX_EXIT_NMI_WINDOW 8
+#define VMX_EXIT_TASK_SWITCH 9
+#define VMX_EXIT_CPUID 10
+#define VMX_EXIT_HLT 12
+#define VMX_EXIT_INVD 13
+#define VMX_EXIT_INVLPG 14
+#define VMX_EXIT_RDPMC 15
+#define VMX_EXIT_RDTSC 16
+#define VMX_EXIT_VMCALL 18
+#define VMX_EXIT_VMCLEAR 19
+#define VMX_EXIT_VMLAUNCH 20
+#define VMX_EXIT_VMPTRLD 21
+#define VMX_EXIT_VMPTRST 22
+#define VMX_EXIT_VMREAD 23
+#define VMX_EXIT_VMRESUME 24
+#define VMX_EXIT_VMWRITE 25
+#define VMX_EXIT_VMXOFF 26
+#define VMX_EXIT_VMXON 27
+#define VMX_EXIT_CR_ACCESS 28
+#define VMX_EXIT_DR_ACCESS 29
+#define VMX_EXIT_IO 30
+#define VMX_EXIT_RDMSR 31
+#define VMX_EXIT_WRMSR 32
+#define VMX_EXIT_INVALID_GUEST_STATE 33
+#define VMX_EXIT_MSR_LOADING 34
+#define VMX_EXIT_MWAIT 36
+#define VMX_EXIT_MONITOR 39
+#define VMX_EXIT_PAUSE 40
+#define VMX_EXIT_GDTR_IDTR 46
+#define VMX_EXIT_LDTR_TR 47
+#define VMX_EXIT_INVEPT 50
+#define VMX_EXIT_RDTSCP 51
+#define VMX_EXIT_INVVPID 53
+#define VMX_EXIT_WBINVD 54
+#define VMX_EXIT_XSETBV 55
+#define VMX_EXIT_INVPCID 58
+#define VMX_EXIT_ENTRY_FAILURE (1U << 31)
+
 /* The VMCS fields TCG keeps (see vmx_helper.c), at most this many. */
 #define VMX_VMCS_SLOTS 192
 
@@ -2085,6 +2131,36 @@ typedef struct X86VMXState {
     uint64_t vmcs_ptr;
     uint32_t vmcs_launched;
     uint64_t vmcs[VMX_VMCS_SLOTS];
+    /* The event being delivered in non-root operation, for exits during it. */
+    uint32_t idt_vectoring_info;
+    uint32_t idt_vectoring_error;
+    /* Virtual-NMI blocking, with the "virtual NMIs" control. */
+    bool vnmi_blocked;
+    /* An exception's exit qualification, as a #PF's address. */
+    uint64_t exception_qual;
+    /* The interruption type of INT3, INTO, or INT1 being raised, else 0. */
+    uint8_t soft_exception;
+    /* The exit under way is due to an NMI. */
+    bool exit_nmi;
+    /* The HLT state ended for an event not taken yet. */
+    bool hlt_wake;
+    /* The exit under way is an event's that leaves the HLT state. */
+    bool exit_hlt;
+    /* The debug exceptions a VM entry left pending, as DR6 bits. */
+    uint32_t db_held;
+    /* The PDPTE registers of a guest with PAE paging under EPT. */
+    uint64_t pdpte[4];
+    bool pdpte_loaded;
+    /* The last EPT walk's violation qualification, or misconfiguration. */
+    uint64_t ept_qual;
+    bool ept_misconfig;
+    /* The VPID and EPTP the guest's translations are of, ~0 for none. */
+    uint64_t tlb_vpid;
+    uint64_t tlb_eptp;
+    uint64_t tlb_cr0;
+    uint64_t tlb_cr3;
+    uint64_t tlb_cr4;
+    uint64_t tlb_efer;
 } X86VMXState;
 
 /*
@@ -2367,6 +2443,8 @@ typedef struct CPUArchState {
     }; /* break/watchpoints for dr[0..3] */
     /* The DR6 bits of the #DB being raised, which reach DR6 at delivery. */
     uint32_t db_payload;
+    /* The interrupt shadow (HF_INHIBIT_IRQ_MASK) is MOV SS's, not STI's. */
+    bool shadow_movss;
     int old_exception;  /* exception in flight */
     /* MONITOR armed address-range monitoring, which MWAIT waits on. */
     bool monitor_armed;
@@ -3237,6 +3315,9 @@ static inline bool cpu_vmx_maybe_enabled(CPUX86State *env)
 
 /* excp_helper.c */
 int get_pg_mode(CPUX86State *env);
+
+/* tcg/system/vmx_helper.c */
+int x86_vmx_pending_interrupt(const CPUX86State *env, int request);
 
 /* fpu_helper.c */
 

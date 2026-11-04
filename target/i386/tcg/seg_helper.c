@@ -383,6 +383,19 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
         tss_limit < tss_limit_max) {
         raise_exception_err_ra(env, EXCP0A_TSS, tss_selector & 0xfffc, retaddr);
     }
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * A task switch exits once the TSS descriptor checks pass (Intel SDM
+     * 325462-093 Vol. 3C, 28.4.2); an event being delivered made it through
+     * an IDT task gate.
+     */
+    if (env->vmx.nonroot) {
+        x86_vmx_task_switch(env, tss_selector,
+                            env->vmx.idt_vectoring_info ? 3 :
+                            source == SWITCH_TSS_IRET ? 1 :
+                            source == SWITCH_TSS_JMP ? 2 : 0, retaddr);
+    }
+#endif
     old_type = (env->tr.flags >> DESC_TYPE_SHIFT) & 0xf;
     if (old_type & 8) {
         old_tss_limit_max = 103;
@@ -1270,7 +1283,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     }
     if (env->cr[0] & CR0_PE_MASK) {
 #if !defined(CONFIG_USER_ONLY)
-        if (env->hflags & HF_GUEST_MASK) {
+        if (env->vmx.nonroot) {
+            x86_vmx_event_start(env, intno, is_int, error_code, is_hw, 0);
+        } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 0);
         }
 #endif
@@ -1285,7 +1300,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
         }
     } else {
 #if !defined(CONFIG_USER_ONLY)
-        if (env->hflags & HF_GUEST_MASK) {
+        if (env->vmx.nonroot) {
+            x86_vmx_event_start(env, intno, is_int, error_code, is_hw, 1);
+        } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 1);
         }
 #endif
@@ -1293,7 +1310,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     }
 
 #if !defined(CONFIG_USER_ONLY)
-    if (env->hflags & HF_GUEST_MASK) {
+    if (env->vmx.nonroot) {
+        x86_vmx_event_end(env);
+    } else if (env->hflags & HF_GUEST_MASK) {
         CPUState *cs = CPU(cpu);
         uint32_t event_inj = x86_ldl_phys(cs, env->vm_vmcb +
                                       offsetof(struct vmcb,
@@ -2008,6 +2027,12 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
  */
 static void iret_unblock_nmis(CPUX86State *env)
 {
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.nonroot && x86_vmx_virtual_nmis(env)) {
+        env->vmx.vnmi_blocked = false;
+        return;
+    }
+#endif
     if (svm_vnmi_enabled(env)) {
         env->int_ctl &= ~V_NMI_BLOCKING_MASK;
     } else {

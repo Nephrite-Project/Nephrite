@@ -161,6 +161,14 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
     int pe_state;
 
     qemu_log_mask(CPU_LOG_MMU, "CR0 update: CR0=0x%08x\n", new_cr0);
+    /*
+     * PAE paging reloads the PDPTEs from memory where CR0.PG, CD, or NW
+     * change, or CR4.PAE, PGE, PSE, or SMEP, and at every CR3 load (Intel
+     * SDM 325462-093 Vol. 3A, 5.4.1), which TCG's walks then read.
+     */
+    if ((new_cr0 ^ env->cr[0]) & (CR0_PG_MASK | CR0_CD_MASK | CR0_NW_MASK)) {
+        env->vmx.pdpte_loaded = false;
+    }
     if ((new_cr0 & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK)) !=
         (env->cr[0] & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK))) {
         x86_flush_paging(env);
@@ -227,6 +235,7 @@ void x86_update_lam(CPUX86State *env)
 
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
 {
+    env->vmx.pdpte_loaded = false;
     env->cr[3] = new_cr3;
     x86_update_lam(env);
     if (env->cr[0] & CR0_PG_MASK) {
@@ -243,6 +252,10 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
 #if defined(DEBUG_MMU)
     printf("CR4 update: %08x -> %08x\n", (uint32_t)env->cr[4], new_cr4);
 #endif
+    if ((new_cr4 ^ env->cr[4]) &
+        (CR4_PAE_MASK | CR4_PGE_MASK | CR4_PSE_MASK | CR4_SMEP_MASK)) {
+        env->vmx.pdpte_loaded = false;
+    }
     /*
      * TLB entries hold the protection key rights of their fill, which
      * CR4.PKE and CR4.PKS decide, so changing either drops them too.

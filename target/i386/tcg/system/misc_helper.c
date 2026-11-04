@@ -95,7 +95,7 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
         ((cr0 & CR0_NW_MASK) && !(cr0 & CR0_CD_MASK))) {
         return false;
     }
-    if (env->vmx.on && !env->vmx.nonroot && !x86_vmx_cr_valid(env, 0, cr0)) {
+    if (env->vmx.on && !x86_vmx_cr_valid(env, 0, cr0)) {
         return false;
     }
 #ifdef TARGET_X86_64
@@ -126,7 +126,7 @@ static bool cr4_valid(CPUX86State *env, uint64_t cr4)
     if (cr4 & cr4_reserved_bits(env)) {
         return false;
     }
-    if (env->vmx.on && !env->vmx.nonroot && !x86_vmx_cr_valid(env, 4, cr4)) {
+    if (env->vmx.on && !x86_vmx_cr_valid(env, 4, cr4)) {
         return false;
     }
     if ((cr4 & ~env->cr[4] & CR4_PCIDE_MASK) &&
@@ -140,8 +140,35 @@ static bool cr4_valid(CPUX86State *env, uint64_t cr4)
     return true;
 }
 
+/* MOV from CR0 or CR4, and SMSW, in guest mode. */
+target_ulong HELPER(read_crN)(CPUX86State *env, int reg)
+{
+    if (env->vmx.nonroot) {
+        return x86_vmx_cr_read(env, reg);
+    }
+    return env->cr[reg];
+}
+
+/*
+ * LMSW in guest mode: CR0.PE, MP, EM, and TS from the source, which
+ * cannot clear PE; mem is whether the source is in memory.
+ */
+void HELPER(lmsw)(CPUX86State *env, target_ulong src, int mem)
+{
+    uint32_t cr0 = (env->cr[0] & ~0xe) | (src & 0xf);
+
+    if (env->vmx.nonroot) {
+        cr0 = x86_vmx_lmsw(env, src & 0xffff, mem, GETPC());
+    }
+    cpu_x86_update_cr0(env, cr0);
+}
+
 void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
 {
+    if (env->vmx.nonroot) {
+        t0 = x86_vmx_cr_write(env, reg, t0, env->svm_decode_info & 0xf,
+                              GETPC());
+    }
     switch (reg) {
     case 0:
         if (!cr0_valid(env, t0)) {
@@ -236,9 +263,9 @@ static bool tsc_ratio_present(CPUX86State *env)
 static void tsc_changed(CPUX86State *env)
 {
     if (env_archcpu(env)->apic_state) {
-        bql_lock();
+        BQL_LOCK_GUARD();
+
         apic_tsc_changed(env_archcpu(env)->apic_state);
-        bql_unlock();
     }
 }
 
@@ -322,7 +349,11 @@ uint64_t x86_efer_writable(CPUX86State *env)
     return mask;
 }
 
-/* WRMSR's effect, false where it raises #GP. */
+/*
+ * WRMSR's effect, false where it raises #GP; VM entries and exits load
+ * their MSR areas with it, exits with the BQL held, hence BQL_LOCK_GUARD()
+ * here and in x86_cpu_rdmsr().
+ */
 bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 {
     CPUState *cs = env_cpu(env);
@@ -497,14 +528,15 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         env->tsc_adjust = val;
         tsc_changed(env);
         break;
-    case MSR_IA32_TSCDEADLINE:
+    case MSR_IA32_TSCDEADLINE: {
+        BQL_LOCK_GUARD();
+
         if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
             return false;
         }
-        bql_lock();
         apic_set_tsc_deadline(env_archcpu(env)->apic_state, val);
-        bql_unlock();
         break;
+    }
     case MSR_TSC_AUX:
         env->tsc_aux = val;
         break;
@@ -595,9 +627,11 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         int ret;
         int index = msr - MSR_APIC_START;
 
-        bql_lock();
-        ret = apic_msr_write(env_archcpu(env)->apic_state, index, val);
-        bql_unlock();
+        {
+            BQL_LOCK_GUARD();
+
+            ret = apic_msr_write(env_archcpu(env)->apic_state, index, val);
+        }
         if (ret < 0) {
             return false;
         }
@@ -827,14 +861,15 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         }
         val = env->tsc_adjust;
         break;
-    case MSR_IA32_TSCDEADLINE:
+    case MSR_IA32_TSCDEADLINE: {
+        BQL_LOCK_GUARD();
+
         if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
             return false;
         }
-        bql_lock();
         val = apic_get_tsc_deadline(x86_cpu->apic_state);
-        bql_unlock();
         break;
+    }
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env)) {
             return false;
@@ -909,9 +944,11 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         int ret;
         int index = msr - MSR_APIC_START;
 
-        bql_lock();
-        ret = apic_msr_read(x86_cpu->apic_state, index, &val);
-        bql_unlock();
+        {
+            BQL_LOCK_GUARD();
+
+            ret = apic_msr_read(x86_cpu->apic_state, index, &val);
+        }
         if (ret < 0) {
             return false;
         }
@@ -999,6 +1036,10 @@ void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type)
     CPUState *cs = env_cpu(env);
     uintptr_t ra = GETPC();
     uint64_t desc, laddr;
+
+    if (env->vmx.nonroot) {
+        x86_vmx_invpcid(env, ra);
+    }
 
     if (cpu_svm_has_intercept(env, SVM_EXIT_INVPCID)) {
         x86_stq_phys(cs, env->vm_vmcb +

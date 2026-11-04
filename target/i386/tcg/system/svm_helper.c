@@ -963,6 +963,9 @@ void HELPER(clgi)(CPUX86State *env)
 
 bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type)
 {
+    if (env->vmx.nonroot) {
+        return false;
+    }
     switch (type) {
     case SVM_EXIT_READ_CR0 ... SVM_EXIT_READ_CR0 + 8:
         if (env->intercept_cr_read & (1 << (type - SVM_EXIT_READ_CR0))) {
@@ -1037,6 +1040,10 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
     if (likely(!(env->hflags & HF_GUEST_MASK))) {
         return;
     }
+    if (env->vmx.nonroot) {
+        x86_vmx_check_intercept(env, type, param, retaddr);
+        return;
+    }
 
     if (!cpu_svm_has_intercept(env, type)) {
         return;
@@ -1090,7 +1097,8 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
 void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type,
                                  uint64_t info)
 {
-    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST)) {
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST) &&
+        !env->vmx.nonroot) {
         info = 0;
     }
     env->svm_decode_info = info;
@@ -1102,6 +1110,14 @@ void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
 {
     CPUState *cs = env_cpu(env);
 
+    if (env->vmx.nonroot) {
+        x86_vmx_check_io(env, port, param, GETPC());
+        return;
+    }
+    param &= ~SVM_IOIO_IMM_MASK;
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST)) {
+        param &= ~(7 << SVM_IOIO_SEG_SHIFT);
+    }
     if (env->intercept & (1ULL << (SVM_EXIT_IOIO - SVM_EXIT_INTR))) {
         uint64_t addr = env->svm_iopm_base;
         uint16_t mask = (1 << ((param >> 4) & 7)) - 1;

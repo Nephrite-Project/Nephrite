@@ -47,6 +47,9 @@
 #define SVM_IOIO_REP_SHIFT 3
 #define SVM_IOIO_SIZE_SHIFT 4
 #define SVM_IOIO_ASIZE_SHIFT 7
+#define SVM_IOIO_SEG_SHIFT 10
+/* QEMU's own flag: the port is an immediate, which VMX reports. */
+#define SVM_IOIO_IMM_MASK (1 << 15)
 
 #define SVM_IOIO_TYPE_MASK 1
 #define SVM_IOIO_STR_MASK (1 << SVM_IOIO_STR_SHIFT)

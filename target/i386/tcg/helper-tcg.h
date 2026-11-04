@@ -132,6 +132,42 @@ bool x86_feature_control_write(CPUX86State *env, uint64_t val);
 bool x86_vmx_holds_init(CPUX86State *env);
 void x86_vmx_smm_enter(CPUX86State *env);
 void x86_vmx_smm_leave(CPUX86State *env);
+G_NORETURN void x86_vmx_exit(CPUX86State *env, uint32_t reason,
+                             uint64_t qual, uintptr_t ra);
+G_NORETURN void x86_vmx_exit_full(CPUX86State *env, uint32_t reason,
+                                  uint64_t qual, uint32_t intr_info,
+                                  uint32_t intr_error, uintptr_t ra);
+void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
+                             uint64_t param, uintptr_t ra);
+void x86_vmx_check_io(CPUX86State *env, uint32_t port, uint32_t svm_flags,
+                      uintptr_t ra);
+bool x86_vmx_exception_exits(CPUX86State *env, int vector,
+                             uint32_t error_code);
+uint64_t x86_vmx_cr_write(CPUX86State *env, int cr, uint64_t val, int gpr,
+                          uintptr_t ra);
+target_ulong x86_vmx_cr_read(CPUX86State *env, int cr);
+bool x86_vmx_clts(CPUX86State *env, uintptr_t ra);
+uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
+                      uintptr_t ra);
+void x86_vmx_task_switch(CPUX86State *env, int selector, int source,
+                         uintptr_t ra);
+void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
+                         int error_code, int is_hw, int rm);
+void x86_vmx_event_end(CPUX86State *env);
+void x86_vmx_do_vmexit(CPUX86State *env);
+bool x86_vmx_take_interrupt(CPUX86State *env, int request, bool woke);
+bool x86_vmx_virtual_nmis(CPUX86State *env);
+bool x86_vmx_rdtscp_allowed(CPUX86State *env);
+uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc);
+void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra);
+bool x86_vmx_ept_active(CPUX86State *env);
+bool x86_vmx_ept_ad(CPUX86State *env);
+bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
+                           MMUAccessType access, hwaddr *hpa, int *prot,
+                           int *page_size);
+G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
+                                 target_ulong linear, bool final,
+                                 uintptr_t ra);
 #endif
 
 /* system/misc_helper.c */
@@ -140,6 +176,10 @@ uint64_t x86_efer_writable(CPUX86State *env);
 bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
 bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
 #endif
+
+/* The VMX interruption types of INT1 and of INT3 and INTO. */
+#define X86_VMX_PRIV_SOFT_EXCEPTION 5
+#define X86_VMX_SOFT_EXCEPTION 6
 
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);

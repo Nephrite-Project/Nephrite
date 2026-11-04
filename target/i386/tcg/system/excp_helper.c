@@ -35,6 +35,8 @@ typedef struct TranslateParams {
     int mmu_idx;
     int ptw_idx;
     MMUAccessType access_type;
+    /* The PDPTE registers PAE paging takes instead of memory, or NULL. */
+    const uint64_t *pdptes;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -64,14 +66,27 @@ typedef struct PTETranslate {
     int ptw_idx;
     void *haddr;
     hwaddr gaddr;
+    /* The entry was probed for loads, so flag updates probe for a store. */
+    bool load_only;
+    /* A flag update met an EPT violation, which ends the walk. */
+    bool fault;
 } PTETranslate;
 
 static bool ptw_translate(PTETranslate *inout, hwaddr addr)
 {
     int flags;
 
+    /*
+     * Walks may set accessed and dirty flags: stores, but for EPT without
+     * A/D flags, which takes paging-structure accesses as reads (Intel SDM
+     * 325462-093 Vol. 3C, 31.3.5).
+     */
     inout->gaddr = addr;
-    flags = probe_access_full_mmu(inout->env, addr, 0, MMU_DATA_STORE,
+    inout->load_only = x86_vmx_ept_active(inout->env) &&
+                       !x86_vmx_ept_ad(inout->env);
+    flags = probe_access_full_mmu(inout->env, addr, 0,
+                                  inout->load_only ? MMU_DATA_LOAD
+                                                   : MMU_DATA_STORE,
                                   inout->ptw_idx, &inout->haddr, NULL);
 
     if (unlikely(flags & TLB_INVALID_MASK)) {
@@ -129,10 +144,36 @@ static bool ptw_setl_slow(PTETranslate *in, uint32_t old, uint32_t new)
     return cmp == old;
 }
 
+/*
+ * The flag update of an entry probed for loads needs EPT write permission
+ * first; a violation ends the walk.
+ */
+static bool ptw_store(PTETranslate *in)
+{
+    int flags = probe_access_full_mmu(in->env, in->gaddr, 0, MMU_DATA_STORE,
+                                      in->ptw_idx, &in->haddr, NULL);
+
+    if (unlikely(flags & TLB_INVALID_MASK)) {
+        *in->err = (TranslateFault){
+            .error_code = in->env->error_code,
+            .cr2 = in->gaddr,
+            .stage2 = S2_GPT,
+        };
+        in->fault = true;
+        return false;
+    }
+    in->load_only = false;
+    return true;
+}
+
 static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
 {
     if (set & ~old) {
         uint32_t new = old | set;
+
+        if (unlikely(in->load_only) && !ptw_store(in)) {
+            return false;
+        }
         if (likely(in->haddr)) {
             old = cpu_to_le32(old);
             new = cpu_to_le32(new);
@@ -198,6 +239,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                     goto do_fault_rsvd;
                 }
                 if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+                    if (pte_trans.fault) {
+                        return false;
+                    }
                     goto restart_5;
                 }
                 ptep = pte ^ PG_NX_MASK;
@@ -222,6 +266,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 goto do_fault_rsvd;
             }
             if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+                if (pte_trans.fault) {
+                    return false;
+                }
                 goto restart_4;
             }
             ptep &= pte ^ PG_NX_MASK;
@@ -242,6 +289,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 goto do_fault_rsvd;
             }
             if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+                if (pte_trans.fault) {
+                    return false;
+                }
                 goto restart_3_lma;
             }
             ptep &= pte ^ PG_NX_MASK;
@@ -256,12 +306,16 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             /*
              * Page table level 3
              */
-            pte_addr = (in->cr3 & 0xffffffe0ULL) + ((addr >> 27) & 0x18);
-            if (!ptw_translate(&pte_trans, pte_addr)) {
-                return false;
-            }
             rsvd_mask |= PG_HI_USER_MASK;
-            pte = ptw_ldq(&pte_trans, ra);
+            if (in->pdptes) {
+                pte = in->pdptes[(addr >> 30) & 3];
+            } else {
+                pte_addr = (in->cr3 & 0xffffffe0ULL) + ((addr >> 27) & 0x18);
+                if (!ptw_translate(&pte_trans, pte_addr)) {
+                    return false;
+                }
+                pte = ptw_ldq(&pte_trans, ra);
+            }
             if (!(pte & PG_PRESENT_MASK)) {
                 goto do_fault;
             }
@@ -294,6 +348,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             goto do_check_protect;
         }
         if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+            if (pte_trans.fault) {
+                return false;
+            }
             goto restart_2_pae;
         }
         ptep &= pte ^ PG_NX_MASK;
@@ -342,6 +399,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             goto do_check_protect_pse36;
         }
         if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+            if (pte_trans.fault) {
+                return false;
+            }
             goto restart_2_nopae;
         }
 
@@ -436,6 +496,9 @@ do_check_protect_pse36:
             prot &= ~PAGE_WRITE;
         }
         if (!ptw_setl(&pte_trans, pte, set)) {
+            if (pte_trans.fault) {
+                return false;
+            }
             /*
              * We can arrive here from any of 3 levels and 2 formats.
              * The only safe thing is to restart the entire lookup.
@@ -548,9 +611,14 @@ do_check_protect_pse36:
 }
 
 static G_NORETURN void raise_stage2(CPUX86State *env, TranslateFault *err,
-                                    uintptr_t retaddr)
+                                    vaddr linear, uintptr_t retaddr)
 {
     uint64_t exit_info_1 = err->error_code;
+
+    if (env->vmx.nonroot) {
+        x86_vmx_ept_exit(env, err->cr2, linear, err->stage2 == S2_GPA,
+                         retaddr);
+    }
 
     switch (err->stage2) {
     case S2_GPT:
@@ -587,10 +655,22 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
 
     case MMU_NESTED_IDX:
     case MMU_NESTED_SUP_IDX:
+        if (x86_vmx_ept_active(env)) {
+            hwaddr hpa;
+
+            if (!x86_vmx_ept_translate(env, addr, access_type, &hpa,
+                                       &out->prot, &out->page_size)) {
+                *err = (TranslateFault){ .stage2 = S2_GPA, .cr2 = addr };
+                return false;
+            }
+            out->paddr = hpa;
+            return true;
+        }
         if (likely(use_stage2)) {
             bool lma = env->nested_pg_mode & PG_MODE_LMA;
 
             in.cr3 = env->nested_cr3;
+            in.pdptes = NULL;
             in.pg_mode = env->nested_pg_mode;
             in.mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
             /*
@@ -624,6 +704,8 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
 
         if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
             in.cr3 = env->cr[3];
+            in.pdptes = use_stage2 && env->vmx.pdpte_loaded ?
+                        env->vmx.pdpte : NULL;
             in.mmu_idx = mmu_idx;
             in.ptw_idx = MMU_PHYS_IDX;
             if (use_stage2) {
@@ -745,8 +827,10 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     }
 
     if (err.stage2 != S2_NONE) {
-        svm_fetch_insn_bytes(env, access_type, retaddr);
-        raise_stage2(env, &err, retaddr);
+        if (!env->vmx.nonroot) {
+            svm_fetch_insn_bytes(env, access_type, retaddr);
+        }
+        raise_stage2(env, &err, addr, retaddr);
     }
 
     if (env->intercept_exceptions & (1 << err.exception_index)) {
@@ -757,6 +841,11 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
         if (err.exception_index == EXCP0E_PAGE) {
             svm_fetch_insn_bytes(env, access_type, retaddr);
         }
+    } else if (env->vmx.nonroot &&
+               x86_vmx_exception_exits(env, err.exception_index,
+                                       err.error_code)) {
+        /* An exiting #PF gives its address in the exit qualification. */
+        env->vmx.exception_qual = err.cr2;
     } else {
         env->cr[2] = err.cr2;
     }

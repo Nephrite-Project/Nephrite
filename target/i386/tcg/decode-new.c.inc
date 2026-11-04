@@ -878,6 +878,8 @@ static const X86OpEntry opcodes_0F38_00toEF[240] = {
     [0x78] = X86_OP_ENTRY3(VPBROADCASTB,   V,x,  None,None, W,b,  vex6 chk(W0) cpuid(AVX2) p_66),
     [0x79] = X86_OP_ENTRY3(VPBROADCASTW,   V,x,  None,None, W,w,  vex6 chk(W0) cpuid(AVX2) p_66),
 
+    [0x80] = X86_OP_ENTRYrr(INVEPT,      G,y_d64, M,dq, chk(prot) p_66),
+    [0x81] = X86_OP_ENTRYrr(INVVPID,     G,y_d64, M,dq, chk(prot) p_66),
     [0x82] = X86_OP_ENTRYrr(INVPCID,     G,y_d64, M,dq, chk(cpl0) cpuid(INVPCID) p_66),
     [0x8c] = X86_OP_ENTRY3(VPMASKMOV,    V,x,  H,x, WM,x, vex6 cpuid(AVX2) p_66),
     [0x8e] = X86_OP_ENTRY3(VPMASKMOV_st, M,x,  V,x, H,x,  vex6 cpuid(AVX2) p_66),

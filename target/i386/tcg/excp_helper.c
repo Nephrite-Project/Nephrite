@@ -69,6 +69,9 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
 
 #if !defined(CONFIG_USER_ONLY)
     if (env->old_exception == EXCP08_DBLE) {
+        if (env->vmx.nonroot) {
+            x86_vmx_check_intercept(env, SVM_EXIT_SHUTDOWN, 0, retaddr);
+        }
         if (env->hflags & HF_GUEST_MASK) {
             cpu_vmexit(env, SVM_EXIT_SHUTDOWN, 0, retaddr); /* does not return */
         }
@@ -133,12 +136,23 @@ void raise_interrupt2(CPUX86State *env, int intno,
         /*
          * A #DB writes DR6 and DR7 before an SVM intercept (AMD64
          * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
-         * 15.12.2).
+         * 15.12.2), but not before a VMX exit, which takes the bits as its
+         * qualification (Intel SDM 325462-093 Vol. 3C, 30.1).
          */
-        debug_payload_apply(env, intno);
+        if (!env->vmx.nonroot) {
+            debug_payload_apply(env, intno);
+        }
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
+#if !defined(CONFIG_USER_ONLY)
+        /* The double fault an exception became may exit too. */
+        if (intno == EXCP08_DBLE && env->vmx.nonroot) {
+            x86_vmx_check_intercept(env, SVM_EXIT_EXCP_BASE + EXCP08_DBLE,
+                                    0, retaddr);
+        }
+#endif
+        debug_payload_apply(env, intno);
     } else {
         /* Decode assists: the vector of INTn. */
         uint64_t info = env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST ?
@@ -176,6 +190,11 @@ G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
 
     env->svm_insn_len = next_eip_addend;
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.nonroot) {
+        env->vmx.soft_exception = X86_VMX_SOFT_EXCEPTION;
+    }
+#endif
     cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno, 0, 0);
 
     cs->exception_index = intno;
@@ -209,11 +228,15 @@ G_NORETURN void raise_exception_ra(CPUX86State *env, int exception_index,
     raise_interrupt2(env, exception_index, 0, 0, 0, retaddr);
 }
 
-/* A #DB of the DR6 bits PAYLOAD (B0-B3, BD, BS, BT). */
+/*
+ * A #DB of the DR6 bits PAYLOAD (B0-B3, BD, BS, BT), merged with the debug
+ * exceptions a VM entry left pending.
+ */
 G_NORETURN void raise_debug_exception(CPUX86State *env, uint32_t payload,
                                       uintptr_t retaddr)
 {
-    env->db_payload = payload;
+    env->db_payload = payload | env->vmx.db_held;
+    env->vmx.db_held = 0;
     raise_exception_ra(env, EXCP01_DB, retaddr);
 }
 
@@ -221,6 +244,17 @@ G_NORETURN void HELPER(icebp)(CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
 
+#if !defined(CONFIG_USER_ONLY)
+    /* VMX takes INT1 as a privileged software exception. */
+    if (env->vmx.nonroot) {
+        env->vmx.soft_exception = X86_VMX_PRIV_SOFT_EXCEPTION;
+        if (x86_vmx_exception_exits(env, EXCP01_DB, 0)) {
+            x86_vmx_check_intercept(env, SVM_EXIT_EXCP_BASE + EXCP01_DB, 0,
+                                    GETPC());
+        }
+        env->vmx.soft_exception = X86_VMX_PRIV_SOFT_EXCEPTION;
+    }
+#endif
     do_end_instruction(env);
 
     /*

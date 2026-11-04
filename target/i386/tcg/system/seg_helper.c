@@ -126,7 +126,11 @@ void x86_cpu_do_interrupt(CPUState *cs)
 
     if (cs->exception_index == EXCP_VMEXIT) {
         assert(env->old_exception == -1);
-        do_vmexit(env);
+        if (env->vmx.nonroot) {
+            x86_vmx_do_vmexit(env);
+        } else {
+            do_vmexit(env);
+        }
     } else {
         do_interrupt_all(cpu, cs->exception_index,
                          env->exception_is_int,
@@ -166,6 +170,7 @@ void x86_cpu_leaving_halt(CPUState *cpu)
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = cpu_env(cpu);
 
+    env->vmx.hlt_wake = env->vmx.nonroot;
     /* Complete HLT instruction.  */
     if (env->eflags & TF_MASK) {
         env->dr[6] |= DR6_BS;
@@ -192,11 +197,17 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
 {
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
+    bool woke = env->vmx.hlt_wake;
     int intno;
 
+    env->vmx.hlt_wake = false;
     interrupt_request = x86_cpu_pending_interrupt(cs, interrupt_request);
     if (!interrupt_request) {
         return false;
+    }
+    if (env->vmx.nonroot &&
+        x86_vmx_take_interrupt(env, interrupt_request, woke)) {
+        return true;
     }
 
     /* Don't process multiple interrupt requests in a single call.

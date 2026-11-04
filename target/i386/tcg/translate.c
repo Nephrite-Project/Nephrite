@@ -248,11 +248,13 @@ STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
 STUB_HELPER(inb, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inw, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inl, TCGv ret, TCGv_env env, TCGv_i32 port)
+STUB_HELPER(lmsw, TCGv_env env, TCGv val, TCGv_i32 mem)
 STUB_HELPER(monitor, TCGv_env env, TCGv addr)
 STUB_HELPER(mwait, TCGv_env env, TCGv_i32 pc_ofs)
 STUB_HELPER(outb, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outw, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outl, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
+STUB_HELPER(read_crN, TCGv ret, TCGv_env env, TCGv_i32 reg)
 STUB_HELPER(stgi, TCGv_env env)
 STUB_HELPER(svm_check_intercept, TCGv_env env, TCGv_i32 type,
             TCGv_i64 param)
@@ -890,6 +892,13 @@ static bool gen_check_io(DisasContext *s, MemOp ot, TCGv_i32 port,
         gen_update_eip_cur(s);
         if (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ)) {
             svm_flags |= SVM_IOIO_REP_MASK;
+        }
+        if (svm_flags & SVM_IOIO_STR_MASK) {
+            int seg = svm_flags & SVM_IOIO_TYPE_MASK ? R_ES :
+                      s->override >= 0 ? s->override : R_DS;
+
+            svm_flags |= 1 << (SVM_IOIO_ASIZE_SHIFT + s->aflag - MO_16) |
+                         seg << SVM_IOIO_SEG_SHIFT;
         }
         svm_flags |= 1 << (SVM_IOIO_SIZE_SHIFT + ot);
         gen_helper_svm_check_io(tcg_env, port,
@@ -1959,6 +1968,8 @@ static void gen_movl_seg(DisasContext *s, X86Seg seg_reg, TCGv src, bool inhibit
     if (inhibit_irq) {
         s->base.is_jmp = DISAS_EOB_INHIBIT_IRQ;
         s->flags &= ~HF_TF_MASK;
+        tcg_gen_st8_i32(tcg_constant_i32(1), tcg_env,
+                        offsetof(CPUX86State, shadow_movss));
     }
 }
 
@@ -3029,12 +3040,46 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             break;
 
 #ifndef CONFIG_USER_ONLY
+        case 0xc1: /* vmcall */
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_helper_vmcall(tcg_env);
+            set_cc_op(s, CC_OP_EFLAGS);
+            break;
+
+        case 0xc2: /* vmlaunch */
+        case 0xc3: /* vmresume */
+            if (!PE(s) || VM86(s) || (LMA(s) && !CODE64(s))) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            if (GUEST(s)) {
+                gen_helper_vmx_insn_exit(tcg_env,
+                                         tcg_constant_i32(modrm == 0xc2 ?
+                                                          VMX_EXIT_VMLAUNCH :
+                                                          VMX_EXIT_VMRESUME),
+                                         tcg_constant_i32(0),
+                                         tcg_constant_tl(0));
+            }
+            gen_helper_vmlaunch(tcg_env, tcg_constant_i32(modrm == 0xc3),
+                                cur_insn_len_i32(s));
+            tcg_gen_exit_tb(NULL, 0);
+            s->base.is_jmp = DISAS_NORETURN;
+            break;
+
         case 0xc4: /* vmxoff */
             if (!PE(s) || VM86(s) || (LMA(s) && !CODE64(s))) {
                 goto illegal_op;
             }
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
+            if (GUEST(s)) {
+                gen_helper_vmx_insn_exit(tcg_env,
+                                         tcg_constant_i32(VMX_EXIT_VMXOFF),
+                                         tcg_constant_i32(0),
+                                         tcg_constant_tl(0));
+            }
             gen_helper_vmxoff(tcg_env);
             set_cc_op(s, CC_OP_EFLAGS);
             s->base.is_jmp = DISAS_EOB_NEXT;
@@ -3294,7 +3339,11 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_READ_CR0);
-            tcg_gen_ld_tl(s->T0, tcg_env, offsetof(CPUX86State, cr[0]));
+            if (GUEST(s)) {
+                gen_helper_read_crN(s->T0, tcg_env, tcg_constant_i32(0));
+            } else {
+                tcg_gen_ld_tl(s->T0, tcg_env, offsetof(CPUX86State, cr[0]));
+            }
             /*
              * In 32-bit mode, the higher 16 bits of the destination
              * register are undefined.  In practice CR0[31:0] is stored
@@ -3334,6 +3383,14 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             /* LMSW takes the selective CR0 intercept whatever it writes. */
             gen_svm_check_intercept(s, SVM_EXIT_CR0_SEL_WRITE);
             gen_ld_modrm(s, decode, MO_16);
+            if (GUEST(s)) {
+                gen_update_cc_op(s);
+                gen_update_eip_cur(s);
+                gen_helper_lmsw(tcg_env, s->T0,
+                                tcg_constant_i32((modrm >> 6) != 3));
+                s->base.is_jmp = DISAS_EOB_NEXT;
+                break;
+            }
             /*
              * Only the 4 lower bits of CR0 are modified.
              * PE cannot be set to zero if already set to one.

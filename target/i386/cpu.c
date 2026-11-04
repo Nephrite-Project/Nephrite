@@ -909,7 +909,41 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_EXT_VMX CPUID_EXT_VMX
 #endif
 #define TCG_VMX_BASIC (MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS)
-#define TCG_VMX_MISC MSR_VMX_MISC_VMWRITE_VMEXIT
+#define TCG_VMX_MISC (MSR_VMX_MISC_STORE_LMA | MSR_VMX_MISC_ACTIVITY_HLT | \
+          MSR_VMX_MISC_VMWRITE_VMEXIT | MSR_VMX_MISC_ZERO_LEN_INJECT)
+#define TCG_VMX_PINBASED (VMX_PIN_BASED_EXT_INTR_MASK | \
+          VMX_PIN_BASED_NMI_EXITING | VMX_PIN_BASED_VIRTUAL_NMIS)
+#define TCG_VMX_PROCBASED (VMX_CPU_BASED_VIRTUAL_INTR_PENDING | \
+          VMX_CPU_BASED_USE_TSC_OFFSETING | VMX_CPU_BASED_HLT_EXITING | \
+          VMX_CPU_BASED_INVLPG_EXITING | VMX_CPU_BASED_MWAIT_EXITING | \
+          VMX_CPU_BASED_RDPMC_EXITING | VMX_CPU_BASED_RDTSC_EXITING | \
+          VMX_CPU_BASED_CR3_LOAD_EXITING | VMX_CPU_BASED_CR3_STORE_EXITING | \
+          VMX_CPU_BASED_CR8_LOAD_EXITING | VMX_CPU_BASED_CR8_STORE_EXITING | \
+          VMX_CPU_BASED_VIRTUAL_NMI_PENDING | VMX_CPU_BASED_MOV_DR_EXITING | \
+          VMX_CPU_BASED_UNCOND_IO_EXITING | VMX_CPU_BASED_USE_IO_BITMAPS | \
+          VMX_CPU_BASED_USE_MSR_BITMAPS | VMX_CPU_BASED_MONITOR_EXITING | \
+          VMX_CPU_BASED_PAUSE_EXITING | \
+          VMX_CPU_BASED_ACTIVATE_SECONDARY_CONTROLS)
+#define TCG_VMX_SECONDARY (VMX_SECONDARY_EXEC_DESC | \
+          VMX_SECONDARY_EXEC_RDTSCP | VMX_SECONDARY_EXEC_WBINVD_EXITING | \
+          VMX_SECONDARY_EXEC_ENABLE_INVPCID | VMX_SECONDARY_EXEC_ENABLE_EPT | \
+          VMX_SECONDARY_EXEC_ENABLE_VPID | \
+          VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST)
+#define TCG_VMX_EPT_VPID (MSR_VMX_EPT_EXECONLY | \
+          MSR_VMX_EPT_PAGE_WALK_LENGTH_4 | MSR_VMX_EPT_2MB | MSR_VMX_EPT_1GB | \
+          MSR_VMX_EPT_AD_BITS | MSR_VMX_EPT_INVEPT | \
+          MSR_VMX_EPT_INVEPT_SINGLE_CONTEXT | MSR_VMX_EPT_INVEPT_ALL_CONTEXT | \
+          MSR_VMX_EPT_INVVPID | MSR_VMX_EPT_INVVPID_SINGLE_ADDR | \
+          MSR_VMX_EPT_INVVPID_SINGLE_CONTEXT | \
+          MSR_VMX_EPT_INVVPID_ALL_CONTEXT | \
+          MSR_VMX_EPT_INVVPID_SINGLE_CONTEXT_NOGLOBALS)
+#define TCG_VMX_EXIT (VMX_VM_EXIT_SAVE_DEBUG_CONTROLS | \
+          VMX_VM_EXIT_ACK_INTR_ON_EXIT | VMX_VM_EXIT_SAVE_IA32_PAT | \
+          VMX_VM_EXIT_LOAD_IA32_PAT | VMX_VM_EXIT_SAVE_IA32_EFER | \
+          VMX_VM_EXIT_LOAD_IA32_EFER)
+#define TCG_VMX_ENTRY (VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS | \
+          VMX_VM_ENTRY_IA32E_MODE | VMX_VM_ENTRY_LOAD_IA32_PAT | \
+          VMX_VM_ENTRY_LOAD_IA32_EFER)
 
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
           CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_CX16 | \
@@ -1684,6 +1718,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_PROCBASED_CTLS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_PROCBASED,
         .feat_names = {
             NULL, NULL, "vmx-vintr-pending", "vmx-tsc-offset",
             NULL, NULL, NULL, "vmx-hlt-exit",
@@ -1701,6 +1736,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_SECONDARY_CTLS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_SECONDARY,
         .feat_names = {
             "vmx-apicv-xapic", "vmx-ept", "vmx-desc-exit", "vmx-rdtscp-exit",
             "vmx-apicv-x2apic", "vmx-vpid", "vmx-wbinvd-exit", "vmx-unrestricted-guest",
@@ -1718,6 +1754,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_PINBASED_CTLS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_PINBASED,
         .feat_names = {
             "vmx-intr-exit", NULL, NULL, "vmx-nmi-exit",
             NULL, "vmx-vnmi", "vmx-preemption-timer", "vmx-posted-intr",
@@ -1735,6 +1772,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_EXIT_CTLS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_EXIT,
         /*
          * VMX_VM_EXIT_HOST_ADDR_SPACE_SIZE is copied from
          * the LM CPUID bit.
@@ -1757,6 +1795,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_ENTRY_CTLS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_ENTRY,
         .feat_names = {
             NULL, NULL, "vmx-entry-noload-debugctl", NULL,
             NULL, NULL, NULL, NULL,
@@ -1792,6 +1831,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_EPT_VPID_CAPS] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_EPT_VPID,
         .feat_names = {
             "vmx-ept-execonly", NULL, NULL, NULL,
             NULL, NULL, "vmx-page-walk-4", "vmx-page-walk-5",
@@ -10730,6 +10770,11 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
 {
     const CPUX86State *env = cpu_env(cs);
 
+#ifdef CONFIG_TCG
+    if (env->vmx.nonroot) {
+        return x86_vmx_pending_interrupt(env, interrupt_request);
+    }
+#endif
     if (interrupt_request & CPU_INTERRUPT_POLL) {
         return CPU_INTERRUPT_POLL;
     }

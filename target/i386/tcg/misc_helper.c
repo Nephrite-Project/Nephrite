@@ -89,6 +89,11 @@ uint64_t x86_tsc_read(CPUX86State *env)
     if (!(env->hflags & HF_GUEST_MASK)) {
         return tsc;
     }
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.nonroot) {
+        return x86_vmx_tsc(env, tsc);
+    }
+#endif
     mulu64(&low, &high, tsc, env->amd_tsc_scale_msr);
     return ((high << 32) | (low >> 32)) + env->tsc_offset;
 }
@@ -115,6 +120,11 @@ void HELPER(rdtsc)(CPUX86State *env)
 /* RDTSCP has an intercept of its own. */
 void HELPER(rdtscp)(CPUX86State *env)
 {
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.nonroot && !x86_vmx_rdtscp_allowed(env)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+#endif
     do_rdtsc(env, SVM_EXIT_RDTSCP, GETPC());
 }
 
@@ -174,6 +184,9 @@ void HELPER(wrpkru)(CPUX86State *env, uint32_t ecx, uint64_t val)
 target_ulong HELPER(rdpid)(CPUX86State *env)
 {
 #if !defined CONFIG_USER_ONLY
+    if (env->vmx.nonroot && !x86_vmx_rdtscp_allowed(env)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
     return env->tsc_aux;
 #elif defined CONFIG_LINUX && defined CONFIG_GETCPU
     unsigned cpu, node;

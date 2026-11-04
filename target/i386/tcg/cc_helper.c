@@ -438,6 +438,11 @@ target_ulong HELPER(read_eflags)(CPUX86State *env)
 
 void HELPER(clts)(CPUX86State *env)
 {
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.nonroot && !x86_vmx_clts(env, GETPC())) {
+        return;
+    }
+#endif
     env->cr[0] &= ~CR0_TS_MASK;
     env->hflags &= ~HF_TS_MASK;
 }

@@ -112,6 +112,13 @@ DEF_HELPER_3(vmread, tl, env, tl, tl)
 DEF_HELPER_4(vmread_mem, void, env, tl, tl, int)
 DEF_HELPER_3(vmwrite, void, env, tl, tl)
 DEF_HELPER_4(vmwrite_mem, void, env, tl, tl, int)
+DEF_HELPER_3(vmlaunch, void, env, int, int)
+DEF_HELPER_1(vmcall, void, env)
+DEF_HELPER_4(vmx_insn_exit, void, env, i32, i32, tl)
+DEF_HELPER_2(read_crN, tl, env, int)
+DEF_HELPER_3(lmsw, void, env, tl, int)
+DEF_HELPER_4(invept, void, env, tl, tl, int)
+DEF_HELPER_4(invvpid, void, env, tl, tl, int)
 DEF_HELPER_FLAGS_3(write_crN, TCG_CALL_NO_RWG, void, env, int, tl)
 #endif /* !CONFIG_USER_ONLY */
 
