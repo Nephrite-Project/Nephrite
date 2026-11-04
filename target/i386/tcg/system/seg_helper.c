@@ -305,9 +305,9 @@ void HELPER(check_io)(CPUX86State *env, uint32_t addr, uint32_t size)
     uintptr_t retaddr = GETPC();
     uint32_t io_offset, val, mask;
 
-    /* TSS must be a valid 32 bit one */
+    /* TSS must be a valid 32 bit one, available or busy */
     if (!(env->tr.flags & DESC_P_MASK) ||
-        ((env->tr.flags >> DESC_TYPE_SHIFT) & 0xf) != 9 ||
+        ((env->tr.flags >> DESC_TYPE_SHIFT) & 0xd) != 9 ||
         env->tr.limit < 103) {
         goto fail;
     }

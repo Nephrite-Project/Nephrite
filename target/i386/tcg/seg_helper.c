@@ -253,7 +253,7 @@ static inline void get_ss_esp_from_tss(CPUX86State *env, uint32_t *ss_ptr,
         cpu_abort(CPU(cpu), "invalid tss");
     }
     type = (env->tr.flags >> DESC_TYPE_SHIFT) & 0xf;
-    if ((type & 7) != 1) {
+    if ((type & 5) != 1) {
         cpu_abort(CPU(cpu), "invalid tss type");
     }
     shift = type >> 3;
@@ -544,7 +544,7 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     env->tr.selector = tss_selector;
     env->tr.base = tss_base;
     env->tr.limit = tss_limit;
-    env->tr.flags = e2 & ~DESC_TSS_BUSY_MASK;
+    env->tr.flags = e2 | DESC_TSS_BUSY_MASK;
 
     if ((type & 8) && (env->cr[0] & CR0_PG_MASK)) {
         cpu_x86_update_cr3(env, new_cr3);
@@ -1454,6 +1454,13 @@ void HELPER(ltr)(CPUX86State *env, int selector)
         if (!(e2 & DESC_P_MASK)) {
             raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, GETPC());
         }
+        /*
+         * LTR marks the TSS busy (Intel SDM 325462-093 Vol. 2A, LTR), as TR's
+         * cache has it too: VM entries take only busy TSSs there (Intel SDM
+         * 325462-093 Vol. 3C, 29.3.1.2), and Linux 7.3's KVM loads it so
+         * (__load_segment_descriptor()).
+         */
+        e2 |= DESC_TSS_BUSY_MASK;
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
             uint32_t e3, e4;
@@ -1472,7 +1479,6 @@ void HELPER(ltr)(CPUX86State *env, int selector)
         {
             load_seg_cache_raw_dt(&env->tr, e1, e2);
         }
-        e2 |= DESC_TSS_BUSY_MASK;
         cpu_stl_kernel_ra(env, ptr + 4, e2, GETPC());
     }
     env->tr.selector = selector;
