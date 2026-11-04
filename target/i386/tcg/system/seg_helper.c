@@ -92,13 +92,22 @@ void handle_even_inj(CPUX86State *env, int intno, int is_int,
     if (!(event_inj & SVM_EVTINJ_VALID)) {
         int type;
 
+        /*
+         * What #VMEXIT reports in EXITINTINFO if it comes during the
+         * delivery: an NMI or an external interrupt, with no error code,
+         * apart from exceptions (AMD64 Architecture Programmer's Manual
+         * Volume 2, 24593 rev. 3.45, 15.7.2).
+         */
         if (is_int) {
             type = SVM_EVTINJ_TYPE_SOFT;
+        } else if (is_hw) {
+            type = intno == EXCP02_NMI ? SVM_EVTINJ_TYPE_NMI
+                                       : SVM_EVTINJ_TYPE_INTR;
         } else {
             type = SVM_EVTINJ_TYPE_EXEPT;
         }
         event_inj = intno | type | SVM_EVTINJ_VALID;
-        if (!rm && exception_has_error_code(intno)) {
+        if (!rm && !is_int && !is_hw && exception_has_error_code(intno)) {
             event_inj |= SVM_EVTINJ_VALID_ERR;
             x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                              control.event_inj_err),
