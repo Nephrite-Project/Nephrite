@@ -434,6 +434,102 @@ static void avic_eoi(CPUX86State *env, uintptr_t retaddr)
     svm_avic_request(env);
 }
 
+/*
+ * x2AVIC: guest RDMSRs and WRMSRs of 800h-8FFh, which the MSR permission map
+ * passed, get the x2APIC's own checks first, as #GP (24593 rev. 3.45, 16.11
+ * and Table 16-6), then the register filter, at the xAPIC offset of the MSR
+ * (15.29.10). ICR is ICRL and ICRH together, and SELF_IPI sends as ICR does.
+ */
+static bool x2avic_register(uint32_t msr)
+{
+    switch (msr) {
+    case 0x802 ... 0x803:
+    case 0x808 ... 0x80b:
+    case 0x80d:
+    case 0x80f ... 0x828:
+    case 0x830:
+    case 0x832 ... 0x839:
+    case 0x83e ... 0x842:
+    case 0x848 ... 0x857:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool x2avic_read_only(uint32_t msr)
+{
+    switch (msr) {
+    case 0x802 ... 0x803:
+    case 0x809 ... 0x80a:
+    case 0x80d:
+    case 0x810 ... 0x827:
+    case 0x839:
+    case 0x840:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/* ICR's must-be-zero bits in x2APIC mode (16.13, Figure 16-34). */
+#define X2AVIC_ICR_MBZ  (MAKE_64BIT_MASK(20, 12) | MAKE_64BIT_MASK(16, 2) | \
+                         MAKE_64BIT_MASK(12, 2))
+
+static void avic_written(CPUX86State *env, AVICAction action,
+                         unsigned int reg, uintptr_t retaddr);
+
+bool svm_x2avic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val,
+                      uintptr_t retaddr)
+{
+    unsigned int reg = (msr & 0xff) << 4;
+
+    if (!x2avic_register(msr) || msr == 0x80b || msr == 0x83f) {
+        return false;
+    }
+    if (avic_action(reg, false) == AVIC_FAULT) {
+        avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg, 0, false, retaddr);
+    }
+    *val = avic_get(env, reg);
+    if (msr == 0x830) {
+        *val |= (uint64_t)avic_get(env, AVIC_ICRH) << 32;
+    }
+    return true;
+}
+
+bool svm_x2avic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
+                      uintptr_t retaddr)
+{
+    unsigned int reg = (msr & 0xff) << 4;
+    AVICAction action = avic_action(reg, true);
+
+    if (!x2avic_register(msr) || x2avic_read_only(msr)) {
+        return false;
+    }
+    if (msr == 0x830 ? (val & X2AVIC_ICR_MBZ) :
+        (val >> 32) || ((msr == 0x80b || msr == 0x828) && val) ||
+        (msr == 0x83f && val > 0xff)) {
+        return false;
+    }
+    if (msr == 0x83f) {
+        uint32_t icrl = 1 << 18 | (uint32_t)val;
+
+        avic_set(env, reg, val);
+        avic_ipi(env, icrl, 0, icrl, retaddr);
+        return true;
+    }
+    if (action == AVIC_FAULT) {
+        avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg | 1ULL << 32, 0, false,
+                  retaddr);
+    }
+    avic_set(env, reg, val);
+    if (msr == 0x830) {
+        avic_set(env, AVIC_ICRH, val >> 32);
+    }
+    avic_written(env, action, reg, retaddr);
+    return true;
+}
+
 /* What follows a guest write of a vAPIC register, now in the backing page. */
 static void avic_written(CPUX86State *env, AVICAction action,
                          unsigned int reg, uintptr_t retaddr)

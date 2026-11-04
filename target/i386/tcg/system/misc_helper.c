@@ -162,6 +162,15 @@ void HELPER(wrmsr)(CPUX86State *env)
     val = ((uint32_t)env->regs[R_EAX]) |
         ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
 
+    if (unlikely(env->svm_x2avic) &&
+        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
+        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
+        if (!svm_x2avic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        return;
+    }
+
     switch ((uint32_t)env->regs[R_ECX]) {
     case MSR_IA32_SYSENTER_CS:
         env->sysenter_cs = val & 0xffff;
@@ -385,6 +394,17 @@ void HELPER(rdmsr)(CPUX86State *env)
     uint64_t val;
 
     cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
+
+    if (unlikely(env->svm_x2avic) &&
+        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
+        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
+        if (!svm_x2avic_rdmsr(env, env->regs[R_ECX], &val, GETPC())) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        env->regs[R_EAX] = (uint32_t)val;
+        env->regs[R_EDX] = (uint32_t)(val >> 32);
+        return;
+    }
 
     switch ((uint32_t)env->regs[R_ECX]) {
     case MSR_IA32_SYSENTER_CS:

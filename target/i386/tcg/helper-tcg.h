@@ -113,6 +113,10 @@ bool svm_avic_has_interrupt(CPUX86State *env);
 int svm_avic_take_interrupt(CPUX86State *env);
 void svm_avic_set_tpr(CPUX86State *env, uint32_t tpr);
 void svm_avic_doorbell(CPUX86State *env, uint32_t apic_id);
+bool svm_x2avic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val,
+                      uintptr_t retaddr);
+bool svm_x2avic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
+                      uintptr_t retaddr);
 #endif
 
 /* seg_helper.c */
