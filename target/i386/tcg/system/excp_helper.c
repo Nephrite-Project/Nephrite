@@ -158,6 +158,13 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     int page_size;
     int error_code;
     int prot;
+    /*
+     * PML5Es and PML4Es have no PS bit; AMD reserves their bit 8 too
+     * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+     * Figures 5-19 and 5-20).
+     */
+    const uint64_t top_rsvd = PG_PSE_MASK |
+        (IS_AMD_CPU(env) ? PG_GLOBAL_MASK : 0);
 
  restart_all:
     rsvd_mask = ~MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
@@ -182,7 +189,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 if (!(pte & PG_PRESENT_MASK)) {
                     goto do_fault;
                 }
-                if (pte & (rsvd_mask | PG_PSE_MASK)) {
+                if (pte & (rsvd_mask | top_rsvd)) {
                     goto do_fault_rsvd;
                 }
                 if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
@@ -206,7 +213,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             if (!(pte & PG_PRESENT_MASK)) {
                 goto do_fault;
             }
-            if (pte & (rsvd_mask | PG_PSE_MASK)) {
+            if (pte & (rsvd_mask | top_rsvd)) {
                 goto do_fault_rsvd;
             }
             if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
