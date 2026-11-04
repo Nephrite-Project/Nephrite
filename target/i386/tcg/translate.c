@@ -119,6 +119,7 @@ typedef struct DisasContext {
     uint8_t evex4;
     bool jmp_opt; /* use direct block chaining for direct jumps */
     bool branch; /* the instruction transfers control, as BTF steps */
+    bool movss_step; /* MOV or POP SS suppressed TF's trap */
     bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */
     bool cc_op_dirty;
@@ -1961,13 +1962,17 @@ static void gen_movl_seg(DisasContext *s, X86Seg seg_reg, TCGv src, bool inhibit
      *
      * This is the last instruction, so it's okay to overwrite
      * HF_TF_MASK; the next TB will start with the flag set.
+     * gen_eob() still steps for VMX's monitor trap flag.
      *
      * DISAS_EOB_INHIBIT_IRQ is a superset of DISAS_EOB_NEXT which
      * might have been set above.
      */
     if (inhibit_irq) {
         s->base.is_jmp = DISAS_EOB_INHIBIT_IRQ;
-        s->flags &= ~HF_TF_MASK;
+        if (s->flags & HF_TF_MASK) {
+            s->flags &= ~HF_TF_MASK;
+            s->movss_step = true;
+        }
         tcg_gen_st8_i32(tcg_constant_i32(1), tcg_env,
                         offsetof(CPUX86State, shadow_movss));
     }
@@ -2190,14 +2195,18 @@ gen_eob(DisasContext *s, int mode)
     if (mode == DISAS_EOB_RECHECK_TF) {
         gen_helper_rechecking_single_step(tcg_env);
         tcg_gen_exit_tb(NULL, 0);
-    } else if ((s->flags & HF_TF_MASK) ||
-               (s->branch && (s->flags & HF_BTF_MASK))) {
+    } else if (s->branch && (s->flags & HF_BTF_MASK)) {
+        gen_helper_branch_step(tcg_env);
+    } else if (s->flags & HF_TF_MASK) {
         gen_helper_single_step(tcg_env);
     } else if (mode == DISAS_JUMP &&
                /* give irqs a chance to happen */
                !inhibit_reset) {
         tcg_gen_lookup_and_goto_ptr();
     } else {
+        if (s->movss_step) {
+            gen_helper_movss_step(tcg_env);
+        }
         tcg_gen_exit_tb(NULL, 0);
     }
 
@@ -3832,6 +3841,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     target_ulong orig_pc_save = dc->pc_save;
 
     dc->branch = false;
+    dc->movss_step = false;
     dc->no_lam = false;
 #ifdef TARGET_VSYSCALL_PAGE
     /*

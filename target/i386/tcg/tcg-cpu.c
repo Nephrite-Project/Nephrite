@@ -72,6 +72,10 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     if (unlikely(env->debugctl & DEBUGCTL_BTF) && (flags & HF_TF_MASK)) {
         flags = (flags & ~HF_TF_MASK) | HF_BTF_MASK;
     }
+    /* VMX's monitor trap flag steps every instruction, as TF does. */
+    if (unlikely(x86_vmx_mtf(env))) {
+        flags |= HF_TF_MASK;
+    }
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
         pc = env->eip;

@@ -1534,9 +1534,41 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
     }
 }
 
+/*
+ * Under the monitor trap flag, an MTF VM exit comes once an event is
+ * delivered, before its handler's first instruction (Intel SDM 325462-093
+ * Vol. 3C, 28.5.2).
+ */
 void x86_vmx_event_end(CPUX86State *env)
 {
+    CPUState *cs = env_cpu(env);
+
     env->vmx.idt_vectoring_info = 0;
+    if (env->vmx.mtf) {
+        env->vmx.mtf_pending = true;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+    }
+}
+
+/*
+ * The MTF VM exit after an instruction, ahead of the debug traps it
+ * raised, which stay pending: those of single-stepping and I/O
+ * breakpoints, in traps, and of data breakpoints, with the enabled-
+ * breakpoint bit where DR7 enables one of them (Intel SDM 325462-093
+ * Vol. 3C, 28.5.2 and 30.3.4).
+ */
+G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps)
+{
+    bool enabled;
+    uint32_t pending = traps | hw_data_breakpoint_hits(env, &enabled);
+
+    if (enabled || (traps & 0xf)) {
+        pending |= VMX_PENDING_DBG_ENABLED_BP;
+    }
+    env->vmx.mtf_pending = false;
+    env->vmx.exit_pending_dbg = pending;
+    x86_vmx_exit(env, VMX_EXIT_MONITOR_TRAP_FLAG, 0, 0);
 }
 
 /*
@@ -1732,6 +1764,8 @@ static void vmx_load_host(CPUX86State *env)
 
     env->hflags &= ~(HF_GUEST_MASK | HF_INHIBIT_IRQ_MASK);
     env->vmx.nonroot = false;
+    env->vmx.mtf = false;
+    env->vmx.mtf_pending = false;
     env->monitor_armed = false;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_VMX);
     cs->halted = 0;
@@ -1869,8 +1903,9 @@ static bool vmx_msr_area_valid(CPUX86State *env, uint64_t addr,
 /*
  * The injected event's checks (Intel SDM 325462-093 Vol. 3C, 29.2.1.3):
  * a defined type, an NMI with vector 2, an exception with a vector below
- * 32, an error code where the event has one, and an instruction length
- * for software events.
+ * 32, other events only as pending MTF VM exits, of vector 0, an error
+ * code where the event has one, and an instruction length for software
+ * events.
  */
 static bool vmx_injection_valid(CPUX86State *env)
 {
@@ -1888,7 +1923,9 @@ static bool vmx_injection_valid(CPUX86State *env)
     if (type == 1 || (info & 0x7ffff000) ||
         (type == VMX_INTR_TYPE_NMI && vector != EXCP02_NMI) ||
         (type == VMX_INTR_TYPE_HW_EXCEPTION && vector > 31) ||
-        type == VMX_INTR_TYPE_OTHER) {
+        (type == VMX_INTR_TYPE_OTHER &&
+         (vector || !(env->features[FEAT_VMX_PROCBASED_CTLS] &
+                      VMX_CPU_BASED_MONITOR_TRAP_FLAG)))) {
         return false;
     }
     if (error && (real || type != VMX_INTR_TYPE_HW_EXCEPTION)) {
@@ -2398,6 +2435,19 @@ static int vmx_guest_state_check(CPUX86State *env)
     return 0;
 }
 
+/*
+ * The entry injects an event, the pending MTF VM exits of type other
+ * event aside (Intel SDM 325462-093 Vol. 3C, 29.7).
+ */
+static bool vmx_injecting(CPUX86State *env)
+{
+    uint32_t info = VMCS(ENTRY_INTR_INFO);
+
+    return (info & VMX_INTR_VALID) &&
+           (info & VMX_INTR_TYPE_MASK) !=
+           VMX_INTR_TYPE_OTHER << VMX_INTR_TYPE_SHIFT;
+}
+
 /* The guest state a VM entry loads (Intel SDM 325462-093 Vol. 3C, 29.3.2). */
 static void vmx_load_guest(CPUX86State *env)
 {
@@ -2475,10 +2525,12 @@ static void vmx_load_guest(CPUX86State *env)
         env->vmx.pdpte_loaded = true;
     }
     /*
-     * An entry that injects ends active (Intel SDM 325462-093 Vol. 3C, 29.7.2).
+     * An entry that injects ends active (Intel SDM 325462-093 Vol. 3C,
+     * 29.7.2); one making an MTF VM exit pending does not inject (Intel SDM
+     * 325462-093 Vol. 3C, 29.7).
      */
     cs->halted = VMCS(GUEST_ACTIVITY) == VMX_ACTIVITY_HLT &&
-                 !(VMCS(ENTRY_INTR_INFO) & VMX_INTR_VALID);
+                 !vmx_injecting(env);
     env->vmx.hlt_wake = false;
     env->vmx.exit_hlt = false;
 }
@@ -2523,6 +2575,11 @@ static void vmx_inject(CPUX86State *env)
             env->old_exception = vector;
         }
         break;
+    case VMX_INTR_TYPE_OTHER:
+        /* A pending MTF VM exit (Intel SDM 325462-093 Vol. 3C, 29.6.2). */
+        env->vmx.mtf_pending = true;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        return;
     default:
         env->vmx.soft_exception = type == VMX_INTR_TYPE_SW_INTR ? 0 : type;
         cs->exception_index = vector;
@@ -2545,8 +2602,7 @@ static void vmx_entry_debug(CPUX86State *env)
     uint64_t pending = VMCS(GUEST_PENDING_DBG);
     uint32_t activity = VMCS(GUEST_ACTIVITY);
 
-    if ((VMCS(ENTRY_INTR_INFO) & VMX_INTR_VALID) ||
-        activity == VMX_ACTIVITY_SHUTDOWN ||
+    if (vmx_injecting(env) || activity == VMX_ACTIVITY_SHUTDOWN ||
         activity == VMX_ACTIVITY_WAIT_SIPI ||
         !(pending & (DR6_BS | VMX_PENDING_DBG_ENABLED_BP))) {
         return;
@@ -2725,6 +2781,7 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
         return;
     }
     env->vmx.vmcs_launched = 1;
+    env->vmx.mtf = VMCS(PROC_CONTROLS) & VMX_CPU_BASED_MONITOR_TRAP_FLAG;
     if (VMCS(PROC_CONTROLS) & (VMX_CPU_BASED_VIRTUAL_INTR_PENDING |
                                VMX_CPU_BASED_VIRTUAL_NMI_PENDING)) {
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
@@ -2765,6 +2822,13 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
     }
     if ((request & CPU_INTERRUPT_SMI) && !(env->hflags & HF_SMM_MASK)) {
         return CPU_INTERRUPT_SMI;
+    }
+    /*
+     * MTF VM exits come after SMIs and INITs, before debug traps (Intel
+     * SDM 325462-093 Vol. 3C, 28.5.2).
+     */
+    if ((request & CPU_INTERRUPT_VMX) && env->vmx.mtf_pending) {
+        return CPU_INTERRUPT_VMX;
     }
     /* A held #DB has the priority of traps on the previous instruction. */
     if ((request & CPU_INTERRUPT_VMX) && env->vmx.db_held &&
@@ -2839,6 +2903,19 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         }
         x86_vmx_exit(env, VMX_EXIT_EXTERNAL_INTERRUPT, 0, 0);
     case CPU_INTERRUPT_VMX:
+        if (env->vmx.mtf_pending) {
+            env->vmx.mtf_pending = false;
+            /*
+             * Right after the entry, the debug exceptions it left pending
+             * stay so (Intel SDM 325462-093 Vol. 3C, 30.3.4).
+             */
+            if (env->vmx.db_held) {
+                env->vmx.exit_pending_dbg = VMCS(GUEST_PENDING_DBG) &
+                                            (VMX_DB_BITS |
+                                             VMX_PENDING_DBG_ENABLED_BP);
+            }
+            x86_vmx_exit(env, VMX_EXIT_MONITOR_TRAP_FLAG, 0, 0);
+        }
         if (env->vmx.db_held && !((env->hflags & HF_INHIBIT_IRQ_MASK) &&
                                   env->shadow_movss)) {
             env->vmx.exit_hlt = false;

@@ -22,18 +22,51 @@
 #include "exec/helper-proto.h"
 #include "helper-tcg.h"
 
-G_NORETURN void HELPER(single_step)(CPUX86State *env)
+/*
+ * The step after an instruction, branch telling whether it was a taken
+ * branch: under VMX's monitor trap flag, which steps every instruction,
+ * an MTF VM exit with TF's trap pending (Intel SDM 325462-093 Vol. 3C,
+ * 28.5.2); else TF's single-step trap.
+ */
+static G_NORETURN void single_step(CPUX86State *env, bool branch)
 {
 #ifndef CONFIG_USER_ONLY
+    if (x86_vmx_mtf(env)) {
+        x86_vmx_mtf_step(env, x86_step_trap(env, branch));
+    }
     raise_debug_exception(env, hw_breakpoint_hits(env, NULL) | DR6_BS, 0);
 #else
     raise_exception(env, EXCP01_DB);
 #endif
 }
 
+G_NORETURN void HELPER(single_step)(CPUX86State *env)
+{
+    single_step(env, false);
+}
+
+G_NORETURN void HELPER(branch_step)(CPUX86State *env)
+{
+    single_step(env, true);
+}
+
 void HELPER(rechecking_single_step)(CPUX86State *env)
 {
-    if ((env->eflags & TF_MASK) != 0) {
-        HELPER(single_step)(env);
+    if ((env->eflags & TF_MASK) != 0 || x86_vmx_mtf(env)) {
+        single_step(env, false);
     }
+}
+
+/*
+ * MOV SS and POP SS suppress TF's trap (Intel SDM 325462-093 Vol. 3A,
+ * 7.8.3), not the monitor trap flag's VM exit (Intel SDM 325462-093
+ * Vol. 3C, 28.5.2).
+ */
+void HELPER(movss_step)(CPUX86State *env)
+{
+#ifndef CONFIG_USER_ONLY
+    if (x86_vmx_mtf(env)) {
+        x86_vmx_mtf_step(env, 0);
+    }
+#endif
 }

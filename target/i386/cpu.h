@@ -2100,6 +2100,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_INVALID_GUEST_STATE 33
 #define VMX_EXIT_MSR_LOADING 34
 #define VMX_EXIT_MWAIT 36
+#define VMX_EXIT_MONITOR_TRAP_FLAG 37
 #define VMX_EXIT_MONITOR 39
 #define VMX_EXIT_PAUSE 40
 #define VMX_EXIT_TPR_BELOW_THRESHOLD 43
@@ -2151,6 +2152,9 @@ typedef struct X86VMXState {
     uint32_t db_held;
     /* The pending debug exceptions field the exit under way saves. */
     uint32_t exit_pending_dbg;
+    /* The "monitor trap flag" control, and an MTF VM exit pending. */
+    bool mtf;
+    bool mtf_pending;
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;
@@ -3321,6 +3325,12 @@ int get_pg_mode(CPUX86State *env);
 
 /* tcg/system/vmx_helper.c */
 int x86_vmx_pending_interrupt(const CPUX86State *env, int request);
+
+/* VMX non-root operation under the monitor trap flag. */
+static inline bool x86_vmx_mtf(const CPUX86State *env)
+{
+    return env->vmx.nonroot && env->vmx.mtf;
+}
 
 /* fpu_helper.c */
 

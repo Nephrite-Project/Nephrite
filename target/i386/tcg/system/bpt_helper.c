@@ -225,10 +225,11 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
 }
 
 /*
- * The B0-B3 bits of the breakpoints that hit, and whether an enabled one
- * did; raising the #DB writes them to DR6.
+ * The B0-B3 bits of the breakpoints that hit, instruction ones at EIP only
+ * with insn, and whether an enabled one did; raising the #DB writes them
+ * to DR6.
  */
-uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled)
+static uint32_t breakpoint_hits(CPUX86State *env, bool insn, bool *enabled)
 {
     uint32_t hits = 0;
     int reg;
@@ -240,7 +241,7 @@ uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled)
 
         switch (hw_breakpoint_type(env->dr[7], reg)) {
         case DR7_TYPE_BP_INST:
-            if (env->dr[reg] == env->eip) {
+            if (insn && env->dr[reg] == env->eip) {
                 bp_match = true;
             }
             break;
@@ -266,6 +267,17 @@ uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled)
         *enabled = hit_enabled;
     }
     return hits;
+}
+
+uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled)
+{
+    return breakpoint_hits(env, true, enabled);
+}
+
+/* The data breakpoints the last instruction matched. */
+uint32_t hw_data_breakpoint_hits(CPUX86State *env, bool *enabled)
+{
+    return breakpoint_hits(env, false, enabled);
 }
 
 void breakpoint_handler(CPUState *cs)
@@ -371,6 +383,10 @@ void HELPER(bpt_io)(CPUX86State *env, uint32_t port,
 
     if (hit) {
         env->eip = next_eip;
+        if (x86_vmx_mtf(env)) {
+            do_end_instruction(env);
+            x86_vmx_mtf_step(env, hit | x86_step_trap(env, false));
+        }
         raise_debug_exception(env, hit, 0);
     }
 }

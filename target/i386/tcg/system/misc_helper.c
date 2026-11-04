@@ -1116,6 +1116,15 @@ G_NORETURN void HELPER(hlt)(CPUX86State *env)
         !(svm_vnmi_enabled(env) && (env->int_ctl & V_NMI_PENDING_MASK))) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_IDLE_HLT, 0, GETPC());
     }
+    /*
+     * Under VMX's monitor trap flag, the MTF VM exit comes from the HLT
+     * state (Intel SDM 325462-093 Vol. 3C, 28.5.2).
+     */
+    if (x86_vmx_mtf(env)) {
+        do_end_instruction(env);
+        env->vmx.exit_hlt = true;
+        x86_vmx_mtf_step(env, x86_step_trap(env, false));
+    }
     do_hlt(env);
 }
 
@@ -1141,9 +1150,10 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
 
     /*
      * Without monitoring armed, MWAIT continues at once (Intel SDM
-     * 325462-093 Vol. 2B, MWAIT).
+     * 325462-093 Vol. 2B, MWAIT); so it does under VMX's monitor trap
+     * flag, as any event may end its wait, here the MTF VM exit.
      */
-    if (!env->monitor_armed) {
+    if (!env->monitor_armed || x86_vmx_mtf(env)) {
         do_end_instruction(env);
         HELPER(rechecking_single_step)(env);
         cpu_loop_exit(cs);

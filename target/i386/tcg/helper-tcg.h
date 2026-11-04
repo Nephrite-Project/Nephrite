@@ -158,6 +158,7 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
                          int error_code, int is_hw, int rm);
 void x86_vmx_event_end(CPUX86State *env);
 void x86_vmx_do_vmexit(CPUX86State *env);
+G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps);
 bool x86_vmx_take_interrupt(CPUX86State *env, int request, bool woke);
 bool x86_vmx_virtual_nmis(CPUX86State *env);
 bool x86_vmx_rdtscp_allowed(CPUX86State *env);
@@ -197,6 +198,7 @@ void do_smm_enter(X86CPU *cpu);
 
 /* system/bpt_helper.c */
 uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled);
+uint32_t hw_data_breakpoint_hits(CPUX86State *env, bool *enabled);
 bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
 
 /*
