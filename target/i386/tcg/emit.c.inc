@@ -3795,6 +3795,18 @@ static void gen_unreachable(DisasContext *s, X86DecodedInsn *decode)
 #endif
 
 #ifndef CONFIG_USER_ONLY
+static void gen_INVPCID(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_invpcid(tcg_env, s->A0, s->T0);
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+#else
+#define gen_INVPCID gen_unreachable
+#endif
+
+#ifndef CONFIG_USER_ONLY
 static void gen_RDMSR(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);

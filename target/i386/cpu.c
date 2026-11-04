@@ -908,11 +908,12 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT_XSAVE | /* CPUID_EXT_OSXSAVE is dynamic */   \
           CPUID_EXT_MOVBE | CPUID_EXT_AES | CPUID_EXT_HYPERVISOR | \
           CPUID_EXT_RDRAND | CPUID_EXT_AVX | CPUID_EXT_F16C | \
-          CPUID_EXT_FMA | CPUID_EXT_X2APIC | CPUID_EXT_KERNEL_FEATURES)
+          CPUID_EXT_FMA | CPUID_EXT_X2APIC | CPUID_EXT_PCID | \
+          CPUID_EXT_KERNEL_FEATURES)
           /* missing:
           CPUID_EXT_DTES64, CPUID_EXT_DSCPL, CPUID_EXT_VMX, CPUID_EXT_SMX,
           CPUID_EXT_EST, CPUID_EXT_TM2, CPUID_EXT_CID,
-          CPUID_EXT_XTPR, CPUID_EXT_PDCM, CPUID_EXT_PCID, CPUID_EXT_DCA,
+          CPUID_EXT_XTPR, CPUID_EXT_PDCM, CPUID_EXT_DCA,
           CPUID_EXT_TSC_DEADLINE_TIMER
           */
 
@@ -989,10 +990,10 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_7_0_EBX_CLFLUSHOPT |            \
           CPUID_7_0_EBX_CLWB | CPUID_7_0_EBX_MPX | CPUID_7_0_EBX_FSGSBASE | \
           CPUID_7_0_EBX_ERMS | CPUID_7_0_EBX_AVX2 | CPUID_7_0_EBX_RDSEED | \
-          CPUID_7_0_EBX_SHA_NI | CPUID_7_0_EBX_KERNEL_FEATURES)
+          CPUID_7_0_EBX_SHA_NI | CPUID_7_0_EBX_INVPCID | \
+          CPUID_7_0_EBX_KERNEL_FEATURES)
           /* missing:
-          CPUID_7_0_EBX_HLE
-          CPUID_7_0_EBX_INVPCID, CPUID_7_0_EBX_RTM */
+          CPUID_7_0_EBX_HLE, CPUID_7_0_EBX_RTM */
 
 #if !defined CONFIG_USER_ONLY || defined CONFIG_LINUX
 #define TCG_7_0_ECX_RDPID CPUID_7_0_ECX_RDPID

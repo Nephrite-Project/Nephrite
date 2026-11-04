@@ -221,7 +221,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
     if ((new_cr4 ^ env->cr[4]) &
         (CR4_PGE_MASK | CR4_PAE_MASK | CR4_PSE_MASK |
          CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK |
-         CR4_PKE_MASK | CR4_PKS_MASK)) {
+         CR4_PKE_MASK | CR4_PKS_MASK | CR4_PCIDE_MASK)) {
         x86_flush_paging(env);
     }
 

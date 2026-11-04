@@ -80,8 +80,9 @@ target_ulong HELPER(read_cr8)(CPUX86State *env)
 
 /*
  * The CR0 writes MOV to CR0 refuses with #GP: reserved bits 63:32, PG
- * without PE, NW without CD, clearing PG in 64-bit mode, and turning on
- * IA-32e mode without PAE, from code with CS.L, or with a 16-bit TSS in TR
+ * without PE, NW without CD, clearing PG in 64-bit mode or with CR4.PCIDE
+ * set, and turning on IA-32e mode without PAE, from code with CS.L, or with
+ * a 16-bit TSS in TR
  * (Intel SDM 325462-093 Vol. 2B, MOV, Move to/from Control Registers; AMD64
  * Architecture Programmer's Manual Volume 3, 24594 rev. 3.38, MOV CRn).
  * The reserved bits of CR0[31:0] are ignored.
@@ -94,7 +95,8 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
         return false;
     }
 #ifdef TARGET_X86_64
-    if ((env->hflags & HF_CS64_MASK) && !(cr0 & CR0_PG_MASK)) {
+    if (((env->hflags & HF_CS64_MASK) || (env->cr[4] & CR4_PCIDE_MASK)) &&
+        !(cr0 & CR0_PG_MASK)) {
         return false;
     }
     if (!(env->cr[0] & CR0_PG_MASK) && (cr0 & CR0_PG_MASK) &&
@@ -110,12 +112,17 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
 
 /*
  * The CR4 writes MOV to CR4 refuses with #GP: reserved bits, which include
- * those of absent features, a change of LA57 or clearing PAE in IA-32e mode
- * (the same documents).
+ * those of absent features, a change of LA57 or clearing PAE in IA-32e
+ * mode, and setting PCIDE outside IA-32e mode or with CR3[11:0] not 0 (the
+ * same documents).
  */
 static bool cr4_valid(CPUX86State *env, uint64_t cr4)
 {
     if (cr4 & cr4_reserved_bits(env)) {
+        return false;
+    }
+    if ((cr4 & ~env->cr[4] & CR4_PCIDE_MASK) &&
+        (!(env->efer & MSR_EFER_LMA) || (env->cr[3] & 0xfff))) {
         return false;
     }
     if ((env->efer & MSR_EFER_LMA) &&
@@ -146,6 +153,16 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         cpu_x86_update_cr0(env, t0);
         break;
     case 3:
+#ifdef TARGET_X86_64
+        /*
+         * With CR4.PCIDE, bit 63 lets the new PCID's translations stay,
+         * which QEMU's TLB, holding the current PCID's only, drops anyway,
+         * as the processor may (Intel SDM 325462-093 Vol. 3A, 5.10.4.1).
+         */
+        if (env->cr[4] & CR4_PCIDE_MASK) {
+            t0 &= ~(1ULL << 63);
+        }
+#endif
         if ((env->efer & MSR_EFER_LMA) &&
                 (t0 & ((~0ULL) << env_archcpu(env)->phys_bits))) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
@@ -649,6 +666,48 @@ void HELPER(rdmsr)(CPUX86State *env)
     }
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
+}
+
+/*
+ * INVPCID: its SVM intercept comes before all its checks but CPL's (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, Table 15-7),
+ * with the descriptor's address in EXITINFO1 and the type in EXITINFO2,
+ * where Linux 7.3's KVM reads them; then types above 3, descriptor bits
+ * 63:12, PCIDs other than 0 for types 0 and 1 without CR4.PCIDE, and a
+ * type 0 address that is not canonical for the processor, with 57 bits
+ * where it has 5-level paging, raise #GP (Intel SDM 325462-093 Vol. 2A,
+ * INVPCID, and Vol. 3A, 4.5). QEMU's TLB holds the current PCID's translations
+ * only, so type 0 drops the page and the others drop all, the global ones
+ * too, as the processor may.
+ */
+void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type)
+{
+    CPUState *cs = env_cpu(env);
+    uintptr_t ra = GETPC();
+    int shift = env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_LA57 ? 56 : 47;
+    uint64_t desc, laddr;
+
+    if (cpu_svm_has_intercept(env, SVM_EXIT_INVPCID)) {
+        x86_stq_phys(cs, env->vm_vmcb +
+                     offsetof(struct vmcb, control.exit_info_2), type);
+        cpu_vmexit(env, SVM_EXIT_INVPCID, addr, ra);
+    }
+    if (type > 3) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
+    desc = cpu_ldq_le_data_ra(env, addr, ra);
+    laddr = cpu_ldq_le_data_ra(env, addr + 8, ra);
+    if ((desc >> 12) ||
+        (type <= 1 && (desc & 0xfff) && !(env->cr[4] & CR4_PCIDE_MASK)) ||
+        (type == 0 && (int64_t)laddr >> shift != 0 &&
+         (int64_t)laddr >> shift != -1)) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
+    if (type == 0) {
+        tlb_flush_page_by_mmuidx(cs, laddr, x86_mmu_context_map(env));
+    } else {
+        tlb_flush_by_mmuidx(cs, x86_mmu_context_map(env));
+    }
 }
 
 /* INVLPG drops the page from the current ASID's translations only. */
