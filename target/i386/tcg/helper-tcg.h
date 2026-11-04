@@ -202,6 +202,9 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
 uint64_t x86_efer_writable(CPUX86State *env);
 bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
 bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+void x86_amd_cpuid_hide(CPUX86State *env, uint32_t leaf, uint32_t subleaf,
+                        uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
+                        uint32_t *edx);
 #endif
 
 /*

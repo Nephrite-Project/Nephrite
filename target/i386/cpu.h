@@ -651,6 +651,16 @@ typedef enum X86Seg {
 #define HWCR_MC_STATUS_WR_EN            (1ULL << 18)
 #define HWCR_CPUID_USER_DIS             (1ULL << 35)
 
+/*
+ * AMD's CPUID override MSRs, each over a pair of CPUID registers, the high
+ * half over the first (PPR for AMD Family 17h Model 20h, 55772 rev. 3.08,
+ * MSRC001_1002 to MSRC001_1005).
+ */
+#define MSR_AMD_CPUID_7_FEATURES        0xc0011002
+#define MSR_AMD_CPUID_PWR_THERM         0xc0011003
+#define MSR_AMD_CPUID_FEATURES          0xc0011004
+#define MSR_AMD_CPUID_EXT_FEATURES      0xc0011005
+
 #define MSR_VM_HSAVE_PA                 0xc0010117
 #define MSR_AMD64_AVIC_DOORBELL         0xc001011b
 
@@ -2585,6 +2595,8 @@ typedef struct CPUArchState {
 
     /* AMD MSRC001_0015 Hardware Configuration */
     uint64_t msr_hwcr;
+    /* The CPUID bits that the CPUID override MSRs clear, MSRC001_1002 on. */
+    uint64_t amd_cpuid_hidden[4];
 
     /* exception/interrupt handling */
     int error_code;

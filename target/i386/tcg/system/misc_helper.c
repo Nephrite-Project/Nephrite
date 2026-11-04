@@ -365,6 +365,69 @@ uint64_t x86_efer_writable(CPUX86State *env)
 }
 
 /*
+ * The CPUID registers that AMD's CPUID override MSR index (MSRC001_1002 +
+ * index) controls, OSXSAVE and APIC as fields whatever CR4 and the local
+ * APIC's state, and without the hypervisor bit, which the processor's
+ * CPUID does not have (PPR for AMD Family 17h Model 20h, 55772 rev. 3.08,
+ * MSRC001_1002 to MSRC001_1005).
+ */
+static uint64_t amd_cpuid_override_bits(CPUX86State *env, int index)
+{
+    uint32_t eax, ebx, ecx, edx;
+
+    switch (index) {
+    case 0:
+        if (env->cpuid_level < 7) {
+            return 0;
+        }
+        cpu_x86_cpuid(env, 7, 0, &eax, &ebx, &ecx, &edx);
+        return (uint64_t)eax << 32 | ebx;
+    case 1:
+        if (env->cpuid_level < 6) {
+            return 0;
+        }
+        cpu_x86_cpuid(env, 6, 0, &eax, &ebx, &ecx, &edx);
+        return ecx;
+    case 2:
+        cpu_x86_cpuid(env, 1, 0, &eax, &ebx, &ecx, &edx);
+        ecx &= ~CPUID_EXT_HYPERVISOR;
+        if (ecx & CPUID_EXT_XSAVE) {
+            ecx |= CPUID_EXT_OSXSAVE;
+        }
+        edx |= env->features[FEAT_1_EDX] & CPUID_APIC;
+        return (uint64_t)ecx << 32 | edx;
+    default:
+        cpu_x86_cpuid(env, 0x80000001, 0, &eax, &ebx, &ecx, &edx);
+        edx |= env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_APIC;
+        return (uint64_t)ecx << 32 | edx;
+    }
+}
+
+/*
+ * What CPUID shows of the bits that those MSRs clear: nothing; setting
+ * bits back shows them again, but none that the CPU lacks.
+ */
+void x86_amd_cpuid_hide(CPUX86State *env, uint32_t leaf, uint32_t subleaf,
+                        uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
+                        uint32_t *edx)
+{
+    const uint64_t *hidden = env->amd_cpuid_hidden;
+
+    if (leaf == 7 && subleaf == 0 && env->cpuid_level >= 7) {
+        *eax &= ~(uint32_t)(hidden[0] >> 32);
+        *ebx &= ~(uint32_t)hidden[0];
+    } else if (leaf == 6 && env->cpuid_level >= 6) {
+        *ecx &= ~(uint32_t)hidden[1];
+    } else if (leaf == 1) {
+        *ecx &= ~(uint32_t)(hidden[2] >> 32);
+        *edx &= ~(uint32_t)hidden[2];
+    } else if (leaf == 0x80000001 && env->cpuid_xlevel >= 0x80000001) {
+        *ecx &= ~(uint32_t)(hidden[3] >> 32);
+        *edx &= ~(uint32_t)hidden[3];
+    }
+}
+
+/*
  * WRMSR's effect, false where it raises #GP; VM entries and exits load
  * their MSR areas with it, exits with the BQL held, hence BQL_LOCK_GUARD()
  * here and in x86_cpu_rdmsr().
@@ -664,6 +727,16 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         }
         env->msr_hwcr = val;
         break;
+    case MSR_AMD_CPUID_7_FEATURES ... MSR_AMD_CPUID_EXT_FEATURES: {
+        int index = msr - MSR_AMD_CPUID_7_FEATURES;
+
+        if (!IS_AMD_CPU(env)) {
+            return false;
+        }
+        env->amd_cpuid_hidden[index] = amd_cpuid_override_bits(env, index) &
+                                       ~val;
+        break;
+    }
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
         int index = msr == MSR_DR0_ADDR_MASK ? 0 :
@@ -1046,6 +1119,16 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_K7_HWCR:
         val = env->msr_hwcr;
         break;
+    case MSR_AMD_CPUID_7_FEATURES ... MSR_AMD_CPUID_EXT_FEATURES: {
+        int index = msr - MSR_AMD_CPUID_7_FEATURES;
+
+        if (!IS_AMD_CPU(env)) {
+            return false;
+        }
+        val = amd_cpuid_override_bits(env, index) &
+              ~env->amd_cpuid_hidden[index];
+        break;
+    }
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
         int index = msr == MSR_DR0_ADDR_MASK ? 0 :

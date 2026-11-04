@@ -70,6 +70,10 @@ void HELPER(cpuid)(CPUX86State *env)
 
     cpu_x86_cpuid(env, (uint32_t)env->regs[R_EAX], (uint32_t)env->regs[R_ECX],
                   &eax, &ebx, &ecx, &edx);
+#ifndef CONFIG_USER_ONLY
+    x86_amd_cpuid_hide(env, (uint32_t)env->regs[R_EAX],
+                       (uint32_t)env->regs[R_ECX], &eax, &ebx, &ecx, &edx);
+#endif
     env->regs[R_EAX] = eax;
     env->regs[R_EBX] = ebx;
     env->regs[R_ECX] = ecx;
