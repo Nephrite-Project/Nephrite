@@ -20,6 +20,9 @@ void apic_poll_irq(APICCommonState *s);
 void apic_designate_bsp(APICCommonState *s, bool bsp);
 int apic_get_highest_priority_irr(APICCommonState *s);
 int apic_msr_read(APICCommonState *s, int index, uint64_t *val);
+uint64_t apic_get_tsc_deadline(APICCommonState *s);
+void apic_set_tsc_deadline(APICCommonState *s, uint64_t deadline);
+void apic_tsc_changed(APICCommonState *s);
 int apic_msr_write(APICCommonState *s, int index, uint64_t val);
 bool is_x2apic_mode(APICCommonState *s);
 

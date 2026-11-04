@@ -2977,6 +2977,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7);
 
 /* hw/pc.c */
 uint64_t cpu_get_tsc(CPUX86State *env);
+int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
 
 #define CPU_RESOLVING_TYPE TYPE_X86_CPU
 

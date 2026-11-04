@@ -219,6 +219,16 @@ static bool tsc_ratio_present(CPUX86State *env)
            (env->features[FEAT_SVM] & CPUID_SVM_TSCSCALE);
 }
 
+/* The local APIC's TSC deadline comes at another time once the TSC moved. */
+static void tsc_changed(CPUX86State *env)
+{
+    if (env_archcpu(env)->apic_state) {
+        bql_lock();
+        apic_tsc_changed(env_archcpu(env)->apic_state);
+        bql_unlock();
+    }
+}
+
 void HELPER(wrmsr)(CPUX86State *env)
 {
     uint64_t val;
@@ -418,6 +428,7 @@ void HELPER(wrmsr)(CPUX86State *env)
 
         env->tsc_adjust += delta - env->tsc_written_delta;
         env->tsc_written_delta = delta;
+        tsc_changed(env);
         break;
     }
     case MSR_TSC_ADJUST:
@@ -426,6 +437,15 @@ void HELPER(wrmsr)(CPUX86State *env)
         }
         env->tsc_written_delta += val - env->tsc_adjust;
         env->tsc_adjust = val;
+        tsc_changed(env);
+        break;
+    case MSR_IA32_TSCDEADLINE:
+        if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
+            goto error;
+        }
+        bql_lock();
+        apic_set_tsc_deadline(env_archcpu(env)->apic_state, val);
+        bql_unlock();
         break;
     case MSR_TSC_AUX:
         env->tsc_aux = val;
@@ -651,6 +671,14 @@ void HELPER(rdmsr)(CPUX86State *env)
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
         val = env->tsc_adjust;
+        break;
+    case MSR_IA32_TSCDEADLINE:
+        if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        bql_lock();
+        val = apic_get_tsc_deadline(x86_cpu->apic_state);
+        bql_unlock();
         break;
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env)) {

@@ -753,9 +753,47 @@ int apic_accept_pic_intr(APICCommonState *s)
     return 0;
 }
 
+/*
+ * TSC-deadline mode, where the timer fires once the TSC reaches
+ * IA32_TSC_DEADLINE, which it then clears; the initial count is ignored,
+ * the current count reads 0, and entering or leaving the mode disarms the
+ * timer (Intel SDM 325462-093 Vol. 3A, 13.5.4.1).
+ */
+static bool apic_lvtt_tsc_deadline(APICCommonState *s)
+{
+    return (s->lvt[APIC_LVT_TIMER] & (3 << APIC_LVT_TIMER_SHIFT)) ==
+           APIC_LVT_TIMER_TSCDEADLINE &&
+           (s->cpu->env.features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER);
+}
+
+/* The processor's TSC, not the one an SVM guest sees. */
+static uint64_t apic_tsc(APICCommonState *s)
+{
+    return cpu_get_tsc(&s->cpu->env) + s->cpu->env.tsc_written_delta;
+}
+
+static void apic_tsc_deadline_update(APICCommonState *s)
+{
+    uint64_t deadline = s->cpu->env.tsc_deadline;
+    uint64_t tsc;
+
+    s->timer_expiry = -1;
+    if (!deadline) {
+        timer_del(s->timer);
+        return;
+    }
+    tsc = apic_tsc(s);
+    s->next_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+                   (deadline > tsc ? cpu_tsc_ticks_ns(&s->cpu->env, deadline - tsc) : 0);
+    s->timer_expiry = s->next_time;
+    timer_mod(s->timer, s->next_time);
+}
+
 static void apic_timer_update(APICCommonState *s, int64_t current_time)
 {
-    if (apic_next_timer(s, current_time)) {
+    if (apic_lvtt_tsc_deadline(s)) {
+        apic_tsc_deadline_update(s);
+    } else if (apic_next_timer(s, current_time)) {
         timer_mod(s->timer, s->next_time);
     } else {
         timer_del(s->timer);
@@ -766,8 +804,49 @@ static void apic_timer(void *opaque)
 {
     APICCommonState *s = opaque;
 
+    if (apic_lvtt_tsc_deadline(s)) {
+        if (!s->cpu->env.tsc_deadline ||
+            apic_tsc(s) < s->cpu->env.tsc_deadline) {
+            apic_tsc_deadline_update(s);
+            return;
+        }
+        s->cpu->env.tsc_deadline = 0;
+        s->timer_expiry = -1;
+        apic_local_deliver(s, APIC_LVT_TIMER);
+        return;
+    }
     apic_local_deliver(s, APIC_LVT_TIMER);
     apic_timer_update(s, s->next_time);
+}
+
+uint64_t apic_get_tsc_deadline(APICCommonState *s)
+{
+    return apic_lvtt_tsc_deadline(s) ? s->cpu->env.tsc_deadline : 0;
+}
+
+void apic_set_tsc_deadline(APICCommonState *s, uint64_t deadline)
+{
+    if (!apic_lvtt_tsc_deadline(s)) {
+        return;
+    }
+    /* A deadline the TSC has reached fires as the write completes. */
+    if (deadline && apic_tsc(s) >= deadline) {
+        s->cpu->env.tsc_deadline = 0;
+        s->timer_expiry = -1;
+        timer_del(s->timer);
+        apic_local_deliver(s, APIC_LVT_TIMER);
+        return;
+    }
+    s->cpu->env.tsc_deadline = deadline;
+    apic_tsc_deadline_update(s);
+}
+
+/* A write of the TSC moves the time a deadline comes at. */
+void apic_tsc_changed(APICCommonState *s)
+{
+    if (apic_lvtt_tsc_deadline(s)) {
+        apic_tsc_deadline_update(s);
+    }
 }
 
 static int apic_register_read(APICCommonState *s, int index, uint64_t *value)
@@ -844,7 +923,7 @@ static int apic_register_read(APICCommonState *s, int index, uint64_t *value)
         val = s->initial_count;
         break;
     case 0x39:
-        val = apic_get_current_count(s);
+        val = apic_lvtt_tsc_deadline(s) ? 0 : apic_get_current_count(s);
         break;
     case 0x3e:
         val = s->divide_conf;
@@ -1005,8 +1084,14 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
     case 0x32 ... 0x37:
         {
             int n = index - 0x32;
+            bool deadline = apic_lvtt_tsc_deadline(s);
+
             s->lvt[n] = val;
             if (n == APIC_LVT_TIMER) {
+                if (deadline != apic_lvtt_tsc_deadline(s)) {
+                    s->initial_count = 0;
+                    s->cpu->env.tsc_deadline = 0;
+                }
                 apic_timer_update(s, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
             } else if (n == APIC_LVT_LINT0 && apic_check_pic(s)) {
                 apic_update_irq(s);
@@ -1014,6 +1099,9 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
         }
         break;
     case 0x38:
+        if (apic_lvtt_tsc_deadline(s)) {
+            break;
+        }
         s->initial_count = val;
         s->initial_count_load_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         apic_timer_update(s, s->initial_count_load_time);

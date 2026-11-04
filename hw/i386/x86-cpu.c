@@ -21,6 +21,8 @@
  * THE SOFTWARE.
  */
 #include "qemu/osdep.h"
+#include "qemu/host-utils.h"
+#include "qemu/timer.h"
 #include "system/whpx.h"
 #include "system/mshv.h"
 #include "system/cpu-timers.h"
@@ -36,6 +38,32 @@
 uint64_t cpu_get_tsc(CPUX86State *env)
 {
     return cpus_get_elapsed_ticks();
+}
+
+/*
+ * How long the TSC takes for TICKS on the virtual clock: TCG's TSC runs at
+ * the host TSC's rate, measured from a first look at both. Until a
+ * millisecond has gone by, a tick counts as a nanosecond, so timers armed
+ * by it may fire early and have to look at the TSC.
+ */
+int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks)
+{
+    static int64_t ref_ns = -1;
+    static uint64_t ref_ticks;
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    uint64_t tsc = cpu_get_tsc(env);
+    uint64_t low, high;
+
+    if (ref_ns < 0) {
+        ref_ns = now;
+        ref_ticks = tsc;
+    }
+    if (now - ref_ns < 1000000 || tsc <= ref_ticks) {
+        return MIN(ticks, INT64_MAX / 2);
+    }
+    mulu64(&low, &high, ticks, now - ref_ns);
+    divu128(&low, &high, tsc - ref_ticks);
+    return high ? INT64_MAX / 2 : MIN(low, INT64_MAX / 2);
 }
 
 /* IRQ handling */
