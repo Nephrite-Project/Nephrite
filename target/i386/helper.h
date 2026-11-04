@@ -137,6 +137,7 @@ DEF_HELPER_1(setssbsy, void, env)
 DEF_HELPER_2(clrssbsy, tl, env, tl)
 DEF_HELPER_4(wrss, void, env, tl, tl, i32)
 DEF_HELPER_4(wruss, void, env, tl, tl, i32)
+DEF_HELPER_FLAGS_1(ibt_missing, TCG_CALL_NO_WG, noreturn, env)
 #endif /* !CONFIG_USER_ONLY */
 
 /* x86 FPU */

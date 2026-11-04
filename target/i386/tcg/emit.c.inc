@@ -2225,6 +2225,32 @@ static void gen_EMMS(DisasContext *s, X86DecodedInsn *decode)
     gen_helper_emms(tcg_env);
 }
 
+/*
+ * ENDBR64 in 64-bit mode and ENDBR32 elsewhere end the CPL's wait for an
+ * ENDBRANCH and its suppression of indirect branch tracking, where that is
+ * on (Intel SDM 325462-093 Vol. 2A, ENDBR32 and ENDBR64).
+ */
+static void gen_ENDBR(DisasContext *s, X86DecodedInsn *decode)
+{
+#ifndef CONFIG_USER_ONLY
+    int ofs = CPL(s) == 3 ? offsetof(CPUX86State, u_cet)
+                          : offsetof(CPUX86State, s_cet);
+    TCGv_i64 cet;
+
+    if (!(s->ibt & TB_IBT) || (s->modrm == 0xfa) != CODE64(s)) {
+        return;
+    }
+    cet = tcg_temp_new_i64();
+    tcg_gen_ld_i64(cet, tcg_env, ofs);
+    tcg_gen_andi_i64(cet, cet, ~(CET_WAIT_ENDBR | CET_SUPPRESS));
+    tcg_gen_st_i64(cet, tcg_env, ofs);
+    /* Indirect branches are tracked again from the next TB on. */
+    if (s->ibt & TB_IBT_SUPPRESS) {
+        s->base.is_jmp = DISAS_EOB_NEXT;
+    }
+#endif
+}
+
 static void gen_ENTER(DisasContext *s, X86DecodedInsn *decode)
 {
    gen_enter(s, decode->op[1].imm, decode->op[2].imm);
@@ -2538,8 +2564,37 @@ static void gen_JMP(DisasContext *s, X86DecodedInsn *decode)
     gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
 
+/*
+ * A near indirect CALL or JMP: where indirect branch tracking is on and not
+ * suppressed, and unless it has a no-track prefix that NO_TRACK_EN allows,
+ * the CPL's tracker waits for an ENDBRANCH (Intel SDM 325462-093 Vol. 1,
+ * 18.3.1 and Table 18-1).
+ */
+static void gen_ibt_track(DisasContext *s)
+{
+#ifndef CONFIG_USER_ONLY
+    int ofs = CPL(s) == 3 ? offsetof(CPUX86State, u_cet)
+                          : offsetof(CPUX86State, s_cet);
+    TCGv_i64 cet;
+
+    if (!(s->ibt & TB_IBT) || (s->ibt & TB_IBT_SUPPRESS) ||
+        ((s->ibt & TB_IBT_NOTRACK) && (s->prefix & PREFIX_NOTRACK) &&
+         !(CODE64(s) && (s->prefix & PREFIX_FSGS)))) {
+        return;
+    }
+    cet = tcg_temp_new_i64();
+    tcg_gen_ld_i64(cet, tcg_env, ofs);
+    tcg_gen_ori_i64(cet, cet, CET_WAIT_ENDBR);
+    tcg_gen_st_i64(cet, tcg_env, ofs);
+#endif
+}
+
+/* Also JMPABS, a direct jump (Intel APX 355828-009, Table 3.6). */
 static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode)
 {
+    if (decode->e.op1 != X86_TYPE_I) {
+        gen_ibt_track(s);
+    }
     gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
     gen_bnd_jmp(s);

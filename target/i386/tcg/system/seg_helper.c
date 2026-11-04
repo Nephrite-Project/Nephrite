@@ -90,6 +90,7 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
     if (x86_shstk_enabled(env, 0)) {
         env->guest_ssp = 0;
     }
+    x86_ibt_far(env, 0);
 }
 
 void handle_even_inj(CPUX86State *env, int intno, int is_int,

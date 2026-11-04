@@ -235,6 +235,14 @@ typedef enum X86Seg {
 #define TB_CS_BASE_MASK      0xffffffffULL
 /* ShadowStackEnabled(CPL), for near CALL and RET. */
 #define TB_SHSTK             (1ULL << 32)
+/*
+ * EndbranchEnabled(CPL), with the CPL's SUPPRESS and NO_TRACK_EN, and its
+ * TRACKER WAIT_FOR_ENDBRANCH at the TB's start.
+ */
+#define TB_IBT               (1ULL << 33)
+#define TB_IBT_SUPPRESS      (1ULL << 34)
+#define TB_IBT_NOTRACK       (1ULL << 35)
+#define TB_IBT_WAIT          (1ULL << 36)
 
 /* hflags2 */
 

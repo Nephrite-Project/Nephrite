@@ -84,6 +84,12 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
         if (cet & CET_SH_STK_EN) {
             more_flags |= TB_SHSTK;
         }
+        if (cet & CET_ENDBR_EN) {
+            more_flags |= TB_IBT |
+                          (cet & CET_SUPPRESS ? TB_IBT_SUPPRESS : 0) |
+                          (cet & CET_NO_TRACK_EN ? TB_IBT_NOTRACK : 0) |
+                          (cet & CET_WAIT_ENDBR ? TB_IBT_WAIT : 0);
+        }
     }
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;

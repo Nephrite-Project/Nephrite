@@ -742,6 +742,7 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
                 x86_shstk_task_push(env, &shstk_frame, retaddr);
             }
         }
+        x86_ibt_far(env, env->hflags & HF_CPL_MASK);
     } else {
         if (shstk_verify &&
             (shstk_frame.cs != env->segs[R_CS].selector ||
@@ -1099,6 +1100,9 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
                    get_seg_limit(e1, e2),
                    e2);
     env->eip = offset;
+#if !defined(CONFIG_USER_ONLY)
+    x86_ibt_far(env, dpl);
+#endif
 }
 
 #ifdef TARGET_X86_64
@@ -1289,6 +1293,9 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
                    get_seg_limit(e1, e2),
                    e2);
     env->eip = offset;
+#if !defined(CONFIG_USER_ONLY)
+    x86_ibt_far(env, dpl);
+#endif
 }
 #endif /* TARGET_X86_64 */
 
@@ -1902,6 +1909,9 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             break;
         }
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_ibt_far(env, env->hflags & HF_CPL_MASK);
+#endif
 }
 
 /* real mode call */
@@ -2271,6 +2281,9 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
         SET_ESP(sa.sp, sa.sp_mask);
         env->eip = offset;
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_ibt_far(env, env->hflags & HF_CPL_MASK);
+#endif
 }
 
 /*
@@ -2734,6 +2747,7 @@ void HELPER(sysenter)(CPUX86State *env)
     if (x86_shstk_enabled(env, 0)) {
         env->guest_ssp = 0;
     }
+    x86_ibt_far(env, 0);
 #endif
 }
 

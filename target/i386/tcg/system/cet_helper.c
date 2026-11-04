@@ -1,11 +1,13 @@
 /*
- * x86 shadow stacks for TCG (system emulator)
+ * x86 control-flow enforcement for TCG (system emulator)
  *
  * Control-flow enforcement's shadow stacks (Intel SDM 325462-093 Vol. 1,
  * 18.2; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
  * 18): SSP is env->guest_ssp, and shadow-stack accesses go through MMU
  * indexes of their own, whose translations allow only shadow-stack pages
- * (Intel SDM 325462-093 Vol. 3A, 5.6.1).
+ * (Intel SDM 325462-093 Vol. 3A, 5.6.1). Also what helpers do of indirect
+ * branch tracking: far transfers and legacy compatibility treatment (Intel
+ * SDM 325462-093 Vol. 1, 18.3).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -349,6 +351,61 @@ void x86_shstk_task_push(CPUX86State *env, const X86ShstkTask *t,
     shstk_push_frame(env, &ssp, t->cs, t->lip, t->ssp, shstk_cpl(env) == 3,
                      ra);
     env->guest_ssp = ssp;
+}
+
+void x86_ibt_far(CPUX86State *env, int cpl)
+{
+    uint64_t *cet = cpl == 3 ? &env->u_cet : &env->s_cet;
+
+    if ((env->cr[4] & CR4_CET_MASK) && (env->cr[0] & CR0_PE_MASK) &&
+        !(env->eflags & VM_MASK) && (*cet & CET_ENDBR_EN)) {
+        *cet = (*cet & ~CET_SUPPRESS) | CET_WAIT_ENDBR;
+    }
+}
+
+/*
+ * An instruction that is not an ENDBRANCH where the tracker waits for one:
+ * #CP(ENDBRANCH), but with legacy compatibility treatment where the legacy
+ * code page bitmap marks the instruction's page, whose code then runs with
+ * the tracker idle and, unless SUPPRESS_DIS, suppressed (Intel SDM
+ * 325462-093 Vol. 1, 18.3.6).
+ */
+void HELPER(ibt_missing)(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    uint64_t *cet;
+    uint64_t la, addr;
+    uint8_t bits;
+
+    cpu_restore_state(cs, GETPC());
+    cet = shstk_cpl(env) == 3 ? &env->u_cet : &env->s_cet;
+    if (!(*cet & CET_LEG_IW_EN)) {
+        raise_cp(env, CP_ENDBRANCH, 0);
+    }
+    /* The bitmap has a bit for each 4-KByte page of linear addresses. */
+    if (shstk_code64(env)) {
+        la = env->eip;
+        addr = (la & (env->cr[4] & CR4_LA57_MASK ? MAKE_64BIT_MASK(0, 57)
+                                                  : MAKE_64BIT_MASK(0, 48)))
+               >> 15;
+    } else {
+        la = (uint32_t)(env->segs[R_CS].base + env->eip);
+        addr = la >> 15;
+    }
+    addr += *cet & ~0xfffULL;
+    if (!(env->hflags & HF_LMA_MASK)) {
+        addr = (uint32_t)addr;
+    }
+    bits = cpu_ldub_mmuidx_ra(env, addr, cpu_mmu_index(cs, false), 0);
+    if (!(bits & (1 << ((la >> 12) & 7)))) {
+        raise_cp(env, CP_ENDBRANCH, 0);
+    }
+    *cet &= ~(CET_WAIT_ENDBR | CET_SUPPRESS);
+    if (!(*cet & CET_SUPPRESS_DIS)) {
+        *cet |= CET_SUPPRESS;
+    }
+    /* The instruction runs again, translated with the new state. */
+    cpu_loop_exit(cs);
 }
 
 /*

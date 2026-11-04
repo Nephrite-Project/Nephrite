@@ -509,14 +509,16 @@ static void decode_group9(DisasContext *s, CPUX86State *env, X86OpEntry *entry, 
 
 /*
  * A reserved NOP but, with F3 alone, RDSSP for register forms of /1, a NOP
- * itself where shadow stacks are off or absent (Intel SDM 325462-093 Vol.
- * 2B, RDSSPD/RDSSPQ).
+ * itself where shadow stacks are off or absent, and ENDBR64 and ENDBR32 as
+ * F3 0F 1E FA and FB, NOPs themselves without indirect branch tracking
+ * (Intel SDM 325462-093 Vol. 2A and 2B, ENDBR32, ENDBR64, RDSSPD/RDSSPQ).
  */
 static void decode_0F1E(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
 {
     static const X86OpEntry nop = X86_OP_ENTRY1(NOP, nop,v);
     static const X86OpEntry rdssp =
         X86_OP_ENTRYr(RDSSP, R,y, p_f3 chk(no_rex2));
+    static const X86OpEntry endbr = X86_OP_ENTRY0(ENDBR, p_f3);
     int modrm = get_modrm(s, env);
 
     *entry = nop;
@@ -524,8 +526,11 @@ static void decode_0F1E(DisasContext *s, CPUX86State *env, X86OpEntry *entry, ui
         PREFIX_REPZ) {
         return;
     }
-    if ((modrm & 0xf8) == 0xc8 &&
-        (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
+    if ((modrm == 0xfa || modrm == 0xfb) &&
+        !(s->prefix & (PREFIX_REX | PREFIX_REX2))) {
+        *entry = endbr;
+    } else if ((modrm & 0xf8) == 0xc8 &&
+               (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
         *entry = rdssp;
     }
 }
@@ -3486,31 +3491,42 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     case 0xf0:
         s->prefix |= PREFIX_LOCK;
         goto next_byte;
+    /*
+     * 3EH is a no-track prefix where it is the last segment override, or in
+     * 64-bit mode where no 64H or 65H comes with it (Intel SDM 325462-093
+     * Vol. 1, 18.3.1).
+     */
     case 0x2e:
         if (!CODE64(s)) {
             s->override = R_CS;
+            s->prefix &= ~PREFIX_NOTRACK;
         }
         goto next_byte;
     case 0x36:
         if (!CODE64(s)) {
             s->override = R_SS;
+            s->prefix &= ~PREFIX_NOTRACK;
         }
         goto next_byte;
     case 0x3e:
         if (!CODE64(s)) {
             s->override = R_DS;
         }
+        s->prefix |= PREFIX_NOTRACK;
         goto next_byte;
     case 0x26:
         if (!CODE64(s)) {
             s->override = R_ES;
+            s->prefix &= ~PREFIX_NOTRACK;
         }
         goto next_byte;
     case 0x64:
         s->override = R_FS;
+        s->prefix = (s->prefix & ~PREFIX_NOTRACK) | PREFIX_FSGS;
         goto next_byte;
     case 0x65:
         s->override = R_GS;
+        s->prefix = (s->prefix & ~PREFIX_NOTRACK) | PREFIX_FSGS;
         goto next_byte;
     case 0x66:
         s->prefix |= PREFIX_DATA;

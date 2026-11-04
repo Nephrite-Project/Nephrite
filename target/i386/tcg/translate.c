@@ -52,6 +52,9 @@
 #define PREFIX_REX    0x40
 #define PREFIX_REX2   0x80
 #define PREFIX_EVEX   0x100
+/* 3EH as a no-track prefix, with no FS or GS override in 64-bit mode. */
+#define PREFIX_NOTRACK 0x200
+#define PREFIX_FSGS   0x400
 
 #ifdef TARGET_X86_64
 # define ctztl  ctz64
@@ -123,6 +126,7 @@ typedef struct DisasContext {
     bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */
     bool shstk; /* ShadowStackEnabled(CPL) */
+    uint64_t ibt; /* the TB_IBT flags */
     bool cc_op_dirty;
 
     CCOp cc_op;  /* current CC operation */
@@ -3892,6 +3896,8 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
 
     dc->cs_base = dc->base.tb->cs_base & TB_CS_BASE_MASK;
     dc->shstk = dc->base.tb->cs_base & TB_SHSTK;
+    dc->ibt = dc->base.tb->cs_base &
+              (TB_IBT | TB_IBT_SUPPRESS | TB_IBT_NOTRACK | TB_IBT_WAIT);
     dc->pc_save = dc->base.pc_next;
     dc->flags = flags;
     dc->ac_check = cpl == 3 && (flags & AC_MASK);
@@ -3965,6 +3971,26 @@ static void i386_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
     tcg_gen_insn_start(pc_arg, dc->cc_op, 0);
 }
 
+#ifndef CONFIG_USER_ONLY
+/*
+ * Whether a TB that waits for an ENDBRANCH starts with one, ENDBR64 in
+ * 64-bit mode and ENDBR32 elsewhere, or with INT3 or INT1, whose events come
+ * first (Intel SDM 325462-093 Vol. 1, 18.3.5 and Table 18-1).
+ */
+static bool ibt_landing_pad(DisasContext *s, CPUX86State *env)
+{
+    vaddr pc = s->base.pc_next;
+    uint8_t b = translator_ldub(env, &s->base, pc);
+
+    if (b == 0xcc || b == 0xf1) {
+        return true;
+    }
+    return b == 0xf3 && translator_ldub(env, &s->base, pc + 1) == 0x0f &&
+           translator_ldub(env, &s->base, pc + 2) == 0x1e &&
+           translator_ldub(env, &s->base, pc + 3) == (CODE64(s) ? 0xfa : 0xfb);
+}
+#endif
+
 static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
@@ -3987,6 +4013,13 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
         gen_exception(dc, EXCP_VSYSCALL);
         dc->base.pc_next = dc->pc + 1;
         return;
+    }
+#endif
+
+#ifndef CONFIG_USER_ONLY
+    if ((dc->ibt & TB_IBT_WAIT) && dc->base.num_insns == 1 &&
+        !ibt_landing_pad(dc, cpu_env(cpu))) {
+        gen_helper_ibt_missing(tcg_env);
     }
 #endif
 

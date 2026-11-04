@@ -278,6 +278,13 @@ void x86_shstk_return_commit(CPUX86State *env, const X86ShstkReturn *r,
 void x86_shstk_task_pop(CPUX86State *env, X86ShstkTask *t, uintptr_t ra);
 void x86_shstk_task_push(CPUX86State *env, const X86ShstkTask *t,
                          uintptr_t ra);
+/*
+ * A far CALL or JMP, an event's delivery, SYSCALL, SYSENTER, or a task
+ * switch other than IRET's, to CPL cpl: where indirect branch tracking is
+ * on there, its tracker waits for an ENDBRANCH, unsuppressed (Intel SDM
+ * 325462-093 Vol. 1, 18.3.3).
+ */
+void x86_ibt_far(CPUX86State *env, int cpl);
 #endif
 
 /* The VMX interruption types of INT1 and of INT3 and INTO. */
