@@ -324,6 +324,7 @@ static void tss_load_seg(CPUX86State *env, X86Seg seg_reg, int selector,
         if (seg_reg == R_SS || seg_reg == R_CS) {
             raise_exception_err_ra(env, EXCP0A_TSS, selector & 0xfffc, retaddr);
         }
+        cpu_x86_load_seg_cache(env, seg_reg, selector, 0, 0, 0);
     }
 }
 
@@ -575,9 +576,13 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
             load_seg_vm(env, i, new_segs[i]);
         }
     } else {
-        /* first just selectors as the rest may trigger exceptions */
+        /*
+         * The selectors first, over the old descriptors, which those after a
+         * fault keep (Intel SDM 325462-093 Vol. 3A, 10.3, steps 9 and 14), as
+         * Linux 7.3's KVM leaves them.
+         */
         for (i = 0; i < 6; i++) {
-            cpu_x86_load_seg_cache(env, i, new_segs[i], 0, 0, 0);
+            env->segs[i].selector = new_segs[i];
         }
     }
 
@@ -612,7 +617,13 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     /* load the segments */
     if (!(new_eflags & VM_MASK)) {
         int cpl = new_segs[R_CS] & 3;
+        SegmentCache *ss = &env->segs[R_SS];
+
         tss_load_seg(env, R_CS, new_segs[R_CS], cpl, retaddr);
+        /* With CS loaded, the CPL is the new task's though SS may fail. */
+        cpu_x86_load_seg_cache(env, R_SS, ss->selector, ss->base, ss->limit,
+                               (ss->flags & ~DESC_DPL_MASK) |
+                               cpl << DESC_DPL_SHIFT);
         tss_load_seg(env, R_SS, new_segs[R_SS], cpl, retaddr);
         tss_load_seg(env, R_ES, new_segs[R_ES], cpl, retaddr);
         tss_load_seg(env, R_DS, new_segs[R_DS], cpl, retaddr);
