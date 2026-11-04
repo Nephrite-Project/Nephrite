@@ -1050,6 +1050,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_8000_0021_EAX_FEATURES ( \
             CPUID_8000_0021_EAX_NO_NESTED_DATA_BP | \
             CPUID_8000_0021_EAX_NULL_SEL_CLR_BASE | \
+            CPUID_8000_0021_EAX_ERAPS | \
             CPUID_8000_0021_EAX_KERNEL_FEATURES)
 
 FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
@@ -1454,7 +1455,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_8000_0021_EBX] = {
         .type = CPUID_FEATURE_WORD,
         .cpuid = { .eax = 0x80000021, .reg = R_EBX, },
-        .tcg_features = 0,
+        .tcg_features = CPUID_8000_0021_EBX_RAPSIZE,
         .unmigratable_flags = 0,
     },
     [FEAT_8000_0021_ECX] = {
