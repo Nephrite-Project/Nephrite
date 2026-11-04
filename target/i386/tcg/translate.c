@@ -3162,6 +3162,8 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_WRITE_CR0);
+            /* LMSW takes the selective CR0 intercept whatever it writes. */
+            gen_svm_check_intercept(s, SVM_EXIT_CR0_SEL_WRITE);
             gen_ld_modrm(s, decode, MO_16);
             /*
              * Only the 4 lower bits of CR0 are modified.
