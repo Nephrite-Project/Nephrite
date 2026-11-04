@@ -1316,22 +1316,25 @@ static bool vmx_tpr_below_threshold(CPUX86State *env)
 }
 
 /*
- * TPR virtualization after the instruction at RA wrote VTPR, whose exit
- * is trap-like, with a single-step trap pending (Intel SDM 325462-093
- * Vol. 3C, 30.3.4).
+ * A trap-like VM exit after the instruction at RA, whose single-step trap
+ * stays pending (Intel SDM 325462-093 Vol. 3C, 30.3.4).
  */
-static void vmx_tpr_virtualize(CPUX86State *env, uintptr_t ra)
+static G_NORETURN void vmx_trap_exit(CPUX86State *env, uint32_t reason,
+                                     uint64_t qual, uintptr_t ra)
 {
-    CPUState *cs = env_cpu(env);
-
-    if (!vmx_tpr_below_threshold(env)) {
-        return;
-    }
-    cpu_restore_state(cs, ra);
+    cpu_restore_state(env_cpu(env), ra);
     env->eip += env->svm_insn_len;
     do_end_instruction(env);
     env->vmx.exit_pending_dbg = x86_step_trap(env, false);
-    x86_vmx_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, 0);
+    x86_vmx_exit(env, reason, qual, 0);
+}
+
+/* TPR virtualization after the instruction at RA wrote VTPR. */
+static void vmx_tpr_virtualize(CPUX86State *env, uintptr_t ra)
+{
+    if (vmx_tpr_below_threshold(env)) {
+        vmx_trap_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, ra);
+    }
 }
 
 /*
@@ -1356,18 +1359,45 @@ void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
 #define VMX_APIC_ACCESS_DELIVERY 3
 
 /*
+ * The 16-byte lines of the APIC-access page whose accesses "APIC-register
+ * virtualization" virtualizes, as bits by offset over 16: for writes, ID,
+ * TPR, EOI, LDR, DFR, SVR, ESR, ICR, the LVT, the timer's initial count, and
+ * its divide configuration; for reads, also version, ISR, TMR, and IRR
+ * (Intel SDM 325462-093 Vol. 3C, 32.4.2 and 32.4.3.1).
+ */
+#define VMX_APIC_LINE(offset) (1ULL << ((offset) >> 4))
+#define VMX_APIC_LINES(first, last) \
+    ((VMX_APIC_LINE(last) << 1) - VMX_APIC_LINE(first))
+#define VMX_APIC_REG_VIRT_WRITES \
+    (VMX_APIC_LINE(0x20) | VMX_APIC_LINE(0x80) | VMX_APIC_LINE(0xb0) | \
+     VMX_APIC_LINES(0xd0, 0xf0) | VMX_APIC_LINE(0x280) | \
+     VMX_APIC_LINES(0x300, 0x380) | VMX_APIC_LINE(0x3e0))
+#define VMX_APIC_REG_VIRT_READS \
+    (VMX_APIC_REG_VIRT_WRITES | VMX_APIC_LINE(0x30) | \
+     VMX_APIC_LINES(0x100, 0x270))
+
+/*
  * The APIC-access page (Intel SDM 325462-093 Vol. 3C, 32.4), whose data
- * accesses TLB entries send to the AVIC address space's page: with "use
- * TPR shadow", those of 32 bits or fewer at offset 080H are virtualized,
- * made to the virtual-APIC page; others exit, before they are made, as do
- * all of event delivery's, though the processor virtualizes some of those.
+ * accesses TLB entries send to the AVIC address space's page. With "use
+ * TPR shadow", accesses of 32 bits or fewer within the low 4 bytes of a
+ * 16-byte line are virtualized, made to the virtual-APIC page, at offset
+ * 080H, and with "APIC-register virtualization" in the lines it lists;
+ * others exit, before they are made, as do all of event delivery's, though
+ * the processor virtualizes some of those.
  */
 static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
-                                 unsigned size)
+                                 unsigned size, bool write)
 {
-    return (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW) &&
-           offset == 0x80 && size <= 4 &&
-           !(env->vmx.idt_vectoring_info & VMX_INTR_VALID);
+    uint64_t lines = write ? VMX_APIC_REG_VIRT_WRITES : VMX_APIC_REG_VIRT_READS;
+
+    if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW) || size > 4 ||
+        ((offset | (offset + size - 1)) & 0xc) ||
+        (env->vmx.idt_vectoring_info & VMX_INTR_VALID)) {
+        return false;
+    }
+    return offset == 0x80 ||
+           ((vmx_proc2(env) & VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT) &&
+            offset < 0x400 && (lines & VMX_APIC_LINE(offset)));
 }
 
 static G_NORETURN void vmx_apic_access_exit(CPUX86State *env, hwaddr offset,
@@ -1390,7 +1420,7 @@ uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
 {
     uint8_t buf[8];
 
-    if (!vmx_apic_virtualized(env, offset, size)) {
+    if (!vmx_apic_virtualized(env, offset, size, false)) {
         vmx_apic_access_exit(env, offset, VMX_APIC_ACCESS_READ, ra);
     }
     address_space_read(env_cpu(env)->as, VMCS(VIRTUAL_APIC_ADDR) + offset,
@@ -1399,10 +1429,12 @@ uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
 }
 
 /*
- * A virtualized write and its APIC-write emulation, which for offset 080H
- * clears bytes 3:1 of VTPR, then virtualizes the TPR (Intel SDM
- * 325462-093 Vol. 3C, 32.4.3.2): at once, not after the operation, so a
- * trap-like exit leaves out what the instruction does past its store.
+ * A virtualized write and its APIC-write emulation (Intel SDM 325462-093
+ * Vol. 3C, 32.4.3.2): at offset 080H, bytes 3:1 of VTPR clear, then TPR
+ * virtualization; at 310H to 313H, bytes 2:0 of VICR_HI clear; at others,
+ * an APIC-write VM exit, trap-like. It comes at once, not after the
+ * operation, so a trap-like exit leaves out what the instruction does past
+ * its store.
  */
 void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
                         unsigned size, uintptr_t ra)
@@ -1411,14 +1443,21 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
     hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
     uint8_t buf[8];
 
-    if (!vmx_apic_virtualized(env, offset, size)) {
+    if (!vmx_apic_virtualized(env, offset, size, true)) {
         vmx_apic_access_exit(env, offset, VMX_APIC_ACCESS_WRITE, ra);
     }
     stn_le_p(buf, size, val);
     address_space_write(cs->as, vapic + offset, MEMTXATTRS_UNSPECIFIED, buf,
                         size);
-    x86_stl_phys(cs, vapic + 0x80, x86_ldub_phys(cs, vapic + 0x80));
-    vmx_tpr_virtualize(env, ra);
+    if (offset == 0x80) {
+        x86_stl_phys(cs, vapic + 0x80, x86_ldub_phys(cs, vapic + 0x80));
+        vmx_tpr_virtualize(env, ra);
+    } else if (offset >= 0x310 && offset <= 0x313) {
+        x86_stl_phys(cs, vapic + 0x310,
+                     x86_ldl_phys(cs, vapic + 0x310) & 0xff000000);
+    } else {
+        vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, offset, ra);
+    }
 }
 
 /* CLTS exits where the masks own CR0.TS and the shadow has it set. */

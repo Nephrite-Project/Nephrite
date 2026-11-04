@@ -2116,6 +2116,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_INVVPID 53
 #define VMX_EXIT_WBINVD 54
 #define VMX_EXIT_XSETBV 55
+#define VMX_EXIT_APIC_WRITE 56
 #define VMX_EXIT_INVPCID 58
 #define VMX_EXIT_ENTRY_FAILURE (1U << 31)
 
