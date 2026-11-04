@@ -228,6 +228,12 @@ typedef enum X86Seg {
 #define HF_LBR_MASK          (1 << HF_LBR_SHIFT)
 #define HF_LAM_MASK          (1U << HF_LAM_SHIFT)
 
+/*
+ * TB flags beyond those of hflags, which take all of a TB's 32 flag bits,
+ * in bits 63:32 of its cs_base, which the 32-bit CS base leaves clear.
+ */
+#define TB_CS_BASE_MASK      0xffffffffULL
+
 /* hflags2 */
 
 #define HF2_GIF_SHIFT            0 /* if set CPU takes interrupts */

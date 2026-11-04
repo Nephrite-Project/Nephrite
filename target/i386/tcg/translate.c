@@ -3858,7 +3858,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     int cpl = (flags >> HF_CPL_SHIFT) & 3;
     int iopl = (flags >> IOPL_SHIFT) & 3;
 
-    dc->cs_base = dc->base.tb->cs_base;
+    dc->cs_base = dc->base.tb->cs_base & TB_CS_BASE_MASK;
     dc->pc_save = dc->base.pc_next;
     dc->flags = flags;
     dc->ac_check = cpl == 3 && (flags & AC_MASK);

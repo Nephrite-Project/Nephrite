@@ -54,6 +54,7 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
 {
     CPUX86State *env = cpu_env(cs);
     uint32_t flags, cs_base;
+    uint64_t more_flags = 0;
     vaddr pc;
 
     flags = env->hflags |
@@ -84,7 +85,9 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
         pc = (uint32_t)(cs_base + env->eip);
     }
 
-    return (TCGTBCPUState){ .pc = pc, .flags = flags, .cs_base = cs_base };
+    return (TCGTBCPUState){
+        .pc = pc, .flags = flags, .cs_base = cs_base | more_flags
+    };
 }
 
 static void x86_cpu_synchronize_from_tb(CPUState *cs,
@@ -97,7 +100,7 @@ static void x86_cpu_synchronize_from_tb(CPUState *cs,
         if (tb->flags & HF_CS64_MASK) {
             env->eip = tb->pc;
         } else {
-            env->eip = (uint32_t)(tb->pc - tb->cs_base);
+            env->eip = (uint32_t)(tb->pc - (tb->cs_base & TB_CS_BASE_MASK));
         }
     }
 }
@@ -118,7 +121,7 @@ static void x86_restore_state_to_opc(CPUState *cs,
          * stay the same across the translation block.  Add the CS base back before
          * replacing the low bits, and subtract it below just like for !CF_PCREL.
          */
-        uint64_t pc = env->eip + tb->cs_base;
+        uint64_t pc = env->eip + (tb->cs_base & TB_CS_BASE_MASK);
         new_pc = (pc & TARGET_PAGE_MASK) | data[0];
     } else {
         new_pc = data[0];
@@ -126,7 +129,7 @@ static void x86_restore_state_to_opc(CPUState *cs,
     if (tb->flags & HF_CS64_MASK) {
         env->eip = new_pc;
     } else {
-        env->eip = (uint32_t)(new_pc - tb->cs_base);
+        env->eip = (uint32_t)(new_pc - (tb->cs_base & TB_CS_BASE_MASK));
     }
 
     if (cc_op != CC_OP_DYNAMIC) {
