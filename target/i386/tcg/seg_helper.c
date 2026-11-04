@@ -1969,6 +1969,20 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
     }
 }
 
+/*
+ * IRET ends NMI blocking: the blocking of virtual NMIs where SVM guest
+ * mode has them (AMD64 Architecture Programmer's Manual Volume 2, 24593
+ * rev. 3.45, 15.21.10), else the processor's own.
+ */
+static void iret_unblock_nmis(CPUX86State *env)
+{
+    if (svm_vnmi_enabled(env)) {
+        env->int_ctl &= ~V_NMI_BLOCKING_MASK;
+    } else {
+        env->hflags2 &= ~HF2_NMI_MASK;
+    }
+}
+
 /* real and vm86 mode iret */
 void HELPER(iret_real)(CPUX86State *env, int shift)
 {
@@ -2009,7 +2023,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
         eflags_mask &= 0xffff;
     }
     cpu_load_eflags(env, new_eflags, eflags_mask);
-    env->hflags2 &= ~HF2_NMI_MASK;
+    iret_unblock_nmis(env);
 }
 
 static inline void validate_seg(CPUX86State *env, X86Seg seg_reg, int cpl)
@@ -2291,7 +2305,7 @@ void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
     } else {
         helper_ret_protected(env, shift, 1, 0, GETPC());
     }
-    env->hflags2 &= ~HF2_NMI_MASK;
+    iret_unblock_nmis(env);
 }
 
 void HELPER(lret_protected)(CPUX86State *env, int shift, int addend)

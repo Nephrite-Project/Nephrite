@@ -210,6 +210,17 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         env->hflags2 |= HF2_NMI_MASK;
         do_interrupt_x86_hardirq(env, EXCP02_NMI, 1);
         break;
+    case CPU_INTERRUPT_VNMI:
+        /*
+         * Not intercepted, a virtual NMI is no longer pending but blocked
+         * before the IDT is read (AMD64 Architecture Programmer's Manual
+         * Volume 2, 24593 rev. 3.45, 15.21.10).
+         */
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_VNMI);
+        env->int_ctl = (env->int_ctl & ~V_NMI_PENDING_MASK) |
+                       V_NMI_BLOCKING_MASK;
+        do_interrupt_x86_hardirq(env, EXCP02_NMI, 1);
+        break;
     case CPU_INTERRUPT_MCE:
         cpu_reset_interrupt(cs, CPU_INTERRUPT_MCE);
         do_interrupt_x86_hardirq(env, EXCP12_MCHK, 0);

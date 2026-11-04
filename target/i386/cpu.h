@@ -1525,6 +1525,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 const char *x86_exception_name(int excp);
 
 /* i386-specific interrupt pending bits.  */
+#define CPU_INTERRUPT_VNMI      CPU_INTERRUPT_TGT_EXT_0
 #define CPU_INTERRUPT_POLL      CPU_INTERRUPT_TGT_EXT_1
 #define CPU_INTERRUPT_SMI       CPU_INTERRUPT_TGT_EXT_2
 #define CPU_INTERRUPT_NMI       CPU_INTERRUPT_TGT_EXT_3
@@ -2963,6 +2964,18 @@ static inline uint32_t x86_mmu_context_map(const CPUX86State *env)
 #define CC_OP   (env->cc_op)
 
 #include "svm.h"
+
+/*
+ * Whether SVM guest mode's NMIs are virtual, blocked by V_NMI_MASK rather
+ * than the processor's own (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.45, 15.21.10).
+ */
+static inline bool svm_vnmi_enabled(const CPUX86State *env)
+{
+    return (env->hflags & HF_GUEST_MASK) &&
+           (env->features[FEAT_SVM] & CPUID_SVM_VNMI) &&
+           (env->int_ctl & V_NMI_ENABLE_MASK);
+}
 
 #if !defined(CONFIG_USER_ONLY)
 #include "hw/i386/apic.h"

@@ -472,6 +472,13 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     }
     env->int_ctl = c->int_ctl;
     env->svm_int_vector = c->int_vector;
+    /*
+     * Virtual NMIs need the NMI intercept (AMD64 Architecture Programmer's
+     * Manual Volume 2, 24593 rev. 3.45, 15.21.10).
+     */
+    if (svm_vnmi_enabled(env) && !cpu_svm_has_intercept(env, SVM_EXIT_NMI)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     if (env->int_ctl & V_INTR_MASKING_MASK) {
         env->hflags2 |= HF2_VINTR_MASK;
@@ -550,6 +557,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (ctl_has_irq(env)) {
         cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
     }
+    if (svm_vnmi_enabled(env) && (env->int_ctl & V_NMI_PENDING_MASK)) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VNMI);
+    }
 
     if (virtual_gif_set(env)) {
         env->hflags2 |= HF2_VGIF_MASK;
@@ -596,6 +606,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             cs->exception_index = -1;
             break;
         case SVM_EVTINJ_TYPE_NMI:
+            /* An injected NMI blocks virtual ones, as a virtual NMI does. */
+            if (svm_vnmi_enabled(env)) {
+                env->int_ctl |= V_NMI_BLOCKING_MASK;
+            }
             cs->exception_index = EXCP02_NMI;
             env->error_code = event_inj_err;
             env->exception_is_int = 0;
@@ -1056,6 +1070,17 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.cr3), env->cr[3]);
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.cr4), env->cr[4]);
+    /* A #VMEXIT during a virtual NMI's delivery saves it unblocked. */
+    if (svm_vnmi_enabled(env)) {
+        uint32_t event_inj = x86_ldl_phys(cs, env->vm_vmcb +
+                                          offsetof(struct vmcb,
+                                                   control.event_inj));
+
+        if ((event_inj & SVM_EVTINJ_VALID) &&
+            (event_inj & SVM_EVTINJ_TYPE_MASK) == SVM_EVTINJ_TYPE_NMI) {
+            env->int_ctl &= ~V_NMI_BLOCKING_MASK;
+        }
+    }
     x86_stl_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.int_ctl), env->int_ctl);
 
@@ -1108,8 +1133,10 @@ load_host:
     env->intercept = 0;
     env->intercept_exceptions = 0;
 
-    /* Clears the V_IRQ and V_INTR_MASKING bits inside the processor. */
-    cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
+    /*
+     * Clears the V_IRQ, V_NMI and V_INTR_MASKING bits inside the processor.
+     */
+    cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ | CPU_INTERRUPT_VNMI);
     env->int_ctl = 0;
 
     /* Clears the TSC_OFFSET inside the processor. */

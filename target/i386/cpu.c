@@ -969,7 +969,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 #define TCG_SVM_FEATURES (CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE | \
           CPUID_SVM_VMCBCLEAN | CPUID_SVM_FLUSHASID | \
-          CPUID_SVM_DECODEASSIST | CPUID_SVM_VGIF | \
+          CPUID_SVM_DECODEASSIST | CPUID_SVM_VGIF | CPUID_SVM_VNMI | \
           CPUID_SVM_SVME_ADDR_CHK | CPUID_SVM_KERNEL_FEATURES)
 
 #define TCG_KVM_FEATURES 0
@@ -10680,6 +10680,13 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
         } else if ((interrupt_request & CPU_INTERRUPT_NMI) &&
                    !(env->hflags2 & HF2_NMI_MASK)) {
             return CPU_INTERRUPT_NMI;
+        } else if ((interrupt_request & CPU_INTERRUPT_VNMI) &&
+                   svm_vnmi_enabled(env) &&
+                   (env->int_ctl & V_NMI_PENDING_MASK) &&
+                   !(env->int_ctl & V_NMI_BLOCKING_MASK) &&
+                   (env->hflags2 & HF2_VGIF_MASK) &&
+                   !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
+            return CPU_INTERRUPT_VNMI;
         } else if (interrupt_request & CPU_INTERRUPT_MCE) {
             return CPU_INTERRUPT_MCE;
         } else if ((interrupt_request & CPU_INTERRUPT_HARD) &&
