@@ -483,7 +483,8 @@ do_check_protect_pse36:
     return true;
 
  do_fault_rsvd:
-    error_code = PG_ERROR_RSVD_MASK;
+    /* Only present entries can have reserved bits set. */
+    error_code = PG_ERROR_RSVD_MASK | PG_ERROR_P_MASK;
     goto do_fault_cont;
  do_fault_protect:
     error_code = PG_ERROR_P_MASK;
