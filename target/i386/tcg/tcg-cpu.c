@@ -132,7 +132,12 @@ static void x86_restore_state_to_opc(CPUState *cs,
     if (cc_op != CC_OP_DYNAMIC) {
         env->cc_op = cc_op;
     }
-    env->svm_insn_len = data[2];
+    env->svm_insn_len = data[2] & X86_PMU_INSN_LEN;
+#ifndef CONFIG_USER_ONLY
+    if (x86_pmu_enabled(env)) {
+        x86_pmu_restore(env, tb, data[2]);
+    }
+#endif
 }
 
 int x86_mmu_index_pl(CPUX86State *env, unsigned pl)

@@ -174,6 +174,9 @@ void raise_interrupt2(CPUX86State *env, int intno,
 
 G_NORETURN void raise_interrupt(CPUX86State *env, int intno, int next_eip_addend)
 {
+#if !defined(CONFIG_USER_ONLY)
+    x86_pmu_soft_int(env);
+#endif
     raise_interrupt2(env, intno, 1, 0, next_eip_addend, 0);
 }
 
@@ -191,6 +194,7 @@ G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
 
     env->svm_insn_len = next_eip_addend;
 #if !defined(CONFIG_USER_ONLY)
+    x86_pmu_soft_int(env);
     if (env->vmx.nonroot) {
         env->vmx.soft_exception = X86_VMX_SOFT_EXCEPTION;
     }

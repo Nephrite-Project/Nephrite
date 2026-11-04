@@ -204,6 +204,33 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
 bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
 #endif
 
+/*
+ * The third insn_start word: the instruction's length, and where the TB
+ * counts for the PMU, whether the instruction counted a branch and a
+ * mispredicted one, and its index in the TB.
+ */
+#define X86_PMU_INSN_LEN 0x1f
+#define X86_PMU_INSN_BRANCH 0x20
+#define X86_PMU_INSN_MISPREDICT 0x40
+#define X86_PMU_INSN_INDEX_SHIFT 8
+
+/* system/pmu.c */
+#ifndef CONFIG_USER_ONLY
+bool x86_pmu_enabled(CPUX86State *env);
+unsigned x86_pmu_bucket(uint32_t hflags);
+void x86_pmu_reconfigure(CPUX86State *env);
+int x86_pmu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
+void x86_pmu_set_global_ctrl(CPUX86State *env, uint64_t val);
+bool x86_pmu_rdpmc(CPUX86State *env);
+void x86_pmu_restore(CPUX86State *env, const TranslationBlock *tb,
+                     uint64_t word);
+void x86_pmu_restored_retired(CPUX86State *env);
+void x86_pmu_soft_int(CPUX86State *env);
+void x86_pmu_event_start(CPUX86State *env, int is_int);
+void x86_pmu_event_end(CPUX86State *env);
+#endif
+
 /* The VMX interruption types of INT1 and of INT3 and INTO. */
 #define X86_VMX_PRIV_SOFT_EXCEPTION 5
 #define X86_VMX_SOFT_EXCEPTION 6

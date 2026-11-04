@@ -199,6 +199,21 @@ static void apic_local_deliver(APICCommonState *s, int vector)
     }
 }
 
+/*
+ * A performance monitoring counter's overflow interrupt, through the LVT
+ * performance counter entry, which MASK has the delivery mask, as Intel
+ * processors do (Intel SDM 325462-093 Vol. 3A, 13.5.1).
+ */
+void apic_deliver_pmi(APICCommonState *s, bool mask)
+{
+    if (!(s->lvt[APIC_LVT_PERFORM] & APIC_LVT_MASKED)) {
+        apic_local_deliver(s, APIC_LVT_PERFORM);
+        if (mask) {
+            s->lvt[APIC_LVT_PERFORM] |= APIC_LVT_MASKED;
+        }
+    }
+}
+
 void apic_deliver_pic_intr(APICCommonState *s, int level)
 {
     if (level) {

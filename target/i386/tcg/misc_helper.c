@@ -131,7 +131,7 @@ void HELPER(rdtscp)(CPUX86State *env)
     do_rdtsc(env, SVM_EXIT_RDTSCP, GETPC());
 }
 
-G_NORETURN void HELPER(rdpmc)(CPUX86State *env)
+void HELPER(rdpmc)(CPUX86State *env)
 {
     if (((env->cr[4] & CR4_PCE_MASK) == 0 ) &&
         ((env->hflags & HF_CPL_MASK) != 0)) {
@@ -139,9 +139,13 @@ G_NORETURN void HELPER(rdpmc)(CPUX86State *env)
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_RDPMC, 0, GETPC());
 
-    /* currently unimplemented */
-    qemu_log_mask(LOG_UNIMP, "x86: unimplemented rdpmc\n");
-    raise_exception_err(env, EXCP06_ILLOP, 0);
+#ifndef CONFIG_USER_ONLY
+    if (x86_pmu_rdpmc(env)) {
+        return;
+    }
+#endif
+    /* A counter that does not exist (Intel SDM 325462-093 Vol. 2B, RDPMC). */
+    raise_exception_ra(env, EXCP0D_GPF, GETPC());
 }
 
 G_NORETURN void HELPER(pause)(CPUX86State *env)

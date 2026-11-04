@@ -365,7 +365,11 @@ uint64_t x86_efer_writable(CPUX86State *env)
 bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 {
     CPUState *cs = env_cpu(env);
+    int pmu = x86_pmu_wrmsr(env, msr, val);
 
+    if (pmu >= 0) {
+        return pmu;
+    }
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         env->sysenter_cs = val & 0xffff;
@@ -402,8 +406,12 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     }
     case MSR_EFER: {
         uint64_t update_mask = x86_efer_writable(env);
+        uint64_t old = env->efer;
 
         cpu_load_efer(env, (env->efer & ~update_mask) | (val & update_mask));
+        if (((old ^ env->efer) & MSR_EFER_SVME) && x86_pmu_enabled(env)) {
+            x86_pmu_reconfigure(env);
+        }
         break;
     }
     case MSR_STAR:
@@ -728,6 +736,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 void HELPER(wrmsr)(CPUX86State *env)
 {
     uint64_t val;
+    bool ok;
 
     cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 1, GETPC());
 
@@ -747,7 +756,11 @@ void HELPER(wrmsr)(CPUX86State *env)
         return;
     }
 
-    if (!x86_cpu_wrmsr(env, (uint32_t)env->regs[R_ECX], val)) {
+    /* WRMSR has not retired for the PMU it accesses. */
+    env->pmu.unretired = 1;
+    ok = x86_cpu_wrmsr(env, (uint32_t)env->regs[R_ECX], val);
+    env->pmu.unretired = 0;
+    if (!ok) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
 }
@@ -757,7 +770,11 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
 {
     X86CPU *x86_cpu = env_archcpu(env);
     uint64_t val;
+    int pmu = x86_pmu_rdmsr(env, msr, valp);
 
+    if (pmu >= 0) {
+        return pmu;
+    }
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         val = env->sysenter_cs;
@@ -1041,6 +1058,7 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
 void HELPER(rdmsr)(CPUX86State *env)
 {
     uint64_t val;
+    bool ok;
 
     cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
 
@@ -1061,7 +1079,11 @@ void HELPER(rdmsr)(CPUX86State *env)
         return;
     }
 
-    if (!x86_cpu_rdmsr(env, (uint32_t)env->regs[R_ECX], &val)) {
+    /* RDMSR has not retired for the PMU it accesses. */
+    env->pmu.unretired = 1;
+    ok = x86_cpu_rdmsr(env, (uint32_t)env->regs[R_ECX], &val);
+    env->pmu.unretired = 0;
+    if (!ok) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
     env->regs[R_EAX] = (uint32_t)(val);

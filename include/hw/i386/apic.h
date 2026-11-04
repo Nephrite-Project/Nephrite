@@ -8,6 +8,7 @@ void apic_set_max_apic_id(uint32_t max_apic_id);
 int apic_accept_pic_intr(APICCommonState *s);
 void apic_deliver_pic_intr(APICCommonState *s, int level);
 void apic_deliver_nmi(APICCommonState *s);
+void apic_deliver_pmi(APICCommonState *s, bool mask);
 int apic_get_interrupt(APICCommonState *s);
 int cpu_set_apic_base(APICCommonState *s, uint64_t val);
 uint64_t cpu_get_apic_base(APICCommonState *s);

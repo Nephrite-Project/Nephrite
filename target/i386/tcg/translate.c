@@ -145,6 +145,17 @@ typedef struct DisasContext {
     sigjmp_buf jmpbuf;
     TCGOp *prev_insn_start;
     TCGOp *prev_insn_end;
+
+#ifndef CONFIG_USER_ONLY
+    /* The TB counts its instructions for the PMU (tcg/system/pmu.c). */
+    bool pmu;
+    /* AMD's: far control transfers count as mispredicted branches. */
+    bool pmu_far_misses;
+    /* X86_PMU_INSN_BRANCH and _MISPREDICT, as the instruction counted. */
+    uint8_t pmu_counted;
+    /* The add whose operand becomes the TB's instruction count. */
+    TCGOp *pmu_insns;
+#endif
 } DisasContext;
 
 /*
@@ -1710,10 +1721,65 @@ static void gen_helper_fp_arith_STN_ST0(int op, int opreg)
     }
 }
 
+#ifndef CONFIG_USER_ONLY
+/* The offset of the PMU's FIELD for this TB's bucket. */
+#define PMU_TOTAL(s, field) \
+    offsetof(CPUX86State, pmu.field[x86_pmu_bucket((s)->flags)])
+
+static void gen_pmu_add(size_t offset, int64_t n)
+{
+    TCGv_i64 total = tcg_temp_new_i64();
+
+    tcg_gen_ld_i64(total, tcg_env, offset);
+    tcg_gen_addi_i64(total, total, n);
+    tcg_gen_st_i64(total, tcg_env, offset);
+}
+
+/*
+ * The TB's start counts its instructions for the PMU, first updating the
+ * counters if the instructions before passed the bucket's limit.  The count
+ * comes in when the TB is complete (i386_tr_tb_stop).
+ */
+static void gen_pmu_tb_start(DisasContext *s)
+{
+    TCGv_i64 insns = tcg_temp_new_i64();
+    TCGv_i64 limit = tcg_temp_new_i64();
+    TCGLabel *counting = gen_new_label();
+
+    tcg_gen_ld_i64(insns, tcg_env, PMU_TOTAL(s, insns));
+    tcg_gen_ld_i64(limit, tcg_env, PMU_TOTAL(s, limit));
+    tcg_gen_brcond_i64(TCG_COND_LTU, insns, limit, counting);
+    gen_helper_pmu_check(tcg_env);
+    tcg_gen_ld_i64(insns, tcg_env, PMU_TOTAL(s, insns));
+    gen_set_label(counting);
+    tcg_gen_add_i64(insns, insns, tcg_constant_i64(0));
+    s->pmu_insns = tcg_last_op();
+    tcg_gen_st_i64(insns, tcg_env, PMU_TOTAL(s, insns));
+}
+
+/* The instruction faults, which the TB's start counted as retiring. */
+static void gen_pmu_fault(DisasContext *s)
+{
+    if (!s->pmu) {
+        return;
+    }
+    gen_pmu_add(PMU_TOTAL(s, insns), -1);
+    if (s->pmu_counted & X86_PMU_INSN_BRANCH) {
+        gen_pmu_add(PMU_TOTAL(s, branches), -1);
+    }
+    if (s->pmu_counted & X86_PMU_INSN_MISPREDICT) {
+        gen_pmu_add(PMU_TOTAL(s, mispredicts), -1);
+    }
+}
+#endif
+
 static void gen_exception(DisasContext *s, int trapno)
 {
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
+#ifndef CONFIG_USER_ONLY
+    gen_pmu_fault(s);
+#endif
     gen_helper_raise_exception(tcg_env, tcg_constant_i32(trapno));
     s->base.is_jmp = DISAS_NORETURN;
 }
@@ -3799,6 +3865,8 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
 #ifndef CONFIG_USER_ONLY
     dc->cpl = cpl;
     dc->iopl = iopl;
+    dc->pmu = x86_pmu_enabled(env);
+    dc->pmu_far_misses = !IS_INTEL_CPU(env);
 #endif
 
     /* We make some simplifying assumptions; validate they're correct. */
@@ -3839,6 +3907,13 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
 
 static void i386_tr_tb_start(DisasContextBase *db, CPUState *cpu)
 {
+#ifndef CONFIG_USER_ONLY
+    DisasContext *dc = container_of(db, DisasContext, base);
+
+    if (dc->pmu) {
+        gen_pmu_tb_start(dc);
+    }
+#endif
 }
 
 static void i386_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
@@ -3860,6 +3935,7 @@ static void i386_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
 static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
+    uint64_t insn_word;
     bool orig_cc_op_dirty = dc->cc_op_dirty;
     CCOp orig_cc_op = dc->cc_op;
     target_ulong orig_pc_save = dc->pc_save;
@@ -3867,6 +3943,9 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     dc->branch = false;
     dc->movss_step = false;
     dc->no_lam = false;
+#ifndef CONFIG_USER_ONLY
+    dc->pmu_counted = 0;
+#endif
 #ifdef TARGET_VSYSCALL_PAGE
     /*
      * Detect entry into the vsyscall page and invoke the syscall.
@@ -3903,10 +3982,17 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     /*
      * Instruction decoding completed (possibly with #GP if the
      * 15-byte boundary was exceeded).  Its length gives the next RIP
-     * that SVM intercepts report.
+     * that SVM intercepts report, and the PMU, where it counts, has
+     * what the instruction counted.
      */
-    tcg_set_insn_start_param(dc->base.insn_start, 2,
-                             dc->pc - dc->base.pc_next);
+    insn_word = dc->pc - dc->base.pc_next;
+#ifndef CONFIG_USER_ONLY
+    if (dc->pmu) {
+        insn_word |= dc->pmu_counted |
+                     (dc->base.num_insns - 1) << X86_PMU_INSN_INDEX_SHIFT;
+    }
+#endif
+    tcg_set_insn_start_param(dc->base.insn_start, 2, insn_word);
     dc->base.pc_next = dc->pc;
     if (dc->base.is_jmp == DISAS_NEXT) {
         if (dc->flags & (HF_TF_MASK | HF_INHIBIT_IRQ_MASK)) {
@@ -3928,6 +4014,12 @@ static void i386_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
 {
     DisasContext *dc = container_of(dcbase, DisasContext, base);
 
+#ifndef CONFIG_USER_ONLY
+    if (dc->pmu) {
+        tcg_set_insn_param(dc->pmu_insns, 2,
+                           tcgv_i64_arg(tcg_constant_i64(dc->base.num_insns)));
+    }
+#endif
     switch (dc->base.is_jmp) {
     case DISAS_NORETURN:
         /*

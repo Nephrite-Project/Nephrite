@@ -1373,6 +1373,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
             count++;
         }
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_pmu_event_start(env, is_int);
+#endif
     if (env->cr[0] & CR0_PE_MASK) {
 #if !defined(CONFIG_USER_ONLY)
         if (env->vmx.nonroot) {
@@ -1416,6 +1419,9 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     }
 #endif
 
+#if !defined(CONFIG_USER_ONLY)
+    x86_pmu_event_end(env);
+#endif
     x86_lbr_interrupt(env, intno, is_int, from);
     qemu_plugin_vcpu_interrupt_cb(CPU(cpu), last_pc);
 }

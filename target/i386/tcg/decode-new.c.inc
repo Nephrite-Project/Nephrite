@@ -3348,6 +3348,53 @@ static const int pp_prefix[4] = {
  * Convert one instruction. s->base.is_jmp is set if the translation must
  * be stopped.
  */
+#ifndef CONFIG_USER_ONLY
+/*
+ * A branch instruction counts as one for the PMU when it starts (the branch
+ * instructions of Linux 7.3's KVM emulate.c, IsBranch, and SYSRET), near
+ * indirect jumps and calls also as mispredicted, and on AMD far control
+ * transfers too (PPR for AMD Family 17h Model 20h, 55772 rev. 3.08,
+ * 2.1.14.3.5).
+ */
+static void gen_pmu_branch(DisasContext *s, X86GenFunc gen)
+{
+    static const X86GenFunc near_branches[] = {
+        gen_CALL, gen_Jcc, gen_JCXZ, gen_JMP, gen_LOOP, gen_LOOPE,
+        gen_LOOPNE, gen_RET,
+    };
+    static const X86GenFunc far_branches[] = {
+        gen_CALLF, gen_CALLF_m, gen_INT, gen_INT3, gen_INTO, gen_IRET,
+        gen_JMPF, gen_JMPF_m, gen_RETF, gen_SYSCALL, gen_SYSENTER,
+        gen_SYSEXIT, gen_SYSRET,
+    };
+    uint8_t counted = 0;
+
+    if (gen == gen_CALL_m || gen == gen_JMP_m) {
+        counted = X86_PMU_INSN_BRANCH | X86_PMU_INSN_MISPREDICT;
+    }
+    for (int i = 0; i < ARRAY_SIZE(near_branches); i++) {
+        if (gen == near_branches[i]) {
+            counted = X86_PMU_INSN_BRANCH;
+        }
+    }
+    for (int i = 0; i < ARRAY_SIZE(far_branches); i++) {
+        if (gen == far_branches[i]) {
+            counted = X86_PMU_INSN_BRANCH;
+            if (s->pmu_far_misses) {
+                counted |= X86_PMU_INSN_MISPREDICT;
+            }
+        }
+    }
+    if (counted & X86_PMU_INSN_BRANCH) {
+        gen_pmu_add(PMU_TOTAL(s, branches), 1);
+    }
+    if (counted & X86_PMU_INSN_MISPREDICT) {
+        gen_pmu_add(PMU_TOTAL(s, mispredicts), 1);
+    }
+    s->pmu_counted = counted;
+}
+#endif
+
 static void disas_insn(DisasContext *s, CPUState *cpu)
 {
     CPUX86State *env = cpu_env(cpu);
@@ -3729,6 +3776,12 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     default:
         break;
     }
+
+#ifndef CONFIG_USER_ONLY
+    if (s->pmu) {
+        gen_pmu_branch(s, decode.e.gen);
+    }
+#endif
 
     if ((s->prefix & PREFIX_LOCK) && !accept_lock) {
         goto illegal_op;

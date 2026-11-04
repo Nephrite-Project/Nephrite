@@ -819,7 +819,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
 void HELPER(vmmcall)(CPUX86State *env)
 {
     cpu_svm_check_intercept_param(env, SVM_EXIT_VMMCALL, 0, GETPC());
-    raise_exception(env, EXCP06_ILLOP);
+    raise_exception_ra(env, EXCP06_ILLOP, GETPC());
 }
 
 void HELPER(vmload)(CPUX86State *env, int aflag)

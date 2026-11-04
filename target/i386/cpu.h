@@ -468,6 +468,7 @@ typedef enum X86Seg {
 
 #define MSR_IA32_PERF_CAPABILITIES      0x345
 #define PERF_CAP_LBR_FMT                0x3f
+#define PERF_CAP_FW_WRITE               (1ULL << 13)
 
 #define MSR_IA32_TSX_CTRL               0x122
 #define MSR_IA32_TSCDEADLINE            0x6e0
@@ -495,6 +496,7 @@ typedef enum X86Seg {
 #define MSR_IA32_SGXLEPUBKEYHASH3       0x8f
 
 #define MSR_P6_PERFCTR0                 0xc1
+#define MSR_IA32_PMC0                   0x4c1
 
 #define MSR_IA32_SMBASE                 0x9e
 #define MSR_SMI_COUNT                   0x34
@@ -1850,6 +1852,58 @@ typedef struct {
  */
 #define MAX_GP_COUNTERS    (MSR_IA32_PERF_STATUS - MSR_P6_EVNTSEL0)
 
+/*
+ * The TCG PMU (tcg/system/pmu.c): Intel's architectural one, version 2,
+ * with X86_PMU_GP_COUNTERS general-purpose and MAX_FIXED_COUNTERS fixed
+ * counters, or AMD's core counters, all X86_PMU_WIDTH bits wide.
+ */
+#define X86_PMU_GP_COUNTERS 8
+#define X86_PMU_COUNTERS    (X86_PMU_GP_COUNTERS + MAX_FIXED_COUNTERS)
+#define X86_PMU_WIDTH       48
+
+/*
+ * Generated code counts the events of the instructions it runs per bucket:
+ * bit 0 of a bucket is CPL > 0, bit 1 SVM guest mode.
+ */
+#define X86_PMU_BUCKETS     4
+
+typedef struct X86PMUCounter {
+    /* The weighted events counted up to the last update of the value. */
+    uint64_t events;
+    /* The weights of instructions (and cycles), branches, mispredicts. */
+    int8_t insns;
+    int8_t branches;
+    int8_t mispredicts;
+    /* The buckets counted in; none for a counter that does not count. */
+    uint8_t buckets;
+    /* An overflow raises a PMI. */
+    bool pmi;
+} X86PMUCounter;
+
+typedef struct X86PMUState {
+    uint64_t insns[X86_PMU_BUCKETS];
+    uint64_t branches[X86_PMU_BUCKETS];
+    uint64_t mispredicts[X86_PMU_BUCKETS];
+    /* A TB starting in bucket B with insns[B] >= limit[B] updates first. */
+    uint64_t limit[X86_PMU_BUCKETS];
+    X86PMUCounter ctr[X86_PMU_COUNTERS];
+    /* Some counter counts. */
+    bool active;
+    /*
+     * The instructions of the TB a state restore cut short, which its
+     * start counted in advance, for the next update to take back.
+     */
+    bool fix_pending;
+    uint8_t fix_bucket;
+    uint8_t fix_branches;
+    uint8_t fix_mispredicts;
+    uint32_t fix_insns;
+    /* 1 + the bucket of a software interrupt not yet delivered. */
+    uint8_t soft_int;
+    /* The instruction accessing the PMU has not retired. */
+    uint8_t unretired;
+} X86PMUState;
+
 #define NB_OPMASK_REGS 8
 
 typedef struct {
@@ -2410,6 +2464,7 @@ typedef struct CPUArchState {
     uint64_t msr_fixed_counters[MAX_FIXED_COUNTERS];
     uint64_t msr_gp_counters[MAX_GP_COUNTERS];
     uint64_t msr_gp_evtsel[MAX_GP_COUNTERS];
+    X86PMUState pmu;
 
     uint64_t pat;
     uint32_t smbase;

@@ -270,6 +270,7 @@ static G_NORETURN void avic_exit(CPUX86State *env, uint64_t exit_code,
                  info2);
     if (trap) {
         cpu_restore_state(cs, retaddr);
+        x86_pmu_restored_retired(env);
         env->eip = svm_next_rip(env);
         retaddr = 0;
     }

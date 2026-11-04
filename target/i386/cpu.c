@@ -908,6 +908,19 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define TCG_EXT_VMX CPUID_EXT_VMX
 #endif
+/*
+ * The PMU of tcg/system/pmu.c, which the pmu property turns on: its
+ * capabilities MSR and AMD's six core counters.
+ */
+#ifdef CONFIG_USER_ONLY
+#define TCG_EXT_PMU 0
+#define TCG_EXT3_PMU 0
+#define TCG_PERF_CAPABILITIES 0
+#else
+#define TCG_EXT_PMU CPUID_EXT_PDCM
+#define TCG_EXT3_PMU CPUID_EXT3_PERFCORE
+#define TCG_PERF_CAPABILITIES PERF_CAP_FW_WRITE
+#endif
 #define TCG_VMX_BASIC (MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS)
 #define TCG_VMX_MISC (MSR_VMX_MISC_STORE_LMA | MSR_VMX_MISC_ACTIVITY_HLT | \
           MSR_VMX_MISC_ACTIVITY_SHUTDOWN | MSR_VMX_MISC_ACTIVITY_WAIT_SIPI | \
@@ -970,11 +983,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT_RDRAND | CPUID_EXT_AVX | CPUID_EXT_F16C | \
           CPUID_EXT_FMA | CPUID_EXT_X2APIC | CPUID_EXT_PCID | \
           CPUID_EXT_TSC_DEADLINE_TIMER | CPUID_EXT_KERNEL_FEATURES | \
-          TCG_EXT_VMX)
+          TCG_EXT_VMX | TCG_EXT_PMU)
           /* missing:
           CPUID_EXT_DTES64, CPUID_EXT_DSCPL, CPUID_EXT_VMX, CPUID_EXT_SMX,
           CPUID_EXT_EST, CPUID_EXT_TM2, CPUID_EXT_CID,
-          CPUID_EXT_XTPR, CPUID_EXT_PDCM, CPUID_EXT_DCA
+          CPUID_EXT_XTPR, CPUID_EXT_DCA
           */
 
 #ifdef TARGET_X86_64
@@ -1019,7 +1032,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_EXT3_FEATURES (CPUID_EXT3_LAHF_LM | CPUID_EXT3_SVM | \
           CPUID_EXT3_CR8LEG | CPUID_EXT3_ABM | CPUID_EXT3_SSE4A | \
           CPUID_EXT3_3DNOWPREFETCH | CPUID_EXT3_KERNEL_FEATURES | \
-          CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT)
+          CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT | \
+          TCG_EXT3_PMU)
 
 #define TCG_EXT4_FEATURES 0
 
@@ -1723,6 +1737,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     },
     [FEAT_PERF_CAPABILITIES] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_PERF_CAPABILITIES,
         .feat_names = {
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -8953,7 +8968,23 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         break;
     case 0xA:
         /* Architectural Performance Monitoring Leaf */
-        if (cpu->enable_pmu) {
+        if (cpu->enable_pmu && tcg_enabled()) {
+            /*
+             * Version 2 with general-purpose and fixed counters (Intel SDM
+             * 325462-093 Vol. 3B, 22.2.1 and 22.2.2) and the events of Table
+             * 22-3 but the last-level cache ones and reference cycles, which
+             * TCG, counting a cycle an instruction, does not have at a fixed
+             * rate.
+             */
+            *eax = 0;
+            *ebx = *ecx = *edx = 0;
+            if (IS_INTEL_CPU(env)) {
+                *eax = 2 | X86_PMU_GP_COUNTERS << 8 | X86_PMU_WIDTH << 16 |
+                       7 << 24;
+                *ebx = 1 << 2 | 1 << 3 | 1 << 4;
+                *edx = MAX_FIXED_COUNTERS | X86_PMU_WIDTH << 5;
+            }
+        } else if (cpu->enable_pmu) {
             x86_cpu_get_supported_cpuid(0xA, count, eax, ebx, ecx, edx);
         } else {
             *eax = 0;
@@ -9629,6 +9660,14 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
 
     env->pat = 0x0007040600070406ULL;
 
+    /*
+     * IA32_PERF_GLOBAL_CTRL enables the general-purpose counters (Intel SDM
+     * 325462-093 Vol. 3A, Table 12-1).
+     */
+    if (tcg_enabled() && cpu->enable_pmu && IS_INTEL_CPU(env)) {
+        env->msr_global_ctrl = MAKE_64BIT_MASK(0, X86_PMU_GP_COUNTERS);
+    }
+
     if (kvm_enabled()) {
         /*
          * KVM handles TSC = 0 specially and thinks we are hot-plugging
@@ -9966,6 +10005,9 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
         }
 
         env->features[FEAT_7_0_EDX] &= ~CPUID_7_0_EDX_ARCH_LBR;
+        if (tcg_enabled()) {
+            env->features[FEAT_8000_0001_ECX] &= ~TCG_EXT3_PMU;
+        }
     }
 
     for (i = 0; i < ARRAY_SIZE(feature_dependencies); i++) {

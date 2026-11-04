@@ -1386,6 +1386,7 @@ static G_NORETURN void vmx_trap_exit(CPUX86State *env, uint32_t reason,
                                      uint64_t qual, uintptr_t ra)
 {
     cpu_restore_state(env_cpu(env), ra);
+    x86_pmu_restored_retired(env);
     env->eip += env->svm_insn_len;
     do_end_instruction(env);
     env->vmx.exit_pending_dbg = x86_step_trap(env, false);
