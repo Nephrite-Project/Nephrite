@@ -2190,6 +2190,8 @@ typedef struct CPUArchState {
     uint64_t spec_ctrl;
     uint64_t amd_tsc_scale_msr;
     uint64_t virt_ssbd;
+    /* How far WRMSR to IA32_TSC has moved this processor's TSC. */
+    int64_t tsc_written_delta;
 
     /* End of state preserved by INIT (dummy marker).  */
     struct {} end_init_save;

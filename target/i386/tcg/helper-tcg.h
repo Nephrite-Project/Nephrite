@@ -97,6 +97,7 @@ static inline unsigned int compute_pf(uint8_t x)
 
 /* misc_helper.c */
 void cpu_load_eflags(CPUX86State *env, int eflags, int update_mask);
+uint64_t x86_tsc_read(CPUX86State *env);
 
 /* system/svm_helper.c */
 #ifndef CONFIG_USER_ONLY

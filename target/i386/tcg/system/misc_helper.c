@@ -289,6 +289,10 @@ void HELPER(wrmsr)(CPUX86State *env)
             env->mcg_ctl = val;
         }
         break;
+    case MSR_IA32_TSC:
+        /* The counter takes the value written, whatever the TSC offset. */
+        env->tsc_written_delta = val - cpu_get_tsc(env);
+        break;
     case MSR_TSC_AUX:
         env->tsc_aux = val;
         break;
@@ -465,6 +469,9 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_MCG_STATUS:
         val = env->mcg_status;
+        break;
+    case MSR_IA32_TSC:
+        val = x86_tsc_read(env);
         break;
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;

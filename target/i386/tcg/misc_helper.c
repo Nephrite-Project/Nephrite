@@ -62,6 +62,15 @@ void HELPER(cpuid)(CPUX86State *env)
     env->regs[R_EDX] = edx;
 }
 
+/*
+ * The TSC as software reads it: the clock, moved by what IA32_TSC was set
+ * to, plus the VMCB's TSC offset in SVM guest mode.
+ */
+uint64_t x86_tsc_read(CPUX86State *env)
+{
+    return cpu_get_tsc(env) + env->tsc_written_delta + env->tsc_offset;
+}
+
 static void do_rdtsc(CPUX86State *env, uint32_t intercept, uintptr_t retaddr)
 {
     uint64_t val;
@@ -71,7 +80,7 @@ static void do_rdtsc(CPUX86State *env, uint32_t intercept, uintptr_t retaddr)
     }
     cpu_svm_check_intercept_param(env, intercept, 0, retaddr);
 
-    val = cpu_get_tsc(env) + env->tsc_offset;
+    val = x86_tsc_read(env);
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
 }
