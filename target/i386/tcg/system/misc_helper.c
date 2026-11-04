@@ -487,6 +487,18 @@ void HELPER(wrmsr)(CPUX86State *env)
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
         break;
+    case MSR_IA32_XSS:
+        /*
+         * It may hold the supervisor state components CPUID.(EAX=0DH,
+         * ECX=1):EDX:ECX lists (Intel SDM 325462-093 Vol. 1, 13.2).
+         */
+        if (!(env->features[FEAT_XSAVE] & CPUID_XSAVE_XSAVES) ||
+            (val & ~((uint64_t)env->features[FEAT_XSAVE_XSS_HI] << 32 |
+                     env->features[FEAT_XSAVE_XSS_LO]))) {
+            goto error;
+        }
+        env->xss = val;
+        break;
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
         int index = (uint32_t)env->regs[R_ECX] - MSR_APIC_START;
@@ -709,6 +721,12 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_IA32_BNDCFGS:
         val = env->msr_bndcfgs;
+        break;
+    case MSR_IA32_XSS:
+        if (!(env->features[FEAT_XSAVE] & CPUID_XSAVE_XSAVES)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->xss;
         break;
      case MSR_IA32_UCODE_REV:
         val = x86_cpu->ucode_rev;

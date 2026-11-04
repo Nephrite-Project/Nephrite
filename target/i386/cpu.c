@@ -1020,9 +1020,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_2_EDX_FEATURES 0
 #define TCG_APM_FEATURES 0
 #define TCG_6_EAX_FEATURES CPUID_6_EAX_ARAT
-#define TCG_XSAVE_FEATURES (CPUID_XSAVE_XSAVEOPT | CPUID_XSAVE_XGETBV1)
-          /* missing:
-          CPUID_XSAVE_XSAVEC, CPUID_XSAVE_XSAVES */
+#define TCG_XSAVE_FEATURES (CPUID_XSAVE_XSAVEOPT | CPUID_XSAVE_XSAVEC | \
+          CPUID_XSAVE_XGETBV1 | CPUID_XSAVE_XSAVES)
 #define TCG_14_0_ECX_FEATURES 0
 #define TCG_SGX_12_0_EAX_FEATURES 0
 #define TCG_SGX_12_0_EBX_FEATURES 0
@@ -2193,7 +2192,13 @@ uint32_t xsave_area_size(uint64_t mask, bool compacted)
     for (i = 2; i < ARRAY_SIZE(x86_ext_save_areas); i++) {
         esa = &x86_ext_save_areas[i];
         if ((mask >> i) & 1) {
-            offset = compacted ? ret : esa->offset;
+            if (!compacted) {
+                offset = esa->offset;
+            } else if (esa->ecx & ESA_FEATURE_ALIGN64_MASK) {
+                offset = ROUND_UP(ret, 64);
+            } else {
+                offset = ret;
+            }
             ret = MAX(ret, offset + esa->size);
         }
     }
@@ -8896,6 +8901,20 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
 
             *eax = env->features[FEAT_XSAVE];
             *ebx = xsave_area_size(xstate, true);
+            if (tcg_enabled()) {
+                /*
+                 * The size XSAVES needs for what XCR0 | IA32_XSS enables
+                 * now, else XSAVEC for what XCR0 does, else 0 (Intel SDM
+                 * 325462-093 Vol. 1, 13.2).
+                 */
+                if (*eax & CPUID_XSAVE_XSAVES) {
+                    *ebx = xsave_area_size(env->xcr0 | env->xss, true);
+                } else if (*eax & CPUID_XSAVE_XSAVEC) {
+                    *ebx = xsave_area_size(env->xcr0, true);
+                } else {
+                    *ebx = 0;
+                }
+            }
             *ecx = env->features[FEAT_XSAVE_XSS_LO];
             *edx = env->features[FEAT_XSAVE_XSS_HI];
         } else if (count < ARRAY_SIZE(x86_ext_save_areas)) {

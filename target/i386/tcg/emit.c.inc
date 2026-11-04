@@ -5096,6 +5096,18 @@ static void gen_XRSTOR(DisasContext *s, X86DecodedInsn *decode)
     }
 }
 
+static void gen_XRSTORS(DisasContext *s, X86DecodedInsn *decode)
+{
+    TCGv_i64 features = tcg_temp_new_i64();
+
+    tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
+    gen_helper_xrstors(tcg_env, s->A0, features);
+    if (s->cpuid_7_0_ebx_features & CPUID_7_0_EBX_MPX) {
+        /* As for XRSTOR.  */
+        s->base.is_jmp = DISAS_EOB_NEXT;
+    }
+}
+
 static void gen_XSAVE(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv_i64 features = tcg_temp_new_i64();
@@ -5104,10 +5116,26 @@ static void gen_XSAVE(DisasContext *s, X86DecodedInsn *decode)
     gen_helper_xsave(tcg_env, s->A0, features);
 }
 
+static void gen_XSAVEC(DisasContext *s, X86DecodedInsn *decode)
+{
+    TCGv_i64 features = tcg_temp_new_i64();
+
+    tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
+    gen_helper_xsavec(tcg_env, s->A0, features);
+}
+
 static void gen_XSAVEOPT(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv_i64 features = tcg_temp_new_i64();
 
     tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
     gen_helper_xsave(tcg_env, s->A0, features);
+}
+
+static void gen_XSAVES(DisasContext *s, X86DecodedInsn *decode)
+{
+    TCGv_i64 features = tcg_temp_new_i64();
+
+    tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
+    gen_helper_xsaves(tcg_env, s->A0, features);
 }
