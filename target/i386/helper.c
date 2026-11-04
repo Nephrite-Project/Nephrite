@@ -143,15 +143,27 @@ void x86_cpu_set_a20(X86CPU *cpu, int a20_state)
 }
 #endif
 
+/*
+ * A paging change drops the translations of the current ASID only, those
+ * of SVM guest mode or the host's (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.45, 15.16.1), and none while VMRUN or #VMEXIT
+ * loads the control registers, which flushes nothing.
+ */
+static void x86_flush_paging(CPUX86State *env)
+{
+    if (!env->svm_loading_crs) {
+        tlb_flush_by_mmuidx(env_cpu(env), x86_mmu_context_map(env));
+    }
+}
+
 void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
 {
-    X86CPU *cpu = env_archcpu(env);
     int pe_state;
 
     qemu_log_mask(CPU_LOG_MMU, "CR0 update: CR0=0x%08x\n", new_cr0);
     if ((new_cr0 & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK)) !=
         (env->cr[0] & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK))) {
-        tlb_flush(CPU(cpu));
+        x86_flush_paging(env);
     }
 
 #ifdef TARGET_X86_64
@@ -191,7 +203,7 @@ void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
     if (env->cr[0] & CR0_PG_MASK) {
         qemu_log_mask(CPU_LOG_MMU,
                         "CR3 update: CR3=" TARGET_FMT_lx "\n", new_cr3);
-        tlb_flush(env_cpu(env));
+        x86_flush_paging(env);
     }
 }
 
@@ -210,7 +222,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
         (CR4_PGE_MASK | CR4_PAE_MASK | CR4_PSE_MASK |
          CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK |
          CR4_PKE_MASK | CR4_PKS_MASK)) {
-        tlb_flush(env_cpu(env));
+        x86_flush_paging(env);
     }
 
     /* Clear bits we're going to recompute.  */

@@ -508,9 +508,29 @@ void HELPER(rdmsr)(CPUX86State *env)
     env->regs[R_EDX] = (uint32_t)(val >> 32);
 }
 
+/* INVLPG drops the page from the current ASID's translations only. */
 void HELPER(flush_page)(CPUX86State *env, target_ulong addr)
 {
-    tlb_flush_page(env_cpu(env), addr);
+    tlb_flush_page_by_mmuidx(env_cpu(env), addr, x86_mmu_context_map(env));
+}
+
+/*
+ * INVLPGA drops the page from the translations of the ASID that ECX gives,
+ * the host's or the guest's ones kept, but no nested translation (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16.2). A
+ * guest that runs it itself drops the page from all of them.
+ */
+void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
+{
+    CPUState *cs = env_cpu(env);
+
+    if (env->hflags & HF_GUEST_MASK) {
+        tlb_flush_page(cs, addr);
+    } else if (asid == 0) {
+        tlb_flush_page_by_mmuidx(cs, addr, MMU_HOST_IDX_MAP);
+    } else if (asid == env->svm_tlb_asid) {
+        tlb_flush_page_by_mmuidx(cs, addr, MMU_GUEST_IDX_MAP);
+    }
 }
 
 G_NORETURN void HELPER(hlt)(CPUX86State *env)

@@ -241,6 +241,7 @@ typedef struct DisasContext {
 #ifdef CONFIG_USER_ONLY
 STUB_HELPER(clgi, TCGv_env env)
 STUB_HELPER(flush_page, TCGv_env env, TCGv addr)
+STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
 STUB_HELPER(inb, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inw, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inl, TCGv ret, TCGv_env env, TCGv_i32 port)
@@ -3086,7 +3087,12 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             } else {
                 tcg_gen_ext32u_tl(s->A0, cpu_regs[R_EAX]);
             }
-            gen_helper_flush_page(tcg_env, s->A0);
+            {
+                TCGv_i32 asid = tcg_temp_new_i32();
+
+                tcg_gen_trunc_tl_i32(asid, cpu_regs[R_ECX]);
+                gen_helper_invlpga(tcg_env, s->A0, asid);
+            }
             s->base.is_jmp = DISAS_EOB_NEXT;
             break;
 

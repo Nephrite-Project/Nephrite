@@ -127,6 +127,57 @@ static void svm_cache_seg(CPUX86State *env, SegmentCache *dst,
     dst->flags = ((attrib & 0xff) << 8) | ((attrib & 0x0f00) << 12);
 }
 
+/*
+ * The CR4 bits that change what the TLB entries made under them hold, as
+ * the processor applies them at each access instead.
+ */
+#define SVM_TLB_CR4_BITS \
+    (CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK | CR4_PKE_MASK | \
+     CR4_PKS_MASK)
+
+/*
+ * The guest's translations outlive #VMEXIT and VMRUN, tagged with its
+ * ASID, until TLB_CONTROL or the guest drops them (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16.1). Guest mode's
+ * MMU indexes hold those of one ASID, made under one CR4 protection and
+ * nested paging mode, as their entries hold what those decided.
+ */
+static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
+{
+    CPUState *cs = env_cpu(env);
+    uint8_t tlb_ctl = x86_ldub_phys(cs, env->vm_vmcb +
+                                    offsetof(struct vmcb, control.tlb_ctl));
+    bool flush_guest = asid != env->svm_tlb_asid ||
+                       ((env->cr[4] ^ env->svm_tlb_cr4) & SVM_TLB_CR4_BITS) ||
+                       env->nested_pg_mode != env->svm_tlb_nested_pg_mode;
+
+    switch (tlb_ctl) {
+    case TLB_CONTROL_DO_NOTHING:
+        break;
+    case TLB_CONTROL_FLUSH_ASID:
+    case TLB_CONTROL_FLUSH_ASID_LOCAL:
+        if (env->features[FEAT_SVM] & CPUID_SVM_FLUSHASID) {
+            flush_guest = true;
+            break;
+        }
+        /* fall through */
+    default:
+        qemu_log_mask(LOG_GUEST_ERROR, "VMRUN: reserved TLB_CONTROL 0x%02x\n",
+                      tlb_ctl);
+        /* fall through */
+    case TLB_CONTROL_FLUSH_ALL_ASID:
+        tlb_flush(cs);
+        flush_guest = false;
+        break;
+    }
+    if (flush_guest) {
+        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
+    }
+    env->svm_tlb_asid = asid;
+    env->svm_tlb_cr4 = env->cr[4];
+    env->svm_tlb_nested_pg_mode = env->nested_pg_mode;
+}
+
 static inline bool is_efer_invalid_state (CPUX86State *env)
 {
     if (!(env->efer & MSR_EFER_SVME)) {
@@ -368,9 +419,6 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         }
     }
 
-    /* The guest's translations are made afresh for each VMRUN. */
-    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
-
     /* enable intercepts */
     env->hflags |= HF_GUEST_MASK;
 
@@ -406,9 +454,11 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.exit_info_2), 0);
 
+    env->svm_loading_crs = true;
     cpu_x86_update_cr0(env, new_cr0);
     cpu_x86_update_cr4(env, new_cr4);
     cpu_x86_update_cr3(env, new_cr3);
+    env->svm_loading_crs = false;
     if (!(clean & SVM_CLEAN_CR2)) {
         c->cr2 = x86_ldq_phys(cs, env->vm_vmcb +
                               offsetof(struct vmcb, save.cr2));
@@ -493,15 +543,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     c->vmcb = env->vm_vmcb;
     c->valid = true;
 
-    switch (x86_ldub_phys(cs,
-                      env->vm_vmcb + offsetof(struct vmcb, control.tlb_ctl))) {
-    case TLB_CONTROL_DO_NOTHING:
-        break;
-    case TLB_CONTROL_FLUSH_ALL_ASID:
-        /* FIXME: this is not 100% correct but should work for now */
-        tlb_flush(cs);
-        break;
-    }
+    svm_vmrun_tlb(env, asid);
 
     env->hflags2 |= HF2_GIF_MASK;
 
@@ -964,7 +1006,6 @@ void do_vmexit(CPUX86State *env)
                         == (uint64_t)SVM_EXIT_ERR;
 
     env->hflags2 &= ~HF2_NPT_MASK;
-    tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
     if (vmrun_failed) {
         env->svm_cache.valid = false;
         env->hflags &= ~HF_INHIBIT_IRQ_MASK;
@@ -1057,6 +1098,9 @@ void do_vmexit(CPUX86State *env)
         c->dr6 = env->dr[6];
     }
 
+    /* The guest's last CR4 is what its translations were made under. */
+    env->svm_tlb_cr4 = env->cr[4];
+
 load_host:
     /* Reload the host state from vm_hsave */
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
@@ -1081,6 +1125,7 @@ load_host:
     env->idt.limit = x86_ldl_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.idtr.limit));
 
+    env->svm_loading_crs = true;
     cpu_x86_update_cr0(env, x86_ldq_phys(cs,
                                      env->vm_hsave + offsetof(struct vmcb,
                                                               save.cr0)) |
@@ -1090,7 +1135,8 @@ load_host:
                                                               save.cr4)));
 
     /*
-     * Resets the current ASID register to zero (host ASID; TLB flush).
+     * Resets the current ASID register to zero, the host's, whose
+     * translations the guest's never displaced.
      *
      * If the host is in PAE mode, the processor reloads the host's PDPEs
      * from the page table indicated the host's CR3. FIXME: If the PDPEs
@@ -1100,6 +1146,7 @@ load_host:
     cpu_x86_update_cr3(env, x86_ldq_phys(cs,
                                      env->vm_hsave + offsetof(struct vmcb,
                                                               save.cr3)));
+    env->svm_loading_crs = false;
     /* we need to set the efer after the crs so the hidden flags get
        set properly */
     cpu_load_efer(env, x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,

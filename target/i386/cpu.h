@@ -2283,6 +2283,15 @@ typedef struct CPUArchState {
     uint64_t svm_msrpm_base;
     uint32_t svm_int_vector;
     SVMStateCache svm_cache;
+    /*
+     * The ASID whose translations SVM guest mode's MMU indexes hold, 0 for
+     * none, and the guest CR4 and nested paging mode they were made under.
+     */
+    uint32_t svm_tlb_asid;
+    uint64_t svm_tlb_cr4;
+    int svm_tlb_nested_pg_mode;
+    /* VMRUN or #VMEXIT is loading CR0, CR3 and CR4, which flushes nothing. */
+    bool svm_loading_crs;
     /* Decode assists: EXITINFO1 of the current instruction's intercepts. */
     uint64_t svm_decode_info;
     /* Decode assists: the guest instruction bytes of a page fault. */
@@ -2940,6 +2949,12 @@ static inline bool is_mmu_index_32(int mmu_index)
 {
     assert(mmu_index_host(mmu_index) < MMU_PHYS_IDX);
     return mmu_index & 1;
+}
+
+/* The MMU indexes of the current context: SVM guest mode's or the host's. */
+static inline uint32_t x86_mmu_context_map(const CPUX86State *env)
+{
+    return env->hflags & HF_GUEST_MASK ? MMU_GUEST_IDX_MAP : MMU_HOST_IDX_MAP;
 }
 
 #define CC_DST  (env->cc_dst)
