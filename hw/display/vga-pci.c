@@ -42,6 +42,7 @@ enum vga_pci_flags {
     PCI_VGA_FLAG_ENABLE_MMIO = 1,
     PCI_VGA_FLAG_ENABLE_QEXT = 2,
     PCI_VGA_FLAG_ENABLE_EDID = 3,
+    PCI_VGA_FLAG_BAR0_64BIT = 4,
 };
 
 struct PCIVGAState {
@@ -250,7 +251,11 @@ static void pci_std_vga_realize(PCIDevice *dev, Error **errp)
     s->con = qemu_graphic_console_create(DEVICE(dev), 0, s->hw_ops, s);
 
     /* XXX: VGA_RAM_SIZE must be a power of two */
-    pci_register_bar(&d->dev, 0, PCI_BASE_ADDRESS_MEM_PREFETCH, &s->vram);
+    pci_register_bar(&d->dev, 0,
+                     PCI_BASE_ADDRESS_MEM_PREFETCH |
+                     (d->flags & (1 << PCI_VGA_FLAG_BAR0_64BIT) ?
+                      PCI_BASE_ADDRESS_MEM_TYPE_64 : 0),
+                     &s->vram);
 
     /* mmio bar for vga register access */
     if (d->flags & (1 << PCI_VGA_FLAG_ENABLE_MMIO)) {
@@ -337,6 +342,8 @@ static const Property vga_pci_properties[] = {
                     PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_QEXT, true),
     DEFINE_PROP_BIT("edid",
                     PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_EDID, true),
+    DEFINE_PROP_BIT("x-bar0-64bit",
+                    PCIVGAState, flags, PCI_VGA_FLAG_BAR0_64BIT, false),
     DEFINE_EDID_PROPERTIES(PCIVGAState, edid_info),
 };
 
