@@ -553,13 +553,29 @@ void HELPER(wrmsr)(CPUX86State *env)
     }
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
-            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL +
-            (4 * env->mcg_cap & 0xff)) {
+            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {
             uint32_t offset = (uint32_t)env->regs[R_ECX] - MSR_MC0_CTL;
-            if ((offset & 0x3) != 0
-                || (val == 0 || val == ~(uint64_t)0)) {
-                env->mce_banks[offset] = val;
+
+            /* Banks past MCG_CAP.Count do not exist. */
+            if (offset >= 4 * (env->mcg_cap & MCG_CAP_BANKS_MASK)) {
+                goto error;
             }
+            /*
+             * MCi_CTL takes 0 or all ones, bits 10 and 0 aside, as Linux
+             * 7.3's KVM has it for guests that clear them; MCi_STATUS takes
+             * 0 only (Intel SDM 325462-093 Vol. 3B, 18.3.2.2) unless AMD's
+             * HWCR.McStatusWrEn allows others (PPR for AMD Family 17h Model
+             * 20h, 55772 rev. 3.08, MSRC001_0015).
+             */
+            if ((offset & 0x3) == 0 && val &&
+                (val | (1ULL << 10) | 1) != ~(uint64_t)0) {
+                goto error;
+            }
+            if ((offset & 0x3) == 1 && val &&
+                !(env->msr_hwcr & HWCR_MC_STATUS_WR_EN)) {
+                goto error;
+            }
+            env->mce_banks[offset] = val;
             break;
         }
         /* XXX: exception? */
@@ -816,9 +832,13 @@ void HELPER(rdmsr)(CPUX86State *env)
     }
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
-            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL +
-            (4 * env->mcg_cap & 0xff)) {
+            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {
             uint32_t offset = (uint32_t)env->regs[R_ECX] - MSR_MC0_CTL;
+
+            /* Banks past MCG_CAP.Count do not exist. */
+            if (offset >= 4 * (env->mcg_cap & MCG_CAP_BANKS_MASK)) {
+                raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            }
             val = env->mce_banks[offset];
             break;
         }

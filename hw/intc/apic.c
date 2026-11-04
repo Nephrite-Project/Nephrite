@@ -969,6 +969,41 @@ static uint64_t apic_mem_read(void *opaque, hwaddr addr, unsigned size)
     return val;
 }
 
+/*
+ * The registers of x2APIC mode, by MSR address from 800h, as Intel SDM
+ * 325462-093 Vol. 3A, Table 13-6 lists them, but the LVT CMCI register,
+ * which this local APIC lacks: accesses to the others, reads of the
+ * write-only ones, and writes of the read-only ones raise #GP.
+ */
+static bool x2apic_register_exists(int index)
+{
+    switch (index) {
+    case 0x02 ... 0x03:
+    case 0x08:
+    case 0x0a ... 0x0b:
+    case 0x0d:
+    case 0x0f ... 0x28:
+    case 0x30:
+    case 0x32 ... 0x39:
+    case 0x3e ... 0x3f:
+        return true;
+    }
+    return false;
+}
+
+static bool x2apic_register_read_only(int index)
+{
+    switch (index) {
+    case 0x02 ... 0x03:
+    case 0x0a:
+    case 0x0d:
+    case 0x10 ... 0x27:
+    case 0x39:
+        return true;
+    }
+    return false;
+}
+
 int apic_msr_read(APICCommonState *s, int index, uint64_t *val)
 {
     if (!s) {
@@ -976,6 +1011,11 @@ int apic_msr_read(APICCommonState *s, int index, uint64_t *val)
     }
 
     if (!is_x2apic_mode(s)) {
+        return -1;
+    }
+
+    /* EOI and SELF IPI are write-only. */
+    if (!x2apic_register_exists(index) || index == 0x0b || index == 0x3f) {
         return -1;
     }
 
@@ -1178,6 +1218,19 @@ int apic_msr_write(APICCommonState *s, int index, uint64_t val)
     }
 
     if (!is_x2apic_mode(s)) {
+        return -1;
+    }
+
+    if (!x2apic_register_exists(index) || x2apic_register_read_only(index)) {
+        return -1;
+    }
+    /*
+     * Bits 63:32 are reserved but in the ICR, as are TPR bits 31:8 and
+     * SELF IPI's (the vector alone), and EOI and ESR take only 0.
+     */
+    if ((index != 0x30 && (val >> 32)) ||
+        ((index == 0x08 || index == 0x3f) && (val & ~0xffULL)) ||
+        ((index == 0x0b || index == 0x28) && val)) {
         return -1;
     }
 

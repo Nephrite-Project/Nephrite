@@ -613,6 +613,7 @@ typedef enum X86Seg {
 #define MSR_AMD64_TSC_RATIO_RESERVED    0xffffff0000000000ULL
 
 #define MSR_K7_HWCR                     0xc0010015
+#define HWCR_MC_STATUS_WR_EN            (1ULL << 18)
 #define HWCR_CPUID_USER_DIS             (1ULL << 35)
 
 #define MSR_VM_HSAVE_PA                 0xc0010117
