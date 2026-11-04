@@ -137,7 +137,7 @@ bool apic_next_timer(APICCommonState *s, int64_t current_time)
      * both models. */
     s->timer_expiry = -1;
 
-    if (s->lvt[APIC_LVT_TIMER] & APIC_LVT_MASKED) {
+    if ((s->lvt[APIC_LVT_TIMER] & APIC_LVT_MASKED) || s->timer_stopped) {
         return false;
     }
 
@@ -164,6 +164,10 @@ uint32_t apic_get_current_count(APICCommonState *s)
 {
     int64_t d;
     uint32_t val;
+
+    if (s->timer_stopped) {
+        return 0;
+    }
     d = (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - s->initial_count_load_time) >>
         s->count_shift;
     if (s->lvt[APIC_LVT_TIMER] & APIC_LVT_TIMER_PERIODIC) {
@@ -203,6 +207,7 @@ void apic_init_reset(APICCommonState *s)
     s->count_shift = 0;
     s->initial_count = 0;
     s->initial_count_load_time = 0;
+    s->timer_stopped = false;
     s->next_time = 0;
     s->wait_for_sipi = !cpu_is_bsp(s->cpu);
 

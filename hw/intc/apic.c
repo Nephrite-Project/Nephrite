@@ -1125,14 +1125,35 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
         {
             int n = index - 0x32;
             bool deadline = apic_lvtt_tsc_deadline(s);
+            uint32_t count = 0;
+            bool mode_change = n == APIC_LVT_TIMER && !deadline &&
+                ((s->lvt[n] ^ val) & APIC_LVT_TIMER_PERIODIC);
 
+            if (mode_change) {
+                count = apic_get_current_count(s);
+            }
             s->lvt[n] = val;
             if (n == APIC_LVT_TIMER) {
+                int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
                 if (deadline != apic_lvtt_tsc_deadline(s)) {
                     s->initial_count = 0;
                     s->cpu->env.tsc_deadline = 0;
+                } else if (mode_change) {
+                    /*
+                     * A change between one-shot and periodic does not start
+                     * the timer (Intel SDM 325462-093 Vol. 3A, 13.5.4): the
+                     * count goes on from where it is, and stays at 0.
+                     */
+                    if (count) {
+                        s->initial_count_load_time = now -
+                            ((int64_t)(s->initial_count - count) <<
+                             s->count_shift);
+                    } else {
+                        s->timer_stopped = true;
+                    }
                 }
-                apic_timer_update(s, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
+                apic_timer_update(s, now);
             } else if (n == APIC_LVT_LINT0 && apic_check_pic(s)) {
                 apic_update_irq(s);
             }
@@ -1144,6 +1165,7 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
         }
         s->initial_count = val;
         s->initial_count_load_time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        s->timer_stopped = false;
         apic_timer_update(s, s->initial_count_load_time);
         break;
     case 0x39:

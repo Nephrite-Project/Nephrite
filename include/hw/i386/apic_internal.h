@@ -178,6 +178,7 @@ struct APICCommonState {
     int count_shift;
     uint32_t initial_count;
     int64_t initial_count_load_time;
+    bool timer_stopped; /* the count reached 0 and no mode change restarts it */
     int64_t next_time;
     QEMUTimer *timer;
     int64_t timer_expiry;
