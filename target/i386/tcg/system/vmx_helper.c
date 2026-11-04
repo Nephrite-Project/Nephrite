@@ -2446,6 +2446,7 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.timer_on = false;
     timer_del(env_archcpu(env)->vmx_timer);
     env->monitor_armed = false;
+    env->umonitor_armed = false;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_VMX);
     cs->halted = 0;
 
@@ -3510,6 +3511,7 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     vmx_load_guest(env);
     env->vmx.nonroot = true;
     env->monitor_armed = false;
+    env->umonitor_armed = false;
     env->hflags |= HF_GUEST_MASK;
     if (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT) {
         env->hflags2 |= HF2_NPT_MASK;
@@ -3838,12 +3840,44 @@ uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc)
 }
 
 /*
+ * How long a wait of DELAY ticks of the TSC that non-root operation reads
+ * lasts on the processor's TSC: with "use TSC offsetting" and "use TSC
+ * scaling", DELAY shifted left by 48 and divided by the TSC multiplier
+ * (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay)
+{
+    uint64_t low = delay << 48, high = delay >> 16;
+
+    if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_USE_TSC_OFFSETING) ||
+        !(vmx_proc2(env) & VMX_SECONDARY_EXEC_TSC_SCALING)) {
+        return delay;
+    }
+    divu128(&low, &high, VMCS(TSC_MULTIPLIER));
+    return high ? UINT64_MAX : low;
+}
+
+/*
  * UMONITOR, UMWAIT, and TPAUSE run in non-root operation with "enable user
  * wait and pause" (Intel SDM 325462-093 Vol. 3C, 28.3).
  */
 bool x86_vmx_user_wait_enabled(CPUX86State *env)
 {
     return vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE;
+}
+
+/*
+ * With "RDTSC exiting" too, UMWAIT and TPAUSE exit, with their source
+ * register in the instruction information (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3 and Table 30-13).
+ */
+void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason,
+                            uint32_t info, uintptr_t ra)
+{
+    if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_RDTSC_EXITING) {
+        VMCS_SET(EXIT_INSN_INFO, info);
+        x86_vmx_exit(env, reason, 0, ra);
+    }
 }
 
 /*

@@ -1270,6 +1270,9 @@ static void user_wait_arm(CPUX86State *env)
     int64_t ns = 0;
 
     if (now < env->user_wait_deadline) {
+        if (env->vmx.nonroot) {
+            delay = x86_vmx_tsc_delay(env, delay);
+        }
         ns = cpu_tsc_ticks_ns(env, delay);
     }
     if (env->user_wait_umwait) {
@@ -1327,7 +1330,9 @@ void x86_user_wait_end(CPUX86State *env)
  * PF, SF, ZF, and OF end clear. UMWAIT waits only with UMONITOR's monitoring
  * armed, and a store to its line ends the wait (Intel SDM 325462-093 Vol.
  * 2B, UMWAIT and TPAUSE). VMX non-root operation needs "enable user wait and
- * pause" (Intel SDM 325462-093 Vol. 3C, 28.3).
+ * pause", and exits with "RDTSC exiting" (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3 and 28.3): before the #GP of a reserved source bit, as on Intel
+ * processors.
  */
 G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
                                   uint32_t info, int next_eip_addend)
@@ -1344,6 +1349,11 @@ G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
     }
     if ((env->cr[4] & CR4_TSD_MASK) && (env->hflags & HF_CPL_MASK)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
+    if (env->vmx.nonroot) {
+        x86_vmx_user_wait_exit(env,
+                               umwait ? VMX_EXIT_UMWAIT : VMX_EXIT_TPAUSE,
+                               (info & USER_WAIT_REG) << 3, GETPC());
     }
     if ((uint32_t)src & ~1u) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
