@@ -264,6 +264,10 @@ typedef enum X86Seg {
 #define CR0_NW_MASK  (1U << 29)
 #define CR0_CD_MASK  (1U << 30)
 #define CR0_PG_MASK  (1U << 31)
+#define CR0_DEFINED_MASK (CR0_PE_MASK | CR0_MP_MASK | CR0_EM_MASK | \
+                          CR0_TS_MASK | CR0_ET_MASK | CR0_NE_MASK | \
+                          CR0_WP_MASK | CR0_AM_MASK | CR0_NW_MASK | \
+                          CR0_CD_MASK | CR0_PG_MASK)
 
 #define CR4_VME_MASK  (1U << 0)
 #define CR4_PVI_MASK  (1U << 1)

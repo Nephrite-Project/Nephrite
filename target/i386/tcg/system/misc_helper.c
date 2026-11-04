@@ -78,10 +78,61 @@ target_ulong HELPER(read_cr8)(CPUX86State *env)
     }
 }
 
+/*
+ * The CR0 writes MOV to CR0 refuses with #GP: reserved bits 63:32, PG
+ * without PE, NW without CD, clearing PG in 64-bit mode, and turning on
+ * IA-32e mode without PAE, from code with CS.L, or with a 16-bit TSS in TR
+ * (Intel SDM 325462-093 Vol. 2B, MOV, Move to/from Control Registers; AMD64
+ * Architecture Programmer's Manual Volume 3, 24594 rev. 3.38, MOV CRn).
+ * The reserved bits of CR0[31:0] are ignored.
+ */
+static bool cr0_valid(CPUX86State *env, uint64_t cr0)
+{
+    if ((cr0 >> 32) ||
+        ((cr0 & CR0_PG_MASK) && !(cr0 & CR0_PE_MASK)) ||
+        ((cr0 & CR0_NW_MASK) && !(cr0 & CR0_CD_MASK))) {
+        return false;
+    }
+#ifdef TARGET_X86_64
+    if ((env->hflags & HF_CS64_MASK) && !(cr0 & CR0_PG_MASK)) {
+        return false;
+    }
+    if (!(env->cr[0] & CR0_PG_MASK) && (cr0 & CR0_PG_MASK) &&
+        (env->efer & MSR_EFER_LME) &&
+        (!(env->cr[4] & CR4_PAE_MASK) ||
+         (env->segs[R_CS].flags & DESC_L_MASK) ||
+         !(env->tr.flags & (8 << DESC_TYPE_SHIFT)))) {
+        return false;
+    }
+#endif
+    return true;
+}
+
+/*
+ * The CR4 writes MOV to CR4 refuses with #GP: reserved bits, which include
+ * those of absent features, a change of LA57 or clearing PAE in IA-32e mode
+ * (the same documents).
+ */
+static bool cr4_valid(CPUX86State *env, uint64_t cr4)
+{
+    if (cr4 & cr4_reserved_bits(env)) {
+        return false;
+    }
+    if ((env->efer & MSR_EFER_LMA) &&
+        (((cr4 ^ env->cr[4]) & CR4_LA57_MASK) || !(cr4 & CR4_PAE_MASK))) {
+        return false;
+    }
+    return true;
+}
+
 void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
 {
     switch (reg) {
     case 0:
+        if (!cr0_valid(env, t0)) {
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
+        }
+        t0 &= CR0_DEFINED_MASK;
         /*
         * If we reach this point, the CR0 write intercept is disabled.
         * But we could still exit if the hypervisor has requested the selective
@@ -97,7 +148,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     case 3:
         if ((env->efer & MSR_EFER_LMA) &&
                 (t0 & ((~0ULL) << env_archcpu(env)->phys_bits))) {
-            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
         if (!(env->efer & MSR_EFER_LMA)) {
             t0 &= 0xffffffffUL;
@@ -105,16 +156,15 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         cpu_x86_update_cr3(env, t0);
         break;
     case 4:
-        if (t0 & cr4_reserved_bits(env)) {
-            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
-        }
-        if (((t0 ^ env->cr[4]) & CR4_LA57_MASK) &&
-            (env->hflags & HF_CS64_MASK)) {
+        if (!cr4_valid(env, t0)) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
         cpu_x86_update_cr4(env, t0);
         break;
     case 8:
+        if (t0 & ~(target_ulong)0xf) {
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
+        }
         /* Under AVIC, CR8 writes V_TPR and the backing page's TPR. */
         if (env->svm_avic) {
             svm_avic_set_tpr(env, (t0 & V_TPR_MASK) << 4);
