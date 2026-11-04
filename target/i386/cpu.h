@@ -2195,9 +2195,13 @@ typedef struct X86VMXState {
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;
-    /* The last EPT walk's violation qualification, or misconfiguration. */
+    /*
+     * The last EPT walk's violation qualification, or misconfiguration, or
+     * page-modification log-full event.
+     */
     uint64_t ept_qual;
     bool ept_misconfig;
+    bool pml_full;
     /*
      * The VPID, EPTP, and APIC-access address the guest's translations
      * are of, a VPID of ~0 for none.

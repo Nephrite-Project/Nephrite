@@ -68,6 +68,7 @@
 #define VMCS_PI_NOTIFICATION_VECTOR 0x0002
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
+#define VMCS_PML_INDEX 0x0812
 #define VMCS_HOST_SEL(seg) (0x0c00 + 2 * (seg))
 #define VMCS_HOST_TR_SEL 0x0c0c
 #define VMCS_IO_BITMAP_A 0x2000
@@ -76,6 +77,7 @@
 #define VMCS_EXIT_MSR_STORE_ADDR 0x2006
 #define VMCS_EXIT_MSR_LOAD_ADDR 0x2008
 #define VMCS_ENTRY_MSR_LOAD_ADDR 0x200a
+#define VMCS_PML_ADDR 0x200e
 #define VMCS_TSC_OFFSET 0x2010
 #define VMCS_VIRTUAL_APIC_ADDR 0x2012
 #define VMCS_APIC_ACCESS_ADDR 0x2014
@@ -2578,6 +2580,11 @@ static bool vmx_controls_valid(CPUX86State *env)
     if ((proc2 & VMX_SECONDARY_EXEC_TSC_SCALING) && !VMCS(TSC_MULTIPLIER)) {
         return false;
     }
+    if ((proc2 & VMX_SECONDARY_EXEC_ENABLE_PML) &&
+        (!(proc2 & VMX_SECONDARY_EXEC_ENABLE_EPT) ||
+         !vmx_addr_valid(env, VMCS(PML_ADDR), 4096))) {
+        return false;
+    }
     if ((proc2 & VMX_SECONDARY_EXEC_ENABLE_VMFUNC) &&
         (VMCS(VMFUNC_CONTROLS) & ~env->features[FEAT_VMX_VMFUNC])) {
         return false;
@@ -3796,6 +3803,7 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPTP_AD (1ULL << 6)
 #define VMX_EXIT_EPT_VIOLATION 48
 #define VMX_EXIT_EPT_MISCONFIG 49
+#define VMX_EXIT_PML_FULL 62
 
 bool x86_vmx_ept_active(CPUX86State *env)
 {
@@ -3890,10 +3898,25 @@ static bool ept_set_flags(CPUX86State *env, hwaddr addr, uint64_t old,
 }
 
 /*
+ * Page-modification logging: a dirty flag an EPT walk sets logs the 4-KByte
+ * page of the guest-physical address at the PML index, which then counts down
+ * (Intel SDM 325462-093 Vol. 3C, 31.3.6).
+ */
+static void ept_pml_log(CPUX86State *env, hwaddr gpa)
+{
+    uint64_t index = VMCS(PML_INDEX);
+
+    x86_stq_phys(env_cpu(env), VMCS(PML_ADDR) + 8 * index, gpa & ~0xfffULL);
+    VMCS_SET(PML_INDEX, (index - 1) & 0xffff);
+}
+
+/*
  * One translation: the host-physical address, protections, and page size, or
  * false with the EPT violation's qualification, or a misconfiguration, kept for
  * the exit (Intel SDM 325462-093 Vol. 3C, 31.3.3). Stores include, with A/D
- * flags, the guest's paging-structure accesses.
+ * flags, the guest's paging-structure accesses. Under page-modification
+ * logging, a flag to set with the PML index past 511 makes a log-full event
+ * instead, setting nothing (Intel SDM 325462-093 Vol. 3C, 31.3.6).
  */
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, hwaddr *hpa, int *prot,
@@ -3905,6 +3928,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     uint64_t addr_mask = PG_ADDRESS_MASK &
                          MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
     bool ad = eptp & EPTP_AD;
+    bool pml = ad && (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_PML);
     int levels = ((eptp >> 3) & 7) + 1;
     hwaddr table = eptp & addr_mask;
     uint64_t perms = EPT_READ | EPT_WRITE | EPT_EXEC;
@@ -3913,6 +3937,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     int level, shift = 12;
 
     env->vmx.ept_misconfig = false;
+    env->vmx.pml_full = false;
     need = access == MMU_DATA_STORE ? EPT_WRITE :
            access == MMU_INST_FETCH ? EPT_EXEC : EPT_READ;
     for (level = levels; level >= 1; level--) {
@@ -3945,6 +3970,9 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         }
         perms &= entry & 7;
         if (ad && !(entry & EPT_ACCESSED)) {
+            if (pml && VMCS(PML_INDEX) > 511) {
+                goto pml_full;
+            }
             if (!ept_set_flags(env, entry_addr, entry, entry | EPT_ACCESSED)) {
                 goto again;
             }
@@ -3959,11 +3987,17 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         goto violation;
     }
     if (ad && need == EPT_WRITE && !(entry & EPT_DIRTY)) {
+        if (pml && VMCS(PML_INDEX) > 511) {
+            goto pml_full;
+        }
         if (!ept_set_flags(env, entry_addr, entry, entry | EPT_DIRTY)) {
             return x86_vmx_ept_translate(env, gpa, access, hpa, prot,
                                          page_size);
         }
         entry |= EPT_DIRTY;
+        if (pml) {
+            ept_pml_log(env, gpa);
+        }
     }
     *page_size = 1 << shift;
     *hpa = (entry & addr_mask & ~(uint64_t)(*page_size - 1)) |
@@ -3985,12 +4019,16 @@ violation:
 misconfig:
     env->vmx.ept_misconfig = true;
     return false;
+pml_full:
+    env->vmx.pml_full = true;
+    return false;
 }
 
 /*
- * The exit of an EPT violation or misconfiguration: the guest-physical address,
- * and for a violation the linear address, which final is whether the access was
- * to (rather than for translating) (Intel SDM 325462-093 Vol. 3C, Table 30-7).
+ * The exit of an EPT violation or misconfiguration, or of a page-modification
+ * log-full event: the guest-physical address, and for a violation the linear
+ * address, which final is whether the access was to (rather than for
+ * translating) (Intel SDM 325462-093 Vol. 3C, Table 30-7).
  * A write to a guest paging structure, which all accesses to them are with EPT
  * A/D (Intel SDM 325462-093 Vol. 3C, Table 30-7, note 1) and flag updates are
  * without, also reads.
@@ -4004,6 +4042,9 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
     VMCS_SET(GUEST_PHYS_ADDR, gpa);
     if (env->vmx.ept_misconfig) {
         x86_vmx_exit(env, VMX_EXIT_EPT_MISCONFIG, 0, ra);
+    }
+    if (env->vmx.pml_full) {
+        x86_vmx_exit(env, VMX_EXIT_PML_FULL, 0, ra);
     }
     if (!final && (qual & 2)) {
         qual |= 1;
