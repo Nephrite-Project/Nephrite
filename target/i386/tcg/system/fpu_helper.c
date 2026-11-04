@@ -39,10 +39,22 @@ void fpu_check_raise_ferr_irq(CPUX86State *env)
     }
 }
 
+/*
+ * Only the vCPU's own thread may change its hflags2: it does so without
+ * locks (VMRUN, #VMEXIT, STGI, CLGI, ...), so a read-modify-write from
+ * another thread can undo those changes.
+ */
+static void do_set_ignne(CPUState *cs, run_on_cpu_data data)
+{
+    X86_CPU(cs)->env.hflags2 |= HF2_IGNNE_MASK;
+}
+
 void cpu_clear_ignne(void)
 {
-    CPUX86State *env = &X86_CPU(first_cpu)->env;
-    env->hflags2 &= ~HF2_IGNNE_MASK;
+    /* Only the first CPU's IGNNE# is ever asserted. */
+    if (current_cpu == first_cpu) {
+        X86_CPU(first_cpu)->env.hflags2 &= ~HF2_IGNNE_MASK;
+    }
 }
 
 void cpu_set_ignne(void)
@@ -51,7 +63,11 @@ void cpu_set_ignne(void)
 
     assert(bql_locked());
 
-    env->hflags2 |= HF2_IGNNE_MASK;
+    if (current_cpu == first_cpu) {
+        env->hflags2 |= HF2_IGNNE_MASK;
+    } else {
+        async_run_on_cpu(first_cpu, do_set_ignne, RUN_ON_CPU_NULL);
+    }
     /*
      * We get here in response to a write to port F0h.  The chipset should
      * deassert FP_IRQ and FERR# instead should stay signaled until FPSW_SE is
