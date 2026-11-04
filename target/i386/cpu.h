@@ -2076,6 +2076,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_EXTERNAL_INTERRUPT 1
 #define VMX_EXIT_TRIPLE_FAULT 2
 #define VMX_EXIT_INIT 3
+#define VMX_EXIT_SIPI 4
 #define VMX_EXIT_INTERRUPT_WINDOW 7
 #define VMX_EXIT_NMI_WINDOW 8
 #define VMX_EXIT_TASK_SWITCH 9
@@ -2153,6 +2154,8 @@ typedef struct X86VMXState {
     bool exit_nmi;
     /* The HLT state ended for an event not taken yet. */
     bool hlt_wake;
+    /* The shutdown or wait-for-SIPI state a VM entry left, else 0. */
+    uint8_t inactive;
     /* The exit under way is an event's that leaves the HLT state. */
     bool exit_hlt;
     /* The debug exceptions a VM entry left pending, as DR6 bits. */

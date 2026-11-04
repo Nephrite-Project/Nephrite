@@ -1855,6 +1855,8 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
         break;
     case SVM_EXIT_INIT:
         cpu_reset_interrupt(env_cpu(env), CPU_INTERRUPT_INIT);
+        env->vmx.exit_hlt = env->vmx.hlt_wake;
+        env->vmx.hlt_wake = false;
         x86_vmx_exit(env, VMX_EXIT_INIT, 0, ra);
     case SVM_EXIT_SHUTDOWN:
         x86_vmx_exit(env, VMX_EXIT_TRIPLE_FAULT, 0, ra);
@@ -2110,8 +2112,12 @@ static void vmx_save_guest(CPUX86State *env)
         intr |= VMX_BLOCKING_NMI;
     }
     VMCS_SET(GUEST_INTERRUPTIBILITY, intr);
-    VMCS_SET(GUEST_ACTIVITY, cs->halted || env->vmx.exit_hlt ?
-                             VMX_ACTIVITY_HLT : VMX_ACTIVITY_ACTIVE);
+    if (env->vmx.inactive) {
+        VMCS_SET(GUEST_ACTIVITY, env->vmx.inactive);
+    } else {
+        VMCS_SET(GUEST_ACTIVITY, cs->halted || env->vmx.exit_hlt ?
+                                 VMX_ACTIVITY_HLT : VMX_ACTIVITY_ACTIVE);
+    }
     env->vmx.exit_hlt = false;
     if (env->vmx.timer_on &&
         (exit_ctl & VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER)) {
@@ -2238,6 +2244,7 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.apic_access = ~0ULL;
     env->vmx.tpr_exit_pending = false;
     env->vmx.vintr_pending = false;
+    env->vmx.inactive = 0;
     env->vmx.timer_on = false;
     timer_del(env_archcpu(env)->vmx_timer);
     env->monitor_armed = false;
@@ -3020,10 +3027,14 @@ static void vmx_load_guest(CPUX86State *env)
     /*
      * An entry that injects ends active (Intel SDM 325462-093 Vol. 3C,
      * 29.7.2); one making an MTF VM exit pending does not inject (Intel SDM
-     * 325462-093 Vol. 3C, 29.7).
+     * 325462-093 Vol. 3C, 29.7). The HLT, shutdown, and wait-for-SIPI states
+     * halt the processor, the last two noted for the events they block.
      */
-    cs->halted = VMCS(GUEST_ACTIVITY) == VMX_ACTIVITY_HLT &&
+    cs->halted = VMCS(GUEST_ACTIVITY) != VMX_ACTIVITY_ACTIVE &&
                  !vmx_injecting(env);
+    env->vmx.inactive = cs->halted &&
+                        VMCS(GUEST_ACTIVITY) != VMX_ACTIVITY_HLT ?
+                        VMCS(GUEST_ACTIVITY) : 0;
     env->vmx.hlt_wake = false;
     env->vmx.exit_hlt = false;
 }
@@ -3343,6 +3354,17 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
         return CPU_INTERRUPT_POLL;
     }
     /*
+     * The wait-for-SIPI state blocks all but SIPIs, which exit, and the
+     * other states discard SIPIs; INIT signals exit from those, waking the
+     * processor (Intel SDM 325462-093 Vol. 3C, 28.2 and 29.7.2).
+     */
+    if (env->vmx.inactive == VMX_ACTIVITY_WAIT_SIPI) {
+        return request & CPU_INTERRUPT_SIPI;
+    }
+    if (request & CPU_INTERRUPT_INIT) {
+        return CPU_INTERRUPT_INIT;
+    }
+    /*
      * The TPR-below-threshold VM exit after a VM entry comes before SMIs
      * (Intel SDM 325462-093 Vol. 3C, 29.7.7).
      */
@@ -3351,6 +3373,23 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
     }
     if ((request & CPU_INTERRUPT_SMI) && !(env->hflags & HF_SMM_MASK)) {
         return CPU_INTERRUPT_SMI;
+    }
+    /*
+     * The shutdown state blocks external and virtual interrupts, the
+     * windows, and MTF VM exits, not NMIs, machine checks, or the
+     * VMX-preemption timer (Intel SDM 325462-093 Vol. 3C, 28.5.1, 29.7.2,
+     * 30.1, and 32.2.2).
+     */
+    if (env->vmx.inactive == VMX_ACTIVITY_SHUTDOWN) {
+        if ((request & CPU_INTERRUPT_VMX) && vmx_timer_expired(env)) {
+            return CPU_INTERRUPT_VMX;
+        }
+        if ((request & CPU_INTERRUPT_NMI) &&
+            ((pin & VMX_PIN_BASED_NMI_EXITING) ||
+             !(env->hflags2 & HF2_NMI_MASK))) {
+            return CPU_INTERRUPT_NMI;
+        }
+        return request & CPU_INTERRUPT_MCE;
     }
     /*
      * MTF VM exits come after SMIs and INITs, before debug traps (Intel
@@ -3420,6 +3459,10 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
     uint32_t proc = VMCS(PROC_CONTROLS);
 
     switch (request) {
+    case CPU_INTERRUPT_SIPI:
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_SIPI);
+        x86_vmx_exit(env, VMX_EXIT_SIPI,
+                     apic_get_sipi_vector(env_archcpu(env)->apic_state), 0);
     case CPU_INTERRUPT_NMI:
         if (!(pin & VMX_PIN_BASED_NMI_EXITING)) {
             return false;
@@ -3508,9 +3551,10 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
 }
 
 /*
- * An event that exits directly out of the HLT state, which it woke the
- * processor from, leaves that state only once the exit completes, so
- * the exit saves it (Intel SDM 325462-093 Vol. 3C, 30.1).
+ * An event that exits directly out of an inactive state, which it woke the
+ * processor from, leaves that state only once the exit completes, so the
+ * exit saves it; one delivered as usual makes the processor active (Intel
+ * SDM 325462-093 Vol. 3C, 30.1).
  */
 bool x86_vmx_take_interrupt(CPUX86State *env, int request, bool woke)
 {
@@ -3519,6 +3563,7 @@ bool x86_vmx_take_interrupt(CPUX86State *env, int request, bool woke)
         return true;
     }
     env->vmx.exit_hlt = false;
+    env->vmx.inactive = 0;
     return false;
 }
 

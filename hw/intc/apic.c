@@ -531,6 +531,15 @@ void apic_write_eoi(APICCommonState *s)
     apic_eoi(s);
 }
 
+/*
+ * The vector of the last start-up IPI, which VMX's SIPI VM exits report
+ * (Intel SDM 325462-093 Vol. 3C, 30.2.1).
+ */
+int apic_get_sipi_vector(APICCommonState *s)
+{
+    return s->sipi_vector;
+}
+
 static bool apic_match_dest(APICCommonState *apic, uint32_t dest)
 {
     if (is_x2apic_mode(apic)) {
