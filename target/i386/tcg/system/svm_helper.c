@@ -792,7 +792,14 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
 {
     CPUState *cs = env_cpu(env);
 
-    cpu_restore_state(cs, retaddr);
+    /*
+     * A failed VMRUN returns to the host after VMRUN without having run the
+     * guest, whose state in the VMCB stays as the host wrote it: restoring
+     * the state of VMRUN's own TB would make the host's RIP the guest's.
+     */
+    if (exit_code != SVM_EXIT_ERR) {
+        cpu_restore_state(cs, retaddr);
+    }
 
     if (env->features[FEAT_SVM] & CPUID_SVM_NRIPSAVE) {
         x86_stq_phys(cs,
@@ -823,6 +830,16 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
 void do_vmexit(CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
+    bool vmrun_failed = x86_ldq_phys(cs, env->vm_vmcb +
+                                     offsetof(struct vmcb, control.exit_code))
+                        == (uint64_t)SVM_EXIT_ERR;
+
+    env->hflags2 &= ~HF2_NPT_MASK;
+    tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
+    if (vmrun_failed) {
+        env->hflags &= ~HF_INHIBIT_IRQ_MASK;
+        goto load_host;
+    }
 
     if (env->hflags & HF_INHIBIT_IRQ_MASK) {
         x86_stl_phys(cs,
@@ -833,8 +850,6 @@ void do_vmexit(CPUX86State *env)
         x86_stl_phys(cs,
                  env->vm_vmcb + offsetof(struct vmcb, control.int_state), 0);
     }
-    env->hflags2 &= ~HF2_NPT_MASK;
-    tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
 
     /* Save the VM state in the vmcb */
     svm_save_seg(env, MMU_PHYS_IDX,
@@ -888,6 +903,7 @@ void do_vmexit(CPUX86State *env)
     x86_stb_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cpl),
              env->hflags & HF_CPL_MASK);
 
+load_host:
     /* Reload the host state from vm_hsave */
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     env->hflags &= ~HF_GUEST_MASK;
