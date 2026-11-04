@@ -2119,7 +2119,9 @@ struct hv_vp_register_page;
 #define VMX_EXIT_WBINVD 54
 #define VMX_EXIT_XSETBV 55
 #define VMX_EXIT_APIC_WRITE 56
+#define VMX_EXIT_RDRAND 57
 #define VMX_EXIT_INVPCID 58
+#define VMX_EXIT_RDSEED 61
 #define VMX_EXIT_ENTRY_FAILURE (1U << 31)
 
 /* The VMCS fields TCG keeps (see vmx_helper.c), at most this many. */

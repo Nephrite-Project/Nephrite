@@ -3688,6 +3688,22 @@ uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc)
 }
 
 /*
+ * RDRAND and RDSEED exit with "RDRAND exiting" and "RDSEED exiting", their
+ * register and operand size in the instruction information (Intel SDM
+ * 325462-093 Vol. 3C, 28.1.3 and Table 30-12); bit 31 of INFO tells RDSEED.
+ */
+void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra)
+{
+    bool seed = info >> 31;
+
+    if (vmx_proc2(env) & (seed ? VMX_SECONDARY_EXEC_RDSEED_EXITING :
+                                 VMX_SECONDARY_EXEC_RDRAND_EXITING)) {
+        VMCS_SET(EXIT_INSN_INFO, info & ~(1u << 31));
+        x86_vmx_exit(env, seed ? VMX_EXIT_RDSEED : VMX_EXIT_RDRAND, 0, ra);
+    }
+}
+
+/*
  * INVPCID needs "enable INVPCID" in non-root operation, and exits with
  * "INVLPG exiting" (Intel SDM 325462-093 Vol. 3C, 28.1.3 and 28.3).
  */

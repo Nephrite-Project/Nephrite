@@ -2949,8 +2949,15 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
         do_rdrand:
             translator_io_start(&s->base);
-            gen_helper_rdrand(s->T0, tcg_env);
             rm = (modrm & 7) | REX_B(s);
+            /*
+             * The instruction information of a VMX exit: the register, the
+             * operand size, and, in bit 31, RDSEED rather than RDRAND.
+             */
+            gen_helper_rdrand(s->T0, tcg_env,
+                              tcg_constant_i32(rm << 3 | (dflag - MO_16) << 11 |
+                                               (((modrm >> 3) & 7) == 7 ?
+                                                1u << 31 : 0)));
             gen_op_mov_reg_v(s, dflag, rm, s->T0);
             assume_cc_op(s, CC_OP_EFLAGS);
             break;

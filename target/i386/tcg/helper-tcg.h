@@ -175,6 +175,7 @@ bool x86_vmx_rdtscp_allowed(CPUX86State *env);
 uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc);
 void x86_vmx_tsc_seen(CPUX86State *env);
 void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra);
+void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,

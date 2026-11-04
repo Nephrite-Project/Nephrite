@@ -236,4 +236,4 @@ DEF_HELPER_1(emms, void, env)
 #define SHIFT 2
 #include "tcg/ops_sse_header.h.inc"
 
-DEF_HELPER_1(rdrand, tl, env)
+DEF_HELPER_2(rdrand, tl, env, i32)

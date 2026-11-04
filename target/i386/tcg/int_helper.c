@@ -450,11 +450,16 @@ void HELPER(check_canonical)(CPUX86State *env, target_ulong addr,
     }
 }
 
-target_ulong HELPER(rdrand)(CPUX86State *env)
+target_ulong HELPER(rdrand)(CPUX86State *env, uint32_t vmx_info)
 {
     Error *err = NULL;
     target_ulong ret;
 
+#ifndef CONFIG_USER_ONLY
+    if (env->vmx.nonroot) {
+        x86_vmx_rdrand(env, vmx_info, GETPC());
+    }
+#endif
     if (qemu_guest_getrandom(&ret, sizeof(ret), &err) < 0) {
         qemu_log_mask(LOG_UNIMP, "rdrand: Crypto failure: %s",
                       error_get_pretty(err));
