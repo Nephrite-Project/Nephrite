@@ -215,8 +215,7 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         break;
     case CPU_INTERRUPT_VIRQ:
         cpu_svm_check_intercept_param(env, SVM_EXIT_VINTR, 0, 0);
-        intno = x86_ldl_phys(cs, env->vm_vmcb
-                             + offsetof(struct vmcb, control.int_vector));
+        intno = env->svm_int_vector & 0xff;
         qemu_log_mask(CPU_LOG_INT,
                       "Servicing virtual hardware INT=0x%02x\n", intno);
         do_interrupt_x86_hardirq(env, intno, 1);

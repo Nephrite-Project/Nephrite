@@ -149,6 +149,21 @@
 
 #define SVM_NPT_ENABLED     (1 << 0)
 
+/* VMCB Clean field bits */
+#define SVM_CLEAN_I         (1 << 0)
+#define SVM_CLEAN_IOPM      (1 << 1)
+#define SVM_CLEAN_ASID      (1 << 2)
+#define SVM_CLEAN_TPR       (1 << 3)
+#define SVM_CLEAN_NP        (1 << 4)
+#define SVM_CLEAN_CRX       (1 << 5)
+#define SVM_CLEAN_DRX       (1 << 6)
+#define SVM_CLEAN_DT        (1 << 7)
+#define SVM_CLEAN_SEG       (1 << 8)
+#define SVM_CLEAN_CR2       (1 << 9)
+#define SVM_CLEAN_LBR       (1 << 10)
+#define SVM_CLEAN_AVIC      (1 << 11)
+#define SVM_CLEAN_CET       (1 << 12)
+
 #define SVM_NPTEXIT_GPA     (1ULL << 32)
 #define SVM_NPTEXIT_GPT     (1ULL << 33)
 

@@ -85,6 +85,48 @@ static void svm_load_seg_cache(CPUX86State *env, int mmu_idx,
                            sc.base, sc.limit, sc.flags);
 }
 
+/* The segment registers of the VMCB's SEG group. */
+static const struct {
+    X86Seg reg;
+    size_t offset;
+} svm_cached_segs[] = {
+    { R_ES, offsetof(struct vmcb, save.es) },
+    { R_CS, offsetof(struct vmcb, save.cs) },
+    { R_SS, offsetof(struct vmcb, save.ss) },
+    { R_DS, offsetof(struct vmcb, save.ds) },
+};
+
+/*
+ * The VMCB Clean field of the VMCB being run: its set bits let VMRUN take
+ * those groups of guest state from the processor's cache of the VMCB last
+ * run, if that is this one.
+ */
+static uint32_t svm_clean_bits(CPUX86State *env)
+{
+    SVMStateCache *c = &env->svm_cache;
+
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_VMCBCLEAN) ||
+        !c->valid || c->vmcb != env->vm_vmcb) {
+        return 0;
+    }
+    return x86_ldl_phys(env_cpu(env),
+                        env->vm_vmcb + offsetof(struct vmcb, control.clean));
+}
+
+/* A segment as #VMEXIT stores it and VMRUN would load it back. */
+static void svm_cache_seg(CPUX86State *env, SegmentCache *dst,
+                          const SegmentCache *src)
+{
+    unsigned int attrib = ((src->flags >> 8) & 0xff) |
+                          ((src->flags >> 12) & 0x0f00);
+
+    dst->selector = (uint16_t)src->selector;
+    dst->base = src->base;
+    svm_canonicalization(env, &dst->base);
+    dst->limit = src->limit;
+    dst->flags = ((attrib & 0xff) << 8) | ((attrib & 0x0f00) << 12);
+}
+
 static inline bool is_efer_invalid_state (CPUX86State *env)
 {
     if (!(env->efer & MSR_EFER_SVME)) {
@@ -166,6 +208,8 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     uint64_t new_cr4;
     uint64_t new_dr6;
     uint64_t new_dr7;
+    SVMStateCache *c = &env->svm_cache;
+    uint32_t clean;
 
     if (aflag == 2) {
         addr = env->regs[R_EAX];
@@ -234,26 +278,38 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     x86_stq_phys(cs,
              env->vm_hsave + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
 
+    clean = svm_clean_bits(env);
+    c->valid = false;
+
     /* load the interception bitmaps so we do not need to access the
        vmcb in svm mode */
-    env->intercept = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
-                                                      control.intercept));
-    env->intercept_cr_read = x86_lduw_phys(cs, env->vm_vmcb +
-                                       offsetof(struct vmcb,
-                                                control.intercept_cr_read));
-    env->intercept_cr_write = x86_lduw_phys(cs, env->vm_vmcb +
-                                        offsetof(struct vmcb,
-                                                 control.intercept_cr_write));
-    env->intercept_dr_read = x86_lduw_phys(cs, env->vm_vmcb +
-                                       offsetof(struct vmcb,
-                                                control.intercept_dr_read));
-    env->intercept_dr_write = x86_lduw_phys(cs, env->vm_vmcb +
-                                        offsetof(struct vmcb,
-                                                 control.intercept_dr_write));
-    env->intercept_exceptions = x86_ldl_phys(cs, env->vm_vmcb +
-                                         offsetof(struct vmcb,
-                                                  control.intercept_exceptions
-                                                  ));
+    if (!(clean & SVM_CLEAN_I)) {
+        c->intercept = x86_ldq_phys(cs, env->vm_vmcb +
+                                    offsetof(struct vmcb, control.intercept));
+        c->intercept_cr_read =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.intercept_cr_read));
+        c->intercept_cr_write =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.intercept_cr_write));
+        c->intercept_dr_read =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.intercept_dr_read));
+        c->intercept_dr_write =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.intercept_dr_write));
+        c->intercept_exceptions =
+            x86_ldl_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.intercept_exceptions));
+        c->tsc_offset = x86_ldq_phys(cs, env->vm_vmcb +
+                                     offsetof(struct vmcb, control.tsc_offset));
+    }
+    env->intercept = c->intercept;
+    env->intercept_cr_read = c->intercept_cr_read;
+    env->intercept_cr_write = c->intercept_cr_write;
+    env->intercept_dr_read = c->intercept_dr_read;
+    env->intercept_dr_write = c->intercept_dr_write;
+    env->intercept_exceptions = c->intercept_exceptions;
 
     env->hflags &= ~HF_INHIBIT_IRQ_MASK;
     if (x86_ldl_phys(cs, env->vm_vmcb +
@@ -264,20 +320,28 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
 
     nested_ctl = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                                           control.nested_ctl));
-    asid = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
-                                                          control.asid));
+    if (!(clean & SVM_CLEAN_ASID)) {
+        c->asid = x86_ldl_phys(cs, env->vm_vmcb +
+                               offsetof(struct vmcb, control.asid));
+    }
+    asid = c->asid;
 
-    uint64_t msrpm_base_pa = x86_ldq_phys(cs, env->vm_vmcb +
-                                    offsetof(struct vmcb,
-                                            control.msrpm_base_pa));
-    uint64_t iopm_base_pa = x86_ldq_phys(cs, env->vm_vmcb +
-                                 offsetof(struct vmcb, control.iopm_base_pa));
+    if (!(clean & SVM_CLEAN_IOPM)) {
+        c->msrpm_base_pa =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.msrpm_base_pa));
+        c->iopm_base_pa =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.iopm_base_pa));
+    }
+    env->svm_msrpm_base = c->msrpm_base_pa & ~0xfffULL;
+    env->svm_iopm_base = c->iopm_base_pa & ~0xfffULL;
 
-    if ((msrpm_base_pa & ~0xfff) >= (1ull << cpu->phys_bits) - SVM_MSRPM_SIZE) {
+    if (env->svm_msrpm_base >= (1ull << cpu->phys_bits) - SVM_MSRPM_SIZE) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
 
-    if ((iopm_base_pa & ~0xfff) >= (1ull << cpu->phys_bits) - SVM_IOPM_SIZE) {
+    if (env->svm_iopm_base >= (1ull << cpu->phys_bits) - SVM_IOPM_SIZE) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
 
@@ -290,10 +354,12 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
 
+    if (!(clean & SVM_CLEAN_NP)) {
+        c->nested_cr3 = x86_ldq_phys(cs, env->vm_vmcb +
+                                     offsetof(struct vmcb, control.nested_cr3));
+    }
     if (nested_ctl & SVM_NPT_ENABLED) {
-        env->nested_cr3 = x86_ldq_phys(cs,
-                                env->vm_vmcb + offsetof(struct vmcb,
-                                                        control.nested_cr3));
+        env->nested_cr3 = c->nested_cr3;
         env->hflags2 |= HF2_NPT_MASK;
 
         env->nested_pg_mode = get_pg_mode(env) & PG_MODE_SVM_MASK;
@@ -307,22 +373,31 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     /* enable intercepts */
     env->hflags |= HF_GUEST_MASK;
 
-    env->tsc_offset = x86_ldq_phys(cs, env->vm_vmcb +
-                               offsetof(struct vmcb, control.tsc_offset));
+    env->tsc_offset = c->tsc_offset;
 
-    new_cr0 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cr0));
+    if (!(clean & SVM_CLEAN_CRX)) {
+        c->cr0 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.cr0));
+        c->cr3 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.cr3));
+        c->cr4 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.cr4));
+        c->efer = x86_ldq_phys(cs, env->vm_vmcb +
+                               offsetof(struct vmcb, save.efer));
+    }
+    new_cr0 = c->cr0;
     if (new_cr0 & SVM_CR0_RESERVED_MASK) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
     if ((new_cr0 & CR0_NW_MASK) && !(new_cr0 & CR0_CD_MASK)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
-    new_cr3 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cr3));
+    new_cr3 = c->cr3;
     if ((env->efer & MSR_EFER_LMA) &&
             (new_cr3 & ((~0ULL) << cpu->phys_bits))) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
-    new_cr4 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cr4));
+    new_cr4 = c->cr4;
     if (new_cr4 & cr4_reserved_bits(env)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
@@ -333,10 +408,19 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     cpu_x86_update_cr0(env, new_cr0);
     cpu_x86_update_cr4(env, new_cr4);
     cpu_x86_update_cr3(env, new_cr3);
-    env->cr[2] = x86_ldq_phys(cs,
-                          env->vm_vmcb + offsetof(struct vmcb, save.cr2));
-    env->int_ctl = x86_ldl_phys(cs,
-                       env->vm_vmcb + offsetof(struct vmcb, control.int_ctl));
+    if (!(clean & SVM_CLEAN_CR2)) {
+        c->cr2 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.cr2));
+    }
+    env->cr[2] = c->cr2;
+    if (!(clean & SVM_CLEAN_TPR)) {
+        c->int_ctl = x86_ldl_phys(cs, env->vm_vmcb +
+                                  offsetof(struct vmcb, control.int_ctl));
+        c->int_vector = x86_ldl_phys(cs, env->vm_vmcb +
+                                     offsetof(struct vmcb, control.int_vector));
+    }
+    env->int_ctl = c->int_ctl;
+    env->svm_int_vector = c->int_vector;
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     if (env->int_ctl & V_INTR_MASKING_MASK) {
         env->hflags2 |= HF2_VINTR_MASK;
@@ -345,27 +429,31 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         }
     }
 
-    cpu_load_efer(env,
-                  x86_ldq_phys(cs,
-                           env->vm_vmcb + offsetof(struct vmcb, save.efer)));
+    cpu_load_efer(env, c->efer);
     env->eflags = 0;
     cpu_load_eflags(env, x86_ldq_phys(cs,
                                   env->vm_vmcb + offsetof(struct vmcb,
                                                           save.rflags)),
                     ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C | DF_MASK));
 
-    svm_load_seg_cache(env, MMU_PHYS_IDX,
-                       env->vm_vmcb + offsetof(struct vmcb, save.es), R_ES);
-    svm_load_seg_cache(env, MMU_PHYS_IDX,
-                       env->vm_vmcb + offsetof(struct vmcb, save.cs), R_CS);
-    svm_load_seg_cache(env, MMU_PHYS_IDX,
-                       env->vm_vmcb + offsetof(struct vmcb, save.ss), R_SS);
-    svm_load_seg_cache(env, MMU_PHYS_IDX,
-                       env->vm_vmcb + offsetof(struct vmcb, save.ds), R_DS);
-    svm_load_seg(env, MMU_PHYS_IDX,
-                 env->vm_vmcb + offsetof(struct vmcb, save.idtr), &env->idt);
-    svm_load_seg(env, MMU_PHYS_IDX,
-                 env->vm_vmcb + offsetof(struct vmcb, save.gdtr), &env->gdt);
+    for (int i = 0; i < ARRAY_SIZE(svm_cached_segs); i++) {
+        SegmentCache *sc = &c->segs[i];
+
+        if (!(clean & SVM_CLEAN_SEG)) {
+            svm_load_seg(env, MMU_PHYS_IDX,
+                         env->vm_vmcb + svm_cached_segs[i].offset, sc);
+        }
+        cpu_x86_load_seg_cache(env, svm_cached_segs[i].reg, sc->selector,
+                               sc->base, sc->limit, sc->flags);
+    }
+    if (!(clean & SVM_CLEAN_DT)) {
+        svm_load_seg(env, MMU_PHYS_IDX,
+                     env->vm_vmcb + offsetof(struct vmcb, save.idtr), &c->idt);
+        svm_load_seg(env, MMU_PHYS_IDX,
+                     env->vm_vmcb + offsetof(struct vmcb, save.gdtr), &c->gdt);
+    }
+    env->idt = c->idt;
+    env->gdt = c->gdt;
 
     env->eip = x86_ldq_phys(cs,
                         env->vm_vmcb + offsetof(struct vmcb, save.rip));
@@ -375,8 +463,14 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->regs[R_EAX] = x86_ldq_phys(cs,
                                 env->vm_vmcb + offsetof(struct vmcb, save.rax));
 
-    new_dr7 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr7));
-    new_dr6 = x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.dr6));
+    if (!(clean & SVM_CLEAN_DRX)) {
+        c->dr7 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.dr7));
+        c->dr6 = x86_ldq_phys(cs, env->vm_vmcb +
+                              offsetof(struct vmcb, save.dr6));
+    }
+    new_dr7 = c->dr7;
+    new_dr6 = c->dr6;
 
 #ifdef TARGET_X86_64
     if (new_dr7 & DR_RESERVED_MASK) {
@@ -393,6 +487,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (is_efer_invalid_state(env)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
+
+    /* The guest state just loaded is what the processor now caches. */
+    c->vmcb = env->vm_vmcb;
+    c->valid = true;
 
     switch (x86_ldub_phys(cs,
                       env->vm_vmcb + offsetof(struct vmcb, control.tlb_ctl))) {
@@ -695,10 +793,7 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
     }
 
     if (type == SVM_EXIT_MSR) {
-        /* FIXME: this should be read in at vmrun (faster this way?) */
-        uint64_t addr = x86_ldq_phys(cs, env->vm_vmcb +
-                                    offsetof(struct vmcb,
-                                            control.msrpm_base_pa));
+        uint64_t addr = env->svm_msrpm_base;
         uint32_t t0, t1;
 
         switch ((uint32_t)env->regs[R_ECX]) {
@@ -754,9 +849,7 @@ void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
     CPUState *cs = env_cpu(env);
 
     if (env->intercept & (1ULL << (SVM_EXIT_IOIO - SVM_EXIT_INTR))) {
-        /* FIXME: this should be read in at vmrun (faster this way?) */
-        uint64_t addr = x86_ldq_phys(cs, env->vm_vmcb +
-                                 offsetof(struct vmcb, control.iopm_base_pa));
+        uint64_t addr = env->svm_iopm_base;
         uint16_t mask = (1 << ((param >> 4) & 7)) - 1;
 
         if (x86_lduw_phys(cs, addr + port / 8) & (mask << (port & 7))) {
@@ -872,6 +965,7 @@ void do_vmexit(CPUX86State *env)
     env->hflags2 &= ~HF2_NPT_MASK;
     tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
     if (vmrun_failed) {
+        env->svm_cache.valid = false;
         env->hflags &= ~HF_INHIBIT_IRQ_MASK;
         goto load_host;
     }
@@ -937,6 +1031,30 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.dr6), env->dr[6]);
     x86_stb_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.cpl),
              env->hflags & HF_CPL_MASK);
+
+    /* The guest state just stored is what the processor now caches. */
+    if (env->svm_cache.valid) {
+        SVMStateCache *c = &env->svm_cache;
+
+        for (int i = 0; i < ARRAY_SIZE(svm_cached_segs); i++) {
+            svm_cache_seg(env, &c->segs[i],
+                          &env->segs[svm_cached_segs[i].reg]);
+        }
+        c->gdt.base = env->gdt.base;
+        svm_canonicalization(env, &c->gdt.base);
+        c->gdt.limit = env->gdt.limit;
+        c->idt.base = env->idt.base;
+        svm_canonicalization(env, &c->idt.base);
+        c->idt.limit = env->idt.limit;
+        c->efer = env->efer;
+        c->cr0 = env->cr[0];
+        c->cr2 = env->cr[2];
+        c->cr3 = env->cr[3];
+        c->cr4 = env->cr[4];
+        c->int_ctl = env->int_ctl;
+        c->dr7 = env->dr[7];
+        c->dr6 = env->dr[6];
+    }
 
 load_host:
     /* Reload the host state from vm_hsave */

@@ -2007,6 +2007,49 @@ typedef struct CPUCaches {
 struct kvm_msrs;
 struct hv_vp_register_page;
 
+/*
+ * The guest state of the VMCB last run that VMRUN takes from the processor
+ * rather than from the VMCB where the VMCB Clean field allows (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.15).
+ */
+typedef struct SVMStateCache {
+    bool valid;
+    uint64_t vmcb;
+    /* I */
+    uint16_t intercept_cr_read;
+    uint16_t intercept_cr_write;
+    uint16_t intercept_dr_read;
+    uint16_t intercept_dr_write;
+    uint32_t intercept_exceptions;
+    uint64_t intercept;
+    uint64_t tsc_offset;
+    /* IOPM */
+    uint64_t iopm_base_pa;
+    uint64_t msrpm_base_pa;
+    /* ASID */
+    uint32_t asid;
+    /* TPR: VMCB offsets 60h to 67h */
+    uint32_t int_ctl;
+    uint32_t int_vector;
+    /* NP */
+    uint64_t nested_cr3;
+    /* CRx */
+    uint64_t cr0;
+    uint64_t cr3;
+    uint64_t cr4;
+    uint64_t efer;
+    /* DRx */
+    uint64_t dr6;
+    uint64_t dr7;
+    /* DT */
+    SegmentCache gdt;
+    SegmentCache idt;
+    /* SEG: ES, CS, SS, DS */
+    SegmentCache segs[4];
+    /* CR2 */
+    uint64_t cr2;
+} SVMStateCache;
+
 typedef struct CPUArchState {
     /* standard registers */
     target_ulong regs[CPU_NB_EREGS];
@@ -2235,6 +2278,11 @@ typedef struct CPUArchState {
     uint32_t int_ctl;
     /* The length of the instruction an SVM intercept reports. */
     uint32_t svm_insn_len;
+    /* The guest's IOPM, MSRPM, and virtual interrupt vector, from VMRUN. */
+    uint64_t svm_iopm_base;
+    uint64_t svm_msrpm_base;
+    uint32_t svm_int_vector;
+    SVMStateCache svm_cache;
     /* Decode assists: EXITINFO1 of the current instruction's intercepts. */
     uint64_t svm_decode_info;
     /* Decode assists: the guest instruction bytes of a page fault. */
