@@ -83,6 +83,7 @@
 #define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
 #define VMCS_VMREAD_BITMAP 0x2026
 #define VMCS_VMWRITE_BITMAP 0x2028
+#define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -2549,6 +2550,9 @@ static bool vmx_controls_valid(CPUX86State *env)
          !vmx_addr_valid(env, VMCS(VMWRITE_BITMAP), 4096))) {
         return false;
     }
+    if ((proc2 & VMX_SECONDARY_EXEC_TSC_SCALING) && !VMCS(TSC_MULTIPLIER)) {
+        return false;
+    }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
         !(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
         return false;
@@ -3642,15 +3646,22 @@ bool x86_vmx_rdtscp_allowed(CPUX86State *env)
 }
 
 /*
- * The TSC non-root operation reads, with "use TSC offsetting"
- * (Intel SDM 325462-093 Vol. 3C, 27.6.5).
+ * The TSC non-root operation reads, with "use TSC offsetting": scaled
+ * first, with "use TSC scaling", by the TSC multiplier, a 16.48 fixed
+ * point number (Intel SDM 325462-093 Vol. 3C, 27.6.5 and 28.3).
  */
 uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc)
 {
-    if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_USE_TSC_OFFSETING) {
-        tsc += VMCS(TSC_OFFSET);
+    uint64_t low, high;
+
+    if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_USE_TSC_OFFSETING)) {
+        return tsc;
     }
-    return tsc;
+    if (vmx_proc2(env) & VMX_SECONDARY_EXEC_TSC_SCALING) {
+        mulu64(&low, &high, tsc, VMCS(TSC_MULTIPLIER));
+        tsc = high << 16 | low >> 48;
+    }
+    return tsc + VMCS(TSC_OFFSET);
 }
 
 /*
