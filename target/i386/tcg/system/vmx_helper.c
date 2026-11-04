@@ -3811,6 +3811,23 @@ bool x86_vmx_ept_active(CPUX86State *env)
            (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT);
 }
 
+/*
+ * Advanced VM-exit information of an EPT violation in the translation of a
+ * linear address: whether paging makes its page user-mode, read/write, and
+ * execute-disable, from FLAGS, the paging-structure entries' U/S, R/W, and
+ * XD combined (Intel SDM 325462-093 Vol. 3C, Table 30-7).
+ */
+void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags)
+{
+    uint64_t caps = env->features[FEAT_VMX_EPT_VPID_CAPS];
+
+    if (x86_vmx_ept_active(env) && (caps & MSR_VMX_EPT_ADVANCED_VMEXIT_INFO)) {
+        env->vmx.ept_qual |= (flags & PG_USER_MASK ? 1 << 9 : 0) |
+                             (flags & PG_RW_MASK ? 1 << 10 : 0) |
+                             (flags & PG_NX_MASK ? 1 << 11 : 0);
+    }
+}
+
 /* Guest paging-structure accesses are writes where EPT has A/D flags. */
 bool x86_vmx_ept_ad(CPUX86State *env)
 {

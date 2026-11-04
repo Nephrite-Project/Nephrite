@@ -181,6 +181,7 @@ bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, hwaddr *hpa, int *prot,
                            int *page_size);
+void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
                                  uintptr_t ra);

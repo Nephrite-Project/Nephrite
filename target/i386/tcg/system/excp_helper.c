@@ -428,6 +428,8 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         page_size = 0x40000000;
         paddr = in->addr;
         prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
+        /* Without paging, a user-mode, read/write, executable page. */
+        ptep = PG_USER_MASK | PG_RW_MASK;
         goto stage2;
     }
 
@@ -522,6 +524,7 @@ do_check_protect_pse36:
         flags = probe_access_full_mmu(env, paddr, 0, access_type,
                                       in->ptw_idx, &pte_trans.haddr, &full);
         if (unlikely(flags & TLB_INVALID_MASK)) {
+            x86_vmx_ept_guest_page(env, ptep);
             *err = (TranslateFault){
                 .error_code = env->error_code,
                 .cr2 = paddr,
