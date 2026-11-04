@@ -540,6 +540,17 @@ int apic_get_sipi_vector(APICCommonState *s)
     return s->sipi_vector;
 }
 
+/*
+ * A fixed, edge-triggered IPI to a physical destination, as VMX's IPI
+ * virtualization sends its notifications (Intel SDM 325462-093 Vol. 3C,
+ * 32.1.6.2).
+ */
+void apic_send_fixed_ipi(uint32_t dest, uint8_t vector)
+{
+    apic_deliver_irq(dest, APIC_DESTMODE_PHYSICAL, APIC_DM_FIXED, vector,
+                     APIC_TRIGGER_EDGE);
+}
+
 static bool apic_match_dest(APICCommonState *apic, uint32_t dest)
 {
     if (is_x2apic_mode(apic)) {

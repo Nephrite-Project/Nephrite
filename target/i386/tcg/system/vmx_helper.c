@@ -11,6 +11,7 @@
 #include "qemu/osdep.h"
 #include "qemu/host-utils.h"
 #include "qemu/log.h"
+#include "qemu/main-loop.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "exec/cputlb.h"
@@ -66,6 +67,7 @@
  */
 #define VMCS_VPID 0x0000
 #define VMCS_PI_NOTIFICATION_VECTOR 0x0002
+#define VMCS_LAST_PID_INDEX 0x0008
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
 #define VMCS_PML_INDEX 0x0812
@@ -89,6 +91,8 @@
 #define VMCS_VMWRITE_BITMAP 0x2028
 #define VMCS_XSS_EXIT_BITMAP 0x202c
 #define VMCS_TSC_MULTIPLIER 0x2032
+#define VMCS_PROC3_CONTROLS 0x2034
+#define VMCS_PID_TABLE_ADDR 0x2042
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -993,6 +997,16 @@ bool x86_vmx_read_msr(CPUX86State *env, uint32_t index, uint64_t *val)
         }
         *val = env->features[FEAT_VMX_VMFUNC];
         return true;
+    case MSR_IA32_VMX_PROCBASED_CTLS3:
+        /*
+         * All 64 bits are allowed 1-settings (Intel SDM 325462-093 Vol. 3D,
+         * A.3.4).
+         */
+        if (!(procbased >> 32 & VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS)) {
+            return false;
+        }
+        *val = env->features[FEAT_VMX_TERTIARY_CTLS];
+        return true;
     default:
         return false;
     }
@@ -1072,6 +1086,12 @@ static uint32_t vmx_proc2(CPUX86State *env)
 {
     return VMCS(PROC_CONTROLS) & VMX_CPU_BASED_ACTIVATE_SECONDARY_CONTROLS ?
            VMCS(PROC2_CONTROLS) : 0;
+}
+
+static uint64_t vmx_proc3(CPUX86State *env)
+{
+    return VMCS(PROC_CONTROLS) & VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS ?
+           VMCS(PROC3_CONTROLS) : 0;
 }
 
 /* VMX access rights from and to QEMU's descriptor flags. */
@@ -1515,6 +1535,82 @@ static void vmx_self_ipi_virtualize(CPUX86State *env, int vector)
 }
 
 /*
+ * Virtual-interrupt posting (Intel SDM 325462-093 Vol. 3C, 32.1.6.1): the
+ * request bit of VECTOR, then the outstanding-notification bit where it and
+ * suppress-notify are clear, each set atomically in the 64-byte PID, which
+ * other processors write too. True where the notification is due, NV and
+ * NDST its vector and destination.
+ */
+static bool vmx_pid_post(CPUX86State *env, hwaddr pid, int vector,
+                         uint8_t *nv, uint32_t *ndst)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr len = 64;
+    uint32_t *desc = address_space_map(cs->as, pid, &len, true,
+                                       MEMTXATTRS_UNSPECIFIED);
+    uint32_t old;
+    bool notify;
+
+    if (!desc || len < 64) {
+        if (desc) {
+            address_space_unmap(cs->as, desc, len, false, 0);
+        }
+        x86_stl_phys(cs, pid + vector / 32 * 4,
+                     x86_ldl_phys(cs, pid + vector / 32 * 4) |
+                     1u << (vector % 32));
+        old = x86_ldl_phys(cs, pid + 32);
+        notify = !(old & 3);
+        if (notify) {
+            x86_stl_phys(cs, pid + 32, old | 1);
+        }
+        *nv = old >> 16;
+        *ndst = x86_ldl_phys(cs, pid + 36);
+        return notify;
+    }
+    qatomic_or(&desc[vector / 32], cpu_to_le32(1u << (vector % 32)));
+    do {
+        old = qatomic_read(&desc[8]);
+        notify = !(le32_to_cpu(old) & 3);
+    } while (notify &&
+             qatomic_cmpxchg(&desc[8], old, old | cpu_to_le32(1)) != old);
+    *nv = le32_to_cpu(old) >> 16;
+    *ndst = le32_to_cpu(qatomic_read(&desc[9]));
+    address_space_unmap(cs->as, desc, len, true, 64);
+    return notify;
+}
+
+/*
+ * IPI virtualization (Intel SDM 325462-093 Vol. 3C, 32.1.6.2): the virtual
+ * IPI of VECTOR to virtual APIC ID ID posts VECTOR in the PID the ID-th
+ * entry of the PID-pointer table names, and the notification it may call
+ * for is an IPI of NV to NDST, NDST[15:8] where the local APIC is in xAPIC
+ * mode. A vector below 10H, an ID past the last PID-pointer index, and an
+ * entry not valid or with bits beyond the address width make an APIC-write
+ * VM exit for 300H instead.
+ */
+static void vmx_ipi_virtualize(CPUX86State *env, int vector, uint32_t id,
+                               uintptr_t ra)
+{
+    APICCommonState *apic = env_archcpu(env)->apic_state;
+    uint64_t entry;
+    uint32_t ndst;
+    uint8_t nv;
+
+    if (vector < 16 || id > VMCS(LAST_PID_INDEX)) {
+        vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, VMX_VAPIC_VICR_LO, ra);
+    }
+    entry = x86_ldq_phys(env_cpu(env), VMCS(PID_TABLE_ADDR) + 8ULL * id);
+    if ((entry & 0x3f) != 1 || entry >> env_archcpu(env)->phys_bits) {
+        vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, VMX_VAPIC_VICR_LO, ra);
+    }
+    if (vmx_pid_post(env, entry & ~0x3fULL, vector, &nv, &ndst)) {
+        BQL_LOCK_GUARD();
+        apic_send_fixed_ipi(is_x2apic_mode(apic) ? ndst : ndst >> 8 & 0xff,
+                            nv);
+    }
+}
+
+/*
  * Posted-interrupt processing, for an external interrupt of the
  * notification vector (Intel SDM 325462-093 Vol. 3C, 32.6): the
  * outstanding-notification bit of the descriptor, which other processors
@@ -1595,10 +1691,10 @@ void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
  * accesses TLB entries send to the AVIC address space's page. With "use
  * TPR shadow", accesses of 32 bits or fewer within the low 4 bytes of a
  * 16-byte line are virtualized, made to the virtual-APIC page, at offset
- * 080H, with "virtual-interrupt delivery" at 0B0H and 300H, and with
- * "APIC-register virtualization" in the lines it lists; others exit,
- * before they are made, as do all of event delivery's, though the
- * processor virtualizes some of those.
+ * 080H, with "virtual-interrupt delivery" at 0B0H and 300H, with "IPI
+ * virtualization" writes at 300H, and with "APIC-register virtualization"
+ * in the lines it lists; others exit, before they are made, as do all of
+ * event delivery's, though the processor virtualizes some of those.
  */
 static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
                                  unsigned size, bool write)
@@ -1614,6 +1710,8 @@ static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
     return offset == 0x80 ||
            ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
             (offset == VMX_VAPIC_VEOI || offset == VMX_VAPIC_VICR_LO)) ||
+           (write && (vmx_proc3(env) & VMX_TERTIARY_EXEC_IPI_VIRT) &&
+            offset == VMX_VAPIC_VICR_LO) ||
            ((proc2 & VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT) &&
             offset < 0x400 && (lines & VMX_APIC_LINE(offset)));
 }
@@ -1652,10 +1750,12 @@ uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
  * virtualization; with virtual-interrupt delivery, at 0B0H, VEOI clears,
  * then EOI virtualization, and at 300H, a fixed edge-triggered self-IPI of
  * vector 10H or above in VICR_LO, its reserved bits and delivery status
- * clear, is virtualized; at 310H to 313H, bytes 2:0 of VICR_HI clear; at
- * others, an APIC-write VM exit, trap-like. It comes at once, not after
- * the operation, so a trap-like exit leaves out what the instruction does
- * past its store.
+ * clear, is virtualized; otherwise there, with IPI virtualization, a fixed
+ * edge-triggered IPI to a physical destination, no shorthand, reserved
+ * bits and delivery status clear, to the APIC ID in VICR_HI[31:24]; at
+ * 310H to 313H, bytes 2:0 of VICR_HI clear; at others, an APIC-write VM
+ * exit, trap-like. It comes at once, not after the operation, so a
+ * trap-like exit leaves out what the instruction does past its store.
  */
 void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
                         unsigned size, uintptr_t ra)
@@ -1663,6 +1763,7 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
     CPUState *cs = env_cpu(env);
     hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
     bool vid = vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY;
+    bool ipiv = vmx_proc3(env) & VMX_TERTIARY_EXEC_IPI_VIRT;
     uint32_t icr;
     uint8_t buf[8];
 
@@ -1682,6 +1783,10 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
     } else if (vid && offset == VMX_VAPIC_VICR_LO &&
                (icr & 0xffffb700) == 1 << 18 && (icr & 0xf0)) {
         vmx_self_ipi_virtualize(env, icr & 0xff);
+    } else if (ipiv && offset == VMX_VAPIC_VICR_LO &&
+               !(icr & 0xffffbf00)) {
+        vmx_ipi_virtualize(env, icr & 0xff,
+                           x86_ldl_phys(cs, vapic + 0x310) >> 24, ra);
     } else if (offset >= 0x310 && offset <= 0x313) {
         x86_stl_phys(cs, vapic + 0x310,
                      x86_ldl_phys(cs, vapic + 0x310) & 0xff000000);
@@ -1694,11 +1799,14 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
  * RDMSR and WRMSR of 800H to 8FFH under "virtualize x2APIC mode", whatever
  * the local APIC's mode (Intel SDM 325462-093 Vol. 3C, 32.5): reads of
  * 808H, and with "APIC-register virtualization" of all of them, give the
- * 8 bytes at (ECX & FFH) << 4 on the virtual-APIC page; writes of 808H, and
- * with virtual-interrupt delivery of 80BH and 83FH, store EDX:EAX there
- * after the usual checks of reserved bits, then virtualize the TPR, an
- * EOI, or a self-IPI of vector 10H or above, else exit as an APIC write
- * of 3F0H would. Both are false where the access goes on as usual.
+ * 8 bytes at (ECX & FFH) << 4 on the virtual-APIC page; writes of 808H,
+ * with virtual-interrupt delivery of 80BH and 83FH, and with IPI
+ * virtualization of 830H, store EDX:EAX there after the usual checks of
+ * reserved bits, then virtualize the TPR, an EOI, a self-IPI of vector 10H
+ * or above, else exit as an APIC write of 3F0H would, or a fixed
+ * edge-triggered IPI to the physical destination EDX, no shorthand, else
+ * exit as an APIC write of 300H would. Both are false where the access
+ * goes on as usual.
  */
 static bool vmx_x2apic_virtualized(CPUX86State *env, uint32_t msr)
 {
@@ -1721,13 +1829,16 @@ bool x86_vmx_x2apic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
 bool x86_vmx_x2apic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
                           uintptr_t ra)
 {
+    bool vid = vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY;
+    bool ipiv = vmx_proc3(env) & VMX_TERTIARY_EXEC_IPI_VIRT;
+
     if (!vmx_x2apic_virtualized(env, msr) ||
-        (msr != 0x808 &&
-         (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
-          (msr != 0x80b && msr != 0x83f)))) {
+        !(msr == 0x808 || (vid && (msr == 0x80b || msr == 0x83f)) ||
+          (ipiv && msr == 0x830))) {
         return false;
     }
-    if (msr == 0x80b ? val != 0 : val >> 8 != 0) {
+    if (msr == 0x830 ? (val & 0xfff32000) :
+        msr == 0x80b ? val != 0 : val >> 8 != 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
     x86_stq_phys(env_cpu(env), VMCS(VIRTUAL_APIC_ADDR) + ((msr & 0xff) << 4),
@@ -1736,6 +1847,11 @@ bool x86_vmx_x2apic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
         vmx_tpr_virtualize(env, ra);
     } else if (msr == 0x80b) {
         vmx_eoi_virtualize(env, ra);
+    } else if (msr == 0x830) {
+        if (val & 0xc9f00) {
+            vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, VMX_VAPIC_VICR_LO, ra);
+        }
+        vmx_ipi_virtualize(env, val & 0xff, val >> 32, ra);
     } else if (val & 0xf0) {
         vmx_self_ipi_virtualize(env, val);
     } else {
@@ -2521,9 +2637,13 @@ static bool vmx_controls_valid(CPUX86State *env)
     uint32_t pin = VMCS(PIN_CONTROLS);
     uint32_t proc = VMCS(PROC_CONTROLS);
     uint32_t proc2 = vmx_proc2(env);
+    uint64_t proc3 = vmx_proc3(env);
     uint32_t exit_ctl = VMCS(EXIT_CONTROLS);
     uint32_t entry_ctl = VMCS(ENTRY_CONTROLS);
 
+    if (proc3 & ~env->features[FEAT_VMX_TERTIARY_CTLS]) {
+        return false;
+    }
     if (!vmx_ctl_valid(env, MSR_IA32_VMX_PINBASED_CTLS,
                        MSR_IA32_VMX_TRUE_PINBASED_CTLS, pin) ||
         !vmx_ctl_valid(env, MSR_IA32_VMX_PROCBASED_CTLS,
@@ -2560,9 +2680,16 @@ static bool vmx_controls_valid(CPUX86State *env)
               threshold > x86_ldub_phys(env_cpu(env), vapic + 0x80) >> 4))) {
             return false;
         }
-    } else if (proc2 & (VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
-                        VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT |
-                        VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY)) {
+    } else if ((proc2 & (VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
+                         VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT |
+                         VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY)) ||
+               (proc3 & VMX_TERTIARY_EXEC_IPI_VIRT)) {
+        return false;
+    }
+    if ((proc3 & VMX_TERTIARY_EXEC_IPI_VIRT) &&
+        (!vmx_addr_valid(env, VMCS(PID_TABLE_ADDR), 8) ||
+         !vmx_addr_valid(env, VMCS(PID_TABLE_ADDR) +
+                              8 * VMCS(LAST_PID_INDEX), 8))) {
         return false;
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&

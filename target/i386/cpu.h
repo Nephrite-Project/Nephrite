@@ -673,6 +673,7 @@ typedef enum X86Seg {
 #define MSR_IA32_VMX_TRUE_EXIT_CTLS      0x0000048f
 #define MSR_IA32_VMX_TRUE_ENTRY_CTLS     0x00000490
 #define MSR_IA32_VMX_VMFUNC             0x00000491
+#define MSR_IA32_VMX_PROCBASED_CTLS3    0x00000492
 
 #define MSR_APIC_START                  0x00000800
 #define MSR_APIC_END                    0x000008ff
@@ -796,6 +797,7 @@ typedef enum FeatureWord {
     FEAT_29_0_EBX,      /* CPUID[EAX=0x29,ECX=0].EBX */
     FEAT_1E_1_EAX,      /* CPUID[EAX=0x1E,ECX=1].EAX */
     FEAT_24_1_ECX,      /* CPUID[EAX=0x24,ECX=0].ECX */
+    FEAT_VMX_TERTIARY_CTLS,
     FEATURE_WORDS,
 } FeatureWord;
 
@@ -1461,6 +1463,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_CPU_BASED_RDTSC_EXITING                 0x00001000
 #define VMX_CPU_BASED_CR3_LOAD_EXITING              0x00008000
 #define VMX_CPU_BASED_CR3_STORE_EXITING             0x00010000
+#define VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS    0x00020000
 #define VMX_CPU_BASED_CR8_LOAD_EXITING              0x00080000
 #define VMX_CPU_BASED_CR8_STORE_EXITING             0x00100000
 #define VMX_CPU_BASED_TPR_SHADOW                    0x00200000
@@ -1496,6 +1499,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC      0x00400000
 #define VMX_SECONDARY_EXEC_TSC_SCALING              0x02000000
 #define VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE   0x04000000
+
+#define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
 
 #define VMX_PIN_BASED_EXT_INTR_MASK                 0x00000001
 #define VMX_PIN_BASED_NMI_EXITING                   0x00000008

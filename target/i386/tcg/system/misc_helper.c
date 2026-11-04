@@ -659,7 +659,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
             return false;
         }
         break;
-    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
+    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_PROCBASED_CTLS3:
         /* The VMX capability MSRs are read-only. */
         return false;
     case MSR_IA32_SPEC_CTRL:
@@ -984,7 +984,7 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         }
         val = env->msr_ia32_feature_control;
         break;
-    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
+    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_PROCBASED_CTLS3:
         if (!x86_vmx_read_msr(env, msr, &val)) {
             return false;
         }

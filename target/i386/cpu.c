@@ -926,6 +926,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_CPU_BASED_USE_MSR_BITMAPS | VMX_CPU_BASED_MONITOR_EXITING | \
           VMX_CPU_BASED_PAUSE_EXITING | VMX_CPU_BASED_TPR_SHADOW | \
           VMX_CPU_BASED_MONITOR_TRAP_FLAG | \
+          VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS | \
           VMX_CPU_BASED_ACTIVATE_SECONDARY_CONTROLS)
 #define TCG_VMX_SECONDARY (VMX_SECONDARY_EXEC_DESC | \
           VMX_SECONDARY_EXEC_RDTSCP | VMX_SECONDARY_EXEC_WBINVD_EXITING | \
@@ -1738,7 +1739,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, NULL, "vmx-hlt-exit",
             NULL, "vmx-invlpg-exit", "vmx-mwait-exit", "vmx-rdpmc-exit",
             "vmx-rdtsc-exit", NULL, NULL, "vmx-cr3-load-noexit",
-            "vmx-cr3-store-noexit", NULL, NULL, "vmx-cr8-load-exit",
+            "vmx-cr3-store-noexit", "vmx-tertiary-ctls", NULL,
+            "vmx-cr8-load-exit",
             "vmx-cr8-store-exit", "vmx-flexpriority", "vmx-vnmi-pending", "vmx-movdr-exit",
             "vmx-io-exit", "vmx-io-bitmap", NULL, "vmx-mtf",
             "vmx-msr-bitmap", "vmx-monitor-exit", "vmx-pause-exit", "vmx-secondary-ctls",
@@ -1895,6 +1897,17 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             .index = MSR_IA32_VMX_VMFUNC,
         },
         .tcg_features = MSR_VMX_VMFUNC_EPT_SWITCHING,
+    },
+
+    [FEAT_VMX_TERTIARY_CTLS] = {
+        .type = MSR_FEATURE_WORD,
+        .feat_names = {
+            [4] = "vmx-ipi-virt",
+        },
+        .msr = {
+            .index = MSR_IA32_VMX_PROCBASED_CTLS3,
+        },
+        .tcg_features = VMX_TERTIARY_EXEC_IPI_VIRT,
     },
 
     [FEAT_14_0_ECX] = {
@@ -2090,6 +2103,11 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_VMFUNC },
         .to = { FEAT_VMX_VMFUNC,            ~0ull },
+    },
+    {
+        .from = { FEAT_VMX_PROCBASED_CTLS,
+                  VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS },
+        .to = { FEAT_VMX_TERTIARY_CTLS,     ~0ull },
     },
     {
         .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },
