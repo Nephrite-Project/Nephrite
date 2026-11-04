@@ -202,9 +202,14 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
 #if defined(DEBUG_MMU)
     printf("CR4 update: %08x -> %08x\n", (uint32_t)env->cr[4], new_cr4);
 #endif
+    /*
+     * TLB entries hold the protection key rights of their fill, which
+     * CR4.PKE and CR4.PKS decide, so changing either drops them too.
+     */
     if ((new_cr4 ^ env->cr[4]) &
         (CR4_PGE_MASK | CR4_PAE_MASK | CR4_PSE_MASK |
-         CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK)) {
+         CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK |
+         CR4_PKE_MASK | CR4_PKS_MASK)) {
         tlb_flush(env_cpu(env));
     }
 
