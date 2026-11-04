@@ -554,6 +554,11 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     }
 }
 
+bool x86_pmu_global_ctrl_valid(uint64_t val)
+{
+    return !(val & ~GLOBAL_COUNTERS);
+}
+
 void x86_pmu_set_global_ctrl(CPUX86State *env, uint64_t val)
 {
     pmu_update(env);

@@ -910,16 +910,22 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 /*
  * The PMU of tcg/system/pmu.c, which the pmu property turns on: its
- * capabilities MSR and AMD's six core counters.
+ * capabilities MSR, AMD's six core counters, and VMX's controls of
+ * IA32_PERF_GLOBAL_CTRL.
  */
 #ifdef CONFIG_USER_ONLY
 #define TCG_EXT_PMU 0
 #define TCG_EXT3_PMU 0
 #define TCG_PERF_CAPABILITIES 0
+#define TCG_VMX_EXIT_PMU 0
+#define TCG_VMX_ENTRY_PMU 0
 #else
 #define TCG_EXT_PMU CPUID_EXT_PDCM
 #define TCG_EXT3_PMU CPUID_EXT3_PERFCORE
 #define TCG_PERF_CAPABILITIES PERF_CAP_FW_WRITE
+#define TCG_VMX_EXIT_PMU (VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL | \
+          VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL)
+#define TCG_VMX_ENTRY_PMU VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL
 #endif
 #define TCG_VMX_BASIC (MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS)
 #define TCG_VMX_MISC (MSR_VMX_MISC_STORE_LMA | MSR_VMX_MISC_ACTIVITY_HLT | \
@@ -970,10 +976,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_VMX_EXIT (VMX_VM_EXIT_SAVE_DEBUG_CONTROLS | \
           VMX_VM_EXIT_ACK_INTR_ON_EXIT | VMX_VM_EXIT_SAVE_IA32_PAT | \
           VMX_VM_EXIT_LOAD_IA32_PAT | VMX_VM_EXIT_SAVE_IA32_EFER | \
-          VMX_VM_EXIT_LOAD_IA32_EFER | VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER)
+          VMX_VM_EXIT_LOAD_IA32_EFER | VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER | \
+          TCG_VMX_EXIT_PMU)
 #define TCG_VMX_ENTRY (VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS | \
           VMX_VM_ENTRY_IA32E_MODE | VMX_VM_ENTRY_LOAD_IA32_PAT | \
-          VMX_VM_ENTRY_LOAD_IA32_EFER)
+          VMX_VM_ENTRY_LOAD_IA32_EFER | TCG_VMX_ENTRY_PMU)
 
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
           CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_CX16 | \
@@ -1824,7 +1831,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vmx-exit-save-efer", "vmx-exit-load-efer",
                 "vmx-exit-save-preemption-timer", "vmx-exit-clear-bndcfgs",
             NULL, "vmx-exit-clear-rtit-ctl", NULL, NULL,
-            "vmx-exit-save-cet", "vmx-exit-load-pkrs", NULL, "vmx-exit-secondary-ctls",
+            "vmx-exit-save-cet", "vmx-exit-load-pkrs",
+                "vmx-exit-save-perf-global-ctrl", "vmx-exit-secondary-ctls",
         },
         .msr = {
             .index = MSR_IA32_VMX_TRUE_EXIT_CTLS,
@@ -10007,6 +10015,8 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
         env->features[FEAT_7_0_EDX] &= ~CPUID_7_0_EDX_ARCH_LBR;
         if (tcg_enabled()) {
             env->features[FEAT_8000_0001_ECX] &= ~TCG_EXT3_PMU;
+            env->features[FEAT_VMX_EXIT_CTLS] &= ~TCG_VMX_EXIT_PMU;
+            env->features[FEAT_VMX_ENTRY_CTLS] &= ~TCG_VMX_ENTRY_PMU;
         }
     }
 

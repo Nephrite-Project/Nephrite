@@ -221,6 +221,7 @@ unsigned x86_pmu_bucket(uint32_t hflags);
 void x86_pmu_reconfigure(CPUX86State *env);
 int x86_pmu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
 int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
+bool x86_pmu_global_ctrl_valid(uint64_t val);
 void x86_pmu_set_global_ctrl(CPUX86State *env, uint64_t val);
 bool x86_pmu_rdpmc(CPUX86State *env);
 void x86_pmu_restore(CPUX86State *env, const TranslationBlock *tb,

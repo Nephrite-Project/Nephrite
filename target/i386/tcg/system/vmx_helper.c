@@ -98,9 +98,11 @@
 #define VMCS_GUEST_DEBUGCTL 0x2802
 #define VMCS_GUEST_PAT 0x2804
 #define VMCS_GUEST_EFER 0x2806
+#define VMCS_GUEST_PERF_GLOBAL_CTRL 0x2808
 #define VMCS_GUEST_PDPTE(n) (0x280a + 2 * (n))
 #define VMCS_HOST_PAT 0x2c00
 #define VMCS_HOST_EFER 0x2c02
+#define VMCS_HOST_PERF_GLOBAL_CTRL 0x2c04
 #define VMCS_PIN_CONTROLS 0x4000
 #define VMCS_PROC_CONTROLS 0x4002
 #define VMCS_EXCEPTION_BITMAP 0x4004
@@ -2287,6 +2289,9 @@ static void vmx_save_guest(CPUX86State *env)
     if (exit_ctl & VMX_VM_EXIT_SAVE_IA32_EFER) {
         VMCS_SET(GUEST_EFER, env->efer);
     }
+    if (exit_ctl & VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL) {
+        VMCS_SET(GUEST_PERF_GLOBAL_CTRL, env->msr_global_ctrl);
+    }
     for (int i = 0; i < 8; i++) {
         const SegmentCache *sc = i == R_LDTR ? &env->ldt :
                                  i == R_TR ? &env->tr : &env->segs[i];
@@ -2472,6 +2477,9 @@ static void vmx_load_host(CPUX86State *env)
     env->sysenter_eip = VMCS(HOST_SYSENTER_EIP);
     if (exit_ctl & VMX_VM_EXIT_LOAD_IA32_PAT) {
         env->pat = VMCS(HOST_PAT);
+    }
+    if (exit_ctl & VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL) {
+        x86_pmu_set_global_ctrl(env, VMCS(HOST_PERF_GLOBAL_CTRL));
     }
 
     cpu_x86_load_seg_cache(env, R_CS, VMCS(HOST_SEL(R_CS)), 0, 0xffffffff,
@@ -2840,6 +2848,10 @@ static bool vmx_host_state_valid(CPUX86State *env)
         !vmx_pat_valid(VMCS(HOST_PAT))) {
         return false;
     }
+    if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL) &&
+        !x86_pmu_global_ctrl_valid(VMCS(HOST_PERF_GLOBAL_CTRL))) {
+        return false;
+    }
     if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_EFER) &&
         ((efer & ~(x86_efer_writable(env) | MSR_EFER_LMA)) ||
          !!(efer & MSR_EFER_LMA) != host64 ||
@@ -3083,6 +3095,10 @@ static int vmx_guest_state_check(CPUX86State *env)
         !vmx_pat_valid(VMCS(GUEST_PAT))) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL) &&
+        !x86_pmu_global_ctrl_valid(VMCS(GUEST_PERF_GLOBAL_CTRL))) {
+        return 1;
+    }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_EFER) {
         uint64_t efer = VMCS(GUEST_EFER);
 
@@ -3214,6 +3230,9 @@ static void vmx_load_guest(CPUX86State *env)
     env->sysenter_eip = VMCS(GUEST_SYSENTER_EIP);
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PAT) {
         env->pat = VMCS(GUEST_PAT);
+    }
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL) {
+        x86_pmu_set_global_ctrl(env, VMCS(GUEST_PERF_GLOBAL_CTRL));
     }
 
     env->eflags = 0;
