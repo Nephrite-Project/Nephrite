@@ -537,8 +537,12 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
 
     /* set the new CPU state */
 
-    /* now if an exception occurs, it will occur in the next task context */
-
+    /*
+     * Past this commit point an exception occurs in the new task: its CS
+     * and EIP are the new task's (Intel SDM 325462-093 Vol. 3A, 10.3 and
+     * 7.15, Events 10 and 14), so nothing unwinds to the old instruction.
+     */
+    retaddr = 0;
     env->cr[0] |= CR0_TS_MASK;
     env->hflags |= HF_TS_MASK;
     env->tr.selector = tss_selector;
