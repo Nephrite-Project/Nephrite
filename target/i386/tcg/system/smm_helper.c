@@ -21,6 +21,7 @@
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "exec/log.h"
+#include "exec/cputlb.h"
 #include "tcg/helper-tcg.h"
 
 static void sm_state_init_64(X86CPU *cpu)
@@ -156,6 +157,11 @@ void do_smm_enter(X86CPU *cpu)
 
     env->msr_smi_count++;
     env->hflags |= HF_SMM_MASK;
+    /*
+     * TLB entries keep the memory attributes they were filled with, and
+     * the MMU indexes do not tell SMM from normal operation.
+     */
+    tlb_flush(CPU(cpu));
     if (env->hflags2 & HF2_NMI_MASK) {
         env->hflags2 |= HF2_SMM_INSIDE_NMI_MASK;
     } else {
@@ -347,6 +353,7 @@ void HELPER(rsm)(CPUX86State *env)
     }
     env->hflags2 &= ~HF2_SMM_INSIDE_NMI_MASK;
     env->hflags &= ~HF_SMM_MASK;
+    tlb_flush(CPU(cpu));
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");
     log_cpu_state_mask(CPU_LOG_INT, CPU(cpu), CPU_DUMP_CCOP);
