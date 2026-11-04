@@ -119,7 +119,12 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
 
         CPUState *cs = env_cpu(env);
         if (ctl_has_irq(env)) {
-            cpu_interrupt(cs, CPU_INTERRUPT_VIRQ);
+            /*
+             * cpu_interrupt() needs the BQL; from the vCPU's own thread it
+             * only has to end the current TB as well.
+             */
+            cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
+            qatomic_set(&cs->neg.icount_decr.u16.high, -1);
         } else {
             cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
         }
