@@ -2605,6 +2605,13 @@ void HELPER(frstor)(CPUX86State *env, target_ulong ptr, int data32)
 
 #define XO(X)  offsetof(X86XSaveArea, X)
 
+/*
+ * The MXCSR bits that MXCSR_MASK, saved as 0000FFFFh, leaves out are
+ * reserved, and loading them raises #GP (Intel SDM 325462-093 Vol. 1,
+ * 11.6.6).
+ */
+#define MXCSR_MASK_VALUE 0x0000ffff
+
 static void do_xsave_fpu(X86Access *ac, target_ulong ptr)
 {
     CPUX86State *env = ac->env;
@@ -2645,7 +2652,7 @@ static void do_xsave_mxcsr(X86Access *ac, target_ulong ptr)
 
     update_mxcsr_from_sse_status(env);
     access_stl(ac, ptr + XO(legacy.mxcsr), env->mxcsr);
-    access_stl(ac, ptr + XO(legacy.mxcsr_mask), 0x0000ffff);
+    access_stl(ac, ptr + XO(legacy.mxcsr_mask), MXCSR_MASK_VALUE);
 }
 
 static void do_xsave_sse(X86Access *ac, target_ulong ptr)
@@ -3153,6 +3160,10 @@ void HELPER(fxrstor)(CPUX86State *env, target_ulong ptr)
 
     access_prepare(&ac, env, ptr, sizeof(X86LegacyXSaveArea),
                    MMU_DATA_LOAD, ra);
+    if ((env->cr[4] & CR4_OSFXSR_MASK) &&
+        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~MXCSR_MASK_VALUE)) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
     do_fxrstor(&ac, ptr);
 }
 
@@ -3316,8 +3327,6 @@ static void do_xrstor(X86Access *ac, target_ulong ptr, uint64_t rfbm,
     }
 }
 
-#undef XO
-
 /* XRSTOR, and XRSTORS with supervisor set. */
 static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
                            bool supervisor, uintptr_t ra)
@@ -3338,6 +3347,12 @@ static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     }
 
     rfbm &= allowed;
+    if ((xcomp_bv & XCOMP_BV_COMPACTED
+         ? rfbm & xstate_bv & XSTATE_SSE_MASK
+         : rfbm & (XSTATE_SSE_MASK | XSTATE_YMM_MASK)) &&
+        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~MXCSR_MASK_VALUE)) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
     size_ext = xsave_extent(xcomp_bv, rfbm & xstate_bv);
     if (size < size_ext) {
         /* TODO: See if existing page probe has covered extra size. */
@@ -3356,6 +3371,8 @@ void HELPER(xrstors)(CPUX86State *env, target_ulong ptr, uint64_t rfbm)
 {
     do_xrstor_insn(env, ptr, rfbm, true, GETPC());
 }
+
+#undef XO
 
 #if defined(CONFIG_USER_ONLY)
 void cpu_x86_fsave(CPUX86State *env, void *host, size_t len)
@@ -3570,6 +3587,9 @@ void HELPER(update_mxcsr)(CPUX86State *env)
 
 void HELPER(ldmxcsr)(CPUX86State *env, uint32_t val)
 {
+    if (val & ~MXCSR_MASK_VALUE) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
     cpu_set_mxcsr(env, val);
 }
 
