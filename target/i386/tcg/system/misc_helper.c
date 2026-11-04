@@ -492,6 +492,28 @@ void HELPER(wrmsr)(CPUX86State *env)
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
         break;
+    case MSR_MISC_FEATURES_ENABLES:
+        /*
+         * Bit 0 makes CPUID fault at CPL > 0 (Intel SDM 325462-093 Vol. 4,
+         * Table 2-53), which MSR_PLATFORM_INFO says it can.
+         */
+        if (!IS_INTEL_CPU(env) || (val & ~MISC_FEATURES_CPUID_FAULT)) {
+            goto error;
+        }
+        env->msr_misc_features_enables = val;
+        break;
+    case MSR_K7_HWCR:
+        /*
+         * CpuidUserDis makes CPUID fault at CPL > 0 (AMD64 Architecture
+         * Programmer's Manual Volume 2, 24593 rev. 3.45, 3.2.10).
+         */
+        if ((val & HWCR_CPUID_USER_DIS) &&
+            !(env->features[FEAT_8000_0021_EAX] &
+              CPUID_8000_0021_EAX_CPUID_USER_DIS)) {
+            goto error;
+        }
+        env->msr_hwcr = val;
+        break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
         int index = (uint32_t)env->regs[R_ECX] == MSR_DR0_ADDR_MASK ? 0 :
@@ -744,6 +766,22 @@ void HELPER(rdmsr)(CPUX86State *env)
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
         val = env->xss;
+        break;
+    case MSR_PLATFORM_INFO:
+        /* Only bit 31, CPUID faulting, as Linux 7.3's KVM gives guests. */
+        if (!IS_INTEL_CPU(env)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = MSR_PLATFORM_INFO_CPUID_FAULT;
+        break;
+    case MSR_MISC_FEATURES_ENABLES:
+        if (!IS_INTEL_CPU(env)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->msr_misc_features_enables;
+        break;
+    case MSR_K7_HWCR:
+        val = env->msr_hwcr;
         break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {

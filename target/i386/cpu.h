@@ -507,6 +507,10 @@ typedef enum X86Seg {
 #define MSR_IA32_PERF_STATUS            0x198
 
 #define MSR_IA32_MISC_ENABLE            0x1a0
+#define MSR_PLATFORM_INFO               0xce
+#define MSR_PLATFORM_INFO_CPUID_FAULT   (1ULL << 31)
+#define MSR_MISC_FEATURES_ENABLES       0x140
+#define MISC_FEATURES_CPUID_FAULT       (1ULL << 0)
 /* Indicates good rep/movs microcode on some processors: */
 #define MSR_IA32_MISC_ENABLE_DEFAULT    1
 #define MSR_IA32_MISC_ENABLE_MWAIT      (1ULL << 18)
@@ -609,6 +613,7 @@ typedef enum X86Seg {
 #define MSR_AMD64_TSC_RATIO_RESERVED    0xffffff0000000000ULL
 
 #define MSR_K7_HWCR                     0xc0010015
+#define HWCR_CPUID_USER_DIS             (1ULL << 35)
 
 #define MSR_VM_HSAVE_PA                 0xc0010117
 #define MSR_AMD64_AVIC_DOORBELL         0xc001011b
@@ -1249,6 +1254,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0021_EAX_NULL_SEL_CLR_BASE            (1U << 6)
 /* Automatic IBRS */
 #define CPUID_8000_0021_EAX_AUTO_IBRS                    (1U << 8)
+/* HWCR.CpuidUserDis: CPUID faults at CPL > 0 */
+#define CPUID_8000_0021_EAX_CPUID_USER_DIS               (1U << 17)
 /* Indicates support for IC prefetch */
 #define CPUID_8000_0021_EAX_PREFETCHI                    (1U << 20)
 /* Enhanced Return Address Predictor Scurity */
@@ -2221,6 +2228,7 @@ typedef struct CPUArchState {
 
     uint64_t mcg_status;
     uint64_t msr_ia32_misc_enable;
+    uint64_t msr_misc_features_enables;
     uint64_t msr_ia32_feature_control;
     uint64_t msr_ia32_sgxlepubkeyhash[4];
 

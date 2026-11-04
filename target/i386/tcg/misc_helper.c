@@ -53,6 +53,19 @@ void HELPER(cpuid)(CPUX86State *env)
 {
     uint32_t eax, ebx, ecx, edx;
 
+    /*
+     * CPUID faulting: IA32_MISC_FEATURES_ENABLES bit 0 (Intel) or
+     * HWCR.CpuidUserDis (AMD) makes CPUID at CPL > 0 outside SMM raise
+     * #GP(0), before any intercept (AMD64 Architecture Programmer's Manual
+     * Volume 3, 24594 rev. 3.38, CPUID; Intel SDM 325462-093 Vol. 3C,
+     * 28.1.1).
+     */
+    if ((env->hflags & HF_CPL_MASK) && !(env->hflags & HF_SMM_MASK) &&
+        ((env->msr_misc_features_enables & MISC_FEATURES_CPUID_FAULT) ||
+         (env->msr_hwcr & HWCR_CPUID_USER_DIS))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+
     cpu_svm_check_intercept_param(env, SVM_EXIT_CPUID, 0, GETPC());
 
     cpu_x86_cpuid(env, (uint32_t)env->regs[R_EAX], (uint32_t)env->regs[R_ECX],

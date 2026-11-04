@@ -1053,6 +1053,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
             CPUID_8000_0021_EAX_NO_NESTED_DATA_BP | \
             CPUID_8000_0021_EAX_NULL_SEL_CLR_BASE | \
             CPUID_8000_0021_EAX_ERAPS | \
+            CPUID_8000_0021_EAX_CPUID_USER_DIS | \
             CPUID_8000_0021_EAX_KERNEL_FEATURES)
 
 FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
@@ -1445,7 +1446,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, "verw-clear", "null-sel-clr-base", NULL,
             "auto-ibrs", NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
-            NULL, NULL, NULL, NULL,
+            NULL, "cpuid-user-dis", NULL, NULL,
             "prefetchi", NULL, NULL, NULL,
             "eraps", NULL, NULL, "sbpb",
             "ibpb-brtype", "srso-no", "srso-user-kernel-no", NULL,
