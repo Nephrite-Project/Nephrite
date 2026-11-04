@@ -32,6 +32,11 @@ G_NORETURN void HELPER(raise_interrupt)(CPUX86State *env, int intno,
     raise_interrupt(env, intno, next_eip_addend);
 }
 
+G_NORETURN void HELPER(int3)(CPUX86State *env, int next_eip_addend)
+{
+    raise_trap_instruction(env, EXCP03_INT3, next_eip_addend);
+}
+
 G_NORETURN void HELPER(raise_exception)(CPUX86State *env, int exception_index)
 {
     raise_exception(env, exception_index);
@@ -126,6 +131,28 @@ void raise_interrupt2(CPUX86State *env, int intno,
 G_NORETURN void raise_interrupt(CPUX86State *env, int intno, int next_eip_addend)
 {
     raise_interrupt2(env, intno, 1, 0, next_eip_addend, 0);
+}
+
+/*
+ * INT3 (opcode CCh) and INTO raise #BP and #OF with the privilege checks and
+ * return address of a software interrupt, but SVM intercepts them as those
+ * exceptions, not as INTn (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.45, 15.12).
+ */
+G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
+                                       int next_eip_addend)
+{
+    CPUState *cs = env_cpu(env);
+    uint64_t last_pc = env->eip + env->segs[R_CS].base;
+
+    cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno, 0, 0);
+
+    cs->exception_index = intno;
+    env->error_code = 0;
+    env->exception_is_int = 1;
+    env->exception_next_eip = env->eip + next_eip_addend;
+    qemu_plugin_vcpu_exception_cb(cs, last_pc);
+    cpu_loop_exit(cs);
 }
 
 G_NORETURN void raise_exception_err(CPUX86State *env, int exception_index,

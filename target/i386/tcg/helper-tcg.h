@@ -69,6 +69,8 @@ G_NORETURN void raise_exception_err(CPUX86State *env, int exception_index,
 G_NORETURN void raise_exception_err_ra(CPUX86State *env, int exception_index,
                                        int error_code, uintptr_t retaddr);
 G_NORETURN void raise_interrupt(CPUX86State *nenv, int intno, int next_eip_addend);
+G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
+                                       int next_eip_addend);
 G_NORETURN void handle_unaligned_access(CPUX86State *env, vaddr vaddr,
                                         MMUAccessType access_type,
                                         uintptr_t retaddr);

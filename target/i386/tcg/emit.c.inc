@@ -2430,7 +2430,10 @@ static void gen_INT1(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_INT3(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_interrupt(s, EXCP03_INT3);
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_int3(tcg_env, cur_insn_len_i32(s));
+    s->base.is_jmp = DISAS_NORETURN;
 }
 
 static void gen_INTO(DisasContext *s, X86DecodedInsn *decode)
