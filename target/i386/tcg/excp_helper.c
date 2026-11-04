@@ -96,6 +96,25 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
 }
 
 /*
+ * The DR6 bits of a #DB, written as it is delivered: B0-B3 are cleared
+ * first, as Linux 7.3's KVM does (kvm_deliver_exception_payload()) and the
+ * Intel SDM 325462-093 Vol. 3B, 20.2.3 allows, and BD clears DR7.GD (Intel
+ * SDM 325462-093 Vol. 3B, 20.2.4).
+ */
+static void debug_payload_apply(CPUX86State *env, int intno)
+{
+    uint32_t payload = env->db_payload;
+
+    if (intno == EXCP01_DB && payload) {
+        env->dr[6] = (env->dr[6] & ~0xf) | payload;
+        if (payload & DR6_BD) {
+            env->dr[7] &= ~DR7_GD;
+        }
+        env->db_payload = 0;
+    }
+}
+
+/*
  * Signal an interruption. It is executed in the main CPU loop.
  * is_int is TRUE if coming from the int instruction. next_eip is the
  * env->eip value AFTER the interrupt instruction. It is only relevant if
@@ -111,6 +130,12 @@ void raise_interrupt2(CPUX86State *env, int intno,
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
 
     if (!is_int) {
+        /*
+         * A #DB writes DR6 and DR7 before an SVM intercept (AMD64
+         * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+         * 15.12.2).
+         */
+        debug_payload_apply(env, intno);
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
@@ -182,6 +207,14 @@ G_NORETURN void raise_exception_ra(CPUX86State *env, int exception_index,
                                    uintptr_t retaddr)
 {
     raise_interrupt2(env, exception_index, 0, 0, 0, retaddr);
+}
+
+/* A #DB of the DR6 bits PAYLOAD (B0-B3, BD, BS, BT). */
+G_NORETURN void raise_debug_exception(CPUX86State *env, uint32_t payload,
+                                      uintptr_t retaddr)
+{
+    env->db_payload = payload;
+    raise_exception_ra(env, EXCP01_DB, retaddr);
 }
 
 G_NORETURN void HELPER(icebp)(CPUX86State *env)

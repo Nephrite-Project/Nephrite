@@ -622,8 +622,7 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     }
 
     if (new_trap) {
-        env->dr[6] |= DR6_BT;
-        raise_exception_ra(env, EXCP01_DB, retaddr);
+        raise_debug_exception(env, DR6_BT, retaddr);
     }
 }
 
@@ -832,7 +831,7 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
     eflags = cpu_compute_eflags(env);
     /*
      * AMD states that code breakpoint #DBs clear RF=0, Intel leaves it
-     * as is.  AMD behavior could be implemented in check_hw_breakpoints().
+     * as is.  AMD behavior could be implemented in hw_breakpoint_hits().
      */
     if (set_rf) {
         eflags |= RF_MASK;

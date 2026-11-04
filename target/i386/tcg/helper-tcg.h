@@ -64,6 +64,8 @@ void x86_translate_code(CPUState *cs, TranslationBlock *tb,
 G_NORETURN void raise_exception(CPUX86State *env, int exception_index);
 G_NORETURN void raise_exception_ra(CPUX86State *env, int exception_index,
                                    uintptr_t retaddr);
+G_NORETURN void raise_debug_exception(CPUX86State *env, uint32_t payload,
+                                      uintptr_t retaddr);
 G_NORETURN void raise_exception_err(CPUX86State *env, int exception_index,
                                     int error_code);
 G_NORETURN void raise_exception_err_ra(CPUX86State *env, int exception_index,
@@ -144,7 +146,7 @@ int exception_has_error_code(int intno);
 void do_smm_enter(X86CPU *cpu);
 
 /* system/bpt_helper.c */
-bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update);
+uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled);
 bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
 
 /*

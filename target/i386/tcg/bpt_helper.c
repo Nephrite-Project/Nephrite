@@ -25,10 +25,10 @@
 G_NORETURN void HELPER(single_step)(CPUX86State *env)
 {
 #ifndef CONFIG_USER_ONLY
-    check_hw_breakpoints(env, true);
-    env->dr[6] |= DR6_BS;
-#endif
+    raise_debug_exception(env, hw_breakpoint_hits(env, NULL) | DR6_BS, 0);
+#else
     raise_exception(env, EXCP01_DB);
+#endif
 }
 
 void HELPER(rechecking_single_step)(CPUX86State *env)

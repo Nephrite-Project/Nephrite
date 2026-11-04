@@ -224,13 +224,16 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
     env->hflags = (env->hflags & ~HF_IOBPT_MASK) | iobpt;
 }
 
-bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
+/*
+ * The B0-B3 bits of the breakpoints that hit, and whether an enabled one
+ * did; raising the #DB writes them to DR6.
+ */
+uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled)
 {
-    target_ulong dr6;
+    uint32_t hits = 0;
     int reg;
     bool hit_enabled = false;
 
-    dr6 = env->dr[6] & ~0xf;
     for (reg = 0; reg < DR7_MAX_BP; reg++) {
         bool bp_match = false;
         bool wp_match = false;
@@ -252,18 +255,17 @@ bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update)
             break;
         }
         if (bp_match || wp_match) {
-            dr6 |= 1 << reg;
+            hits |= 1 << reg;
             if (hw_breakpoint_enabled(env->dr[7], reg)) {
                 hit_enabled = true;
             }
         }
     }
 
-    if (hit_enabled || force_dr6_update) {
-        env->dr[6] = dr6;
+    if (enabled) {
+        *enabled = hit_enabled;
     }
-
-    return hit_enabled;
+    return hits;
 }
 
 void breakpoint_handler(CPUState *cs)
@@ -273,23 +275,26 @@ void breakpoint_handler(CPUState *cs)
 
     if (cs->watchpoint_hit) {
         if (cs->watchpoint_hit->flags & BP_CPU) {
+            bool enabled;
+            uint32_t hits;
+
             cs->watchpoint_hit = NULL;
-            if (check_hw_breakpoints(env, false)) {
+            hits = hw_breakpoint_hits(env, &enabled);
+            if (enabled) {
                 /*
                  * FIXME: #DB should be delayed by one instruction if
                  * INHIBIT_IRQ is set (STI cannot trigger a watchpoint).
                  * The delayed #DB should also fuse with one generated
                  * by ICEBP (aka INT1).
                  */
-                raise_exception(env, EXCP01_DB);
+                raise_debug_exception(env, hits, 0);
             } else {
                 cpu_loop_exit_noexc(cs);
             }
         }
     } else {
         if (cpu_breakpoint_test(cs, env->eip, BP_CPU)) {
-            check_hw_breakpoints(env, true);
-            raise_exception(env, EXCP01_DB);
+            raise_debug_exception(env, hw_breakpoint_hits(env, NULL), 0);
         }
     }
 }
@@ -305,9 +310,7 @@ target_ulong HELPER(get_dr)(CPUX86State *env, int reg)
     }
 
     if (env->dr[7] & DR7_GD) {
-        env->dr[7] &= ~DR7_GD;
-        env->dr[6] |= DR6_BD;
-        raise_exception_ra(env, EXCP01_DB, GETPC());
+        raise_debug_exception(env, DR6_BD, GETPC());
     }
 
     return env->dr[reg];
@@ -324,9 +327,7 @@ void HELPER(set_dr)(CPUX86State *env, int reg, target_ulong t0)
     }
 
     if (env->dr[7] & DR7_GD) {
-        env->dr[7] &= ~DR7_GD;
-        env->dr[6] |= DR6_BD;
-        raise_exception_ra(env, EXCP01_DB, GETPC());
+        raise_debug_exception(env, DR6_BD, GETPC());
     }
 
     if (reg < 4) {
@@ -369,8 +370,7 @@ void HELPER(bpt_io)(CPUX86State *env, uint32_t port,
     }
 
     if (hit) {
-        env->dr[6] = (env->dr[6] & ~0xf) | hit;
         env->eip = next_eip;
-        raise_exception(env, EXCP01_DB);
+        raise_debug_exception(env, hit, 0);
     }
 }

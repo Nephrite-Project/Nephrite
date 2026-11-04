@@ -2365,6 +2365,8 @@ typedef struct CPUArchState {
         struct CPUBreakpoint *cpu_breakpoint[4];
         struct CPUWatchpoint *cpu_watchpoint[4];
     }; /* break/watchpoints for dr[0..3] */
+    /* The DR6 bits of the #DB being raised, which reach DR6 at delivery. */
+    uint32_t db_payload;
     int old_exception;  /* exception in flight */
 
     uint64_t vm_vmcb;
