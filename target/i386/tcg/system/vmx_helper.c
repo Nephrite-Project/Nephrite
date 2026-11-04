@@ -9,6 +9,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/host-utils.h"
 #include "qemu/log.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
@@ -76,6 +77,7 @@
 #define VMCS_TSC_OFFSET 0x2010
 #define VMCS_VIRTUAL_APIC_ADDR 0x2012
 #define VMCS_APIC_ACCESS_ADDR 0x2014
+#define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -1329,12 +1331,146 @@ static G_NORETURN void vmx_trap_exit(CPUX86State *env, uint32_t reason,
     x86_vmx_exit(env, reason, qual, 0);
 }
 
-/* TPR virtualization after the instruction at RA wrote VTPR. */
+/*
+ * Virtual-interrupt delivery's state (Intel SDM 325462-093 Vol. 3C, 32.1.1
+ * and 27.4.2): VPPR, VISR, and VIRR on the virtual-APIC page, the bit of
+ * vector x of the latter two at bit x & 1FH of the 32 bits at their base
+ * plus (x & E0H) >> 1, and RVI and SVI, the low and high bytes of the guest
+ * interrupt status, which stays in the VMCS.
+ */
+#define VMX_VAPIC_VPPR 0xa0
+#define VMX_VAPIC_VEOI 0xb0
+#define VMX_VAPIC_VISR 0x100
+#define VMX_VAPIC_VIRR 0x200
+#define VMX_VAPIC_VICR_LO 0x300
+
+static void vmx_vapic_set_bit(CPUX86State *env, hwaddr base, int vector,
+                              bool set)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr addr = VMCS(VIRTUAL_APIC_ADDR) + base + ((vector & 0xe0) >> 1);
+    uint32_t bit = 1U << (vector & 0x1f);
+    uint32_t val = x86_ldl_phys(cs, addr);
+
+    x86_stl_phys(cs, addr, set ? val | bit : val & ~bit);
+}
+
+/* The highest vector set in VISR or VIRR, else 0. */
+static int vmx_vapic_highest(CPUX86State *env, hwaddr base)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+
+    for (int i = 7; i >= 0; i--) {
+        uint32_t val = x86_ldl_phys(cs, vapic + base + i * 0x10);
+
+        if (val) {
+            return i * 32 + 31 - clz32(val);
+        }
+    }
+    return 0;
+}
+
+static void vmx_set_rvi(CPUX86State *env, int rvi)
+{
+    VMCS_SET(GUEST_INTR_STATUS, (VMCS(GUEST_INTR_STATUS) & 0xff00) | rvi);
+}
+
+static void vmx_set_svi(CPUX86State *env, int svi)
+{
+    VMCS_SET(GUEST_INTR_STATUS, (VMCS(GUEST_INTR_STATUS) & 0xff) | svi << 8);
+}
+
+/* PPR virtualization (Intel SDM 325462-093 Vol. 3C, 32.1.3). */
+static void vmx_ppr_virtualize(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+    uint8_t vtpr = x86_ldub_phys(cs, vapic + 0x80);
+    uint8_t svi = VMCS(GUEST_INTR_STATUS) >> 8;
+
+    x86_stl_phys(cs, vapic + VMX_VAPIC_VPPR,
+                 vtpr >> 4 >= svi >> 4 ? vtpr : svi & 0xf0);
+}
+
+/*
+ * The evaluation of pending virtual interrupts (Intel SDM 325462-093 Vol.
+ * 3C, 32.2.1), which recognizes one, without "interrupt-window exiting",
+ * where RVI[7:4] is above VPPR[7:4].
+ */
+static void vmx_vintr_evaluate(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    uint8_t rvi = VMCS(GUEST_INTR_STATUS);
+    uint8_t vppr = x86_ldub_phys(cs, VMCS(VIRTUAL_APIC_ADDR) + VMX_VAPIC_VPPR);
+
+    env->vmx.vintr_pending =
+        !(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_VIRTUAL_INTR_PENDING) &&
+        rvi >> 4 > vppr >> 4;
+    if (env->vmx.vintr_pending) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+    }
+}
+
+/*
+ * Virtual-interrupt delivery (Intel SDM 325462-093 Vol. 3C, 32.2.2): the
+ * vector of RVI goes in service and to the guest through its IDT, as an
+ * external interrupt would.
+ */
+static void vmx_vintr_deliver(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    int vector = VMCS(GUEST_INTR_STATUS) & 0xff;
+
+    vmx_vapic_set_bit(env, VMX_VAPIC_VISR, vector, true);
+    vmx_set_svi(env, vector);
+    x86_stl_phys(cs, VMCS(VIRTUAL_APIC_ADDR) + VMX_VAPIC_VPPR, vector & 0xf0);
+    vmx_vapic_set_bit(env, VMX_VAPIC_VIRR, vector, false);
+    vmx_set_rvi(env, vmx_vapic_highest(env, VMX_VAPIC_VIRR));
+    env->vmx.vintr_pending = false;
+    do_interrupt_x86_hardirq(env, vector, 1);
+    cs->exception_index = -1;
+}
+
+/*
+ * TPR virtualization after the instruction at RA wrote VTPR (Intel SDM
+ * 325462-093 Vol. 3C, 32.1.2).
+ */
 static void vmx_tpr_virtualize(CPUX86State *env, uintptr_t ra)
 {
-    if (vmx_tpr_below_threshold(env)) {
+    if (vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) {
+        vmx_ppr_virtualize(env);
+        vmx_vintr_evaluate(env);
+    } else if (vmx_tpr_below_threshold(env)) {
         vmx_trap_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, ra);
     }
+}
+
+/*
+ * EOI virtualization (Intel SDM 325462-093 Vol. 3C, 32.1.4), whose EOI-
+ * induced VM exits, for vectors the EOI-exit bitmap names, are trap-like.
+ */
+static void vmx_eoi_virtualize(CPUX86State *env, uintptr_t ra)
+{
+    int vector = VMCS(GUEST_INTR_STATUS) >> 8;
+    uint64_t bitmap = x86_vmcs_read(env, VMCS_EOI_EXIT_BITMAP(vector >> 6));
+
+    vmx_vapic_set_bit(env, VMX_VAPIC_VISR, vector, false);
+    vmx_set_svi(env, vmx_vapic_highest(env, VMX_VAPIC_VISR));
+    vmx_ppr_virtualize(env);
+    if (bitmap & 1ULL << (vector & 63)) {
+        vmx_trap_exit(env, VMX_EXIT_EOI_INDUCED, vector, ra);
+    }
+    vmx_vintr_evaluate(env);
+}
+
+/* Self-IPI virtualization (Intel SDM 325462-093 Vol. 3C, 32.1.5). */
+static void vmx_self_ipi_virtualize(CPUX86State *env, int vector)
+{
+    vmx_vapic_set_bit(env, VMX_VAPIC_VIRR, vector, true);
+    vmx_set_rvi(env, MAX(VMCS(GUEST_INTR_STATUS) & 0xff, vector));
+    vmx_vintr_evaluate(env);
 }
 
 /*
@@ -1381,13 +1517,15 @@ void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
  * accesses TLB entries send to the AVIC address space's page. With "use
  * TPR shadow", accesses of 32 bits or fewer within the low 4 bytes of a
  * 16-byte line are virtualized, made to the virtual-APIC page, at offset
- * 080H, and with "APIC-register virtualization" in the lines it lists;
- * others exit, before they are made, as do all of event delivery's, though
- * the processor virtualizes some of those.
+ * 080H, with "virtual-interrupt delivery" at 0B0H and 300H, and with
+ * "APIC-register virtualization" in the lines it lists; others exit,
+ * before they are made, as do all of event delivery's, though the
+ * processor virtualizes some of those.
  */
 static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
                                  unsigned size, bool write)
 {
+    uint32_t proc2 = vmx_proc2(env);
     uint64_t lines = write ? VMX_APIC_REG_VIRT_WRITES : VMX_APIC_REG_VIRT_READS;
 
     if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW) || size > 4 ||
@@ -1396,7 +1534,9 @@ static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
         return false;
     }
     return offset == 0x80 ||
-           ((vmx_proc2(env) & VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT) &&
+           ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
+            (offset == VMX_VAPIC_VEOI || offset == VMX_VAPIC_VICR_LO)) ||
+           ((proc2 & VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT) &&
             offset < 0x400 && (lines & VMX_APIC_LINE(offset)));
 }
 
@@ -1431,16 +1571,21 @@ uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
 /*
  * A virtualized write and its APIC-write emulation (Intel SDM 325462-093
  * Vol. 3C, 32.4.3.2): at offset 080H, bytes 3:1 of VTPR clear, then TPR
- * virtualization; at 310H to 313H, bytes 2:0 of VICR_HI clear; at others,
- * an APIC-write VM exit, trap-like. It comes at once, not after the
- * operation, so a trap-like exit leaves out what the instruction does past
- * its store.
+ * virtualization; with virtual-interrupt delivery, at 0B0H, VEOI clears,
+ * then EOI virtualization, and at 300H, a fixed edge-triggered self-IPI of
+ * vector 10H or above in VICR_LO, its reserved bits and delivery status
+ * clear, is virtualized; at 310H to 313H, bytes 2:0 of VICR_HI clear; at
+ * others, an APIC-write VM exit, trap-like. It comes at once, not after
+ * the operation, so a trap-like exit leaves out what the instruction does
+ * past its store.
  */
 void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
                         unsigned size, uintptr_t ra)
 {
     CPUState *cs = env_cpu(env);
     hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+    bool vid = vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY;
+    uint32_t icr;
     uint8_t buf[8];
 
     if (!vmx_apic_virtualized(env, offset, size, true)) {
@@ -1449,9 +1594,16 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
     stn_le_p(buf, size, val);
     address_space_write(cs->as, vapic + offset, MEMTXATTRS_UNSPECIFIED, buf,
                         size);
+    icr = x86_ldl_phys(cs, vapic + VMX_VAPIC_VICR_LO);
     if (offset == 0x80) {
         x86_stl_phys(cs, vapic + 0x80, x86_ldub_phys(cs, vapic + 0x80));
         vmx_tpr_virtualize(env, ra);
+    } else if (vid && offset == VMX_VAPIC_VEOI) {
+        x86_stl_phys(cs, vapic + VMX_VAPIC_VEOI, 0);
+        vmx_eoi_virtualize(env, ra);
+    } else if (vid && offset == VMX_VAPIC_VICR_LO &&
+               (icr & 0xffffb700) == 1 << 18 && (icr & 0xf0)) {
+        vmx_self_ipi_virtualize(env, icr & 0xff);
     } else if (offset >= 0x310 && offset <= 0x313) {
         x86_stl_phys(cs, vapic + 0x310,
                      x86_ldl_phys(cs, vapic + 0x310) & 0xff000000);
@@ -1991,6 +2143,7 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.mtf_pending = false;
     env->vmx.apic_access = ~0ULL;
     env->vmx.tpr_exit_pending = false;
+    env->vmx.vintr_pending = false;
     env->vmx.timer_on = false;
     timer_del(env_archcpu(env)->vmx_timer);
     env->monitor_armed = false;
@@ -2231,6 +2384,10 @@ static bool vmx_controls_valid(CPUX86State *env)
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
         !vmx_addr_valid(env, VMCS(APIC_ACCESS_ADDR), 4096)) {
+        return false;
+    }
+    if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
+        !(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
         return false;
     }
     if (!(pin & VMX_PIN_BASED_NMI_EXITING) &&
@@ -3041,6 +3198,16 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
         env->vmx.tpr_exit_pending = true;
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
     }
+    /*
+     * With virtual-interrupt delivery, PPR virtualization and an
+     * evaluation of pending virtual interrupts, whose delivery may follow
+     * the entry and its injection at once (Intel SDM 325462-093 Vol. 3C,
+     * 29.3.2.5 and 29.7.5).
+     */
+    if (vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) {
+        vmx_ppr_virtualize(env);
+        vmx_vintr_evaluate(env);
+    }
     vmx_inject(env);
     if (cs->halted) {
         cs->exception_index = EXCP_HLT;
@@ -3121,6 +3288,14 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
         (env->eflags & IF_MASK) && !shadow) {
         return CPU_INTERRUPT_VMX;
     }
+    /*
+     * Virtual-interrupt delivery has the interrupt window's priority
+     * (Intel SDM 325462-093 Vol. 3C, 32.2.2).
+     */
+    if ((request & CPU_INTERRUPT_VMX) && env->vmx.vintr_pending &&
+        (env->eflags & IF_MASK) && !shadow) {
+        return CPU_INTERRUPT_VMX;
+    }
     if ((request & CPU_INTERRUPT_HARD) && !shadow &&
         ((pin & VMX_PIN_BASED_EXT_INTR_MASK) ||
          (env->eflags & IF_MASK))) {
@@ -3197,6 +3372,11 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         if ((proc & VMX_CPU_BASED_VIRTUAL_NMI_PENDING) &&
             !env->vmx.vnmi_blocked && !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
             x86_vmx_exit(env, VMX_EXIT_NMI_WINDOW, 0, 0);
+        }
+        if (env->vmx.vintr_pending) {
+            env->vmx.exit_hlt = false;
+            vmx_vintr_deliver(env);
+            return true;
         }
         x86_vmx_exit(env, VMX_EXIT_INTERRUPT_WINDOW, 0, 0);
     default:
