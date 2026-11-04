@@ -249,7 +249,6 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 return false;
             }
             rsvd_mask |= PG_HI_USER_MASK;
-        restart_3_nolma:
             pte = ptw_ldq(&pte_trans, ra);
             if (!(pte & PG_PRESENT_MASK)) {
                 goto do_fault;
@@ -257,9 +256,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             if (pte & (rsvd_mask | PG_NX_MASK)) {
                 goto do_fault_rsvd;
             }
-            if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
-                goto restart_3_nolma;
-            }
+            /* PAE paging's PDPTEs have no accessed flag: bit 5 is reserved. */
             ptep = PG_NX_MASK | PG_USER_MASK | PG_RW_MASK;
         }
 
