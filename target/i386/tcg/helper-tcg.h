@@ -119,6 +119,19 @@ bool svm_x2avic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
                       uintptr_t retaddr);
 #endif
 
+/* system/vmx_helper.c */
+#ifndef CONFIG_USER_ONLY
+uint64_t x86_vmcs_read(CPUX86State *env, uint32_t encoding);
+void x86_vmcs_write(CPUX86State *env, uint32_t encoding, uint64_t val);
+bool x86_vmx_cr_valid(CPUX86State *env, int cr, uint64_t val);
+bool x86_vmx_read_msr(CPUX86State *env, uint32_t index, uint64_t *val);
+bool x86_feature_control_exists(CPUX86State *env);
+bool x86_feature_control_write(CPUX86State *env, uint64_t val);
+bool x86_vmx_holds_init(CPUX86State *env);
+void x86_vmx_smm_enter(CPUX86State *env);
+void x86_vmx_smm_leave(CPUX86State *env);
+#endif
+
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,

@@ -82,7 +82,8 @@ target_ulong HELPER(read_cr8)(CPUX86State *env)
  * The CR0 writes MOV to CR0 refuses with #GP: reserved bits 63:32, PG
  * without PE, NW without CD, clearing PG in 64-bit mode or with CR4.PCIDE
  * set, and turning on IA-32e mode without PAE, from code with CS.L, or with
- * a 16-bit TSS in TR
+ * a 16-bit TSS in TR, and in VMX root operation what IA32_VMX_CR0_FIXED0 and
+ * FIXED1 do not allow
  * (Intel SDM 325462-093 Vol. 2B, MOV, Move to/from Control Registers; AMD64
  * Architecture Programmer's Manual Volume 3, 24594 rev. 3.38, MOV CRn).
  * The reserved bits of CR0[31:0] are ignored.
@@ -92,6 +93,9 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
     if ((cr0 >> 32) ||
         ((cr0 & CR0_PG_MASK) && !(cr0 & CR0_PE_MASK)) ||
         ((cr0 & CR0_NW_MASK) && !(cr0 & CR0_CD_MASK))) {
+        return false;
+    }
+    if (env->vmx.on && !env->vmx.nonroot && !x86_vmx_cr_valid(env, 0, cr0)) {
         return false;
     }
 #ifdef TARGET_X86_64
@@ -113,12 +117,16 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
 /*
  * The CR4 writes MOV to CR4 refuses with #GP: reserved bits, which include
  * those of absent features, a change of LA57 or clearing PAE in IA-32e
- * mode, and setting PCIDE outside IA-32e mode or with CR3[11:0] not 0 (the
- * same documents).
+ * mode, setting PCIDE outside IA-32e mode or with CR3[11:0] not 0 (the same
+ * documents), and in VMX root operation what IA32_VMX_CR4_FIXED0 and FIXED1
+ * do not allow.
  */
 static bool cr4_valid(CPUX86State *env, uint64_t cr4)
 {
     if (cr4 & cr4_reserved_bits(env)) {
+        return false;
+    }
+    if (env->vmx.on && !env->vmx.nonroot && !x86_vmx_cr_valid(env, 4, cr4)) {
         return false;
     }
     if ((cr4 & ~env->cr[4] & CR4_PCIDE_MASK) &&
@@ -608,6 +616,15 @@ void HELPER(wrmsr)(CPUX86State *env)
 
         break;
     }
+    case MSR_IA32_FEATURE_CONTROL:
+        if (!x86_feature_control_exists(env) ||
+            !x86_feature_control_write(env, val)) {
+            goto error;
+        }
+        break;
+    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
+        /* The VMX capability MSRs are read-only. */
+        goto error;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
             goto error;
@@ -904,6 +921,17 @@ void HELPER(rdmsr)(CPUX86State *env)
 
         break;
     }
+    case MSR_IA32_FEATURE_CONTROL:
+        if (!x86_feature_control_exists(env)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->msr_ia32_feature_control;
+        break;
+    case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
+        if (!x86_vmx_read_msr(env, (uint32_t)env->regs[R_ECX], &val)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        break;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env)) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());

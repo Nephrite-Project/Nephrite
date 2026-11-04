@@ -3813,6 +3813,87 @@ static void gen_INVPCID(DisasContext *s, X86DecodedInsn *decode)
 #endif
 
 #ifndef CONFIG_USER_ONLY
+/*
+ * The VMX instructions' helpers report VMsucceed and VMfail in the
+ * arithmetic flags; chk(prot) and the decoder refuse real, virtual-8086,
+ * and compatibility mode.
+ */
+static int vmx_mem_seg(DisasContext *s, X86DecodedInsn *decode)
+{
+    return s->override >= 0 ? s->override : decode->mem.def_seg;
+}
+
+static void gen_vmx_start(DisasContext *s)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+}
+
+static void gen_VMXON(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmxon(tcg_env, s->A0,
+                     tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+
+static void gen_VMCLEAR(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmclear(tcg_env, s->A0,
+                       tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMPTRLD(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmptrld(tcg_env, s->A0,
+                       tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMPTRST(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmptrst(tcg_env, s->A0,
+                       tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMREAD(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmread(s->T0, tcg_env, s->T1, s->T0);
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMREADm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmread_mem(tcg_env, s->T1, s->A0,
+                          tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMWRITE(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmwrite(tcg_env, s->T0, s->T1);
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+
+static void gen_VMWRITEm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_vmx_start(s);
+    gen_helper_vmwrite_mem(tcg_env, s->T0, s->A0,
+                           tcg_constant_i32(vmx_mem_seg(s, decode)));
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+#endif
+
+#ifndef CONFIG_USER_ONLY
 static void gen_RDMSR(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);

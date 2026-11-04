@@ -3029,6 +3029,17 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             break;
 
 #ifndef CONFIG_USER_ONLY
+        case 0xc4: /* vmxoff */
+            if (!PE(s) || VM86(s) || (LMA(s) && !CODE64(s))) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_helper_vmxoff(tcg_env);
+            set_cc_op(s, CC_OP_EFLAGS);
+            s->base.is_jmp = DISAS_EOB_NEXT;
+            break;
+
         case 0xc6: /* wrmsrns */
             /* WRMSR without serialization: here, WRMSR. */
             if (!(s->cpuid_7_1_eax_features & CPUID_7_1_EAX_WRMSRNS)

@@ -311,7 +311,7 @@ typedef enum X86Seg {
                 | CR4_DE_MASK | CR4_PSE_MASK | CR4_PAE_MASK \
                 | CR4_MCE_MASK | CR4_PGE_MASK | CR4_PCE_MASK \
                 | CR4_OSFXSR_MASK | CR4_OSXMMEXCPT_MASK | CR4_UMIP_MASK \
-                | CR4_LA57_MASK \
+                | CR4_LA57_MASK | CR4_VMXE_MASK \
                 | CR4_FSGSBASE_MASK | CR4_PCIDE_MASK | CR4_OSXSAVE_MASK \
                 | CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_PKE_MASK | CR4_CET_MASK \
                 | CR4_PKS_MASK | CR4_LAM_SUP_MASK | CR4_FRED_MASK))
@@ -2066,6 +2066,27 @@ typedef struct CPUCaches {
 struct kvm_msrs;
 struct hv_vp_register_page;
 
+/* The VMCS fields TCG keeps (see vmx_helper.c), at most this many. */
+#define VMX_VMCS_SLOTS 192
+
+/*
+ * VMX operation: whether the processor is in it, and in non-root operation;
+ * the VMXON region; the current VMCS, ~0 for none, with its launch state and
+ * fields; an INIT that VMX root operation holds; and the VMX state SMM put
+ * aside.
+ */
+typedef struct X86VMXState {
+    bool on;
+    bool nonroot;
+    bool init_pending;
+    bool smm_on;
+    bool smm_nonroot;
+    uint64_t vmxon_ptr;
+    uint64_t vmcs_ptr;
+    uint32_t vmcs_launched;
+    uint64_t vmcs[VMX_VMCS_SLOTS];
+} X86VMXState;
+
 /*
  * The guest state of the VMCB last run that VMRUN takes from the processor
  * rather than from the VMCB where the VMCB Clean field allows (AMD64
@@ -2405,6 +2426,8 @@ typedef struct CPUArchState {
     hwaddr svm_avic_physical;
     uint32_t svm_avic_max_index;
     hwaddr svm_tlb_avic_bar;
+
+    X86VMXState vmx;
 
     /* DebugCtl, and the last control transfers it has had recorded. */
     uint64_t debugctl;
@@ -3136,9 +3159,10 @@ static inline MemTxAttrs cpu_get_mem_attrs(CPUX86State *env)
     return ((MemTxAttrs) { .secure = (env->hflags & HF_SMM_MASK) != 0 });
 }
 
+/* SMM and VMX operation disable A20M. */
 static inline int32_t x86_get_a20_mask(CPUX86State *env)
 {
-    if (env->hflags & HF_SMM_MASK) {
+    if ((env->hflags & HF_SMM_MASK) || env->vmx.on) {
         return -1;
     } else {
         return env->a20_mask;
@@ -3311,6 +3335,9 @@ static inline uint64_t cr4_reserved_bits(CPUX86State *env)
     uint64_t reserved_bits = CR4_RESERVED_MASK;
     if (!env->features[FEAT_XSAVE]) {
         reserved_bits |= CR4_OSXSAVE_MASK;
+    }
+    if (!(env->features[FEAT_1_ECX] & CPUID_EXT_VMX)) {
+        reserved_bits |= CR4_VMXE_MASK;
     }
     if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_SMEP)) {
         reserved_bits |= CR4_SMEP_MASK;

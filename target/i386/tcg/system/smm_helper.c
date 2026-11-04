@@ -157,6 +157,7 @@ void do_smm_enter(X86CPU *cpu)
 
     env->msr_smi_count++;
     env->hflags |= HF_SMM_MASK;
+    x86_vmx_smm_enter(env);
     /*
      * TLB entries keep the memory attributes they were filled with, and
      * the MMU indexes do not tell SMM from normal operation.
@@ -353,6 +354,7 @@ void HELPER(rsm)(CPUX86State *env)
     }
     env->hflags2 &= ~HF2_SMM_INSIDE_NMI_MASK;
     env->hflags &= ~HF_SMM_MASK;
+    x86_vmx_smm_leave(env);
     tlb_flush(CPU(cpu));
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");

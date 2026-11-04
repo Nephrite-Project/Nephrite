@@ -902,6 +902,15 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define CPUID_EXT_KERNEL_FEATURES 0
 #endif
+/* VMX, and the parts of it system/vmx_helper.c implements. */
+#ifdef CONFIG_USER_ONLY
+#define TCG_EXT_VMX 0
+#else
+#define TCG_EXT_VMX CPUID_EXT_VMX
+#endif
+#define TCG_VMX_BASIC (MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS)
+#define TCG_VMX_MISC MSR_VMX_MISC_VMWRITE_VMEXIT
+
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
           CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_CX16 | \
           CPUID_EXT_SSE41 | CPUID_EXT_SSE42 | CPUID_EXT_POPCNT | \
@@ -909,7 +918,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT_MOVBE | CPUID_EXT_AES | CPUID_EXT_HYPERVISOR | \
           CPUID_EXT_RDRAND | CPUID_EXT_AVX | CPUID_EXT_F16C | \
           CPUID_EXT_FMA | CPUID_EXT_X2APIC | CPUID_EXT_PCID | \
-          CPUID_EXT_TSC_DEADLINE_TIMER | CPUID_EXT_KERNEL_FEATURES)
+          CPUID_EXT_TSC_DEADLINE_TIMER | CPUID_EXT_KERNEL_FEATURES | \
+          TCG_EXT_VMX)
           /* missing:
           CPUID_EXT_DTES64, CPUID_EXT_DSCPL, CPUID_EXT_VMX, CPUID_EXT_SMX,
           CPUID_EXT_EST, CPUID_EXT_TM2, CPUID_EXT_CID,
@@ -1764,6 +1774,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_MISC] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_MISC,
         .feat_names = {
             NULL, NULL, NULL, NULL,
             NULL, "vmx-store-lma", "vmx-activity-hlt", "vmx-activity-shutdown",
@@ -1807,6 +1818,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
 
     [FEAT_VMX_BASIC] = {
         .type = MSR_FEATURE_WORD,
+        .tcg_features = TCG_VMX_BASIC,
         .feat_names = {
             [54] = "vmx-ins-outs",
             [55] = "vmx-true-ctls",

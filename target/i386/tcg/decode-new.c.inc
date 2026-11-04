@@ -470,6 +470,13 @@ static void decode_group9(DisasContext *s, CPUX86State *env, X86OpEntry *entry, 
         [5] = X86_OP_ENTRYw(XSAVES,     M,y, cpuid(XSAVES) p_00 chk(no_rex2)),
     };
 
+#ifndef CONFIG_USER_ONLY
+    static const X86OpEntry vmptrld = X86_OP_ENTRYr(VMPTRLD, M,q, chk(prot));
+    static const X86OpEntry vmclear = X86_OP_ENTRYr(VMCLEAR, M,q, chk(prot));
+    static const X86OpEntry vmxon = X86_OP_ENTRYr(VMXON, M,q, chk(prot));
+    static const X86OpEntry vmptrst = X86_OP_ENTRYw(VMPTRST, M,q, chk(prot));
+#endif
+
     int modrm = get_modrm(s, env);
     int op = (modrm >> 3) & 7;
 
@@ -477,6 +484,24 @@ static void decode_group9(DisasContext *s, CPUX86State *env, X86OpEntry *entry, 
         *entry = group9_reg;
     } else if (op == 1) {
         *entry = REX_W(s) ? cmpxchg16b : cmpxchg8b;
+#ifndef CONFIG_USER_ONLY
+    } else if (op >= 6) {
+        /* VMX instructions #UD in compatibility mode. */
+        if (LMA(s) && !CODE64(s)) {
+            return;
+        }
+        if (op == 7) {
+            if (!(s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ))) {
+                *entry = vmptrst;
+            }
+        } else if (s->prefix & PREFIX_DATA) {
+            *entry = vmclear;
+        } else if (s->prefix & PREFIX_REPZ) {
+            *entry = vmxon;
+        } else if (!(s->prefix & PREFIX_REPNZ)) {
+            *entry = vmptrld;
+        }
+#endif
     } else {
         *entry = group9_mem[op];
     }
@@ -625,6 +650,12 @@ static void decode_0F78(DisasContext *s, CPUX86State *env, X86OpEntry *entry, ui
         X86_OP_ENTRY3(INSERTQ_i,     V,x, U,x, I,w,        cpuid(SSE4A)); /* AMD extension */
     static const X86OpEntry opcodes_0F78_66 =
         X86_OP_ENTRY3(EXTRQ_i,       U,x, None,None, I,w,  cpuid(SSE4A)); /* AMD extension */
+#ifndef CONFIG_USER_ONLY
+    static const X86OpEntry vmread =
+        X86_OP_ENTRY2(VMREAD,        E,y_d64, G,y_d64,     chk(prot));
+    static const X86OpEntry vmread_m =
+        X86_OP_ENTRYrr(VMREADm,      M,y_d64, G,y_d64,     chk(prot));
+#endif
 
     entry->gen = NULL;
     if (s->prefix & PREFIX_REPNZ) {
@@ -636,11 +667,22 @@ static void decode_0F78(DisasContext *s, CPUX86State *env, X86OpEntry *entry, ui
         if (op == 0) {
             *entry = opcodes_0F78_66;
         }
+#ifndef CONFIG_USER_ONLY
+    } else if (!LMA(s) || CODE64(s)) {
+        *entry = (get_modrm(s, env) >> 6) == 3 ? vmread : vmread_m;
+#endif
     }
 }
 
 static void decode_0F79(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
 {
+#ifndef CONFIG_USER_ONLY
+    static const X86OpEntry vmwrite =
+        X86_OP_ENTRYrr(VMWRITE,      G,y_d64, E,y_d64,     chk(prot));
+    static const X86OpEntry vmwrite_m =
+        X86_OP_ENTRYrr(VMWRITEm,     G,y_d64, M,y_d64,     chk(prot));
+#endif
+
     entry->gen = NULL;
     if (s->prefix & PREFIX_REPNZ) {
         entry->gen = gen_INSERTQ_r; /* AMD extension */
@@ -648,6 +690,10 @@ static void decode_0F79(DisasContext *s, CPUX86State *env, X86OpEntry *entry, ui
         /* undefined */
     } else if (s->prefix & PREFIX_DATA) {
         entry->gen = gen_EXTRQ_r; /* AMD extension */
+#ifndef CONFIG_USER_ONLY
+    } else if (!LMA(s) || CODE64(s)) {
+        *entry = (get_modrm(s, env) >> 6) == 3 ? vmwrite : vmwrite_m;
+#endif
     };
 }
 
