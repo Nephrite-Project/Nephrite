@@ -2180,6 +2180,13 @@ typedef struct X86VMXState {
     bool tpr_exit_pending;
     /* A virtual interrupt is recognized, pending delivery. */
     bool vintr_pending;
+    /*
+     * PAUSE-loop exiting: the TSC at the first PAUSE of the loop and at the
+     * last PAUSE, at CPL 0, since the VM entry.
+     */
+    bool ple_loop;
+    uint64_t ple_first;
+    uint64_t ple_last;
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;

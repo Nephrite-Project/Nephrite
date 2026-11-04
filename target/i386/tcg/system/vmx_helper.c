@@ -107,6 +107,8 @@
 #define VMCS_ENTRY_EXCEPTION_ERROR 0x4018
 #define VMCS_ENTRY_INSN_LEN 0x401a
 #define VMCS_TPR_THRESHOLD 0x401c
+#define VMCS_PLE_GAP 0x4020
+#define VMCS_PLE_WINDOW 0x4022
 #define VMCS_PROC2_CONTROLS 0x401e
 #define VMCS_EXIT_REASON 0x4402
 #define VMCS_EXIT_INTR_INFO 0x4404
@@ -1773,6 +1775,24 @@ uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
 }
 
 /*
+ * PAUSE-loop exiting at CPL 0 (Intel SDM 325462-093 Vol. 3C, 28.1.3): a
+ * PAUSE more than PLE_Gap TSC ticks after the last one starts a loop, as
+ * the first after the VM entry does, and one more than PLE_Window ticks
+ * into a loop exits.
+ */
+static bool vmx_pause_loop(CPUX86State *env)
+{
+    uint64_t now = cpu_get_tsc(env);
+
+    if (!env->vmx.ple_loop || now - env->vmx.ple_last > VMCS(PLE_GAP)) {
+        env->vmx.ple_loop = true;
+        env->vmx.ple_first = now;
+    }
+    env->vmx.ple_last = now;
+    return now - env->vmx.ple_first > VMCS(PLE_WINDOW);
+}
+
+/*
  * What QEMU's SVM intercept checks ask for, in VMX terms (Intel SDM
  * 325462-093 Vol. 3C, 28.1 and 28.2): param is the MSR access's direction,
  * INVLPG's address, a CR or DR access's GPR, or an exception's error code.
@@ -1831,7 +1851,9 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
         }
         break;
     case SVM_EXIT_PAUSE:
-        if (proc & VMX_CPU_BASED_PAUSE_EXITING) {
+        if ((proc & VMX_CPU_BASED_PAUSE_EXITING) ||
+            ((proc2 & VMX_SECONDARY_EXEC_PAUSE_LOOP_EXITING) &&
+             !(env->hflags & HF_CPL_MASK) && vmx_pause_loop(env))) {
             x86_vmx_exit(env, VMX_EXIT_PAUSE, 0, ra);
         }
         break;
@@ -3356,6 +3378,7 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     }
     env->vmx.vmcs_launched = 1;
     env->vmx.mtf = VMCS(PROC_CONTROLS) & VMX_CPU_BASED_MONITOR_TRAP_FLAG;
+    env->vmx.ple_loop = false;
     if (VMCS(PIN_CONTROLS) & VMX_PIN_BASED_VMX_PREEMPTION_TIMER) {
         vmx_timer_start(env);
     }
