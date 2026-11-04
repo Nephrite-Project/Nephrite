@@ -114,6 +114,46 @@ static uint32_t svm_clean_bits(CPUX86State *env)
 }
 
 /*
+ * With shadow stacks, VMRUN and #VMEXIT switch S_CET, SSP, and ISST_ADDR,
+ * sign-extending the shadow-stack pointers, and VMRUN fails for an S_CET
+ * with reserved bits set (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.45, 15.5.1 and Table B-2).
+ */
+static void svm_save_cet(CPUX86State *env, hwaddr addr)
+{
+    CPUState *cs = env_cpu(env);
+
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.s_cet), env->s_cet);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.ssp), env->guest_ssp);
+#ifdef TARGET_X86_64
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.isst_addr),
+                 env->int_ssp_table);
+#endif
+}
+
+static bool svm_load_cet(CPUX86State *env, hwaddr addr)
+{
+    CPUState *cs = env_cpu(env);
+    uint64_t s_cet = x86_ldq_phys(cs, addr + offsetof(struct vmcb, save.s_cet));
+    int i;
+
+    if (!x86_cet_msr_valid(env, MSR_IA32_S_CET, s_cet)) {
+        return false;
+    }
+    env->s_cet = s_cet;
+    env->guest_ssp = x86_la_adjust(env, x86_ldq_phys(cs, addr +
+                                   offsetof(struct vmcb, save.ssp)));
+#ifdef TARGET_X86_64
+    env->int_ssp_table = x86_la_adjust(env, x86_ldq_phys(cs, addr +
+                                       offsetof(struct vmcb, save.isst_addr)));
+#endif
+    for (i = 0; i < 4; i++) {
+        *x86_pl_ssp(env, i) = x86_la_adjust(env, *x86_pl_ssp(env, i));
+    }
+    return true;
+}
+
+/*
  * DebugCtl and the last branch MSRs, as LBR virtualization swaps them with
  * those of the save area at ADDR (AMD64 Architecture Programmer's Manual
  * Volume 2, 24593 rev. 3.45, 15.23.1).
@@ -449,6 +489,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
              env->vm_hsave + offsetof(struct vmcb, save.rsp), env->regs[R_ESP]);
     x86_stq_phys(cs,
              env->vm_hsave + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
+    if (x86_has_shstk(env)) {
+        svm_save_cet(env, env->vm_hsave);
+    }
 
     clean = svm_clean_bits(env);
     c->valid = false;
@@ -660,6 +703,14 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                                 env->vm_vmcb + offsetof(struct vmcb, save.rsp));
     env->regs[R_EAX] = x86_ldq_phys(cs,
                                 env->vm_vmcb + offsetof(struct vmcb, save.rax));
+    if (x86_has_shstk(env) && !svm_load_cet(env, env->vm_vmcb)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
+    if ((env->cr[4] & CR4_CET_MASK) &&
+        (!(env->cr[0] & CR0_WP_MASK) ||
+         ((env->eflags & VM_MASK) && (env->u_cet & CET_SH_STK_EN)))) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
 
     if (!(clean & SVM_CLEAN_DRX)) {
         c->dr7 = x86_ldq_phys(cs, env->vm_vmcb +
@@ -1305,6 +1356,9 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.rsp), env->regs[R_ESP]);
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
+    if (x86_has_shstk(env)) {
+        svm_save_cet(env, env->vm_vmcb);
+    }
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.dr7), env->dr[7]);
     x86_stq_phys(cs,
@@ -1429,6 +1483,9 @@ load_host:
                                 offsetof(struct vmcb, save.rsp));
     env->regs[R_EAX] = x86_ldq_phys(cs, env->vm_hsave +
                                 offsetof(struct vmcb, save.rax));
+    if (x86_has_shstk(env)) {
+        svm_load_cet(env, env->vm_hsave);
+    }
 
     env->dr[6] = x86_ldq_phys(cs,
                           env->vm_hsave + offsetof(struct vmcb, save.dr6));

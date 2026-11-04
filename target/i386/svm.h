@@ -270,7 +270,9 @@ struct QEMU_PACKED vmcb_save_area {
     uint64_t rip;
     uint8_t reserved_4[88];
     uint64_t rsp;
-    uint8_t reserved_5[24];
+    uint64_t s_cet;
+    uint64_t ssp;
+    uint64_t isst_addr;
     uint64_t rax;
     uint64_t star;
     uint64_t lstar;
