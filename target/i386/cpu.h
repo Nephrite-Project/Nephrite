@@ -233,6 +233,8 @@ typedef enum X86Seg {
  * in bits 63:32 of its cs_base, which the 32-bit CS base leaves clear.
  */
 #define TB_CS_BASE_MASK      0xffffffffULL
+/* ShadowStackEnabled(CPL), for near CALL and RET. */
+#define TB_SHSTK             (1ULL << 32)
 
 /* hflags2 */
 
@@ -377,6 +379,7 @@ typedef enum X86Seg {
 #define PG_ERROR_RSVD_MASK 0x08
 #define PG_ERROR_I_D_MASK  0x10
 #define PG_ERROR_PK_MASK   0x20
+#define PG_ERROR_SS_MASK   0x40
 
 #define PG_MODE_PAE      (1 << 0)
 #define PG_MODE_LMA      (1 << 1)
@@ -3320,14 +3323,27 @@ int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
  * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16).
  */
 #define MMU_GUEST_IDX      8
-#define MMU_HOST_IDX_MAP   ((1 << MMU_PHYS_IDX) - 1)
-#define MMU_GUEST_IDX_MAP  (MMU_HOST_IDX_MAP << MMU_GUEST_IDX)
 
 /*
  * With GMET, the nested translations of guest supervisor accesses, whose
  * fetches the nested U/S bit restricts, past the guest's indexes.
  */
 #define MMU_NESTED_SUP_IDX 14
+
+/*
+ * Shadow-stack accesses, which reach only shadow-stack pages (Intel SDM
+ * 325462-093 Vol. 3A, 5.6.1), user and supervisor ones, the host's and then
+ * guest mode's.
+ */
+#define MMU_SS_USER_IDX    15
+#define MMU_SS_SUP_IDX     16
+#define MMU_SS_GUEST       2
+
+#define MMU_HOST_IDX_MAP   (((1 << MMU_PHYS_IDX) - 1) | \
+                            1 << MMU_SS_USER_IDX | 1 << MMU_SS_SUP_IDX)
+#define MMU_GUEST_IDX_MAP  ((((1 << MMU_PHYS_IDX) - 1) << MMU_GUEST_IDX) | \
+                            1 << (MMU_SS_USER_IDX + MMU_SS_GUEST) | \
+                            1 << (MMU_SS_SUP_IDX + MMU_SS_GUEST))
 
 #ifdef CONFIG_USER_ONLY
 #ifdef TARGET_X86_64
@@ -3343,13 +3359,22 @@ static inline int mmu_index_host(int mmu_index)
     return mmu_index >= MMU_GUEST_IDX ? mmu_index - MMU_GUEST_IDX : mmu_index;
 }
 
+static inline bool is_mmu_index_ss(int mmu_index)
+{
+    return mmu_index >= MMU_SS_USER_IDX;
+}
+
 static inline bool is_mmu_index_smap(int mmu_index)
 {
-    return (mmu_index_host(mmu_index) & ~1) == MMU_KSMAP64_IDX;
+    return !is_mmu_index_ss(mmu_index) &&
+           (mmu_index_host(mmu_index) & ~1) == MMU_KSMAP64_IDX;
 }
 
 static inline bool is_mmu_index_user(int mmu_index)
 {
+    if (is_mmu_index_ss(mmu_index)) {
+        return (mmu_index - MMU_SS_USER_IDX) % MMU_SS_GUEST == 0;
+    }
     return (mmu_index_host(mmu_index) & ~1) == MMU_USER64_IDX;
 }
 
@@ -3663,6 +3688,14 @@ static inline bool x86_has_shstk(CPUX86State *env)
 static inline bool x86_has_ibt(CPUX86State *env)
 {
     return env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_CET_IBT;
+}
+
+/* ShadowStackEnabled(CPL) (Intel SDM 325462-093 Vol. 1, 18.2.2). */
+static inline bool x86_shstk_enabled(CPUX86State *env, int cpl)
+{
+    return (env->cr[4] & CR4_CET_MASK) && (env->cr[0] & CR0_PE_MASK) &&
+           !(env->eflags & VM_MASK) &&
+           ((cpl == 3 ? env->u_cet : env->s_cet) & CET_SH_STK_EN);
 }
 
 /* IA32_PLn_SSP, the shadow-stack pointer for privilege level pl. */

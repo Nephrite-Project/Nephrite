@@ -127,6 +127,16 @@ DEF_HELPER_3(lmsw, void, env, tl, int)
 DEF_HELPER_4(invept, void, env, tl, tl, int)
 DEF_HELPER_4(invvpid, void, env, tl, tl, int)
 DEF_HELPER_FLAGS_3(write_crN, TCG_CALL_NO_RWG, void, env, int, tl)
+DEF_HELPER_3(shstk_call, void, env, tl, i32)
+DEF_HELPER_3(shstk_ret, void, env, tl, i32)
+DEF_HELPER_3(incssp, void, env, tl, i32)
+DEF_HELPER_3(rdssp, tl, env, tl, i32)
+DEF_HELPER_1(saveprevssp, void, env)
+DEF_HELPER_2(rstorssp, tl, env, tl)
+DEF_HELPER_1(setssbsy, void, env)
+DEF_HELPER_2(clrssbsy, tl, env, tl)
+DEF_HELPER_4(wrss, void, env, tl, tl, i32)
+DEF_HELPER_4(wruss, void, env, tl, tl, i32)
 #endif /* !CONFIG_USER_ONLY */
 
 /* x86 FPU */

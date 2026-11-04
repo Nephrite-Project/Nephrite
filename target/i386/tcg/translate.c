@@ -122,6 +122,7 @@ typedef struct DisasContext {
     bool movss_step; /* MOV or POP SS suppressed TF's trap */
     bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */
+    bool shstk; /* ShadowStackEnabled(CPL) */
     bool cc_op_dirty;
 
     CCOp cc_op;  /* current CC operation */
@@ -3448,6 +3449,37 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             ot = (mod != 3 ? MO_16 : s->dflag);
             gen_st_modrm(s, decode, ot);
             break;
+#ifndef CONFIG_USER_ONLY
+        /*
+         * F3 alone makes SETSSBSY, SAVEPREVSSP, and RSTORSSP (Intel SDM
+         * 325462-093 Vol. 2B).
+         */
+        case 0xe8: /* setssbsy */
+        case 0xea: /* saveprevssp */
+            if ((prefixes & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) !=
+                PREFIX_REPZ ||
+                !(s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
+                goto illegal_op;
+            }
+            if (modrm == 0xe8) {
+                gen_helper_setssbsy(tcg_env);
+            } else {
+                /* SAVEPREVSSP reads CF. */
+                gen_update_cc_op(s);
+                gen_helper_saveprevssp(tcg_env);
+            }
+            break;
+        CASE_MODRM_MEM_OP(5): /* rstorssp */
+            if ((prefixes & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) !=
+                PREFIX_REPZ ||
+                !(s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
+                goto illegal_op;
+            }
+            gen_lea_modrm(s, decode);
+            gen_helper_rstorssp(cpu_cc_src, tcg_env, s->A0);
+            set_cc_op(s, CC_OP_EFLAGS);
+            break;
+#endif
         case 0xee: /* rdpkru */
             if (s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) {
                 goto illegal_op;
@@ -3859,6 +3891,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     int iopl = (flags >> IOPL_SHIFT) & 3;
 
     dc->cs_base = dc->base.tb->cs_base & TB_CS_BASE_MASK;
+    dc->shstk = dc->base.tb->cs_base & TB_SHSTK;
     dc->pc_save = dc->base.pc_next;
     dc->flags = flags;
     dc->ac_check = cpl == 3 && (flags & AC_MASK);

@@ -191,8 +191,11 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     const target_ulong addr = in->addr;
     const int pg_mode = in->pg_mode;
     const bool is_user = is_mmu_index_user(in->mmu_idx);
+    const bool ss = is_mmu_index_ss(in->mmu_idx);
     const MMUAccessType access_type = in->access_type;
     uint64_t ptep, pte, rsvd_mask;
+    /* The access rights of the entries above the one that maps the page. */
+    uint64_t ptep_upper = -1;
     PTETranslate pte_trans = {
         .env = env,
         .err = err,
@@ -212,6 +215,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         (IS_AMD_CPU(env) ? PG_GLOBAL_MASK : 0);
 
  restart_all:
+    ptep_upper = -1;
     rsvd_mask = ~MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
     rsvd_mask &= PG_ADDRESS_MASK;
     if (!(pg_mode & PG_MODE_NXE)) {
@@ -294,6 +298,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 }
                 goto restart_3_lma;
             }
+            ptep_upper = ptep;
             ptep &= pte ^ PG_NX_MASK;
             if (pte & PG_PSE_MASK) {
                 /* 1 GB page */
@@ -341,6 +346,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         if (pte & rsvd_mask) {
             goto do_fault_rsvd;
         }
+        ptep_upper = ptep;
         if (pte & PG_PSE_MASK) {
             /* 2 MB page */
             page_size = 2048 * 1024;
@@ -370,6 +376,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             goto do_fault_rsvd;
         }
         /* combine pde and pte nx, user and rw protections */
+        ptep_upper = ptep;
         ptep &= pte ^ PG_NX_MASK;
         page_size = 4096;
     } else if (pg_mode & PG_MODE_PG) {
@@ -417,6 +424,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             goto do_fault;
         }
         /* combine pde and pte user and rw protections */
+        ptep_upper = ptep;
         ptep &= pte | PG_NX_MASK;
         page_size = 4096;
         rsvd_mask = 0;
@@ -447,13 +455,25 @@ do_check_protect_pse36:
     }
 
     prot = 0;
-    if (!is_mmu_index_smap(in->mmu_idx) || !(ptep & PG_USER_MASK)) {
+    if (ss) {
+        /*
+         * Shadow-stack accesses reach only shadow-stack pages of their own
+         * mode: read-only and dirty in the entry that maps the page,
+         * writable in every other one (Intel SDM 325462-093 Vol. 3A, 5.6.1).
+         */
+        if ((pte & (PG_RW_MASK | PG_DIRTY_MASK)) != PG_DIRTY_MASK ||
+            !(ptep_upper & PG_RW_MASK) ||
+            (!is_user && (ptep & PG_USER_MASK))) {
+            goto do_fault_protect;
+        }
+        prot = PAGE_READ | PAGE_WRITE;
+    } else if (!is_mmu_index_smap(in->mmu_idx) || !(ptep & PG_USER_MASK)) {
         prot |= PAGE_READ;
         if ((ptep & PG_RW_MASK) || !(is_user || (pg_mode & PG_MODE_WP))) {
             prot |= PAGE_WRITE;
         }
     }
-    if (!(ptep & PG_NX_MASK) &&
+    if (!ss && !(ptep & PG_NX_MASK) &&
         (is_user ||
          !((pg_mode & PG_MODE_SMEP) && (ptep & PG_USER_MASK)))) {
         prot |= PAGE_EXEC;
@@ -602,6 +622,9 @@ do_check_protect_pse36:
     if (is_user) {
         error_code |= PG_ERROR_U_MASK;
     }
+    if (ss) {
+        error_code |= PG_ERROR_SS_MASK;
+    }
     switch (access_type) {
     case MMU_DATA_LOAD:
         break;
@@ -711,7 +734,9 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         break;
 
     default:
-        if (is_mmu_index_32(mmu_idx)) {
+        /* Shadow-stack addresses are 32-bit ones outside IA-32e mode. */
+        if (is_mmu_index_ss(mmu_idx) ? !(env->hflags & HF_LMA_MASK)
+                                     : is_mmu_index_32(mmu_idx)) {
             addr = (uint32_t)addr;
         }
 

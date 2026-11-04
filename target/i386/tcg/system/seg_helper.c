@@ -34,6 +34,13 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
     if (!(env->efer & MSR_EFER_SCE)) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
+    /*
+     * PL3_SSP keeps the SSP of the CPL left, which CPL 0 does not take
+     * (Intel SDM 325462-093 Vol. 2B, SYSCALL).
+     */
+    if (x86_shstk_enabled(env, env->hflags & HF_CPL_MASK)) {
+        x86_shstk_save_user(env);
+    }
     selector = (env->star >> 32) & 0xffff;
 #ifdef TARGET_X86_64
     if (env->hflags & HF_LMA_MASK) {
@@ -79,6 +86,9 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
                                DESC_S_MASK |
                                DESC_W_MASK | DESC_A_MASK);
         env->eip = (uint32_t)env->star;
+    }
+    if (x86_shstk_enabled(env, 0)) {
+        env->guest_ssp = 0;
     }
 }
 

@@ -1575,15 +1575,38 @@ static void gen_BZHI(DisasContext *s, X86DecodedInsn *decode)
     prepare_update2_cc(decode, s, CC_OP_BMILGB + ot);
 }
 
+/*
+ * A near CALL's push of the return address, which goes on the shadow stack
+ * too where shstk is set and shadow stacks are on, before RSP changes
+ * (Intel SDM 325462-093 Vol. 2A, CALL).
+ */
+static void gen_call_push(DisasContext *s, bool shstk)
+{
+    MemOp d_ot = mo_pushpop(s, s->dflag);
+    TCGv ret = eip_next_tl(s);
+    TCGv new_esp = tcg_temp_new();
+
+    tcg_gen_subi_tl(new_esp, cpu_regs[R_ESP], 1 << d_ot);
+    gen_lea_ss_ofs(s, s->A0, new_esp, 0);
+    gen_op_st_v(s, d_ot, ret, s->A0);
+#ifndef CONFIG_USER_ONLY
+    if (shstk && s->shstk) {
+        gen_helper_shstk_call(tcg_env, ret, tcg_constant_i32(1 << d_ot));
+    }
+#endif
+    gen_op_mov_reg_v(s, mo_stacksize(s), R_ESP, new_esp);
+}
+
+/* A CALL to the next instruction leaves the shadow stack alone. */
 static void gen_CALL(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_push_v(s, eip_next_tl(s));
+    gen_call_push(s, decode->immediate != 0);
     gen_JMP(s, decode);
 }
 
 static void gen_CALL_m(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_push_v(s, eip_next_tl(s));
+    gen_call_push(s, true);
     gen_JMP_m(s, decode);
 }
 
@@ -1624,6 +1647,16 @@ static void gen_CLI(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_reset_eflags(s, IF_MASK);
 }
+
+#ifndef CONFIG_USER_ONLY
+static void gen_CLRSSBSY(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_helper_clrssbsy(cpu_cc_src, tcg_env, s->A0);
+    set_cc_op(s, CC_OP_EFLAGS);
+}
+#else
+#define gen_CLRSSBSY gen_unreachable
+#endif
 
 static void gen_CLTS(DisasContext *s, X86DecodedInsn *decode)
 {
@@ -2395,6 +2428,16 @@ static void gen_INC(DisasContext *s, X86DecodedInsn *decode)
     }
     prepare_update_cc_incdec(decode, s, CC_OP_INCB + ot);
 }
+
+#ifndef CONFIG_USER_ONLY
+static void gen_INCSSP(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_helper_incssp(tcg_env, s->T0,
+                      tcg_constant_i32(decode->op[1].ot == MO_64));
+}
+#else
+#define gen_INCSSP gen_unreachable
+#endif
 
 static void gen_INS(DisasContext *s, X86DecodedInsn *decode)
 {
@@ -4009,6 +4052,19 @@ static void gen_RDPMC(DisasContext *s, X86DecodedInsn *decode)
     s->base.is_jmp = DISAS_EOB_NEXT;
 }
 
+#ifndef CONFIG_USER_ONLY
+/* The helper writes all of the register, not at all where it is a NOP. */
+static void gen_RDSSP(DisasContext *s, X86DecodedInsn *decode)
+{
+    TCGv reg = cpu_regs[decode->op[1].n];
+
+    gen_helper_rdssp(reg, tcg_env, reg,
+                     tcg_constant_i32(decode->op[1].ot == MO_64));
+}
+#else
+#define gen_RDSSP gen_unreachable
+#endif
+
 static void gen_RDTSC(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
@@ -4035,6 +4091,15 @@ static void gen_RET(DisasContext *s, X86DecodedInsn *decode)
     uint16_t adjust = decode->e.op1 == X86_TYPE_I ? decode->immediate : 0;
 
     MemOp ot = gen_pop_T0(s);
+#ifndef CONFIG_USER_ONLY
+    /*
+     * The shadow stack's return address must match (Intel SDM 325462-093
+     * Vol. 2B, RET).
+     */
+    if (s->shstk) {
+        gen_helper_shstk_ret(tcg_env, s->T0, tcg_constant_i32(1 << ot));
+    }
+#endif
     gen_stack_update(s, adjust + (1 << ot));
     gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
@@ -5229,8 +5294,22 @@ static void gen_WRMSR(DisasContext *s, X86DecodedInsn *decode)
     gen_helper_wrmsr(tcg_env);
     s->base.is_jmp = DISAS_EOB_NEXT;
 }
+
+static void gen_WRSS(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_helper_wrss(tcg_env, s->A0, s->T1,
+                    tcg_constant_i32(decode->op[2].ot == MO_64));
+}
+
+static void gen_WRUSS(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_helper_wruss(tcg_env, s->A0, s->T1,
+                     tcg_constant_i32(decode->op[2].ot == MO_64));
+}
 #else
 #define gen_WRMSR gen_unreachable
+#define gen_WRSS gen_unreachable
+#define gen_WRUSS gen_unreachable
 #endif
 
 static void gen_WRxxBASE(DisasContext *s, X86DecodedInsn *decode)

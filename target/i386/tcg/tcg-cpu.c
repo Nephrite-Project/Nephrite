@@ -77,6 +77,14 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     if (unlikely(x86_vmx_mtf(env))) {
         flags |= HF_TF_MASK;
     }
+    if (unlikely(env->cr[4] & CR4_CET_MASK) && (env->cr[0] & CR0_PE_MASK) &&
+        !(env->eflags & VM_MASK)) {
+        uint64_t cet = (flags & HF_CPL_MASK) == 3 ? env->u_cet : env->s_cet;
+
+        if (cet & CET_SH_STK_EN) {
+            more_flags |= TB_SHSTK;
+        }
+    }
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
         pc = env->eip;

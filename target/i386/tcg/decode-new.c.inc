@@ -507,6 +507,29 @@ static void decode_group9(DisasContext *s, CPUX86State *env, X86OpEntry *entry, 
     }
 }
 
+/*
+ * A reserved NOP but, with F3 alone, RDSSP for register forms of /1, a NOP
+ * itself where shadow stacks are off or absent (Intel SDM 325462-093 Vol.
+ * 2B, RDSSPD/RDSSPQ).
+ */
+static void decode_0F1E(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry nop = X86_OP_ENTRY1(NOP, nop,v);
+    static const X86OpEntry rdssp =
+        X86_OP_ENTRYr(RDSSP, R,y, p_f3 chk(no_rex2));
+    int modrm = get_modrm(s, env);
+
+    *entry = nop;
+    if ((s->prefix & (PREFIX_REPZ | PREFIX_REPNZ | PREFIX_DATA)) !=
+        PREFIX_REPZ) {
+        return;
+    }
+    if ((modrm & 0xf8) == 0xc8 &&
+        (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
+        *entry = rdssp;
+    }
+}
+
 static void decode_group15(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
 {
     static const X86OpEntry group15_reg[8] = {
@@ -534,6 +557,17 @@ static void decode_group15(DisasContext *s, CPUX86State *env, X86OpEntry *entry,
         [7] = X86_OP_ENTRYw(NOP,        M,b, cpuid(CLFLUSHOPT)),
     };
 
+    static const X86OpEntry clrssbsy =
+        X86_OP_ENTRYr(CLRSSBSY,         M,q, cpuid(CET_SS) p_f3 chk(no_rex2));
+
+    /* The register forms of /5, by prefix. */
+    static const X86OpEntry group15_reg_5[4] = {
+        X86_OP_ENTRY0(LFENCE,           cpuid(SSE) p_00),
+        {},
+        X86_OP_ENTRYr(INCSSP,     R,y,  cpuid(CET_SS) p_f3 chk(no_rex2)),
+        {},
+    };
+
     /* The register forms of /6, by prefix. */
     static const X86OpEntry group15_reg_6[4] = {
         X86_OP_ENTRY0(MFENCE,           cpuid(SSE2) p_00),
@@ -547,10 +581,14 @@ static void decode_group15(DisasContext *s, CPUX86State *env, X86OpEntry *entry,
 
     if ((modrm >> 6) == 3 && op == 6) {
         *entry = *decode_by_prefix(s, group15_reg_6);
+    } else if ((modrm >> 6) == 3 && op == 5) {
+        *entry = *decode_by_prefix(s, group15_reg_5);
     } else if ((modrm >> 6) == 3) {
         *entry = group15_reg[op];
     } else if (s->prefix & PREFIX_DATA) {
         *entry = group15_mem_66[op];
+    } else if ((s->prefix & PREFIX_REPZ) && op == 6) {
+        *entry = clrssbsy;
     } else {
         *entry = group15_mem[op];
     }
@@ -994,12 +1032,12 @@ static const X86OpEntry opcodes_0F38_F0toFF[16][4] = {
     },
     [5] = {
         X86_OP_ENTRY3(BZHI, G,y, E,y, B,y, vex13 cpuid(BMI1)),
-        {},
+        X86_OP_ENTRYrr(WRUSS, M,y, G,y, cpuid(CET_SS)),
         X86_OP_ENTRY3(PEXT, G,y, B,y, E,y, vex13 zextT0 chk(nf0) cpuid(BMI2)),
         X86_OP_ENTRY3(PDEP, G,y, B,y, E,y, vex13 zextT0 chk(nf0) cpuid(BMI2)),
     },
     [6] = {
-        {},
+        X86_OP_ENTRYrr(WRSS, M,y, G,y, cpuid(CET_SS)),
         X86_OP_ENTRY2(ADCX, G,y, E,y, cpuid(ADX)),
         X86_OP_ENTRY2(ADOX, G,y, E,y, cpuid(ADX)),
         X86_OP_ENTRY3(MULX, /* B,y, */ G,y, E,y, 2,y, vex13 chk(nf0) cpuid(BMI2)),
@@ -1504,7 +1542,7 @@ static const X86OpEntry opcodes_0F[256] = {
     [0x1b] = X86_OP_ENTRY1(multi0F, nop,v, nolea),  /* unconverted MPX */
     [0x1c] = X86_OP_ENTRY1(NOP,  nop,v),  /* reserved NOP */
     [0x1d] = X86_OP_ENTRY1(NOP,  nop,v),  /* reserved NOP */
-    [0x1e] = X86_OP_ENTRY1(NOP,  nop,v),  /* reserved NOP */
+    [0x1e] = X86_OP_GROUP0(0F1E),
     [0x1f] = X86_OP_ENTRY1(NOP,  nop,v),  /* NOP/reserved NOP */
 
     [0x28] = X86_OP_ENTRY3(MOVDQ,      V,x,  None,None, W,x, vex1 p_00_66), /* MOVAPS */
@@ -3030,6 +3068,8 @@ static bool has_cpuid_feature(DisasContext *s, X86CPUIDFeature cpuid)
         return (s->cpuid_ext3_features & CPUID_EXT3_SSE4A);
     case X86_FEAT_WAITPKG:
         return (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_WAITPKG);
+    case X86_FEAT_CET_SS:
+        return (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK);
 
     case X86_FEAT_ADX:
         return (s->cpuid_7_0_ebx_features & CPUID_7_0_EBX_ADX);

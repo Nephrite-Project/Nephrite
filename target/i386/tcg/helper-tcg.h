@@ -232,6 +232,54 @@ void x86_pmu_event_start(CPUX86State *env, int is_int);
 void x86_pmu_event_end(CPUX86State *env);
 #endif
 
+/* system/cet_helper.c */
+#ifndef CONFIG_USER_ONLY
+/* The shadow-stack work that a far RET or IRET does last. */
+typedef struct X86ShstkReturn {
+    bool set;           /* SSP becomes ssp */
+    uint64_t ssp;
+    bool release;       /* the supervisor shadow-stack token at token frees */
+    uint64_t token;
+} X86ShstkReturn;
+
+/* A task switch's frame of the old task's CS, LIP, and SSP. */
+typedef struct X86ShstkTask {
+    uint64_t cs;
+    uint64_t lip;
+    uint64_t ssp;
+} X86ShstkTask;
+
+/* Bits 63:N take bit N - 1, N being the processor's linear-address width. */
+uint64_t x86_la_adjust(CPUX86State *env, uint64_t addr);
+/* IA32_PL3_SSP := SSP, the user SSP that a transfer from CPL 3 leaves. */
+void x86_shstk_save_user(CPUX86State *env);
+bool x86_shstk_acquire(CPUX86State *env, uint64_t addr, uintptr_t ra);
+void x86_shstk_release(CPUX86State *env, uint64_t addr, uintptr_t ra);
+/* A far CALL to a code segment, to a 64-bit one where to64 is set. */
+void x86_shstk_far_call(CPUX86State *env, bool to64, uint32_t cs,
+                        uint64_t lip, uintptr_t ra);
+/*
+ * A far CALL through a call gate or an event's delivery through an
+ * interrupt or trap gate, from CPL cpl to dpl, with the CS and LIP to
+ * return to; ist is the IST index of an IA-32e mode gate, else 0.
+ */
+void x86_shstk_enter(CPUX86State *env, int cpl, int dpl, int ist, bool to64,
+                     uint32_t cs, uint64_t lip, uintptr_t ra);
+/*
+ * A far RET or IRET from CPL cpl to RPL rpl, to CS cs at LIP lip, to 64-bit
+ * code where to64 is set: checks the shadow stack, then gives in r what
+ * x86_shstk_return_commit() does once nothing else can fault.
+ */
+void x86_shstk_return(CPUX86State *env, X86ShstkReturn *r, bool iret,
+                      int cpl, int rpl, uint32_t cs, uint64_t lip, bool to64,
+                      uintptr_t ra);
+void x86_shstk_return_commit(CPUX86State *env, const X86ShstkReturn *r,
+                             uintptr_t ra);
+void x86_shstk_task_pop(CPUX86State *env, X86ShstkTask *t, uintptr_t ra);
+void x86_shstk_task_push(CPUX86State *env, const X86ShstkTask *t,
+                         uintptr_t ra);
+#endif
+
 /* The VMX interruption types of INT1 and of INT3 and INTO. */
 #define X86_VMX_PRIV_SOFT_EXCEPTION 5
 #define X86_VMX_SOFT_EXCEPTION 6

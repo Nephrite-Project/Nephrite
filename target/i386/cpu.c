@@ -1084,13 +1084,15 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 #ifdef CONFIG_USER_ONLY
 #define TCG_7_0_ECX_WAITPKG 0
+#define TCG_7_0_ECX_CET_SHSTK 0
 #else
 #define TCG_7_0_ECX_WAITPKG CPUID_7_0_ECX_WAITPKG
+#define TCG_7_0_ECX_CET_SHSTK CPUID_7_0_ECX_CET_SHSTK
 #endif
 #define TCG_7_0_ECX_FEATURES (CPUID_7_0_ECX_UMIP | CPUID_7_0_ECX_PKU | \
           /* CPUID_7_0_ECX_OSPKE is dynamic */ \
           CPUID_7_0_ECX_LA57 | CPUID_7_0_ECX_PKS | CPUID_7_0_ECX_VAES | \
-          TCG_7_0_ECX_RDPID | TCG_7_0_ECX_WAITPKG)
+          TCG_7_0_ECX_RDPID | TCG_7_0_ECX_WAITPKG | TCG_7_0_ECX_CET_SHSTK)
 
 #if defined CONFIG_USER_ONLY
 #define CPUID_7_0_EDX_KERNEL_FEATURES (CPUID_7_0_EDX_SPEC_CTRL | \

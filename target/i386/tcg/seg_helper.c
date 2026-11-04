@@ -372,6 +372,12 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     int mmu_index, index;
     target_ulong ptr;
     X86Access old, new;
+#if !defined(CONFIG_USER_ONLY)
+    int old_cpl = env->hflags & HF_CPL_MASK;
+    bool shstk_on = x86_shstk_enabled(env, old_cpl);
+    bool shstk_push = false, shstk_verify = false;
+    X86ShstkTask shstk_frame = { 0 };
+#endif
 
     type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
     LOG_PCALL("switch_tss: sel=0x%04x type=%d src=%d\n", tss_selector, type,
@@ -431,6 +437,21 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
                             env->vmx.idt_vectoring_info ? 3 :
                             source == SWITCH_TSS_IRET ? 1 :
                             source == SWITCH_TSS_JMP ? 2 : 0, retaddr);
+    }
+#endif
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * With shadow stacks on, an IRET's SSP must be 8-byte aligned; with
+     * CR4.CET, the new TSS must be a 32-bit one that holds an SSP (Intel SDM
+     * 325462-093 Vol. 3A, 10.3, step 3).
+     */
+    if (source == SWITCH_TSS_IRET && shstk_on && (env->guest_ssp & 7)) {
+        raise_exception_err_ra(env, EXCP0A_TSS,
+                               (env->tr.selector & 0xfffc) | ext, retaddr);
+    }
+    if ((env->cr[4] & CR4_CET_MASK) && (!(type & 8) || tss_limit < 0x6b)) {
+        raise_exception_err_ra(env, EXCP0A_TSS,
+                               (tss_selector & 0xfffc) | ext, retaddr);
     }
 #endif
     old_type = (env->tr.flags >> DESC_TYPE_SHIFT) & 0xf;
@@ -570,6 +591,41 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     env->tr.limit = tss_limit;
     env->tr.flags = e2 | DESC_TSS_BUSY_MASK;
 
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * The old task's shadow stack, in the old address space (Intel SDM
+     * 325462-093 Vol. 3A, 10.3, step 8): a CALL or an event to another CPL
+     * than from 3 to a more privileged one pushes its CS, LIP, and SSP onto
+     * the new task's shadow stack later, which an IRET pops off the old
+     * task's to check; an IRET also frees the old task's token, then has no
+     * SSP.
+     */
+    if (shstk_on) {
+        int new_cpl = new_eflags & VM_MASK ? 3 : new_segs[R_CS] & 3;
+
+        if (source == SWITCH_TSS_CALL) {
+            if (new_cpl < old_cpl && old_cpl == 3) {
+                env->pl3_ssp = env->guest_ssp;
+            } else {
+                shstk_push = true;
+                shstk_frame.cs = env->segs[R_CS].selector;
+                shstk_frame.lip = (uint32_t)(env->segs[R_CS].base +
+                                             next_eip);
+                shstk_frame.ssp = env->guest_ssp;
+            }
+        } else if (source == SWITCH_TSS_IRET) {
+            if (new_cpl == old_cpl || new_cpl < 3) {
+                x86_shstk_task_pop(env, &shstk_frame, retaddr);
+                shstk_verify = true;
+            }
+            if (!(env->guest_ssp & 7)) {
+                x86_shstk_release(env, env->guest_ssp, retaddr);
+            }
+            env->guest_ssp = 0;
+        }
+    }
+#endif
+
     if ((type & 8) && (env->cr[0] & CR0_PG_MASK)) {
         cpu_x86_update_cr3(env, new_cr3);
     }
@@ -659,6 +715,50 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
         /* XXX: different exception if CALL? */
         raise_exception_err_ra(env, EXCP0D_GPF, ext, retaddr);
     }
+
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * The new task's shadow stack (Intel SDM 325462-093 Vol. 3A, 10.3,
+     * step 15): not for virtual-8086 mode where CPL 3 has CET features on;
+     * else the SSP at offset 104 of its TSS, whose supervisor token it
+     * acquires, or with an IRET what it had, the frame's or PL3_SSP, after
+     * checking the frame.
+     */
+    if ((new_eflags & VM_MASK) && (env->cr[4] & CR4_CET_MASK) &&
+        (env->u_cet & (CET_SH_STK_EN | CET_ENDBR_EN))) {
+        raise_exception_err_ra(env, EXCP0A_TSS, (tss_selector & 0xfffc) | ext,
+                               retaddr);
+    }
+    if (source != SWITCH_TSS_IRET) {
+        if (x86_shstk_enabled(env, env->hflags & HF_CPL_MASK)) {
+            uint64_t new_ssp = cpu_ldl_kernel_ra(env, tss_base + 104, retaddr);
+
+            if ((new_ssp & 7) || !x86_shstk_acquire(env, new_ssp, retaddr)) {
+                raise_exception_err_ra(env, EXCP0A_TSS,
+                                       (tss_selector & 0xfffc) | ext, retaddr);
+            }
+            env->guest_ssp = new_ssp;
+            if (shstk_push) {
+                x86_shstk_task_push(env, &shstk_frame, retaddr);
+            }
+        }
+    } else {
+        if (shstk_verify &&
+            (shstk_frame.cs != env->segs[R_CS].selector ||
+             shstk_frame.lip != (uint32_t)(env->segs[R_CS].base + new_eip))) {
+            raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, retaddr);
+        }
+        if (x86_shstk_enabled(env, env->hflags & HF_CPL_MASK)) {
+            uint64_t ssp = shstk_verify ? shstk_frame.ssp : env->pl3_ssp;
+
+            if ((ssp & 3) || (ssp >> 32)) {
+                raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET,
+                                       retaddr);
+            }
+            env->guest_ssp = ssp;
+        }
+    }
+#endif
 
 #ifndef CONFIG_USER_ONLY
     /* reset local breakpoints */
@@ -967,6 +1067,10 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
             pushw(&sa, error_code);
         }
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_shstk_enter(env, cpl, dpl, 0, false, env->segs[R_CS].selector,
+                    (uint32_t)(env->segs[R_CS].base + old_eip), 0);
+#endif
 
     /* interrupt gate clear IF mask */
     if ((type & 1) == 0) {
@@ -1160,6 +1264,11 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
     if (has_error_code) {
         pushq(&sa, error_code);
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_shstk_enter(env, cpl, dpl, ist, true, env->segs[R_CS].selector,
+                    env->hflags & HF_CS64_MASK ? old_eip :
+                    (uint32_t)(env->segs[R_CS].base + old_eip), 0);
+#endif
 
     /* interrupt gate clear IF mask */
     if ((type & 1) == 0) {
@@ -1251,6 +1360,12 @@ void HELPER(sysret)(CPUX86State *env, int dflag)
                                DESC_S_MASK | (3 << DESC_DPL_SHIFT) |
                                DESC_W_MASK | DESC_A_MASK);
     }
+#if !defined(CONFIG_USER_ONLY)
+    /* CPL 3 takes back its SSP (Intel SDM 325462-093 Vol. 2B, SYSRET). */
+    if (x86_shstk_enabled(env, 3)) {
+        env->guest_ssp = env->pl3_ssp;
+    }
+#endif
 }
 
 /* real mode interrupt */
@@ -1817,6 +1932,17 @@ void HELPER(lcall_real)(CPUX86State *env, uint32_t new_cs, uint32_t new_eip,
 }
 
 /* protected mode call */
+#if !defined(CONFIG_USER_ONLY)
+/* The linear address of the instruction a far CALL returns to. */
+static uint64_t lcall_lip(CPUX86State *env, target_ulong next_eip)
+{
+    if (env->hflags & HF_CS64_MASK) {
+        return next_eip;
+    }
+    return (uint32_t)(env->segs[R_CS].base + next_eip);
+}
+#endif
+
 void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                             int shift, target_ulong next_eip)
 {
@@ -1876,6 +2002,13 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             sa.ss_base = 0;
             pushq(&sa, env->segs[R_CS].selector);
             pushq(&sa, next_eip);
+#if !defined(CONFIG_USER_ONLY)
+            if (x86_shstk_enabled(env, cpl)) {
+                x86_shstk_far_call(env, e2 & DESC_L_MASK,
+                                   env->segs[R_CS].selector,
+                                   lcall_lip(env, next_eip), GETPC());
+            }
+#endif
             /* from this point, not restartable */
             env->regs[R_ESP] = sa.sp;
             e2 = set_accessed_ra(env, new_cs, e2, GETPC());
@@ -1901,6 +2034,14 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             if (new_eip > limit) {
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
             }
+#if !defined(CONFIG_USER_ONLY)
+            if (x86_shstk_enabled(env, cpl)) {
+                x86_shstk_far_call(env, (env->hflags & HF_LMA_MASK) &&
+                                        (e2 & DESC_L_MASK),
+                                   env->segs[R_CS].selector,
+                                   lcall_lip(env, next_eip), GETPC());
+            }
+#endif
             /* from this point, not restartable */
             SET_ESP(sa.sp, sa.sp_mask);
             e2 = set_accessed_ra(env, new_cs, e2, GETPC());
@@ -2097,6 +2238,11 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             pushw(&sa, env->segs[R_CS].selector);
             pushw(&sa, next_eip);
         }
+#if !defined(CONFIG_USER_ONLY)
+        x86_shstk_enter(env, cpl, new_stack ? dpl : cpl, 0, shift == 2,
+                        env->segs[R_CS].selector, lcall_lip(env, next_eip),
+                        GETPC());
+#endif
 
         /* from this point, not restartable */
 
@@ -2218,6 +2364,26 @@ static inline void validate_seg(CPUX86State *env, X86Seg seg_reg, int cpl)
 }
 
 /* protected mode iret */
+#if !defined(CONFIG_USER_ONLY)
+/*
+ * Whether the code segment that a far RET or IRET returns to is 64-bit, and
+ * the linear address of the instruction it returns to.
+ */
+static bool ret_to64(CPUX86State *env, uint32_t e2)
+{
+    return (env->hflags & HF_LMA_MASK) && (e2 & DESC_L_MASK);
+}
+
+static uint64_t ret_lip(CPUX86State *env, uint32_t e1, uint32_t e2,
+                        target_ulong new_eip)
+{
+    if (ret_to64(env, e2)) {
+        return new_eip;
+    }
+    return (uint32_t)(get_seg_base(e1, e2) + new_eip);
+}
+#endif
+
 static inline void helper_ret_protected(CPUX86State *env, int shift,
                                         int is_iret, int addend,
                                         uintptr_t retaddr)
@@ -2228,6 +2394,10 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     int cpl, dpl, rpl, eflags_mask, iopl;
     target_ulong new_eip, new_esp;
     StackAccess sa;
+#if !defined(CONFIG_USER_ONLY)
+    X86ShstkReturn shstk = { 0 };
+    bool shstk_on;
+#endif
 
     cpl = env->hflags & HF_CPL_MASK;
 
@@ -2311,6 +2481,11 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     if (rpl == cpl && (!(env->hflags & HF_CS64_MASK) ||
                        ((env->hflags & HF_CS64_MASK) && !is_iret))) {
         /* return to same privilege level */
+#if !defined(CONFIG_USER_ONLY)
+        x86_shstk_return(env, &shstk, is_iret, cpl, rpl, new_cs,
+                         ret_lip(env, e1, e2, new_eip), ret_to64(env, e2),
+                         retaddr);
+#endif
         e2 = set_accessed_ra(env, new_cs, e2, retaddr);
         cpu_x86_load_seg_cache(env, R_CS, new_cs,
                        get_seg_base(e1, e2),
@@ -2338,6 +2513,11 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
         }
         LOG_PCALL("new ss:esp=%04x:" TARGET_FMT_lx "\n",
                   new_ss, new_esp);
+#if !defined(CONFIG_USER_ONLY)
+        x86_shstk_return(env, &shstk, is_iret, cpl, rpl, new_cs,
+                         ret_lip(env, e1, e2, new_eip), ret_to64(env, e2),
+                         retaddr);
+#endif
         if ((new_ss & 0xfffc) == 0) {
 #ifdef TARGET_X86_64
             /* NULL ss is allowed in long mode if cpl != 3 */
@@ -2420,15 +2600,35 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
         }
         cpu_load_eflags(env, new_eflags, eflags_mask);
     }
+#if !defined(CONFIG_USER_ONLY)
+    x86_shstk_return_commit(env, &shstk, retaddr);
+#endif
     return;
 
  return_to_vm86:
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * Not with shadow stacks or indirect branch tracking at CPL 3, and from
+     * an 8-byte aligned SSP, whose token frees (Intel SDM 325462-093 Vol.
+     * 2A, IRET).
+     */
+    if ((env->cr[4] & CR4_CET_MASK) &&
+        (env->u_cet & (CET_ENDBR_EN | CET_SH_STK_EN))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, retaddr);
+    }
+    shstk_on = x86_shstk_enabled(env, cpl);
+#endif
     new_esp = popl(&sa);
     new_ss = popl(&sa);
     new_es = popl(&sa);
     new_ds = popl(&sa);
     new_fs = popl(&sa);
     new_gs = popl(&sa);
+#if !defined(CONFIG_USER_ONLY)
+    if (shstk_on && (env->guest_ssp & 7)) {
+        raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, retaddr);
+    }
+#endif
 
     /* modify processor state */
     cpu_load_eflags(env, new_eflags, TF_MASK | AC_MASK | ID_MASK |
@@ -2443,6 +2643,11 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
 
     env->eip = new_eip & 0xffff;
     env->regs[R_ESP] = new_esp;
+#if !defined(CONFIG_USER_ONLY)
+    if (shstk_on) {
+        x86_shstk_release(env, env->guest_ssp, retaddr);
+    }
+#endif
 }
 
 void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
@@ -2485,6 +2690,10 @@ void HELPER(lret_protected)(CPUX86State *env, int shift, int addend)
 
 void HELPER(sysenter)(CPUX86State *env)
 {
+#if !defined(CONFIG_USER_ONLY)
+    bool shstk_on = x86_shstk_enabled(env, env->hflags & HF_CPL_MASK);
+#endif
+
     if (env->sysenter_cs == 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
@@ -2514,6 +2723,18 @@ void HELPER(sysenter)(CPUX86State *env)
                            DESC_W_MASK | DESC_A_MASK);
     env->regs[R_ESP] = env->sysenter_esp;
     env->eip = env->sysenter_eip;
+#if !defined(CONFIG_USER_ONLY)
+    /*
+     * PL3_SSP keeps the SSP of the CPL left, which CPL 0 does not take
+     * (Intel SDM 325462-093 Vol. 2B, SYSENTER).
+     */
+    if (shstk_on) {
+        x86_shstk_save_user(env);
+    }
+    if (x86_shstk_enabled(env, 0)) {
+        env->guest_ssp = 0;
+    }
+#endif
 }
 
 void HELPER(sysexit)(CPUX86State *env, int dflag)
@@ -2554,6 +2775,12 @@ void HELPER(sysexit)(CPUX86State *env, int dflag)
     }
     env->regs[R_ESP] = env->regs[R_ECX];
     env->eip = env->regs[R_EDX];
+#if !defined(CONFIG_USER_ONLY)
+    /* CPL 3 takes back its SSP (Intel SDM 325462-093 Vol. 2B, SYSEXIT). */
+    if (x86_shstk_enabled(env, 3)) {
+        env->guest_ssp = env->pl3_ssp;
+    }
+#endif
 }
 
 target_ulong HELPER(lsl)(CPUX86State *env, target_ulong selector1)
