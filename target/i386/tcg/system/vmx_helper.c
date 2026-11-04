@@ -74,6 +74,7 @@
 #define VMCS_EXIT_MSR_LOAD_ADDR 0x2008
 #define VMCS_ENTRY_MSR_LOAD_ADDR 0x200a
 #define VMCS_TSC_OFFSET 0x2010
+#define VMCS_VIRTUAL_APIC_ADDR 0x2012
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -1283,6 +1284,44 @@ target_ulong x86_vmx_cr_read(CPUX86State *env, int cr)
     return (env->cr[cr] & ~mask) | (shadow & mask);
 }
 
+/*
+ * MOV from and to CR8 under "use TPR shadow" access VTPR, at offset 80H
+ * of the virtual-APIC page, rather than the TPR (Intel SDM 325462-093
+ * Vol. 3C, 32.1.1 and 32.3).
+ */
+bool x86_vmx_tpr_shadow(CPUX86State *env)
+{
+    return env->vmx.nonroot &&
+           (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW);
+}
+
+target_ulong x86_vmx_read_cr8(CPUX86State *env)
+{
+    return x86_ldub_phys(env_cpu(env), VMCS(VIRTUAL_APIC_ADDR) + 0x80) >> 4;
+}
+
+/*
+ * MOV to CR8 leaves VTPR its source's bits 3:0 in bits 7:4, then TPR
+ * virtualization exits, trap-like, where they fall below the TPR
+ * threshold (Intel SDM 325462-093 Vol. 3C, 32.1.2); a single-step trap
+ * stays pending (Intel SDM 325462-093 Vol. 3C, 30.3.4).
+ */
+void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+
+    x86_stl_phys(cs, VMCS(VIRTUAL_APIC_ADDR) + 0x80, (val & 0xf) << 4);
+    if ((vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
+        (val & 0xf) >= (VMCS(TPR_THRESHOLD) & 0xf)) {
+        return;
+    }
+    cpu_restore_state(cs, ra);
+    env->eip += env->svm_insn_len;
+    do_end_instruction(env);
+    env->vmx.exit_pending_dbg = x86_step_trap(env, false);
+    x86_vmx_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, 0);
+}
+
 /* CLTS exits where the masks own CR0.TS and the shadow has it set. */
 bool x86_vmx_clts(CPUX86State *env, uintptr_t ra)
 {
@@ -1577,7 +1616,8 @@ static void vmx_save_guest(CPUX86State *env)
     VMCS_SET(GUEST_ACTIVITY, cs->halted || env->vmx.exit_hlt ?
                              VMX_ACTIVITY_HLT : VMX_ACTIVITY_ACTIVE);
     env->vmx.exit_hlt = false;
-    VMCS_SET(GUEST_PENDING_DBG, 0);
+    VMCS_SET(GUEST_PENDING_DBG, env->vmx.exit_pending_dbg);
+    env->vmx.exit_pending_dbg = 0;
     env->vmx.db_held = 0;
     env->vmx.tlb_cr0 = env->cr[0];
     env->vmx.tlb_cr3 = env->cr[3];
@@ -1905,6 +1945,24 @@ static bool vmx_controls_valid(CPUX86State *env)
     }
     if ((proc & VMX_CPU_BASED_USE_MSR_BITMAPS) &&
         !vmx_addr_valid(env, VMCS(MSR_BITMAP), 4096)) {
+        return false;
+    }
+    if (proc & VMX_CPU_BASED_TPR_SHADOW) {
+        uint64_t vapic = VMCS(VIRTUAL_APIC_ADDR);
+        uint64_t threshold = VMCS(TPR_THRESHOLD);
+
+        if (!vmx_addr_valid(env, vapic, 4096)) {
+            return false;
+        }
+        if (!(proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
+            ((threshold & ~0xfULL) ||
+             (!(proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
+              threshold > x86_ldub_phys(env_cpu(env), vapic + 0x80) >> 4))) {
+            return false;
+        }
+    } else if (proc2 & (VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
+                        VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT |
+                        VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY)) {
         return false;
     }
     if (!(pin & VMX_PIN_BASED_NMI_EXITING) &&

@@ -2102,6 +2102,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_MWAIT 36
 #define VMX_EXIT_MONITOR 39
 #define VMX_EXIT_PAUSE 40
+#define VMX_EXIT_TPR_BELOW_THRESHOLD 43
 #define VMX_EXIT_GDTR_IDTR 46
 #define VMX_EXIT_LDTR_TR 47
 #define VMX_EXIT_INVEPT 50
@@ -2148,6 +2149,8 @@ typedef struct X86VMXState {
     bool exit_hlt;
     /* The debug exceptions a VM entry left pending, as DR6 bits. */
     uint32_t db_held;
+    /* The pending debug exceptions field the exit under way saves. */
+    uint32_t exit_pending_dbg;
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;

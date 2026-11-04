@@ -67,6 +67,9 @@ target_ulong HELPER(inl)(CPUX86State *env, uint32_t port)
 
 target_ulong HELPER(read_cr8)(CPUX86State *env)
 {
+    if (x86_vmx_tpr_shadow(env)) {
+        return x86_vmx_read_cr8(env);
+    }
     /*
      * AVIC has CR8 be V_TPR whatever V_INTR_MASKING (AMD64 Architecture
      * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.29.4.1).
@@ -221,6 +224,10 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     case 8:
         if (t0 & ~(target_ulong)0xf) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
+        }
+        if (x86_vmx_tpr_shadow(env)) {
+            x86_vmx_write_cr8(env, t0, GETPC());
+            break;
         }
         /* Under AVIC, CR8 writes V_TPR and the backing page's TPR. */
         if (env->svm_avic) {

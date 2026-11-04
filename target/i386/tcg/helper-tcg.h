@@ -146,6 +146,9 @@ bool x86_vmx_exception_exits(CPUX86State *env, int vector,
 uint64_t x86_vmx_cr_write(CPUX86State *env, int cr, uint64_t val, int gpr,
                           uintptr_t ra);
 target_ulong x86_vmx_cr_read(CPUX86State *env, int cr);
+bool x86_vmx_tpr_shadow(CPUX86State *env);
+target_ulong x86_vmx_read_cr8(CPUX86State *env);
+void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra);
 bool x86_vmx_clts(CPUX86State *env, uintptr_t ra);
 uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
                       uintptr_t ra);
@@ -205,5 +208,18 @@ static inline void do_end_instruction(CPUX86State *env)
     /* needed if sti is just before */
     env->hflags &= ~HF_INHIBIT_IRQ_MASK;
     env->eflags &= ~HF_RF_MASK;
+}
+
+/*
+ * The single-step trap TF leaves pending after an instruction, as DR6
+ * bits: after any with DebugCtl.BTF clear, after a branch with it set.
+ */
+static inline uint32_t x86_step_trap(CPUX86State *env, bool branch)
+{
+    if ((env->eflags & TF_MASK) &&
+        (branch || !(env->debugctl & DEBUGCTL_BTF))) {
+        return DR6_BS;
+    }
+    return 0;
 }
 #endif /* I386_HELPER_TCG_H */
