@@ -2568,7 +2568,7 @@ static bool decode_op(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode,
         if (op->n != 0 && op->n != 2 && op->n != 3 && op->n != 4 && op->n != 8) {
             return false;
         }
-        if (decode->e.intercept) {
+        if (decode->e.has_intercept) {
             decode->e.intercept += op->n;
         }
         break;
@@ -2583,7 +2583,7 @@ static bool decode_op(DisasContext *s, CPUX86State *env, X86DecodedInsn *decode,
              */
             return false;
         }
-        if (decode->e.intercept) {
+        if (decode->e.has_intercept) {
             decode->e.intercept += op->n;
         }
         break;
