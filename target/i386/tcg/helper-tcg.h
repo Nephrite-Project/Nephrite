@@ -156,6 +156,9 @@ uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
                            uintptr_t ra);
 void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
                         unsigned size, uintptr_t ra);
+bool x86_vmx_x2apic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+bool x86_vmx_x2apic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
+                          uintptr_t ra);
 bool x86_vmx_clts(CPUX86State *env, uintptr_t ra);
 uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
                       uintptr_t ra);

@@ -1652,6 +1652,60 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
     }
 }
 
+/*
+ * RDMSR and WRMSR of 800H to 8FFH under "virtualize x2APIC mode", whatever
+ * the local APIC's mode (Intel SDM 325462-093 Vol. 3C, 32.5): reads of
+ * 808H, and with "APIC-register virtualization" of all of them, give the
+ * 8 bytes at (ECX & FFH) << 4 on the virtual-APIC page; writes of 808H, and
+ * with virtual-interrupt delivery of 80BH and 83FH, store EDX:EAX there
+ * after the usual checks of reserved bits, then virtualize the TPR, an
+ * EOI, or a self-IPI of vector 10H or above, else exit as an APIC write
+ * of 3F0H would. Both are false where the access goes on as usual.
+ */
+static bool vmx_x2apic_virtualized(CPUX86State *env, uint32_t msr)
+{
+    return env->vmx.nonroot && msr >= MSR_APIC_START && msr <= MSR_APIC_END &&
+           (vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE);
+}
+
+bool x86_vmx_x2apic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
+{
+    if (!vmx_x2apic_virtualized(env, msr) ||
+        (msr != 0x808 &&
+         !(vmx_proc2(env) & VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT))) {
+        return false;
+    }
+    *val = x86_ldq_phys(env_cpu(env),
+                        VMCS(VIRTUAL_APIC_ADDR) + ((msr & 0xff) << 4));
+    return true;
+}
+
+bool x86_vmx_x2apic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
+                          uintptr_t ra)
+{
+    if (!vmx_x2apic_virtualized(env, msr) ||
+        (msr != 0x808 &&
+         (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
+          (msr != 0x80b && msr != 0x83f)))) {
+        return false;
+    }
+    if (msr == 0x80b ? val != 0 : val >> 8 != 0) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    x86_stq_phys(env_cpu(env), VMCS(VIRTUAL_APIC_ADDR) + ((msr & 0xff) << 4),
+                 val);
+    if (msr == 0x808) {
+        vmx_tpr_virtualize(env, ra);
+    } else if (msr == 0x80b) {
+        vmx_eoi_virtualize(env, ra);
+    } else if (val & 0xf0) {
+        vmx_self_ipi_virtualize(env, val);
+    } else {
+        vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, 0x3f0, ra);
+    }
+    return true;
+}
+
 /* CLTS exits where the masks own CR0.TS and the shadow has it set. */
 bool x86_vmx_clts(CPUX86State *env, uintptr_t ra)
 {
@@ -2424,6 +2478,10 @@ static bool vmx_controls_valid(CPUX86State *env)
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
         !vmx_addr_valid(env, VMCS(APIC_ACCESS_ADDR), 4096)) {
+        return false;
+    }
+    if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE) &&
+        (proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES)) {
         return false;
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&

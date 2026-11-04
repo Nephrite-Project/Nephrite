@@ -729,6 +729,10 @@ void HELPER(wrmsr)(CPUX86State *env)
         }
         return;
     }
+    if (unlikely(env->vmx.nonroot) &&
+        x86_vmx_x2apic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
+        return;
+    }
 
     if (!x86_cpu_wrmsr(env, (uint32_t)env->regs[R_ECX], val)) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
@@ -1027,6 +1031,12 @@ void HELPER(rdmsr)(CPUX86State *env)
         if (!svm_x2avic_rdmsr(env, env->regs[R_ECX], &val, GETPC())) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
+        env->regs[R_EAX] = (uint32_t)val;
+        env->regs[R_EDX] = (uint32_t)(val >> 32);
+        return;
+    }
+    if (unlikely(env->vmx.nonroot) &&
+        x86_vmx_x2apic_rdmsr(env, env->regs[R_ECX], &val)) {
         env->regs[R_EAX] = (uint32_t)val;
         env->regs[R_EDX] = (uint32_t)(val >> 32);
         return;
