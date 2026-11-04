@@ -2505,6 +2505,26 @@ typedef struct CPUArchState {
     int old_exception;  /* exception in flight */
     /* MONITOR armed address-range monitoring, which MWAIT waits on. */
     bool monitor_armed;
+    /*
+     * UMONITOR armed address-range monitoring, which UMWAIT waits on, of
+     * the line at physical address umonitor_line; where that is memory,
+     * umonitor_bytes keeps what it held then, for a store to show.
+     */
+    bool umonitor_armed;
+    bool umonitor_memory;
+    hwaddr umonitor_line;
+    MemTxAttrs umonitor_attrs;
+    uint8_t umonitor_bytes[64];
+    /*
+     * An UMWAIT or TPAUSE waiting until the TSC reaches user_wait_deadline,
+     * IA32_UMWAIT_CONTROL's limit where user_wait_limited; user_wait_over
+     * tells the halted processor that the wait is over.
+     */
+    bool user_wait;
+    bool user_wait_umwait;
+    bool user_wait_limited;
+    bool user_wait_over;
+    uint64_t user_wait_deadline;
 
     uint64_t vm_vmcb;
     uint64_t tsc_offset;
@@ -2884,6 +2904,8 @@ struct ArchCPU {
     struct MemoryRegion *avic_page;
     /* TCG: the VMX-preemption timer's expiry. */
     QEMUTimer *vmx_timer;
+    /* TCG: the end of an UMWAIT's or TPAUSE's wait. */
+    QEMUTimer *user_wait_timer;
     Notifier machine_done;
 
     struct kvm_msrs *kvm_msr_buf;

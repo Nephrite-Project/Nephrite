@@ -515,7 +515,6 @@ static void decode_group15(DisasContext *s, CPUX86State *env, X86OpEntry *entry,
         [2] = X86_OP_ENTRYr(WRxxBASE,   R,y, cpuid(FSGSBASE) chk(o64) p_f3 zextT0),
         [3] = X86_OP_ENTRYr(WRxxBASE,   R,y, cpuid(FSGSBASE) chk(o64) p_f3 zextT0),
         [5] = X86_OP_ENTRY0(LFENCE,          cpuid(SSE) p_00),
-        [6] = X86_OP_ENTRY0(MFENCE,          cpuid(SSE2) p_00),
         [7] = X86_OP_ENTRY0(SFENCE,          cpuid(SSE) p_00),
     };
 
@@ -535,10 +534,20 @@ static void decode_group15(DisasContext *s, CPUX86State *env, X86OpEntry *entry,
         [7] = X86_OP_ENTRYw(NOP,        M,b, cpuid(CLFLUSHOPT)),
     };
 
+    /* The register forms of /6, by prefix. */
+    static const X86OpEntry group15_reg_6[4] = {
+        X86_OP_ENTRY0(MFENCE,           cpuid(SSE2) p_00),
+        X86_OP_ENTRYr(TPAUSE,     E,d,  cpuid(WAITPKG) p_66),
+        X86_OP_ENTRY0(UMONITOR,         cpuid(WAITPKG) p_f3),
+        X86_OP_ENTRYr(UMWAIT,     E,d,  cpuid(WAITPKG) p_f2),
+    };
+
     uint8_t modrm = get_modrm(s, env);
     int op = (modrm >> 3) & 7;
 
-    if ((modrm >> 6) == 3) {
+    if ((modrm >> 6) == 3 && op == 6) {
+        *entry = *decode_by_prefix(s, group15_reg_6);
+    } else if ((modrm >> 6) == 3) {
         *entry = group15_reg[op];
     } else if (s->prefix & PREFIX_DATA) {
         *entry = group15_mem_66[op];
@@ -3019,6 +3028,8 @@ static bool has_cpuid_feature(DisasContext *s, X86CPUIDFeature cpuid)
         return (s->cpuid_ext2_features & CPUID_EXT2_3DNOW);
     case X86_FEAT_SSE4A:
         return (s->cpuid_ext3_features & CPUID_EXT3_SSE4A);
+    case X86_FEAT_WAITPKG:
+        return (s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_WAITPKG);
 
     case X86_FEAT_ADX:
         return (s->cpuid_7_0_ebx_features & CPUID_7_0_EBX_ADX);

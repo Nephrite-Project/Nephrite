@@ -3838,6 +3838,15 @@ uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc)
 }
 
 /*
+ * UMONITOR, UMWAIT, and TPAUSE run in non-root operation with "enable user
+ * wait and pause" (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+bool x86_vmx_user_wait_enabled(CPUX86State *env)
+{
+    return vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE;
+}
+
+/*
  * RDRAND and RDSEED exit with "RDRAND exiting" and "RDSEED exiting", their
  * register and operand size in the instruction information (Intel SDM
  * 325462-093 Vol. 3C, 28.1.3 and Table 30-12); bit 31 of INFO tells RDSEED.

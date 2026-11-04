@@ -23,6 +23,7 @@
 #include "exec/helper-proto.h"
 #include "accel/tcg/cpu-ldst.h"
 #include "accel/tcg/cpu-loop.h"
+#include "accel/tcg/probe.h"
 #include "system/address-spaces.h"
 #include "system/memory.h"
 #include "exec/cputlb.h"
@@ -638,6 +639,18 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         }
         env->xss = val;
         break;
+    case MSR_IA32_UMWAIT_CONTROL:
+        /*
+         * Bits 31:2, the limit of UMWAIT's and TPAUSE's waits, and 0, C0.2
+         * not allowed (Intel SDM 325462-093 Vol. 2B, UMWAIT); bit 1 and
+         * bits 63:32 are reserved, as Linux 7.3's KVM treats them.
+         */
+        if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_WAITPKG) ||
+            (val & ~0xfffffffdull)) {
+            return false;
+        }
+        env->umwait = val;
+        break;
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
         int index = msr - MSR_APIC_START;
@@ -929,6 +942,12 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         }
         val = env->xss;
         break;
+    case MSR_IA32_UMWAIT_CONTROL:
+        if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_WAITPKG)) {
+            return false;
+        }
+        val = env->umwait;
+        break;
     case MSR_PLATFORM_INFO:
         /* Only bit 31, CPUID faulting, as Linux 7.3's KVM gives guests. */
         if (!IS_INTEL_CPU(env)) {
@@ -1161,6 +1180,11 @@ void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
     /* XXX: store address? */
     cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
     env->monitor_armed = true;
+    /*
+     * UMWAIT does not wait after a MONITOR (Intel SDM 325462-093 Vol. 2B,
+     * UMWAIT).
+     */
+    env->umonitor_armed = false;
 }
 
 G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
@@ -1190,4 +1214,169 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     } else {
         do_hlt(env);
     }
+}
+
+/*
+ * UMONITOR arms address-range monitoring of the line holding ADDR, with the
+ * faults and accessed flag of a byte load (Intel SDM 325462-093 Vol. 2B,
+ * UMONITOR), where VMX non-root operation has "enable user wait and pause"
+ * (Intel SDM 325462-093 Vol. 3C, 28.3). On memory, a store shows as a change
+ * of the line's bytes.
+ */
+void HELPER(umonitor)(CPUX86State *env, target_ulong addr)
+{
+    CPUState *cs = env_cpu(env);
+    CPUTLBEntryFull *full;
+    void *host;
+
+    if (env->vmx.nonroot && !x86_vmx_user_wait_enabled(env)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+    probe_access_full(env, addr, 1, MMU_DATA_LOAD, cpu_mmu_index(cs, false),
+                      false, &host, &full, GETPC());
+    env->monitor_armed = false;
+    env->umonitor_armed = true;
+    env->umonitor_line = full->phys_addr | (addr & 0xfc0);
+    env->umonitor_attrs = full->attrs;
+    env->umonitor_memory =
+        host && address_space_read(cpu_addressspace(cs, full->attrs),
+                                   env->umonitor_line, full->attrs,
+                                   env->umonitor_bytes,
+                                   sizeof(env->umonitor_bytes)) == MEMTX_OK;
+}
+
+/* How often an UMWAIT looks for a store to UMONITOR's line. */
+#define USER_WAIT_POLL_NS 20000
+
+/* Whether a store changed the bytes of UMONITOR's line since it armed. */
+static bool umonitor_stored(CPUX86State *env)
+{
+    AddressSpace *as = cpu_addressspace(env_cpu(env), env->umonitor_attrs);
+    uint8_t bytes[sizeof(env->umonitor_bytes)];
+
+    if (!env->umonitor_memory) {
+        return false;
+    }
+    return address_space_read(as, env->umonitor_line, env->umonitor_attrs,
+                              bytes, sizeof(bytes)) != MEMTX_OK ||
+           memcmp(bytes, env->umonitor_bytes, sizeof(bytes));
+}
+
+/* Has the wait's timer fire at its deadline, or at UMWAIT's next look. */
+static void user_wait_arm(CPUX86State *env)
+{
+    uint64_t now = x86_tsc_read(env);
+    uint64_t delay = env->user_wait_deadline - now;
+    int64_t ns = 0;
+
+    if (now < env->user_wait_deadline) {
+        ns = cpu_tsc_ticks_ns(env, delay);
+    }
+    if (env->user_wait_umwait) {
+        ns = MIN(ns, USER_WAIT_POLL_NS);
+    }
+    timer_mod(env_archcpu(env)->user_wait_timer,
+              qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + ns);
+}
+
+/* The deadline or a store to UMWAIT's line ends the wait; else arm again. */
+static void user_wait_cb(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    if (!env->user_wait) {
+        return;
+    }
+    if (x86_tsc_read(env) < env->user_wait_deadline &&
+        !(env->user_wait_umwait && umonitor_stored(env))) {
+        user_wait_arm(env);
+        return;
+    }
+    qatomic_set(&env->user_wait_over, true);
+    qemu_cpu_kick(CPU(cpu));
+}
+
+void x86_user_wait_init(X86CPU *cpu)
+{
+    cpu->user_wait_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, user_wait_cb, cpu);
+}
+
+/*
+ * Ends a wait, with CF set where IA32_UMWAIT_CONTROL's limit ended it: in
+ * CC_SRC within the execution loop, else in EFLAGS, as a halted processor
+ * leaves the loop.
+ */
+void x86_user_wait_end(CPUX86State *env)
+{
+    env->user_wait = false;
+    timer_del(env_archcpu(env)->user_wait_timer);
+    if (env->user_wait_limited &&
+        x86_tsc_read(env) >= env->user_wait_deadline) {
+        if (env_archcpu(env)->eflags_in_tcg) {
+            env->cc_src |= CC_C;
+        } else {
+            env->eflags |= CC_C;
+        }
+    }
+}
+
+/*
+ * UMWAIT and TPAUSE wait until the TSC that RDTSC reads reaches EDX:EAX, or
+ * for at most IA32_UMWAIT_CONTROL[31:2] << 2 ticks, which then sets CF; AF,
+ * PF, SF, ZF, and OF end clear. UMWAIT waits only with UMONITOR's monitoring
+ * armed, and a store to its line ends the wait (Intel SDM 325462-093 Vol.
+ * 2B, UMWAIT and TPAUSE). VMX non-root operation needs "enable user wait and
+ * pause" (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
+                                  uint32_t info, int next_eip_addend)
+{
+    CPUState *cs = env_cpu(env);
+    bool umwait = info & USER_WAIT_UMWAIT;
+    uint64_t deadline = (uint64_t)(uint32_t)env->regs[R_EDX] << 32 |
+                        (uint32_t)env->regs[R_EAX];
+    uint64_t limit = env->umwait & 0xfffffffc;
+    uint64_t now;
+
+    if (env->vmx.nonroot && !x86_vmx_user_wait_enabled(env)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+    if ((env->cr[4] & CR4_TSD_MASK) && (env->hflags & HF_CPL_MASK)) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
+    if ((uint32_t)src & ~1u) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
+
+    env->eip += next_eip_addend;
+    CC_SRC = cpu_cc_compute_all(env) &
+             ~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
+    CC_OP = CC_OP_EFLAGS;
+    now = x86_tsc_read(env);
+    env->user_wait_umwait = umwait;
+    env->user_wait_limited = limit && now + limit < deadline;
+    env->user_wait_deadline = env->user_wait_limited ? now + limit : deadline;
+    /* A store since UMONITOR, this processor's too, triggered it. */
+    if (umwait && env->umonitor_armed && umonitor_stored(env)) {
+        env->umonitor_armed = false;
+    }
+    /*
+     * As MWAIT, the wait ends at once under VMX's monitor trap flag, with
+     * the MTF VM exit as the event that ends it.
+     */
+    if (now >= env->user_wait_deadline || x86_vmx_mtf(env) ||
+        (umwait && !env->umonitor_armed)) {
+        x86_user_wait_end(env);
+        do_end_instruction(env);
+        HELPER(rechecking_single_step)(env);
+        cpu_loop_exit(cs);
+    }
+    if (umwait) {
+        env->umonitor_armed = false;
+    }
+    env->user_wait = true;
+    qatomic_set(&env->user_wait_over, false);
+    user_wait_arm(env);
+    do_hlt(env);
 }

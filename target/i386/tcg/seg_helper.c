@@ -1120,6 +1120,11 @@ void HELPER(sysret)(CPUX86State *env, int dflag)
 {
     int cpl, selector;
 
+    /*
+     * UMWAIT does not wait after an IRET, SYSRET, SYSEXIT, or far RET to
+     * another CPL (Intel SDM 325462-093 Vol. 2B, UMWAIT).
+     */
+    env->umonitor_armed = false;
     if (!(env->efer & MSR_EFER_SCE)) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
@@ -2076,6 +2081,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
     int eflags_mask;
     StackAccess sa;
 
+    env->umonitor_armed = false;
     sa.env = env;
     sa.ra = GETPC();
     sa.mmu_index = x86_mmu_index_pl(env, 0);
@@ -2239,6 +2245,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
                        e2);
     } else {
         /* return to different privilege level */
+        env->umonitor_armed = false;
 #ifdef TARGET_X86_64
         if (shift == 2) {
             new_esp = popq(&sa);
@@ -2370,6 +2377,7 @@ void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
     int tss_selector, type;
     uint32_t e1, e2;
 
+    env->umonitor_armed = false;
     /* specific case for TSS */
     if (env->eflags & NT_MASK) {
 #ifdef TARGET_X86_64
@@ -2439,6 +2447,7 @@ void HELPER(sysexit)(CPUX86State *env, int dflag)
 {
     int cpl;
 
+    env->umonitor_armed = false;
     cpl = env->hflags & HF_CPL_MASK;
     if (env->sysenter_cs == 0 || cpl != 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());

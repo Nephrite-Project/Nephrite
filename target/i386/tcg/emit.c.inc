@@ -4664,6 +4664,48 @@ static void gen_UD(DisasContext *s, X86DecodedInsn *decode)
     gen_illegal_opcode(s);
 }
 
+#ifndef CONFIG_USER_ONLY
+/*
+ * UMONITOR's source register holds an effective address as wide as the
+ * address size, in DS unless overridden (Intel SDM 325462-093 Vol. 2B,
+ * UMONITOR).
+ */
+static void gen_UMONITOR(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_lea_v_seg(s, cpu_regs[(s->modrm & 7) | REX_B(s)], R_DS, s->override);
+    gen_helper_umonitor(tcg_env, s->A0);
+}
+
+/* The helper waits, or goes on at the next instruction, itself. */
+static void gen_user_wait(DisasContext *s, X86DecodedInsn *decode,
+                          bool umwait)
+{
+    uint32_t info = decode->op[1].n | (umwait ? USER_WAIT_UMWAIT : 0);
+
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_user_wait(tcg_env, s->T0, tcg_constant_i32(info),
+                         cur_insn_len_i32(s));
+    s->base.is_jmp = DISAS_NORETURN;
+}
+
+static void gen_TPAUSE(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_user_wait(s, decode, false);
+}
+
+static void gen_UMWAIT(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_user_wait(s, decode, true);
+}
+#else
+#define gen_TPAUSE gen_unreachable
+#define gen_UMONITOR gen_unreachable
+#define gen_UMWAIT gen_unreachable
+#endif
+
 static void gen_VAESIMC(DisasContext *s, X86DecodedInsn *decode)
 {
     assert(!s->vex_l);

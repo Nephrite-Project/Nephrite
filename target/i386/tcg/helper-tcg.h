@@ -131,6 +131,11 @@ bool x86_feature_control_exists(CPUX86State *env);
 bool x86_feature_control_write(CPUX86State *env, uint64_t val);
 void x86_vmx_init(X86CPU *cpu);
 bool x86_vmx_holds_init(CPUX86State *env);
+/* HELPER(user_wait)'s INFO: the source register, and UMWAIT not TPAUSE. */
+#define USER_WAIT_REG 15
+#define USER_WAIT_UMWAIT 16
+void x86_user_wait_init(X86CPU *cpu);
+void x86_user_wait_end(CPUX86State *env);
 void x86_vmx_smm_enter(CPUX86State *env);
 void x86_vmx_smm_leave(CPUX86State *env);
 G_NORETURN void x86_vmx_exit(CPUX86State *env, uint32_t reason,
@@ -174,6 +179,7 @@ bool x86_vmx_virtual_nmis(CPUX86State *env);
 bool x86_vmx_rdtscp_allowed(CPUX86State *env);
 uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc);
 void x86_vmx_tsc_seen(CPUX86State *env);
+bool x86_vmx_user_wait_enabled(CPUX86State *env);
 void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra);
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);

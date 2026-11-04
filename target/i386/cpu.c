@@ -1059,10 +1059,15 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define TCG_7_0_ECX_RDPID 0
 #endif
+#ifdef CONFIG_USER_ONLY
+#define TCG_7_0_ECX_WAITPKG 0
+#else
+#define TCG_7_0_ECX_WAITPKG CPUID_7_0_ECX_WAITPKG
+#endif
 #define TCG_7_0_ECX_FEATURES (CPUID_7_0_ECX_UMIP | CPUID_7_0_ECX_PKU | \
           /* CPUID_7_0_ECX_OSPKE is dynamic */ \
           CPUID_7_0_ECX_LA57 | CPUID_7_0_ECX_PKS | CPUID_7_0_ECX_VAES | \
-          TCG_7_0_ECX_RDPID)
+          TCG_7_0_ECX_RDPID | TCG_7_0_ECX_WAITPKG)
 
 #if defined CONFIG_USER_ONLY
 #define CPUID_7_0_EDX_KERNEL_FEATURES (CPUID_7_0_EDX_SPEC_CTRL | \
@@ -10856,7 +10861,17 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
 static bool x86_cpu_has_work(CPUState *cs)
 {
     uint32_t pending_interrupts = qatomic_load_acquire(&cs->interrupt_request);
+    const CPUX86State *env = cpu_env(cs);
 
+    /*
+     * External interrupts end UMWAIT's and TPAUSE's waits whatever IF says
+     * (Intel SDM 325462-093 Vol. 2B, UMWAIT and TPAUSE), as INIT does.
+     */
+    if (env->user_wait &&
+        (qatomic_read(&env->user_wait_over) ||
+         (pending_interrupts & (CPU_INTERRUPT_HARD | CPU_INTERRUPT_INIT)))) {
+        return true;
+    }
     return x86_cpu_pending_interrupt(cs, pending_interrupts) != 0;
 }
 #endif /* !CONFIG_USER_ONLY */

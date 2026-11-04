@@ -170,8 +170,12 @@ void x86_cpu_leaving_halt(CPUState *cpu)
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = cpu_env(cpu);
 
-    env->vmx.hlt_wake = env->vmx.nonroot;
-    /* Complete HLT instruction.  */
+    if (env->user_wait) {
+        x86_user_wait_end(env);
+    } else {
+        env->vmx.hlt_wake = env->vmx.nonroot;
+    }
+    /* Complete HLT, UMWAIT, or TPAUSE instruction.  */
     if (env->eflags & TF_MASK) {
         env->dr[6] |= DR6_BS;
         /*

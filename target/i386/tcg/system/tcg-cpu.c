@@ -77,6 +77,7 @@ bool tcg_cpu_realizefn(CPUState *cs, Error **errp)
     cpu_address_space_init(cs, X86ASIdx_SMM, "cpu-smm", cpu->cpu_as_root);
     svm_avic_init(cpu);
     x86_vmx_init(cpu);
+    x86_user_wait_init(cpu);
 
     /* ... SMRAM with higher priority, linked from /machine/smram.  */
     cpu->machine_done.notify = tcg_cpu_machine_done;
