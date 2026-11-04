@@ -177,6 +177,23 @@ static inline int load_segment(CPUX86State *env, uint32_t *e1_ptr,
     return load_segment_ra(env, e1_ptr, e2_ptr, selector, 0);
 }
 
+/*
+ * Loading a segment register from a descriptor sets the descriptor's
+ * accessed bit where it is clear (Intel SDM 325462-093 Vol. 3A, 3.4.5.1),
+ * and the segment's cache has it set.
+ */
+static uint32_t set_accessed_ra(CPUX86State *env, int selector,
+                                uint32_t e2, uintptr_t retaddr)
+{
+    if (!(e2 & DESC_A_MASK)) {
+        SegmentCache *dt = selector & 0x4 ? &env->ldt : &env->gdt;
+
+        e2 |= DESC_A_MASK;
+        cpu_stl_kernel_ra(env, dt->base + (selector & ~7) + 4, e2, retaddr);
+    }
+    return e2;
+}
+
 static inline unsigned int get_seg_limit(uint32_t e1, uint32_t e2)
 {
     unsigned int limit;
@@ -298,6 +315,7 @@ static void tss_load_seg(CPUX86State *env, X86Seg seg_reg, int selector,
         if (!(e2 & DESC_P_MASK)) {
             raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, retaddr);
         }
+        e2 = set_accessed_ra(env, selector, e2, retaddr);
         cpu_x86_load_seg_cache(env, seg_reg, selector,
                                get_seg_base(e1, e2),
                                get_seg_limit(e1, e2),
@@ -900,12 +918,14 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
             cpu_x86_load_seg_cache(env, R_GS, 0, 0, 0, 0);
         }
         ss = (ss & ~3) | dpl;
+        ss_e2 = set_accessed_ra(env, ss, ss_e2, 0);
         cpu_x86_load_seg_cache(env, R_SS, ss, sa.ss_base,
                                get_seg_limit(ss_e1, ss_e2), ss_e2);
     }
     SET_ESP(sa.sp, sa.sp_mask);
 
     selector = (selector & ~3) | dpl;
+    e2 = set_accessed_ra(env, selector, e2, 0);
     cpu_x86_load_seg_cache(env, R_CS, selector,
                    get_seg_base(e1, e2),
                    get_seg_limit(e1, e2),
@@ -1087,6 +1107,7 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
     env->regs[R_ESP] = sa.sp;
 
     selector = (selector & ~3) | dpl;
+    e2 = set_accessed_ra(env, selector, e2, 0);
     cpu_x86_load_seg_cache(env, R_CS, selector,
                    get_seg_base(e1, e2),
                    get_seg_limit(e1, e2),
@@ -1528,11 +1549,7 @@ void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
             }
         }
 
-        /* set the access bit if not already set */
-        if (!(e2 & DESC_A_MASK)) {
-            e2 |= DESC_A_MASK;
-            cpu_stl_kernel_ra(env, ptr + 4, e2, GETPC());
-        }
+        e2 = set_accessed_ra(env, selector, e2, GETPC());
 
         cpu_x86_load_seg_cache(env, seg_reg, selector,
                        get_seg_base(e1, e2),
@@ -1587,6 +1604,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             (!(env->hflags & HF_LMA_MASK) || !(e2 & DESC_L_MASK))) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
+        e2 = set_accessed_ra(env, new_cs, e2, GETPC());
         cpu_x86_load_seg_cache(env, R_CS, (new_cs & 0xfffc) | cpl,
                        get_seg_base(e1, e2), limit, e2);
         env->eip = new_eip;
@@ -1675,6 +1693,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                 (!(env->hflags & HF_LMA_MASK) || !(e2 & DESC_L_MASK))) {
                 raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
             }
+            e2 = set_accessed_ra(env, gate_cs, e2, GETPC());
             cpu_x86_load_seg_cache(env, R_CS, (gate_cs & 0xfffc) | cpl,
                                    get_seg_base(e1, e2), limit, e2);
             env->eip = new_eip;
@@ -1775,6 +1794,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             pushq(&sa, next_eip);
             /* from this point, not restartable */
             env->regs[R_ESP] = sa.sp;
+            e2 = set_accessed_ra(env, new_cs, e2, GETPC());
             cpu_x86_load_seg_cache(env, R_CS, (new_cs & 0xfffc) | cpl,
                                    get_seg_base(e1, e2),
                                    get_seg_limit(e1, e2), e2);
@@ -1799,6 +1819,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             }
             /* from this point, not restartable */
             SET_ESP(sa.sp, sa.sp_mask);
+            e2 = set_accessed_ra(env, new_cs, e2, GETPC());
             cpu_x86_load_seg_cache(env, R_CS, (new_cs & 0xfffc) | cpl,
                                    get_seg_base(e1, e2), limit, e2);
             env->eip = new_eip;
@@ -2003,6 +2024,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
 #endif
             {
                 ss = (ss & ~3) | dpl;
+                ss_e2 = set_accessed_ra(env, ss, ss_e2, GETPC());
                 cpu_x86_load_seg_cache(env, R_SS, ss,
                                        sa.ss_base,
                                        get_seg_limit(ss_e1, ss_e2),
@@ -2011,6 +2033,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
         }
 
         selector = (selector & ~3) | dpl;
+        e2 = set_accessed_ra(env, selector, e2, GETPC());
         cpu_x86_load_seg_cache(env, R_CS, selector,
                        get_seg_base(e1, e2),
                        get_seg_limit(e1, e2),
@@ -2203,6 +2226,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     if (rpl == cpl && (!(env->hflags & HF_CS64_MASK) ||
                        ((env->hflags & HF_CS64_MASK) && !is_iret))) {
         /* return to same privilege level */
+        e2 = set_accessed_ra(env, new_cs, e2, retaddr);
         cpu_x86_load_seg_cache(env, R_CS, new_cs,
                        get_seg_base(e1, e2),
                        get_seg_limit(e1, e2),
@@ -2263,12 +2287,14 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
             if (!(ss_e2 & DESC_P_MASK)) {
                 raise_exception_err_ra(env, EXCP0B_NOSEG, new_ss & 0xfffc, retaddr);
             }
+            ss_e2 = set_accessed_ra(env, new_ss, ss_e2, retaddr);
             cpu_x86_load_seg_cache(env, R_SS, new_ss,
                                    get_seg_base(ss_e1, ss_e2),
                                    get_seg_limit(ss_e1, ss_e2),
                                    ss_e2);
         }
 
+        e2 = set_accessed_ra(env, new_cs, e2, retaddr);
         cpu_x86_load_seg_cache(env, R_CS, new_cs,
                        get_seg_base(e1, e2),
                        get_seg_limit(e1, e2),
