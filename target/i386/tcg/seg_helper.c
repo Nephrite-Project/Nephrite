@@ -289,7 +289,11 @@ static void tss_load_seg(CPUX86State *env, X86Seg seg_reg, int selector,
             if (!(e2 & DESC_CS_MASK)) {
                 raise_exception_err_ra(env, EXCP0A_TSS, selector & 0xfffc, retaddr);
             }
-            if (dpl != rpl) {
+            /*
+             * Non-conforming code needs DPL equal to RPL, conforming code
+             * DPL at most RPL (Intel SDM 325462-093 Vol. 3A, Table 10-1).
+             */
+            if ((e2 & DESC_C_MASK) ? dpl > rpl : dpl != rpl) {
                 raise_exception_err_ra(env, EXCP0A_TSS, selector & 0xfffc, retaddr);
             }
         } else if (seg_reg == R_SS) {
