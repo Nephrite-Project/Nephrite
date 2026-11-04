@@ -577,6 +577,7 @@ typedef enum X86Seg {
 #define MSR_AMD64_TSC_RATIO             0xc0000104
 
 #define MSR_AMD64_TSC_RATIO_DEFAULT     0x100000000ULL
+#define MSR_AMD64_TSC_RATIO_RESERVED    0xffffff0000000000ULL
 
 #define MSR_K7_HWCR                     0xc0010015
 

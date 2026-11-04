@@ -136,6 +136,13 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     }
 }
 
+/* The TSC Ratio MSR exists where CPUID Fn8000_000A_EDX shows TscRateMsr. */
+static bool tsc_ratio_present(CPUX86State *env)
+{
+    return (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) &&
+           (env->features[FEAT_SVM] & CPUID_SVM_TSCSCALE);
+}
+
 void HELPER(wrmsr)(CPUX86State *env)
 {
     uint64_t val;
@@ -290,11 +297,17 @@ void HELPER(wrmsr)(CPUX86State *env)
         }
         break;
     case MSR_IA32_TSC:
-        /* The counter takes the value written, whatever the TSC offset. */
+        /* The counter takes the value written, not scaled or offset. */
         env->tsc_written_delta = val - cpu_get_tsc(env);
         break;
     case MSR_TSC_AUX:
         env->tsc_aux = val;
+        break;
+    case MSR_AMD64_TSC_RATIO:
+        if (!tsc_ratio_present(env) || (val & MSR_AMD64_TSC_RATIO_RESERVED)) {
+            goto error;
+        }
+        env->amd_tsc_scale_msr = val;
         break;
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
@@ -472,6 +485,12 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_IA32_TSC:
         val = x86_tsc_read(env);
+        break;
+    case MSR_AMD64_TSC_RATIO:
+        if (!tsc_ratio_present(env)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->amd_tsc_scale_msr;
         break;
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;

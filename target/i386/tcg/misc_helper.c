@@ -18,6 +18,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/host-utils.h"
 #include "qemu/log.h"
 #include "accel/tcg/cpu-loop.h"
 #include "cpu.h"
@@ -64,11 +65,19 @@ void HELPER(cpuid)(CPUX86State *env)
 
 /*
  * The TSC as software reads it: the clock, moved by what IA32_TSC was set
- * to, plus the VMCB's TSC offset in SVM guest mode.
+ * to, which SVM guest mode reads scaled by the TSC ratio, an 8.32 fixed
+ * point number, plus the VMCB's TSC offset.
  */
 uint64_t x86_tsc_read(CPUX86State *env)
 {
-    return cpu_get_tsc(env) + env->tsc_written_delta + env->tsc_offset;
+    uint64_t tsc = cpu_get_tsc(env) + env->tsc_written_delta;
+    uint64_t low, high;
+
+    if (!(env->hflags & HF_GUEST_MASK)) {
+        return tsc;
+    }
+    mulu64(&low, &high, tsc, env->amd_tsc_scale_msr);
+    return ((high << 32) | (low >> 32)) + env->tsc_offset;
 }
 
 static void do_rdtsc(CPUX86State *env, uint32_t intercept, uintptr_t retaddr)
