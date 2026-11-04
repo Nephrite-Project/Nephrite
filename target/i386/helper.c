@@ -197,9 +197,38 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
 
 /* XXX: in legacy PAE mode, generate a GPF if reserved bits are set in
    the PDPT */
+/*
+ * LAM48 replaces bits 62:48 of a data address with bit 47, LAM57 bits
+ * 62:57 with bit 56: CR3.LAM_U57, else CR3.LAM_U48, picks one for user
+ * addresses, which clear bit 63, and CR4.LAM_SUP the one of the paging mode
+ * for supervisor addresses (Intel SDM 325462-093 Vol. 3A, 4.4).
+ */
+void x86_update_lam(CPUX86State *env)
+{
+    env->lam_shift_user = 0;
+    env->lam_shift_sup = 0;
+    if (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM) {
+        if (env->cr[3] & CR3_LAM_U57_MASK) {
+            env->lam_shift_user = 64 - 57;
+        } else if (env->cr[3] & CR3_LAM_U48_MASK) {
+            env->lam_shift_user = 64 - 48;
+        }
+        if (env->cr[4] & CR4_LAM_SUP_MASK) {
+            env->lam_shift_sup = env->cr[4] & CR4_LA57_MASK ? 64 - 57
+                                                             : 64 - 48;
+        }
+    }
+    if (env->lam_shift_user || env->lam_shift_sup) {
+        env->hflags |= HF_LAM_MASK;
+    } else {
+        env->hflags &= ~HF_LAM_MASK;
+    }
+}
+
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
 {
     env->cr[3] = new_cr3;
+    x86_update_lam(env);
     if (env->cr[0] & CR0_PG_MASK) {
         qemu_log_mask(CPU_LOG_MMU,
                         "CR3 update: CR3=" TARGET_FMT_lx "\n", new_cr3);
@@ -275,6 +304,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
     env->cr[4] = new_cr4;
     env->hflags = hflags;
 
+    x86_update_lam(env);
     cpu_sync_bndcs_hflags(env);
     cpu_sync_avx_hflag(env);
     cpu_sync_apx_hflag(env);
@@ -314,7 +344,7 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
             }
 
             if (la57) {
-                pml5e_addr = ((env->cr[3] & ~0xfff) +
+                pml5e_addr = ((env->cr[3] & PG_ADDRESS_MASK) +
                         (((addr >> 48) & 0x1ff) << 3)) & a20_mask;
                 pml5e = x86_ldq_phys(cs, pml5e_addr);
                 if (!(pml5e & PG_PRESENT_MASK)) {

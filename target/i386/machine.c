@@ -354,6 +354,7 @@ static int cpu_post_load(void *opaque, int version_id)
      */
     env->hflags &= ~HF_CPL_MASK;
     env->hflags |= (env->segs[R_SS].flags >> DESC_DPL_SHIFT) & HF_CPL_MASK;
+    x86_update_lam(env);
 
 #ifdef CONFIG_KVM
     if ((env->hflags & HF_GUEST_MASK) &&

@@ -119,6 +119,7 @@ typedef struct DisasContext {
     uint8_t evex4;
     bool jmp_opt; /* use direct block chaining for direct jumps */
     bool branch; /* the instruction transfers control, as BTF steps */
+    bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool cc_op_dirty;
 
     CCOp cc_op;  /* current CC operation */
@@ -663,6 +664,29 @@ static TCGv gen_branch_start(DisasContext *s)
     return s->flags & HF_LBR_MASK ? eip_cur_tl(s) : NULL;
 }
 
+#ifdef TARGET_X86_64
+/*
+ * The data address with LAM's metadata replaced: bits 62:48 or 62:57 a
+ * copy of bit 47 or 56, by the shift for the half bit 63 picks (Intel SDM
+ * 325462-093 Vol. 3A, 4.4.2).
+ */
+static void gen_lam_untag(TCGv addr)
+{
+    TCGv shift = tcg_temp_new();
+    TCGv sup = tcg_temp_new();
+    TCGv t = tcg_temp_new();
+
+    tcg_gen_ld_tl(shift, tcg_env, offsetof(CPUX86State, lam_shift_user));
+    tcg_gen_ld_tl(sup, tcg_env, offsetof(CPUX86State, lam_shift_sup));
+    tcg_gen_movcond_tl(TCG_COND_LT, shift, addr, tcg_constant_tl(0),
+                       sup, shift);
+    tcg_gen_shl_tl(t, addr, shift);
+    tcg_gen_sar_tl(t, t, shift);
+    tcg_gen_shri_tl(shift, addr, 63);
+    tcg_gen_deposit_tl(addr, t, shift, 63, 1);
+}
+#endif
+
 /* Compute SEG:REG into DEST.  SEG is selected from the override segment
    (OVR_SEG) and the default segment (DEF_SEG).  OVR_SEG may be -1 to
    indicate no override.  */
@@ -693,6 +717,14 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
     }
 
     tcg_gen_ext_tl(dest, a0, easize);
+
+#ifdef TARGET_X86_64
+    /* LAM applies to the 64-bit linear addresses of data accesses. */
+    if ((s->flags & HF_LAM_MASK) && CODE64(s) && def_seg >= 0 &&
+        !s->no_lam) {
+        gen_lam_untag(dest);
+    }
+#endif
 }
 
 static void gen_lea_v_seg(DisasContext *s, TCGv a0,
@@ -3251,7 +3283,10 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!check_cpl0(s)) {
                 break;
             }
+            /* LAM does not apply (Intel SDM 325462-093 Vol. 3A, 4.4.3). */
+            s->no_lam = true;
             gen_lea_modrm(s, decode);
+            s->no_lam = false;
             if (GUEST(s)) {
                 TCGv_i32 type = tcg_constant_i32(SVM_EXIT_INVLPG);
                 TCGv_i64 address = tcg_temp_new_i64();
@@ -3672,6 +3707,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     target_ulong orig_pc_save = dc->pc_save;
 
     dc->branch = false;
+    dc->no_lam = false;
 #ifdef TARGET_VSYSCALL_PAGE
     /*
      * Detect entry into the vsyscall page and invoke the syscall.

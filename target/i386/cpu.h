@@ -195,6 +195,7 @@ typedef enum X86Seg {
 /* Translation block flags only, from DebugCtl, never in hflags: */
 #define HF_BTF_SHIFT         2 /* DebugCtl.BTF with TF: step branches */
 #define HF_LBR_SHIFT        30 /* DebugCtl.LBR: record control transfers */
+#define HF_LAM_SHIFT        31 /* LAM masks data addresses (lam_shift_*) */
 
 #define HF_CPL_MASK          (3 << HF_CPL_SHIFT)
 #define HF_INHIBIT_IRQ_MASK  (1 << HF_INHIBIT_IRQ_SHIFT)
@@ -225,6 +226,7 @@ typedef enum X86Seg {
 #define HF_APX_EN_MASK       (1 << HF_APX_EN_SHIFT)
 #define HF_BTF_MASK          (1 << HF_BTF_SHIFT)
 #define HF_LBR_MASK          (1 << HF_LBR_SHIFT)
+#define HF_LAM_MASK          (1U << HF_LAM_SHIFT)
 
 /* hflags2 */
 
@@ -294,6 +296,9 @@ typedef enum X86Seg {
 #define CR4_CET_MASK   (1U << 23)
 #define CR4_PKS_MASK   (1U << 24)
 #define CR4_LAM_SUP_MASK (1U << 28)
+
+#define CR3_LAM_U57_MASK (1ULL << 61)
+#define CR3_LAM_U48_MASK (1ULL << 62)
 
 #ifdef TARGET_X86_64
 #define CR4_FRED_MASK   (1ULL << 32)
@@ -2111,6 +2116,9 @@ typedef struct CPUArchState {
     uint32_t hflags; /* TB flags, see HF_xxx constants. These flags
                         are known at translation time. */
     uint32_t hflags2; /* various other flags, see HF2_xxx constants. */
+    /* How far LAM shifts user and supervisor data addresses: 0, 7, or 16 */
+    target_ulong lam_shift_user;
+    target_ulong lam_shift_sup;
 
     /* segments */
     SegmentCache segs[6]; /* selector values */
@@ -2972,6 +2980,7 @@ void x86_stq_phys(CPUState *cs, hwaddr addr, uint64_t val);
 /* will be suppressed */
 void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0);
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3);
+void x86_update_lam(CPUX86State *env);
 void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4);
 void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7);
 

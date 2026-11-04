@@ -163,11 +163,16 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
             t0 &= ~(1ULL << 63);
         }
 #endif
-        if ((env->efer & MSR_EFER_LMA) &&
-                (t0 & ((~0ULL) << env_archcpu(env)->phys_bits))) {
-            raise_exception_ra(env, EXCP0D_GPF, GETPC());
-        }
-        if (!(env->efer & MSR_EFER_LMA)) {
+        if (env->efer & MSR_EFER_LMA) {
+            uint64_t reserved = (~0ULL) << env_archcpu(env)->phys_bits;
+
+            if (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM) {
+                reserved &= ~(CR3_LAM_U57_MASK | CR3_LAM_U48_MASK);
+            }
+            if (t0 & reserved) {
+                raise_exception_ra(env, EXCP0D_GPF, GETPC());
+            }
+        } else {
             t0 &= 0xffffffffUL;
         }
         cpu_x86_update_cr3(env, t0);
