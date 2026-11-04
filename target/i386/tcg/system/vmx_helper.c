@@ -157,6 +157,9 @@
 #define VMCS_GUEST_PENDING_DBG 0x6822
 #define VMCS_GUEST_SYSENTER_ESP 0x6824
 #define VMCS_GUEST_SYSENTER_EIP 0x6826
+#define VMCS_GUEST_S_CET 0x6828
+#define VMCS_GUEST_SSP 0x682a
+#define VMCS_GUEST_ISST 0x682c
 #define VMCS_HOST_CR0 0x6c00
 #define VMCS_HOST_CR3 0x6c02
 #define VMCS_HOST_CR4 0x6c04
@@ -169,6 +172,12 @@
 #define VMCS_HOST_SYSENTER_EIP 0x6c12
 #define VMCS_HOST_RSP 0x6c14
 #define VMCS_HOST_RIP 0x6c16
+#define VMCS_HOST_S_CET 0x6c18
+#define VMCS_HOST_SSP 0x6c1a
+#define VMCS_HOST_ISST 0x6c1c
+
+/* VM-exit control 28, QEMU's VMX_VM_EXIT_SAVE_CET: "load CET state". */
+#define VMX_VM_EXIT_LOAD_CET VMX_VM_EXIT_SAVE_CET
 
 /* Interruption information (Intel SDM 325462-093 Vol. 3C, 27.8.3, 27.9). */
 #define VMX_INTR_VECTOR_MASK 0xff
@@ -372,6 +381,9 @@ static const uint16_t vmcs_fields[] = {
     0x6822, /* guest pending debug exceptions */
     0x6824, /* guest IA32_SYSENTER_ESP */
     0x6826, /* guest IA32_SYSENTER_EIP */
+    0x6828, /* guest IA32_S_CET */
+    0x682a, /* guest SSP */
+    0x682c, /* guest IA32_INTERRUPT_SSP_TABLE_ADDR */
     0x6c00, /* host CR0 */
     0x6c02, /* host CR3 */
     0x6c04, /* host CR4 */
@@ -384,6 +396,9 @@ static const uint16_t vmcs_fields[] = {
     0x6c12, /* host IA32_SYSENTER_EIP */
     0x6c14, /* host RSP */
     0x6c16, /* host RIP */
+    0x6c18, /* host IA32_S_CET */
+    0x6c1a, /* host SSP */
+    0x6c1c, /* host IA32_INTERRUPT_SSP_TABLE_ADDR */
 };
 
 QEMU_BUILD_BUG_ON(ARRAY_SIZE(vmcs_fields) > VMX_VMCS_SLOTS);
@@ -889,12 +904,34 @@ static uint64_t vmx_ctl_msr(uint32_t features, uint32_t default1, bool true_msr)
 #define VMX_MISC_TIMER_RATE 5
 #define VMX_MISC_CR3_TARGETS 4
 
+/*
+ * The "load CET state" controls, there with shadow stacks or indirect
+ * branch tracking, as Linux 7.3's KVM offers them to its guests.
+ */
+static bool vmx_cet_offered(CPUX86State *env)
+{
+    return x86_has_shstk(env) || x86_has_ibt(env);
+}
+
 static uint32_t vmx_exit_features(CPUX86State *env)
 {
     uint32_t features = env->features[FEAT_VMX_EXIT_CTLS];
 
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         features |= VMX_VM_EXIT_HOST_ADDR_SPACE_SIZE;
+    }
+    if (!vmx_cet_offered(env)) {
+        features &= ~VMX_VM_EXIT_LOAD_CET;
+    }
+    return features;
+}
+
+static uint32_t vmx_entry_features(CPUX86State *env)
+{
+    uint32_t features = env->features[FEAT_VMX_ENTRY_CTLS];
+
+    if (!vmx_cet_offered(env)) {
+        features &= ~VMX_VM_ENTRY_LOAD_CET;
     }
     return features;
 }
@@ -954,8 +991,7 @@ bool x86_vmx_read_msr(CPUX86State *env, uint32_t index, uint64_t *val)
         if (index == MSR_IA32_VMX_TRUE_ENTRY_CTLS && !true_ctls) {
             return false;
         }
-        *val = vmx_ctl_msr(env->features[FEAT_VMX_ENTRY_CTLS],
-                           VMX_ENTRY_DEFAULT1,
+        *val = vmx_ctl_msr(vmx_entry_features(env), VMX_ENTRY_DEFAULT1,
                            index == MSR_IA32_VMX_TRUE_ENTRY_CTLS);
         return true;
     case MSR_IA32_VMX_MISC:
@@ -2291,6 +2327,16 @@ static void vmx_save_guest(CPUX86State *env)
     if (exit_ctl & VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL) {
         VMCS_SET(GUEST_PERF_GLOBAL_CTRL, env->msr_global_ctrl);
     }
+    /*
+     * Where the "load CET state" VM-entry control exists, every VM exit
+     * saves IA32_S_CET, IA32_INTERRUPT_SSP_TABLE_ADDR, and SSP (Intel SDM
+     * 325462-093 Vol. 3C, 30.3.1 and 30.3.3).
+     */
+    if (vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_CET) {
+        VMCS_SET(GUEST_S_CET, env->s_cet);
+        VMCS_SET(GUEST_ISST, env->int_ssp_table);
+        VMCS_SET(GUEST_SSP, env->guest_ssp);
+    }
     for (int i = 0; i < 8; i++) {
         const SegmentCache *sc = i == R_LDTR ? &env->ldt :
                                  i == R_TR ? &env->tr : &env->segs[i];
@@ -2479,6 +2525,11 @@ static void vmx_load_host(CPUX86State *env)
     }
     if (exit_ctl & VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL) {
         x86_pmu_set_global_ctrl(env, VMCS(HOST_PERF_GLOBAL_CTRL));
+    }
+    if (exit_ctl & VMX_VM_EXIT_LOAD_CET) {
+        env->s_cet = VMCS(HOST_S_CET);
+        env->int_ssp_table = VMCS(HOST_ISST);
+        env->guest_ssp = VMCS(HOST_SSP);
     }
 
     cpu_x86_load_seg_cache(env, R_CS, VMCS(HOST_SEL(R_CS)), 0, 0xffffffff,
@@ -2856,6 +2907,15 @@ static bool vmx_host_state_valid(CPUX86State *env)
         !x86_pmu_global_ctrl_valid(VMCS(HOST_PERF_GLOBAL_CTRL))) {
         return false;
     }
+    if (exit_ctl & VMX_VM_EXIT_LOAD_CET) {
+        uint64_t s_cet = VMCS(HOST_S_CET), ssp = VMCS(HOST_SSP);
+
+        if (!x86_cet_msr_valid(env, MSR_IA32_S_CET, s_cet) || (ssp & 3) ||
+            !vmx_canonical(env, VMCS(HOST_ISST)) ||
+            (host64 ? !vmx_canonical(env, ssp) : (s_cet | ssp) >> 32)) {
+            return false;
+        }
+    }
     if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_EFER) &&
         ((efer & ~(x86_efer_writable(env) | MSR_EFER_LMA)) ||
          !!(efer & MSR_EFER_LMA) != host64 ||
@@ -3103,6 +3163,11 @@ static int vmx_guest_state_check(CPUX86State *env)
         !x86_pmu_global_ctrl_valid(VMCS(GUEST_PERF_GLOBAL_CTRL))) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_CET) &&
+        (!x86_cet_msr_valid(env, MSR_IA32_S_CET, VMCS(GUEST_S_CET)) ||
+         !vmx_canonical(env, VMCS(GUEST_ISST)))) {
+        return 1;
+    }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_EFER) {
         uint64_t efer = VMCS(GUEST_EFER);
 
@@ -3124,9 +3189,19 @@ static int vmx_guest_state_check(CPUX86State *env)
         return 1;
     }
 
-    /* RIP and RFLAGS (Intel SDM 325462-093 Vol. 3C, 29.3.1.4). */
+    /*
+     * RIP, RFLAGS, and SSP (Intel SDM 325462-093 Vol. 3C, 29.3.1.4). Those
+     * checks leave SSP's bits 63:32 alone outside 64-bit mode, which a note
+     * in Intel SDM 325462-093 Vol. 3C, 29.3.2.3, says must be 0; Linux 7.3's
+     * KVM does not check them either.
+     */
     if (ia32e && (VMCS(GUEST_AR(R_CS)) & VMX_AR_L) ?
         !vmx_upper_identical(env, VMCS(GUEST_RIP)) : VMCS(GUEST_RIP) >> 32) {
+        return 1;
+    }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_CET) &&
+        ((VMCS(GUEST_SSP) & 3) ||
+         !vmx_upper_identical(env, VMCS(GUEST_SSP)))) {
         return 1;
     }
     if ((rflags >> 22) || (rflags & 0x8028) || !(rflags & 2) ||
@@ -3237,6 +3312,11 @@ static void vmx_load_guest(CPUX86State *env)
     }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL) {
         x86_pmu_set_global_ctrl(env, VMCS(GUEST_PERF_GLOBAL_CTRL));
+    }
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_CET) {
+        env->s_cet = VMCS(GUEST_S_CET);
+        env->int_ssp_table = VMCS(GUEST_ISST);
+        env->guest_ssp = VMCS(GUEST_SSP);
     }
 
     env->eflags = 0;
