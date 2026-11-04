@@ -2024,6 +2024,8 @@ typedef struct SVMStateCache {
     uint32_t intercept_exceptions;
     uint64_t intercept;
     uint64_t tsc_offset;
+    uint16_t pause_filter_thresh;
+    uint16_t pause_filter_count;
     /* IOPM */
     uint64_t iopm_base_pa;
     uint64_t msrpm_base_pa;
@@ -2293,6 +2295,14 @@ typedef struct CPUArchState {
     int svm_tlb_nested_pg_mode;
     /* VMRUN or #VMEXIT is loading CR0, CR3 and CR4, which flushes nothing. */
     bool svm_loading_crs;
+    /*
+     * The PAUSE filter: VMRUN's count and threshold, the count left, and the
+     * TSC at the guest's last PAUSE.
+     */
+    uint16_t svm_pause_filter_count;
+    uint16_t svm_pause_filter_thresh;
+    int32_t svm_pause_count;
+    uint64_t svm_last_pause;
     /* Decode assists: EXITINFO1 of the current instruction's intercepts. */
     uint64_t svm_decode_info;
     /* Decode assists: the guest instruction bytes of a page fault. */

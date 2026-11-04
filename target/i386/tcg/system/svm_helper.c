@@ -354,7 +354,17 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                          offsetof(struct vmcb, control.intercept_exceptions));
         c->tsc_offset = x86_ldq_phys(cs, env->vm_vmcb +
                                      offsetof(struct vmcb, control.tsc_offset));
+        c->pause_filter_thresh =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.pause_filter_thresh));
+        c->pause_filter_count =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.pause_filter_count));
     }
+    env->svm_pause_filter_thresh = c->pause_filter_thresh;
+    env->svm_pause_filter_count = c->pause_filter_count;
+    env->svm_pause_count = c->pause_filter_count;
+    env->svm_last_pause = 0;
     env->intercept = c->intercept;
     env->intercept_cr_read = c->intercept_cr_read;
     env->intercept_cr_write = c->intercept_cr_write;
@@ -836,6 +846,32 @@ bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type)
     return false;
 }
 
+/*
+ * Whether an intercepted PAUSE exits, by the PAUSE filter: VMRUN loads its
+ * count, which each PAUSE lowers, exiting where it reaches zero; with a
+ * threshold, a PAUSE more cycles than that after the last one reloads the
+ * count first, and the exit comes where it falls below zero (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.14.4).
+ */
+static bool svm_pause_exits(CPUX86State *env)
+{
+    uint64_t now;
+
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_PAUSEFILTER)) {
+        return true;
+    }
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_PFTHRESHOLD) ||
+        !env->svm_pause_filter_thresh) {
+        return --env->svm_pause_count <= 0;
+    }
+    now = cpu_get_tsc(env);
+    if (now - env->svm_last_pause > env->svm_pause_filter_thresh) {
+        env->svm_pause_count = env->svm_pause_filter_count;
+    }
+    env->svm_last_pause = now;
+    return --env->svm_pause_count < 0;
+}
+
 void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
                                    uint64_t param, uintptr_t retaddr)
 {
@@ -877,6 +913,10 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
         if (x86_ldub_phys(cs, addr + t1) & ((1 << param) << t0)) {
             cpu_vmexit(env, type, param, retaddr);
         }
+        return;
+    }
+
+    if (type == SVM_EXIT_PAUSE && !svm_pause_exits(env)) {
         return;
     }
 
