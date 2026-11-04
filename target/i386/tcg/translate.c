@@ -120,6 +120,7 @@ typedef struct DisasContext {
     bool jmp_opt; /* use direct block chaining for direct jumps */
     bool branch; /* the instruction transfers control, as BTF steps */
     bool no_lam; /* the address is not a data access's, as INVLPG's */
+    bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */
     bool cc_op_dirty;
 
     CCOp cc_op;  /* current CC operation */
@@ -518,14 +519,40 @@ void gen_op_add_reg_im(DisasContext *s, MemOp size, int reg, int32_t val)
     gen_op_add_reg(s, size, reg, tcg_constant_tl(val));
 }
 
+/*
+ * Alignment checking asks data accesses of 8 bytes or less for their
+ * natural alignment (Intel SDM 325462-093 Vol. 3A, Event 17).
+ */
+static inline MemOp ac_align(DisasContext *s, MemOp mop)
+{
+    if (s->ac_check && (mop & MO_SIZE) <= MO_64) {
+        return mop | MO_ALIGN;
+    }
+    return mop;
+}
+
+/* With alignment checking, 16- and 32-byte alignment is checked here: #GP. */
+static void gen_check_align_gpf(DisasContext *s, TCGv a0, int mask)
+{
+    TCGLabel *aligned;
+
+    if (!s->ac_check) {
+        return;
+    }
+    aligned = gen_new_label();
+    tcg_gen_brcondi_tl(TCG_COND_TSTEQ, a0, mask, aligned);
+    gen_helper_raise_gpf(tcg_env);
+    gen_set_label(aligned);
+}
+
 static inline void gen_op_ld_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
-    tcg_gen_qemu_ld_tl(t0, a0, s->mem_index, idx | MO_LE);
+    tcg_gen_qemu_ld_tl(t0, a0, s->mem_index, ac_align(s, idx | MO_LE));
 }
 
 static inline void gen_op_st_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
-    tcg_gen_qemu_st_tl(t0, a0, s->mem_index, idx | MO_LE);
+    tcg_gen_qemu_st_tl(t0, a0, s->mem_index, ac_align(s, idx | MO_LE));
 }
 
 static void gen_update_eip_next(DisasContext *s)
@@ -2235,7 +2262,7 @@ static inline void gen_ldq_env_A0(DisasContext *s, int offset)
 {
     TCGv_i64 t = tcg_temp_new_i64();
 
-    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, MO_LEUQ);
+    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
     tcg_gen_st_i64(t, tcg_env, offset);
 }
 
@@ -2244,7 +2271,7 @@ static inline void gen_stq_env_A0(DisasContext *s, int offset)
     TCGv_i64 t = tcg_temp_new_i64();
 
     tcg_gen_ld_i64(t, tcg_env, offset);
-    tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, MO_LEUQ);
+    tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
 }
 
 static inline void gen_ldo_env_A0(DisasContext *s, int offset, bool align)
@@ -2255,6 +2282,9 @@ static inline void gen_ldo_env_A0(DisasContext *s, int offset, bool align)
     int mem_index = s->mem_index;
     TCGv_i128 t = tcg_temp_new_i128();
 
+    if (align) {
+        gen_check_align_gpf(s, s->A0, 15);
+    }
     tcg_gen_qemu_ld_i128(t, s->A0, mem_index, mop);
     tcg_gen_st_i128(t, tcg_env, offset);
 }
@@ -2267,6 +2297,9 @@ static inline void gen_sto_env_A0(DisasContext *s, int offset, bool align)
     int mem_index = s->mem_index;
     TCGv_i128 t = tcg_temp_new_i128();
 
+    if (align) {
+        gen_check_align_gpf(s, s->A0, 15);
+    }
     tcg_gen_ld_i128(t, tcg_env, offset);
     tcg_gen_qemu_st_i128(t, s->A0, mem_index, mop);
 }
@@ -2279,6 +2312,9 @@ static void gen_ldy_env_A0(DisasContext *s, int offset, bool align)
     TCGv_i128 t1 = tcg_temp_new_i128();
     TCGv a0_hi = tcg_temp_new();
 
+    if (align) {
+        gen_check_align_gpf(s, s->A0, 31);
+    }
     tcg_gen_qemu_ld_i128(t0, s->A0, mem_index, mop | (align ? MO_ALIGN_32 : 0));
     tcg_gen_addi_tl(a0_hi, s->A0, 16);
     tcg_gen_qemu_ld_i128(t1, a0_hi, mem_index, mop);
@@ -2294,6 +2330,9 @@ static void gen_sty_env_A0(DisasContext *s, int offset, bool align)
     TCGv_i128 t = tcg_temp_new_i128();
     TCGv a0_hi = tcg_temp_new();
 
+    if (align) {
+        gen_check_align_gpf(s, s->A0, 31);
+    }
     tcg_gen_ld_i128(t, tcg_env, offset + offsetof(YMMReg, YMM_X(0)));
     tcg_gen_qemu_st_i128(t, s->A0, mem_index, mop | (align ? MO_ALIGN_32 : 0));
     tcg_gen_addi_tl(a0_hi, s->A0, 16);
@@ -2334,7 +2373,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x00 ... 0x07: /* fxxxs */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             gen_helper_flds_FT0(tcg_env, t32);
             gen_helper_fp_arith_ST0_FT0(op & 7);
             break;
@@ -2342,7 +2381,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x10 ... 0x17: /* fixxxl */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             gen_helper_fildl_FT0(tcg_env, t32);
             gen_helper_fp_arith_ST0_FT0(op & 7);
             break;
@@ -2350,7 +2389,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x20 ... 0x27: /* fxxxl */
             t64 = tcg_temp_new_i64();
             tcg_gen_qemu_ld_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             gen_helper_fldl_FT0(tcg_env, t64);
             gen_helper_fp_arith_ST0_FT0(op & 7);
             break;
@@ -2358,7 +2397,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x30 ... 0x37: /* fixxx */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LESW);
+                                s->mem_index, ac_align(s, MO_LESW));
             gen_helper_fildl_FT0(tcg_env, t32);
             gen_helper_fp_arith_ST0_FT0(op & 7);
             break;
@@ -2366,25 +2405,25 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x08: /* flds */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             gen_helper_flds_ST0(tcg_env, t32);
             break;
         case 0x18: /* fildl */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             gen_helper_fildl_ST0(tcg_env, t32);
             break;
         case 0x28: /* fldl */
             t64 = tcg_temp_new_i64();
             tcg_gen_qemu_ld_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             gen_helper_fldl_ST0(tcg_env, t64);
             break;
         case 0x38: /* filds */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LESW);
+                                s->mem_index, ac_align(s, MO_LESW));
             gen_helper_fildl_ST0(tcg_env, t32);
             break;
 
@@ -2392,21 +2431,21 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fisttl_ST0(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             gen_helper_fpop(tcg_env);
             break;
         case 0x29: /* fisttpll */
             t64 = tcg_temp_new_i64();
             gen_helper_fisttll_ST0(t64, tcg_env);
             tcg_gen_qemu_st_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             gen_helper_fpop(tcg_env);
             break;
         case 0x39: /* fisttps */
             t32 = tcg_temp_new_i32();
             gen_helper_fistt_ST0(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUW);
+                                s->mem_index, ac_align(s, MO_LEUW));
             gen_helper_fpop(tcg_env);
             break;
 
@@ -2414,7 +2453,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fsts_ST0(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             if ((op & 7) == 3) {
                 gen_helper_fpop(tcg_env);
             }
@@ -2423,7 +2462,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fistl_ST0(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUL);
+                                s->mem_index, ac_align(s, MO_LEUL));
             if ((op & 7) == 3) {
                 gen_helper_fpop(tcg_env);
             }
@@ -2432,7 +2471,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t64 = tcg_temp_new_i64();
             gen_helper_fstl_ST0(t64, tcg_env);
             tcg_gen_qemu_st_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             if ((op & 7) == 3) {
                 gen_helper_fpop(tcg_env);
             }
@@ -2442,7 +2481,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fist_ST0(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUW);
+                                s->mem_index, ac_align(s, MO_LEUW));
             if ((op & 7) == 3) {
                 gen_helper_fpop(tcg_env);
             }
@@ -2455,7 +2494,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x0d: /* fldcw mem */
             t32 = tcg_temp_new_i32();
             tcg_gen_qemu_ld_i32(t32, s->A0,
-                                s->mem_index, MO_LEUW);
+                                s->mem_index, ac_align(s, MO_LEUW));
             gen_helper_fldcw(tcg_env, t32);
             update_fip = update_fdp = false;
             break;
@@ -2468,7 +2507,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fnstcw(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUW);
+                                s->mem_index, ac_align(s, MO_LEUW));
             update_fip = update_fdp = false;
             break;
         case 0x1d: /* fldt mem */
@@ -2492,7 +2531,7 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
             t32 = tcg_temp_new_i32();
             gen_helper_fnstsw(t32, tcg_env);
             tcg_gen_qemu_st_i32(t32, s->A0,
-                                s->mem_index, MO_LEUW);
+                                s->mem_index, ac_align(s, MO_LEUW));
             update_fip = update_fdp = false;
             break;
         case 0x3c: /* fbld */
@@ -2505,14 +2544,14 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         case 0x3d: /* fildll */
             t64 = tcg_temp_new_i64();
             tcg_gen_qemu_ld_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             gen_helper_fildll_ST0(tcg_env, t64);
             break;
         case 0x3f: /* fistpll */
             t64 = tcg_temp_new_i64();
             gen_helper_fistll_ST0(t64, tcg_env);
             tcg_gen_qemu_st_i64(t64, s->A0,
-                                s->mem_index, MO_LEUQ);
+                                s->mem_index, ac_align(s, MO_LEUQ));
             gen_helper_fpop(tcg_env);
             break;
         default:
@@ -3638,6 +3677,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cs_base = dc->base.tb->cs_base;
     dc->pc_save = dc->base.pc_next;
     dc->flags = flags;
+    dc->ac_check = cpl == 3 && (flags & AC_MASK);
 #ifndef CONFIG_USER_ONLY
     dc->cpl = cpl;
     dc->iopl = iopl;

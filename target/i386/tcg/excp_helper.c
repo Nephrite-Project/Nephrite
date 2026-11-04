@@ -209,7 +209,18 @@ G_NORETURN void handle_unaligned_access(CPUX86State *env, vaddr vaddr,
                                         uintptr_t retaddr)
 {
     /*
-     * Unaligned accesses are currently only triggered by SSE/AVX
+     * With alignment checking on, at CPL 3 with CR0.AM and EFLAGS.AC, the
+     * translator asks data accesses of 8 bytes or less for their natural
+     * alignment, whose violation raises #AC(0) (Intel SDM 325462-093 Vol.
+     * 3A, Event 17), and checks those needing 16-byte alignment itself.
+     */
+    if ((env->hflags & HF_CPL_MASK) == 3 && (env->eflags & AC_MASK) &&
+        (env->cr[0] & CR0_AM_MASK)) {
+        raise_exception_err_ra(env, EXCP11_ALGN, 0, retaddr);
+    }
+
+    /*
+     * Otherwise unaligned accesses are only triggered by SSE/AVX
      * instructions that impose alignment requirements on memory
      * operands. These instructions raise #GP(0) upon accessing an
      * unaligned address.

@@ -1193,7 +1193,7 @@ static void gen_ADC(DisasContext *s, X86DecodedInsn *decode)
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_add_tl(s->T0, c_in, s->T1);
         tcg_gen_atomic_add_fetch_tl(s->T0, s->A0, s->T0,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_add_tl(s->T0, s->T0, s->T1);
         tcg_gen_add_tl(s->T0, s->T0, c_in);
@@ -1273,7 +1273,7 @@ static void gen_ADD(DisasContext *s, X86DecodedInsn *decode)
 
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_add_fetch_tl(s->T0, s->A0, s->T1,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_add_tl(s->T0, s->T0, s->T1);
     }
@@ -1291,7 +1291,7 @@ static void gen_AND(DisasContext *s, X86DecodedInsn *decode)
 
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_and_fetch_tl(s->T0, s->A0, s->T1,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_and_tl(s->T0, s->T0, s->T1);
     }
@@ -1507,7 +1507,8 @@ static void gen_BTC(DisasContext *s, X86DecodedInsn *decode)
     TCGv mask = gen_bt_mask(s, decode);
 
     if (s->prefix & PREFIX_LOCK) {
-        tcg_gen_atomic_fetch_xor_tl(old, s->A0, mask, s->mem_index, ot | MO_LE);
+        tcg_gen_atomic_fetch_xor_tl(old, s->A0, mask, s->mem_index,
+                                    ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_mov_tl(old, s->T0);
         tcg_gen_xor_tl(s->T0, s->T0, mask);
@@ -1525,7 +1526,8 @@ static void gen_BTR(DisasContext *s, X86DecodedInsn *decode)
     if (s->prefix & PREFIX_LOCK) {
         TCGv maskc = tcg_temp_new();
         tcg_gen_not_tl(maskc, mask);
-        tcg_gen_atomic_fetch_and_tl(old, s->A0, maskc, s->mem_index, ot | MO_LE);
+        tcg_gen_atomic_fetch_and_tl(old, s->A0, maskc, s->mem_index,
+                                    ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_mov_tl(old, s->T0);
         tcg_gen_andc_tl(s->T0, s->T0, mask);
@@ -1541,7 +1543,8 @@ static void gen_BTS(DisasContext *s, X86DecodedInsn *decode)
     TCGv mask = gen_bt_mask(s, decode);
 
     if (s->prefix & PREFIX_LOCK) {
-        tcg_gen_atomic_fetch_or_tl(old, s->A0, mask, s->mem_index, ot | MO_LE);
+        tcg_gen_atomic_fetch_or_tl(old, s->A0, mask, s->mem_index,
+                                   ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_mov_tl(old, s->T0);
         tcg_gen_or_tl(s->T0, s->T0, mask);
@@ -1904,7 +1907,8 @@ static void gen_CMPccXADD(DisasContext *s, X86DecodedInsn *decode)
     /* Compute new value: if condition does not hold, just store back s->cc_srcT */
     tcg_gen_add_tl(newv, s->cc_srcT, s->T1);
     tcg_gen_movcond_tl(cond, newv, cmp_lhs, cmp_rhs, newv, s->cc_srcT);
-    tcg_gen_atomic_cmpxchg_tl(oldv, s->A0, s->cc_srcT, newv, s->mem_index, ot_full);
+    tcg_gen_atomic_cmpxchg_tl(oldv, s->A0, s->cc_srcT, newv, s->mem_index,
+                              ac_align(s, ot_full));
 
     /* Exit unconditionally if cmpxchg succeeded.  */
     tcg_gen_brcond_tl(TCG_COND_EQ, oldv, s->cc_srcT, label_bottom);
@@ -1938,7 +1942,7 @@ static void gen_CMPXCHG(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_ext_tl(cmpv, cpu_regs[R_EAX], ot);
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_cmpxchg_tl(oldv, s->A0, cmpv, newv,
-                                  s->mem_index, ot | MO_LE);
+                                  s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_ext_tl(oldv, s->T0, ot);
         if (decode->op[0].has_ea) {
@@ -1990,6 +1994,7 @@ static void gen_CMPXCHG16B(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_concat_i64_i128(cmp, cpu_regs[R_EAX], cpu_regs[R_EDX]);
     tcg_gen_concat_i64_i128(val, cpu_regs[R_EBX], cpu_regs[R_ECX]);
 
+    gen_check_align_gpf(s, s->A0, 15);
     /* Only require atomic with LOCK; non-parallel handled in generator. */
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_cmpxchg_i128(val, s->A0, cmp, val, s->mem_index, mop);
@@ -2038,10 +2043,11 @@ static void gen_CMPXCHG8B(DisasContext *s, X86DecodedInsn *decode)
 
     /* Only require atomic with LOCK; non-parallel handled in generator. */
     if (s->prefix & PREFIX_LOCK) {
-        tcg_gen_atomic_cmpxchg_i64(old, s->A0, cmp, val, s->mem_index, MO_LEUQ);
+        tcg_gen_atomic_cmpxchg_i64(old, s->A0, cmp, val, s->mem_index,
+                                   ac_align(s, MO_LEUQ));
     } else {
         tcg_gen_nonatomic_cmpxchg_i64(old, s->A0, cmp, val,
-                                      s->mem_index, MO_LEUQ);
+                                      s->mem_index, ac_align(s, MO_LEUQ));
     }
 
     /* Compute the required value of Z. */
@@ -2148,7 +2154,7 @@ static void gen_DEC(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_movi_tl(s->T1, -1);
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_add_fetch_tl(s->T0, s->A0, s->T1,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_add_tl(s->T0, s->T0, s->T1);
     }
@@ -2379,7 +2385,7 @@ static void gen_INC(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_movi_tl(s->T1, 1);
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_add_fetch_tl(s->T0, s->A0, s->T1,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_add_tl(s->T0, s->T0, s->T1);
     }
@@ -2707,9 +2713,9 @@ static void gen_MOVBE(DisasContext *s, X86DecodedInsn *decode)
 
     /* M operand type does not load/store */
     if (decode->e.op0 == X86_TYPE_M) {
-        tcg_gen_qemu_st_tl(s->T0, s->A0, s->mem_index, ot | MO_BE);
+        tcg_gen_qemu_st_tl(s->T0, s->A0, s->mem_index, ac_align(s, ot | MO_BE));
     } else if (decode->e.op1 == X86_TYPE_M) {
-        tcg_gen_qemu_ld_tl(s->T0, s->A0, s->mem_index, ot | MO_BE);
+        tcg_gen_qemu_ld_tl(s->T0, s->A0, s->mem_index, ac_align(s, ot | MO_BE));
 #ifdef TARGET_X86_64
     } else if (ot == MO_64) {
         tcg_gen_bswap64_tl(s->T0, s->T0);
@@ -2787,7 +2793,7 @@ static void gen_MOVQ(DisasContext *s, X86DecodedInsn *decode)
 
     tcg_gen_ld_i64(t, tcg_env, decode->op[2].offset);
     if (decode->op[0].has_ea) {
-        tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, MO_LEUQ);
+        tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
     } else {
         /*
          * tcg_gen_gvec_dup_i64(MO_64, op0.offset, 8, vec_len, s->tmp1_64) would
@@ -2910,7 +2916,7 @@ static void gen_NEG(DisasContext *s, X86DecodedInsn *decode)
         gen_op_ld_v(s, ot, oldv, s->A0);
         tcg_gen_neg_tl(newv, oldv);
         tcg_gen_atomic_cmpxchg_tl(cmpv, s->A0, oldv, newv,
-                                  s->mem_index, ot | MO_LE);
+                                  s->mem_index, ac_align(s, ot | MO_LE));
         tcg_gen_brcond_tl(TCG_COND_NE, oldv, cmpv, label1);
     } else {
         tcg_gen_mov_tl(oldv, s->T0);
@@ -2930,7 +2936,7 @@ static void gen_NOT(DisasContext *s, X86DecodedInsn *decode)
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_movi_tl(s->T0, ~0);
         tcg_gen_atomic_xor_fetch_tl(s->T0, s->A0, s->T0,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_not_tl(s->T0, s->T0);
     }
@@ -2942,7 +2948,7 @@ static void gen_OR(DisasContext *s, X86DecodedInsn *decode)
 
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_or_fetch_tl(s->T0, s->A0, s->T1,
-                                   s->mem_index, ot | MO_LE);
+                                   s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_or_tl(s->T0, s->T0, s->T1);
     }
@@ -4142,7 +4148,7 @@ static void gen_SBB(DisasContext *s, X86DecodedInsn *decode)
         tcg_gen_add_tl(s->T0, s->T1, c_in);
         tcg_gen_neg_tl(s->T0, s->T0);
         tcg_gen_atomic_add_fetch_tl(s->T0, s->A0, s->T0,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
     } else {
         tcg_gen_sub_tl(s->T0, s->T0, s->T1);
         tcg_gen_sub_tl(s->T0, s->T0, c_in);
@@ -4368,7 +4374,7 @@ static void gen_SUB(DisasContext *s, X86DecodedInsn *decode)
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_neg_tl(s->T0, s->T1);
         tcg_gen_atomic_fetch_add_tl(s->cc_srcT, s->A0, s->T0,
-                                    s->mem_index, ot | MO_LE);
+                                    s->mem_index, ac_align(s, ot | MO_LE));
         tcg_gen_sub_tl(s->T0, s->cc_srcT, s->T1);
     } else {
         tcg_gen_mov_tl(s->cc_srcT, s->T0);
@@ -4741,7 +4747,7 @@ static void gen_VINSERTPS_m(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv_i32 tmp = tcg_temp_new_i32();
 
-    tcg_gen_qemu_ld_i32(tmp, s->A0, s->mem_index, MO_LEUL);
+    tcg_gen_qemu_ld_i32(tmp, s->A0, s->mem_index, ac_align(s, MO_LEUL));
     gen_vinsertps(s, decode, tmp);
 }
 
@@ -4850,7 +4856,7 @@ static void gen_VMOVLPx_ld(DisasContext *s, X86DecodedInsn *decode)
     int vec_len = vector_len(s, decode);
     TCGv_i64 t = tcg_temp_new_i64();
 
-    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, MO_LEUQ);
+    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
     tcg_gen_gvec_mov(MO_64, decode->op[0].offset, decode->op[1].offset, vec_len, vec_len);
     tcg_gen_st_i64(t, OP_PTR0, offsetof(ZMMReg, ZMM_Q(0)));
 }
@@ -4860,7 +4866,7 @@ static void gen_VMOVLPx_st(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i64 t = tcg_temp_new_i64();
 
     tcg_gen_ld_i64(t, OP_PTR2, offsetof(ZMMReg, ZMM_Q(0)));
-    tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, MO_LEUQ);
+    tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
 }
 
 static void gen_VMOVSD_ld(DisasContext *s, X86DecodedInsn *decode)
@@ -4868,7 +4874,7 @@ static void gen_VMOVSD_ld(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i64 zero = tcg_constant_i64(0);
     TCGv_i64 t = tcg_temp_new_i64();
 
-    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, MO_LEUQ);
+    tcg_gen_qemu_ld_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
     tcg_gen_st_i64(zero, OP_PTR0, offsetof(ZMMReg, ZMM_Q(1)));
     tcg_gen_st_i64(t, OP_PTR0, offsetof(ZMMReg, ZMM_Q(0)));
 }
@@ -4888,7 +4894,7 @@ static void gen_VMOVSS_ld(DisasContext *s, X86DecodedInsn *decode)
     int vec_len = vector_len(s, decode);
     TCGv_i32 tmp = tcg_temp_new_i32();
 
-    tcg_gen_qemu_ld_i32(tmp, s->A0, s->mem_index, MO_LEUL);
+    tcg_gen_qemu_ld_i32(tmp, s->A0, s->mem_index, ac_align(s, MO_LEUL));
     tcg_gen_gvec_dup_imm(MO_64, decode->op[0].offset, vec_len, vec_len, 0);
     tcg_gen_st_i32(tmp, OP_PTR0, offsetof(ZMMReg, ZMM_L(0)));
 }
@@ -4898,7 +4904,7 @@ static void gen_VMOVSS_st(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i32 tmp = tcg_temp_new_i32();
 
     tcg_gen_ld_i32(tmp, OP_PTR2, offsetof(ZMMReg, ZMM_L(0)));
-    tcg_gen_qemu_st_i32(tmp, s->A0, s->mem_index, MO_LEUL);
+    tcg_gen_qemu_st_i32(tmp, s->A0, s->mem_index, ac_align(s, MO_LEUL));
 }
 
 static void gen_VPMASKMOV_st(DisasContext *s, X86DecodedInsn *decode)
@@ -5022,7 +5028,8 @@ static void gen_XADD(DisasContext *s, X86DecodedInsn *decode)
     decode->cc_op = CC_OP_ADDB + ot;
 
     if (s->prefix & PREFIX_LOCK) {
-        tcg_gen_atomic_fetch_add_tl(s->T0, s->A0, s->T1, s->mem_index, ot | MO_LE);
+        tcg_gen_atomic_fetch_add_tl(s->T0, s->A0, s->T1, s->mem_index,
+                                    ac_align(s, ot | MO_LE));
         tcg_gen_add_tl(decode->cc_dst, s->T0, s->T1);
     } else {
         tcg_gen_add_tl(decode->cc_dst, s->T0, s->T1);
@@ -5041,7 +5048,8 @@ static void gen_XCHG(DisasContext *s, X86DecodedInsn *decode)
 {
     if (s->prefix & PREFIX_LOCK) {
         tcg_gen_atomic_xchg_tl(s->T0, s->A0, s->T1,
-                               s->mem_index, decode->op[0].ot | MO_LE);
+                               s->mem_index,
+                               ac_align(s, decode->op[0].ot | MO_LE));
         /* now store old value into register operand */
         gen_op_mov_reg_v(s, decode->op[2].ot, decode->op[2].n, s->T0);
     } else {
@@ -5073,7 +5081,7 @@ static void gen_XOR(DisasContext *s, X86DecodedInsn *decode)
 
         if (s->prefix & PREFIX_LOCK) {
             tcg_gen_atomic_xor_fetch_tl(s->T0, s->A0, s->T1,
-                                        s->mem_index, ot | MO_LE);
+                                        s->mem_index, ac_align(s, ot | MO_LE));
         } else {
             tcg_gen_xor_tl(s->T0, s->T0, s->T1);
         }

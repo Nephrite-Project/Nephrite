@@ -58,6 +58,13 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
 
     flags = env->hflags |
         (env->eflags & (IOPL_MASK | TF_MASK | RF_MASK | VM_MASK | AC_MASK));
+    /*
+     * At CPL 3, where AC does not choose an MMU index for SMAP, AC stands
+     * for alignment checking, which CR0.AM must enable too.
+     */
+    if ((flags & HF_CPL_MASK) == 3 && !(env->cr[0] & CR0_AM_MASK)) {
+        flags &= ~AC_MASK;
+    }
     if (unlikely(env->debugctl & DEBUGCTL_LBR)) {
         flags |= HF_LBR_MASK;
     }
