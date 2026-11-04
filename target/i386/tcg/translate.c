@@ -3223,7 +3223,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             translator_io_start(&s->base);
-            gen_helper_rdtsc(tcg_env);
+            gen_helper_rdtscp(tcg_env);
             gen_helper_rdpid(s->T0, tcg_env);
             gen_op_mov_reg_v(s, dflag, R_ECX, s->T0);
             break;
