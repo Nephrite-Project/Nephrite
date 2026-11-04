@@ -234,6 +234,63 @@ static void tsc_changed(CPUX86State *env)
     }
 }
 
+/*
+ * The IA32_SPEC_CTRL bits CPUID shows (Intel SDM 325462-093 Vol. 4, Table
+ * 2-2; APM 24593 rev. 3.45, 3.2.9); the MSR exists where any is. TCG does
+ * not speculate, so the controls need only keep their values.
+ */
+static uint64_t spec_ctrl_bits(CPUX86State *env)
+{
+    uint32_t edx7 = env->features[FEAT_7_0_EDX];
+    uint32_t edx7_2 = env->features[FEAT_7_2_EDX];
+    uint32_t ebx8 = env->features[FEAT_8000_0008_EBX];
+    uint64_t bits = 0;
+
+    if ((edx7 & CPUID_7_0_EDX_SPEC_CTRL) ||
+        (ebx8 & CPUID_8000_0008_EBX_IBRS)) {
+        bits |= SPEC_CTRL_IBRS;
+    }
+    if ((edx7 & CPUID_7_0_EDX_STIBP) || (ebx8 & CPUID_8000_0008_EBX_STIBP)) {
+        bits |= SPEC_CTRL_STIBP;
+    }
+    if ((edx7 & CPUID_7_0_EDX_SPEC_CTRL_SSBD) ||
+        (ebx8 & CPUID_8000_0008_EBX_AMD_SSBD)) {
+        bits |= SPEC_CTRL_SSBD;
+    }
+    if (edx7_2 & CPUID_7_2_EDX_IPRED_CTRL) {
+        bits |= SPEC_CTRL_IPRED_DIS;
+    }
+    if (edx7_2 & CPUID_7_2_EDX_RRSBA_CTRL) {
+        bits |= SPEC_CTRL_RRSBA_DIS;
+    }
+    if ((edx7_2 & CPUID_7_2_EDX_PSFD) ||
+        (ebx8 & CPUID_8000_0008_EBX_AMD_PSFD)) {
+        bits |= SPEC_CTRL_PSFD;
+    }
+    if (edx7_2 & CPUID_7_2_EDX_DDPD_U) {
+        bits |= SPEC_CTRL_DDPD_U;
+    }
+    if (edx7_2 & CPUID_7_2_EDX_BHI_CTRL) {
+        bits |= SPEC_CTRL_BHI_DIS_S;
+    }
+    return bits;
+}
+
+/* The IA32_PRED_CMD barriers CPUID shows, which have nothing to clear. */
+static uint64_t pred_cmd_bits(CPUX86State *env)
+{
+    uint64_t bits = 0;
+
+    if ((env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_SPEC_CTRL) ||
+        (env->features[FEAT_8000_0008_EBX] & CPUID_8000_0008_EBX_IBPB)) {
+        bits |= PRED_CMD_IBPB;
+    }
+    if (env->features[FEAT_8000_0021_EAX] & CPUID_8000_0021_EAX_SBPB) {
+        bits |= PRED_CMD_SBPB;
+    }
+    return bits;
+}
+
 void HELPER(wrmsr)(CPUX86State *env)
 {
     uint64_t val;
@@ -551,6 +608,23 @@ void HELPER(wrmsr)(CPUX86State *env)
 
         break;
     }
+    case MSR_IA32_SPEC_CTRL:
+        if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
+            goto error;
+        }
+        env->spec_ctrl = val;
+        break;
+    case MSR_IA32_PRED_CMD:
+        if (!pred_cmd_bits(env) || (val & ~pred_cmd_bits(env))) {
+            goto error;
+        }
+        break;
+    case MSR_IA32_FLUSH_CMD:
+        if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_FLUSH_L1D) ||
+            (val & ~FLUSH_CMD_L1D_FLUSH)) {
+            goto error;
+        }
+        break;
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
             && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {
@@ -830,6 +904,16 @@ void HELPER(rdmsr)(CPUX86State *env)
 
         break;
     }
+    case MSR_IA32_SPEC_CTRL:
+        if (!spec_ctrl_bits(env)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->spec_ctrl;
+        break;
+    case MSR_IA32_PRED_CMD:
+    case MSR_IA32_FLUSH_CMD:
+        /* Write-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     default:
         if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
             && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {

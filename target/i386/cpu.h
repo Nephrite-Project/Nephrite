@@ -447,8 +447,21 @@ typedef enum X86Seg {
 #define MSR_IA32_SPEC_CTRL              0x48
 #define MSR_VIRT_SSBD                   0xc001011f
 #define MSR_IA32_PRED_CMD               0x49
+#define MSR_IA32_FLUSH_CMD              0x10b
 #define MSR_IA32_UCODE_REV              0x8b
 #define MSR_IA32_CORE_CAPABILITY        0xcf
+
+#define SPEC_CTRL_IBRS                  (1ULL << 0)
+#define SPEC_CTRL_STIBP                 (1ULL << 1)
+#define SPEC_CTRL_SSBD                  (1ULL << 2)
+#define SPEC_CTRL_IPRED_DIS             (3ULL << 3)
+#define SPEC_CTRL_RRSBA_DIS             (3ULL << 5)
+#define SPEC_CTRL_PSFD                  (1ULL << 7)
+#define SPEC_CTRL_DDPD_U                (1ULL << 8)
+#define SPEC_CTRL_BHI_DIS_S             (1ULL << 10)
+#define PRED_CMD_IBPB                   (1ULL << 0)
+#define PRED_CMD_SBPB                   (1ULL << 7)
+#define FLUSH_CMD_L1D_FLUSH             (1ULL << 0)
 
 #define MSR_IA32_ARCH_CAPABILITIES      0x10a
 #define ARCH_CAP_TSX_CTRL_MSR           (1 << 7)
