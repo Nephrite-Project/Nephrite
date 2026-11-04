@@ -808,6 +808,25 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
                              retaddr)) {
         MemTxAttrs attrs = cpu_get_mem_attrs(env);
 
+        /*
+         * Linear accesses to VMX's APIC-access page (Intel SDM 325462-093
+         * Vol. 3C, 32.4): fetches exit, data accesses go to the AVIC
+         * address space's page, where VMX virtualizes them or exits.
+         */
+        if (unlikely(env->vmx.nonroot) &&
+            ((1 << mmu_idx) & MMU_GUEST_IDX_MAP) &&
+            (out.paddr & TARGET_PAGE_MASK) == env->vmx.apic_access) {
+            if (access_type == MMU_INST_FETCH) {
+                if (probe) {
+                    return false;
+                }
+                x86_vmx_apic_fetch_exit(env, addr, retaddr);
+            }
+            out.paddr &= ~TARGET_PAGE_MASK;
+            out.prot &= ~PAGE_EXEC;
+            out.page_size = TARGET_PAGE_SIZE;
+            out.avic = true;
+        }
         attrs.avic = out.avic;
         /*
          * Even if 4MB pages, we map only one 4KB page in the cache to

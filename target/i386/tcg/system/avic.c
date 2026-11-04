@@ -560,7 +560,8 @@ static void avic_written(CPUX86State *env, AVICAction action,
 /*
  * xAVIC: guest accesses to its vAPIC page, which TLB entries the nested
  * translation of the page made send here, go to the backing page through
- * the register filter (15.29.3).
+ * the register filter (15.29.3). In VMX non-root operation, those of the
+ * APIC-access page come here instead.
  */
 static uint64_t avic_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
@@ -569,6 +570,9 @@ static uint64_t avic_mmio_read(void *opaque, hwaddr addr, unsigned size)
     unsigned int reg = addr & 0xff0;
     uint8_t buf[8];
 
+    if (env->vmx.nonroot) {
+        return x86_vmx_apic_read(env, addr, size, CPU(cpu)->mem_io_pc);
+    }
     if (avic_action(reg, false) == AVIC_FAULT) {
         avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg, 0, false,
                   CPU(cpu)->mem_io_pc);
@@ -587,6 +591,10 @@ static void avic_mmio_write(void *opaque, hwaddr addr, uint64_t val,
     AVICAction action = avic_action(reg, true);
     uint8_t buf[8];
 
+    if (env->vmx.nonroot) {
+        x86_vmx_apic_write(env, addr, val, size, CPU(cpu)->mem_io_pc);
+        return;
+    }
     if (action == AVIC_FAULT) {
         avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg | 1ULL << 32, 0, false,
                   CPU(cpu)->mem_io_pc);

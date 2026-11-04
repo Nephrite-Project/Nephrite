@@ -150,6 +150,12 @@ target_ulong x86_vmx_cr_read(CPUX86State *env, int cr);
 bool x86_vmx_tpr_shadow(CPUX86State *env);
 target_ulong x86_vmx_read_cr8(CPUX86State *env);
 void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra);
+G_NORETURN void x86_vmx_apic_fetch_exit(CPUX86State *env, vaddr addr,
+                                        uintptr_t ra);
+uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
+                           uintptr_t ra);
+void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
+                        unsigned size, uintptr_t ra);
 bool x86_vmx_clts(CPUX86State *env, uintptr_t ra);
 uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
                       uintptr_t ra);

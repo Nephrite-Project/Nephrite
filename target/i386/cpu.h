@@ -2107,6 +2107,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_MONITOR 39
 #define VMX_EXIT_PAUSE 40
 #define VMX_EXIT_TPR_BELOW_THRESHOLD 43
+#define VMX_EXIT_APIC_ACCESS 44
 #define VMX_EXIT_GDTR_IDTR 46
 #define VMX_EXIT_LDTR_TR 47
 #define VMX_EXIT_INVEPT 50
@@ -2166,15 +2167,25 @@ typedef struct X86VMXState {
     bool timer_on;
     uint32_t timer_value;
     uint64_t timer_start;
+    /*
+     * The APIC-access address under "virtualize APIC accesses", else ~0,
+     * and a TPR-below-threshold VM exit due right after the VM entry.
+     */
+    uint64_t apic_access;
+    bool tpr_exit_pending;
     /* The PDPTE registers of a guest with PAE paging under EPT. */
     uint64_t pdpte[4];
     bool pdpte_loaded;
     /* The last EPT walk's violation qualification, or misconfiguration. */
     uint64_t ept_qual;
     bool ept_misconfig;
-    /* The VPID and EPTP the guest's translations are of, ~0 for none. */
+    /*
+     * The VPID, EPTP, and APIC-access address the guest's translations
+     * are of, a VPID of ~0 for none.
+     */
     uint64_t tlb_vpid;
     uint64_t tlb_eptp;
+    uint64_t tlb_apic_access;
     uint64_t tlb_cr0;
     uint64_t tlb_cr3;
     uint64_t tlb_cr4;

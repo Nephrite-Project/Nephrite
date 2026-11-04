@@ -75,6 +75,7 @@
 #define VMCS_ENTRY_MSR_LOAD_ADDR 0x200a
 #define VMCS_TSC_OFFSET 0x2010
 #define VMCS_VIRTUAL_APIC_ADDR 0x2012
+#define VMCS_APIC_ACCESS_ADDR 0x2014
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -1302,18 +1303,28 @@ target_ulong x86_vmx_read_cr8(CPUX86State *env)
 }
 
 /*
- * MOV to CR8 leaves VTPR its source's bits 3:0 in bits 7:4, then TPR
- * virtualization exits, trap-like, where they fall below the TPR
- * threshold (Intel SDM 325462-093 Vol. 3C, 32.1.2); a single-step trap
- * stays pending (Intel SDM 325462-093 Vol. 3C, 30.3.4).
+ * Without virtual-interrupt delivery, TPR virtualization calls for a
+ * TPR-below-threshold VM exit where VTPR[7:4] is below the TPR threshold
+ * (Intel SDM 325462-093 Vol. 3C, 32.1.2).
  */
-void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
+static bool vmx_tpr_below_threshold(CPUX86State *env)
+{
+    uint8_t vtpr = x86_ldub_phys(env_cpu(env), VMCS(VIRTUAL_APIC_ADDR) + 0x80);
+
+    return !(vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
+           vtpr >> 4 < (VMCS(TPR_THRESHOLD) & 0xf);
+}
+
+/*
+ * TPR virtualization after the instruction at RA wrote VTPR, whose exit
+ * is trap-like, with a single-step trap pending (Intel SDM 325462-093
+ * Vol. 3C, 30.3.4).
+ */
+static void vmx_tpr_virtualize(CPUX86State *env, uintptr_t ra)
 {
     CPUState *cs = env_cpu(env);
 
-    x86_stl_phys(cs, VMCS(VIRTUAL_APIC_ADDR) + 0x80, (val & 0xf) << 4);
-    if ((vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
-        (val & 0xf) >= (VMCS(TPR_THRESHOLD) & 0xf)) {
+    if (!vmx_tpr_below_threshold(env)) {
         return;
     }
     cpu_restore_state(cs, ra);
@@ -1321,6 +1332,93 @@ void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
     do_end_instruction(env);
     env->vmx.exit_pending_dbg = x86_step_trap(env, false);
     x86_vmx_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, 0);
+}
+
+/*
+ * MOV to CR8 leaves VTPR its source's bits 3:0 in bits 7:4 (Intel SDM
+ * 325462-093 Vol. 3C, 32.3).
+ */
+void x86_vmx_write_cr8(CPUX86State *env, target_ulong val, uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+
+    x86_stl_phys(cs, VMCS(VIRTUAL_APIC_ADDR) + 0x80, (val & 0xf) << 4);
+    vmx_tpr_virtualize(env, ra);
+}
+
+/*
+ * The access types of APIC-access VM exits (Intel SDM 325462-093 Vol. 3C,
+ * Table 30-6).
+ */
+#define VMX_APIC_ACCESS_READ 0
+#define VMX_APIC_ACCESS_WRITE 1
+#define VMX_APIC_ACCESS_FETCH 2
+#define VMX_APIC_ACCESS_DELIVERY 3
+
+/*
+ * The APIC-access page (Intel SDM 325462-093 Vol. 3C, 32.4), whose data
+ * accesses TLB entries send to the AVIC address space's page: with "use
+ * TPR shadow", those of 32 bits or fewer at offset 080H are virtualized,
+ * made to the virtual-APIC page; others exit, before they are made, as do
+ * all of event delivery's, though the processor virtualizes some of those.
+ */
+static bool vmx_apic_virtualized(CPUX86State *env, hwaddr offset,
+                                 unsigned size)
+{
+    return (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW) &&
+           offset == 0x80 && size <= 4 &&
+           !(env->vmx.idt_vectoring_info & VMX_INTR_VALID);
+}
+
+static G_NORETURN void vmx_apic_access_exit(CPUX86State *env, hwaddr offset,
+                                            uint32_t type, uintptr_t ra)
+{
+    if (env->vmx.idt_vectoring_info & VMX_INTR_VALID) {
+        type = VMX_APIC_ACCESS_DELIVERY;
+    }
+    x86_vmx_exit(env, VMX_EXIT_APIC_ACCESS, (offset & 0xfff) | type << 12, ra);
+}
+
+G_NORETURN void x86_vmx_apic_fetch_exit(CPUX86State *env, vaddr addr,
+                                        uintptr_t ra)
+{
+    vmx_apic_access_exit(env, addr, VMX_APIC_ACCESS_FETCH, ra);
+}
+
+uint64_t x86_vmx_apic_read(CPUX86State *env, hwaddr offset, unsigned size,
+                           uintptr_t ra)
+{
+    uint8_t buf[8];
+
+    if (!vmx_apic_virtualized(env, offset, size)) {
+        vmx_apic_access_exit(env, offset, VMX_APIC_ACCESS_READ, ra);
+    }
+    address_space_read(env_cpu(env)->as, VMCS(VIRTUAL_APIC_ADDR) + offset,
+                       MEMTXATTRS_UNSPECIFIED, buf, size);
+    return ldn_le_p(buf, size);
+}
+
+/*
+ * A virtualized write and its APIC-write emulation, which for offset 080H
+ * clears bytes 3:1 of VTPR, then virtualizes the TPR (Intel SDM
+ * 325462-093 Vol. 3C, 32.4.3.2): at once, not after the operation, so a
+ * trap-like exit leaves out what the instruction does past its store.
+ */
+void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
+                        unsigned size, uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+    uint8_t buf[8];
+
+    if (!vmx_apic_virtualized(env, offset, size)) {
+        vmx_apic_access_exit(env, offset, VMX_APIC_ACCESS_WRITE, ra);
+    }
+    stn_le_p(buf, size, val);
+    address_space_write(cs->as, vapic + offset, MEMTXATTRS_UNSPECIFIED, buf,
+                        size);
+    x86_stl_phys(cs, vapic + 0x80, x86_ldub_phys(cs, vapic + 0x80));
+    vmx_tpr_virtualize(env, ra);
 }
 
 /* CLTS exits where the masks own CR0.TS and the shadow has it set. */
@@ -1852,6 +1950,8 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.nonroot = false;
     env->vmx.mtf = false;
     env->vmx.mtf_pending = false;
+    env->vmx.apic_access = ~0ULL;
+    env->vmx.tpr_exit_pending = false;
     env->vmx.timer_on = false;
     timer_del(env_archcpu(env)->vmx_timer);
     env->monitor_armed = false;
@@ -2088,6 +2188,10 @@ static bool vmx_controls_valid(CPUX86State *env)
     } else if (proc2 & (VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
                         VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT |
                         VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY)) {
+        return false;
+    }
+    if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
+        !vmx_addr_valid(env, VMCS(APIC_ACCESS_ADDR), 4096)) {
         return false;
     }
     if (!(pin & VMX_PIN_BASED_NMI_EXITING) &&
@@ -2716,7 +2820,8 @@ static void vmx_entry_failure(CPUX86State *env, uint32_t reason,
 /*
  * The guest's translations at a VM entry: without VPIDs, none survive, nor the
  * host's (Intel SDM 325462-093 Vol. 3C, 29.3.2.5); with them, those TCG keeps
- * of a guest of the same VPID, EPTP, and paging state stay, all others go.
+ * of a guest of the same VPID, EPTP, APIC-access address, and paging state
+ * stay, all others go.
  */
 static void vmx_entry_tlb(CPUX86State *env)
 {
@@ -2731,11 +2836,13 @@ static void vmx_entry_tlb(CPUX86State *env)
         return;
     }
     if (vpid != env->vmx.tlb_vpid || eptp != env->vmx.tlb_eptp ||
+        env->vmx.apic_access != env->vmx.tlb_apic_access ||
         env->cr[0] != env->vmx.tlb_cr0 || env->cr[3] != env->vmx.tlb_cr3 ||
         env->cr[4] != env->vmx.tlb_cr4 || env->efer != env->vmx.tlb_efer) {
         tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
         env->vmx.tlb_vpid = vpid;
         env->vmx.tlb_eptp = eptp;
+        env->vmx.tlb_apic_access = env->vmx.apic_access;
     }
 }
 
@@ -2859,6 +2966,9 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     if (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT) {
         env->hflags2 |= HF2_NPT_MASK;
     }
+    env->vmx.apic_access =
+        vmx_proc2(env) & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES ?
+        VMCS(APIC_ACCESS_ADDR) : ~0ULL;
     vmx_entry_tlb(env);
     failed = vmx_msr_area_load(env, VMCS(ENTRY_MSR_LOAD_ADDR),
                                VMCS(ENTRY_MSR_LOAD_COUNT));
@@ -2882,6 +2992,16 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
         cpu_set_interrupt(cs, CPU_INTERRUPT_INIT);
     }
     vmx_entry_debug(env);
+    /*
+     * With "use TPR shadow" and "virtualize APIC accesses", a TPR
+     * threshold above VTPR[7:4] exits once the entry and its injection are
+     * done (Intel SDM 325462-093 Vol. 3C, 29.7.7).
+     */
+    if ((VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW) &&
+        env->vmx.apic_access != ~0ULL && vmx_tpr_below_threshold(env)) {
+        env->vmx.tpr_exit_pending = true;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+    }
     vmx_inject(env);
     if (cs->halted) {
         cs->exception_index = EXCP_HLT;
@@ -2910,6 +3030,13 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
 
     if (request & CPU_INTERRUPT_POLL) {
         return CPU_INTERRUPT_POLL;
+    }
+    /*
+     * The TPR-below-threshold VM exit after a VM entry comes before SMIs
+     * (Intel SDM 325462-093 Vol. 3C, 29.7.7).
+     */
+    if ((request & CPU_INTERRUPT_VMX) && env->vmx.tpr_exit_pending) {
+        return CPU_INTERRUPT_VMX;
     }
     if ((request & CPU_INTERRUPT_SMI) && !(env->hflags & HF_SMM_MASK)) {
         return CPU_INTERRUPT_SMI;
@@ -3001,17 +3128,23 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         }
         x86_vmx_exit(env, VMX_EXIT_EXTERNAL_INTERRUPT, 0, 0);
     case CPU_INTERRUPT_VMX:
+        /*
+         * Right after the entry, the debug exceptions it left pending stay
+         * so through the exits ahead of them (Intel SDM 325462-093 Vol. 3C,
+         * 30.3.4).
+         */
+        if (env->vmx.db_held &&
+            (env->vmx.tpr_exit_pending || env->vmx.mtf_pending)) {
+            env->vmx.exit_pending_dbg = VMCS(GUEST_PENDING_DBG) &
+                                        (VMX_DB_BITS |
+                                         VMX_PENDING_DBG_ENABLED_BP);
+        }
+        if (env->vmx.tpr_exit_pending) {
+            env->vmx.tpr_exit_pending = false;
+            x86_vmx_exit(env, VMX_EXIT_TPR_BELOW_THRESHOLD, 0, 0);
+        }
         if (env->vmx.mtf_pending) {
             env->vmx.mtf_pending = false;
-            /*
-             * Right after the entry, the debug exceptions it left pending
-             * stay so (Intel SDM 325462-093 Vol. 3C, 30.3.4).
-             */
-            if (env->vmx.db_held) {
-                env->vmx.exit_pending_dbg = VMCS(GUEST_PENDING_DBG) &
-                                            (VMX_DB_BITS |
-                                             VMX_PENDING_DBG_ENABLED_BP);
-            }
             x86_vmx_exit(env, VMX_EXIT_MONITOR_TRAP_FLAG, 0, 0);
         }
         if (env->vmx.db_held && !((env->hflags & HF_INHIBIT_IRQ_MASK) &&
