@@ -3203,6 +3203,19 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             s->base.is_jmp = DISAS_EOB_NEXT;
             break;
 
+#ifndef CONFIG_USER_ONLY
+        case 0xd4: /* vmfunc */
+            if (s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_helper_vmfunc(tcg_env);
+            /* A new EPT may map the code elsewhere. */
+            s->base.is_jmp = DISAS_EOB_NEXT;
+            break;
+#endif
+
         case 0xd8: /* VMRUN */
             if (!SVME(s) || !PE(s)) {
                 goto illegal_op;

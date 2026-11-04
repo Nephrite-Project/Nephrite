@@ -80,7 +80,9 @@
 #define VMCS_VIRTUAL_APIC_ADDR 0x2012
 #define VMCS_APIC_ACCESS_ADDR 0x2014
 #define VMCS_PI_DESC_ADDR 0x2016
+#define VMCS_VMFUNC_CONTROLS 0x2018
 #define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
+#define VMCS_EPTP_LIST_ADDR 0x2024
 #define VMCS_VMREAD_BITMAP 0x2026
 #define VMCS_VMWRITE_BITMAP 0x2028
 #define VMCS_XSS_EXIT_BITMAP 0x202c
@@ -2576,6 +2578,16 @@ static bool vmx_controls_valid(CPUX86State *env)
     if ((proc2 & VMX_SECONDARY_EXEC_TSC_SCALING) && !VMCS(TSC_MULTIPLIER)) {
         return false;
     }
+    if ((proc2 & VMX_SECONDARY_EXEC_ENABLE_VMFUNC) &&
+        (VMCS(VMFUNC_CONTROLS) & ~env->features[FEAT_VMX_VMFUNC])) {
+        return false;
+    }
+    if ((proc2 & VMX_SECONDARY_EXEC_ENABLE_VMFUNC) &&
+        (VMCS(VMFUNC_CONTROLS) & MSR_VMX_VMFUNC_EPT_SWITCHING) &&
+        (!(proc2 & VMX_SECONDARY_EXEC_ENABLE_EPT) ||
+         !vmx_addr_valid(env, VMCS(EPTP_LIST_ADDR), 4096))) {
+        return false;
+    }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
         !(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
         return false;
@@ -3819,6 +3831,40 @@ static bool vmx_eptp_valid(CPUX86State *env, uint64_t eptp)
         return false;
     }
     return true;
+}
+
+/*
+ * VMFUNC: #UD outside non-root operation, without "enable VM functions",
+ * or for a function past 63, and an exit for a function the VM-function
+ * controls leave off. EPTP switching, function 0 and the only one TCG has,
+ * loads the EPTP-list entry ECX selects, exiting for an index past the
+ * list, an EPTP a VM entry would refuse, or one of another page-walk
+ * length; the PDPTEs stay as they are (Intel SDM 325462-093 Vol. 3C,
+ * 28.5.7). The TLB, which holds one guest context, drops it.
+ */
+void HELPER(vmfunc)(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    uint32_t function = env->regs[R_EAX];
+    uint32_t index = env->regs[R_ECX];
+    uint64_t eptp;
+
+    if (!env->vmx.nonroot ||
+        !(vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_VMFUNC) ||
+        function > 63) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+    if (!(VMCS(VMFUNC_CONTROLS) >> function & 1) || index >= 512) {
+        x86_vmx_exit(env, VMX_EXIT_VMFUNC, 0, GETPC());
+    }
+    eptp = x86_ldq_phys(cs, VMCS(EPTP_LIST_ADDR) + 8 * index);
+    if (((eptp ^ VMCS(EPT_POINTER)) & (7 << 3)) ||
+        !vmx_eptp_valid(env, eptp)) {
+        x86_vmx_exit(env, VMX_EXIT_VMFUNC, 0, GETPC());
+    }
+    VMCS_SET(EPT_POINTER, eptp);
+    env->vmx.tlb_eptp = eptp;
+    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
 }
 
 static bool ept_set_flags(CPUX86State *env, hwaddr addr, uint64_t old,

@@ -938,6 +938,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_SECONDARY_EXEC_SHADOW_VMCS | VMX_SECONDARY_EXEC_TSC_SCALING | \
           VMX_SECONDARY_EXEC_PAUSE_LOOP_EXITING | \
           VMX_SECONDARY_EXEC_RDRAND_EXITING | \
+          VMX_SECONDARY_EXEC_ENABLE_VMFUNC | \
           VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_XSAVES | \
           VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST)
 #define TCG_VMX_EPT_VPID (MSR_VMX_EPT_EXECONLY | \
@@ -1890,7 +1891,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         },
         .msr = {
             .index = MSR_IA32_VMX_VMFUNC,
-        }
+        },
+        .tcg_features = MSR_VMX_VMFUNC_EPT_SWITCHING,
     },
 
     [FEAT_14_0_ECX] = {
