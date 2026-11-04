@@ -299,26 +299,35 @@ static uint64_t pred_cmd_bits(CPUX86State *env)
     return bits;
 }
 
-void HELPER(wrmsr)(CPUX86State *env)
+/* The IA32_EFER bits WRMSR changes; LMA follows CR0.PG and LME. */
+uint64_t x86_efer_writable(CPUX86State *env)
 {
-    uint64_t val;
+    uint64_t mask = 0;
+
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_SYSCALL) {
+        mask |= MSR_EFER_SCE;
+    }
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
+        mask |= MSR_EFER_LME;
+    }
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_FFXSR) {
+        mask |= MSR_EFER_FFXSR;
+    }
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_NX) {
+        mask |= MSR_EFER_NXE;
+    }
+    if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
+        mask |= MSR_EFER_SVME;
+    }
+    return mask;
+}
+
+/* WRMSR's effect, false where it raises #GP. */
+bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
+{
     CPUState *cs = env_cpu(env);
 
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 1, GETPC());
-
-    val = ((uint32_t)env->regs[R_EAX]) |
-        ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
-
-    if (unlikely(env->svm_x2avic) &&
-        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
-        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
-        if (!svm_x2avic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
-        }
-        return;
-    }
-
-    switch ((uint32_t)env->regs[R_ECX]) {
+    switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         env->sysenter_cs = val & 0xffff;
         break;
@@ -329,13 +338,13 @@ void HELPER(wrmsr)(CPUX86State *env)
      */
     case MSR_IA32_SYSENTER_ESP:
         if (IS_INTEL_CPU(env) && !x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->sysenter_esp = val;
         break;
     case MSR_IA32_SYSENTER_EIP:
         if (IS_INTEL_CPU(env) && !x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->sysenter_eip = val;
         break;
@@ -343,42 +352,21 @@ void HELPER(wrmsr)(CPUX86State *env)
         int ret;
 
         if (val & MSR_IA32_APICBASE_RESERVED) {
-            goto error;
+            return false;
         }
 
         ret = cpu_set_apic_base(env_archcpu(env)->apic_state, val);
         if (ret < 0) {
-            goto error;
+            return false;
         }
         break;
     }
-    case MSR_EFER:
-        {
-            uint64_t update_mask;
+    case MSR_EFER: {
+        uint64_t update_mask = x86_efer_writable(env);
 
-            update_mask = 0;
-            if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_SYSCALL) {
-                update_mask |= MSR_EFER_SCE;
-            }
-            if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
-                update_mask |= MSR_EFER_LME;
-            }
-            if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_FFXSR) {
-                update_mask |= MSR_EFER_FFXSR;
-            }
-            if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_NX) {
-                update_mask |= MSR_EFER_NXE;
-            }
-            if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
-                update_mask |= MSR_EFER_SVME;
-            }
-            if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_FFXSR) {
-                update_mask |= MSR_EFER_FFXSR;
-            }
-            cpu_load_efer(env, (env->efer & ~update_mask) |
-                          (val & update_mask));
-        }
+        cpu_load_efer(env, (env->efer & ~update_mask) | (val & update_mask));
         break;
+    }
     case MSR_STAR:
         env->star = val;
         break;
@@ -387,27 +375,27 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
     case MSR_IA32_PKRS:
         if (val & 0xFFFFFFFF00000000ull) {
-            goto error;
+            return false;
         }
         env->pkrs = val;
         tlb_flush(cs);
         break;
     case MSR_VM_HSAVE_PA:
         if (val & (0xfff | ((~0ULL) << env_archcpu(env)->phys_bits))) {
-            goto error;
+            return false;
         }
         env->vm_hsave = val;
         break;
 #ifdef TARGET_X86_64
     case MSR_LSTAR:
         if (!x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->lstar = val;
         break;
     case MSR_CSTAR:
         if (!x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->cstar = val;
         break;
@@ -416,19 +404,19 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
     case MSR_FSBASE:
         if (!x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->segs[R_FS].base = val;
         break;
     case MSR_GSBASE:
         if (!x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->segs[R_GS].base = val;
         break;
     case MSR_KERNELGSBASE:
         if (!x86_canonical(env, val, false)) {
-            goto error;
+            return false;
         }
         env->kernelgsbase = val;
         break;
@@ -441,7 +429,7 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_MTRRphysBase(5):
     case MSR_MTRRphysBase(6):
     case MSR_MTRRphysBase(7):
-        env->mtrr_var[((uint32_t)env->regs[R_ECX] -
+        env->mtrr_var[(msr -
                        MSR_MTRRphysBase(0)) / 2].base = val;
         break;
     case MSR_MTRRphysMask(0):
@@ -452,16 +440,16 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_MTRRphysMask(5):
     case MSR_MTRRphysMask(6):
     case MSR_MTRRphysMask(7):
-        env->mtrr_var[((uint32_t)env->regs[R_ECX] -
+        env->mtrr_var[(msr -
                        MSR_MTRRphysMask(0)) / 2].mask = val;
         break;
     case MSR_MTRRfix64K_00000:
-        env->mtrr_fixed[(uint32_t)env->regs[R_ECX] -
+        env->mtrr_fixed[msr -
                         MSR_MTRRfix64K_00000] = val;
         break;
     case MSR_MTRRfix16K_80000:
     case MSR_MTRRfix16K_A0000:
-        env->mtrr_fixed[(uint32_t)env->regs[R_ECX] -
+        env->mtrr_fixed[msr -
                         MSR_MTRRfix16K_80000 + 1] = val;
         break;
     case MSR_MTRRfix4K_C0000:
@@ -472,7 +460,7 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_MTRRfix4K_E8000:
     case MSR_MTRRfix4K_F0000:
     case MSR_MTRRfix4K_F8000:
-        env->mtrr_fixed[(uint32_t)env->regs[R_ECX] -
+        env->mtrr_fixed[msr -
                         MSR_MTRRfix4K_C0000 + 3] = val;
         break;
     case MSR_MTRRdefType:
@@ -503,7 +491,7 @@ void HELPER(wrmsr)(CPUX86State *env)
     }
     case MSR_TSC_ADJUST:
         if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_TSC_ADJUST)) {
-            goto error;
+            return false;
         }
         env->tsc_written_delta += val - env->tsc_adjust;
         env->tsc_adjust = val;
@@ -511,7 +499,7 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
     case MSR_IA32_TSCDEADLINE:
         if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
-            goto error;
+            return false;
         }
         bql_lock();
         apic_set_tsc_deadline(env_archcpu(env)->apic_state, val);
@@ -522,7 +510,7 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env) || (val & MSR_AMD64_TSC_RATIO_RESERVED)) {
-            goto error;
+            return false;
         }
         env->amd_tsc_scale_msr = val;
         break;
@@ -533,7 +521,7 @@ void HELPER(wrmsr)(CPUX86State *env)
          * 15.29.8.2).
          */
         if (!(env->features[FEAT_SVM] & CPUID_SVM_AVIC) || (val >> 8)) {
-            goto error;
+            return false;
         }
         svm_avic_doorbell(env, val);
         break;
@@ -542,17 +530,17 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
     case MSR_IA32_DEBUGCTL:
         if (val & ~(DEBUGCTL_LBR | DEBUGCTL_BTF)) {
-            goto error;
+            return false;
         }
         env->debugctl = val;
         break;
     case MSR_LASTBRANCH_FROM_IP ... MSR_LASTINT_TO_IP:
         /* Read-only. */
-        goto error;
+        return false;
     case MSR_IA32_BNDCFGS:
         /* Bits 11:2 are reserved, and the base is a linear address. */
         if ((val & 0xffc) || !x86_canonical(env, val & ~0xfffULL, false)) {
-            goto error;
+            return false;
         }
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
@@ -563,7 +551,7 @@ void HELPER(wrmsr)(CPUX86State *env)
          * Table 2-53), which MSR_PLATFORM_INFO says it can.
          */
         if (!IS_INTEL_CPU(env) || (val & ~MISC_FEATURES_CPUID_FAULT)) {
-            goto error;
+            return false;
         }
         env->msr_misc_features_enables = val;
         break;
@@ -575,18 +563,18 @@ void HELPER(wrmsr)(CPUX86State *env)
         if ((val & HWCR_CPUID_USER_DIS) &&
             !(env->features[FEAT_8000_0021_EAX] &
               CPUID_8000_0021_EAX_CPUID_USER_DIS)) {
-            goto error;
+            return false;
         }
         env->msr_hwcr = val;
         break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
-        int index = (uint32_t)env->regs[R_ECX] == MSR_DR0_ADDR_MASK ? 0 :
-                    (uint32_t)env->regs[R_ECX] - MSR_DR1_ADDR_MASK + 1;
+        int index = msr == MSR_DR0_ADDR_MASK ? 0 :
+                    msr - MSR_DR1_ADDR_MASK + 1;
 
         /* Bits 63:32 are reserved. */
         if (!x86_dr_addr_mask_exists(env, index) || (val >> 32)) {
-            goto error;
+            return false;
         }
         x86_set_dr_addr_mask(env, index, val);
         break;
@@ -599,19 +587,19 @@ void HELPER(wrmsr)(CPUX86State *env)
         if (!(env->features[FEAT_XSAVE] & CPUID_XSAVE_XSAVES) ||
             (val & ~((uint64_t)env->features[FEAT_XSAVE_XSS_HI] << 32 |
                      env->features[FEAT_XSAVE_XSS_LO]))) {
-            goto error;
+            return false;
         }
         env->xss = val;
         break;
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
-        int index = (uint32_t)env->regs[R_ECX] - MSR_APIC_START;
+        int index = msr - MSR_APIC_START;
 
         bql_lock();
         ret = apic_msr_write(env_archcpu(env)->apic_state, index, val);
         bql_unlock();
         if (ret < 0) {
-            goto error;
+            return false;
         }
 
         break;
@@ -619,37 +607,37 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_IA32_FEATURE_CONTROL:
         if (!x86_feature_control_exists(env) ||
             !x86_feature_control_write(env, val)) {
-            goto error;
+            return false;
         }
         break;
     case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
         /* The VMX capability MSRs are read-only. */
-        goto error;
+        return false;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
-            goto error;
+            return false;
         }
         env->spec_ctrl = val;
         break;
     case MSR_IA32_PRED_CMD:
         if (!pred_cmd_bits(env) || (val & ~pred_cmd_bits(env))) {
-            goto error;
+            return false;
         }
         break;
     case MSR_IA32_FLUSH_CMD:
         if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_FLUSH_L1D) ||
             (val & ~FLUSH_CMD_L1D_FLUSH)) {
-            goto error;
+            return false;
         }
         break;
     default:
-        if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
-            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {
-            uint32_t offset = (uint32_t)env->regs[R_ECX] - MSR_MC0_CTL;
+        if (msr >= MSR_MC0_CTL
+            && msr < MSR_MC0_CTL + 4 * 32) {
+            uint32_t offset = msr - MSR_MC0_CTL;
 
             /* Banks past MCG_CAP.Count do not exist. */
             if (offset >= 4 * (env->mcg_cap & MCG_CAP_BANKS_MASK)) {
-                goto error;
+                return false;
             }
             /*
              * MCi_CTL takes 0 or all ones, bits 10 and 0 aside, as Linux
@@ -660,11 +648,11 @@ void HELPER(wrmsr)(CPUX86State *env)
              */
             if ((offset & 0x3) == 0 && val &&
                 (val | (1ULL << 10) | 1) != ~(uint64_t)0) {
-                goto error;
+                return false;
             }
             if ((offset & 0x3) == 1 && val &&
                 !(env->msr_hwcr & HWCR_MC_STATUS_WR_EN)) {
-                goto error;
+                return false;
             }
             env->mce_banks[offset] = val;
             break;
@@ -672,30 +660,39 @@ void HELPER(wrmsr)(CPUX86State *env)
         /* XXX: exception? */
         break;
     }
-    return;
-error:
-    raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    return true;
 }
 
-void HELPER(rdmsr)(CPUX86State *env)
+void HELPER(wrmsr)(CPUX86State *env)
 {
-    X86CPU *x86_cpu = env_archcpu(env);
     uint64_t val;
 
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 1, GETPC());
+
+    val = ((uint32_t)env->regs[R_EAX]) |
+        ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
 
     if (unlikely(env->svm_x2avic) &&
         (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
         (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
-        if (!svm_x2avic_rdmsr(env, env->regs[R_ECX], &val, GETPC())) {
+        if (!svm_x2avic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
         }
-        env->regs[R_EAX] = (uint32_t)val;
-        env->regs[R_EDX] = (uint32_t)(val >> 32);
         return;
     }
 
-    switch ((uint32_t)env->regs[R_ECX]) {
+    if (!x86_cpu_wrmsr(env, (uint32_t)env->regs[R_ECX], val)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+}
+
+/* RDMSR's value, false where it raises #GP. */
+bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
+{
+    X86CPU *x86_cpu = env_archcpu(env);
+    uint64_t val;
+
+    switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         val = env->sysenter_cs;
         break;
@@ -763,7 +760,7 @@ void HELPER(rdmsr)(CPUX86State *env)
     case MSR_MTRRphysBase(5):
     case MSR_MTRRphysBase(6):
     case MSR_MTRRphysBase(7):
-        val = env->mtrr_var[((uint32_t)env->regs[R_ECX] -
+        val = env->mtrr_var[(msr -
                              MSR_MTRRphysBase(0)) / 2].base;
         break;
     case MSR_MTRRphysMask(0):
@@ -774,7 +771,7 @@ void HELPER(rdmsr)(CPUX86State *env)
     case MSR_MTRRphysMask(5):
     case MSR_MTRRphysMask(6):
     case MSR_MTRRphysMask(7):
-        val = env->mtrr_var[((uint32_t)env->regs[R_ECX] -
+        val = env->mtrr_var[(msr -
                              MSR_MTRRphysMask(0)) / 2].mask;
         break;
     case MSR_MTRRfix64K_00000:
@@ -782,7 +779,7 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_MTRRfix16K_80000:
     case MSR_MTRRfix16K_A0000:
-        val = env->mtrr_fixed[(uint32_t)env->regs[R_ECX] -
+        val = env->mtrr_fixed[msr -
                               MSR_MTRRfix16K_80000 + 1];
         break;
     case MSR_MTRRfix4K_C0000:
@@ -793,7 +790,7 @@ void HELPER(rdmsr)(CPUX86State *env)
     case MSR_MTRRfix4K_E8000:
     case MSR_MTRRfix4K_F0000:
     case MSR_MTRRfix4K_F8000:
-        val = env->mtrr_fixed[(uint32_t)env->regs[R_ECX] -
+        val = env->mtrr_fixed[msr -
                               MSR_MTRRfix4K_C0000 + 3];
         break;
     case MSR_MTRRdefType:
@@ -826,13 +823,13 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_TSC_ADJUST:
         if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_TSC_ADJUST)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->tsc_adjust;
         break;
     case MSR_IA32_TSCDEADLINE:
         if (!(env->features[FEAT_1_ECX] & CPUID_EXT_TSC_DEADLINE_TIMER)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         bql_lock();
         val = apic_get_tsc_deadline(x86_cpu->apic_state);
@@ -840,13 +837,13 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->amd_tsc_scale_msr;
         break;
     case MSR_AMD64_AVIC_DOORBELL:
         /* Write-only. */
-        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        return false;
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;
         break;
@@ -870,20 +867,20 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_IA32_XSS:
         if (!(env->features[FEAT_XSAVE] & CPUID_XSAVE_XSAVES)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->xss;
         break;
     case MSR_PLATFORM_INFO:
         /* Only bit 31, CPUID faulting, as Linux 7.3's KVM gives guests. */
         if (!IS_INTEL_CPU(env)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = MSR_PLATFORM_INFO_CPUID_FAULT;
         break;
     case MSR_MISC_FEATURES_ENABLES:
         if (!IS_INTEL_CPU(env)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->msr_misc_features_enables;
         break;
@@ -892,11 +889,11 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
-        int index = (uint32_t)env->regs[R_ECX] == MSR_DR0_ADDR_MASK ? 0 :
-                    (uint32_t)env->regs[R_ECX] - MSR_DR1_ADDR_MASK + 1;
+        int index = msr == MSR_DR0_ADDR_MASK ? 0 :
+                    msr - MSR_DR1_ADDR_MASK + 1;
 
         if (!x86_dr_addr_mask_exists(env, index)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->dr_addr_mask[index];
         break;
@@ -910,46 +907,46 @@ void HELPER(rdmsr)(CPUX86State *env)
     }
     case MSR_APIC_START ... MSR_APIC_END: {
         int ret;
-        int index = (uint32_t)env->regs[R_ECX] - MSR_APIC_START;
+        int index = msr - MSR_APIC_START;
 
         bql_lock();
         ret = apic_msr_read(x86_cpu->apic_state, index, &val);
         bql_unlock();
         if (ret < 0) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
 
         break;
     }
     case MSR_IA32_FEATURE_CONTROL:
         if (!x86_feature_control_exists(env)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->msr_ia32_feature_control;
         break;
     case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_VMFUNC:
-        if (!x86_vmx_read_msr(env, (uint32_t)env->regs[R_ECX], &val)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        if (!x86_vmx_read_msr(env, msr, &val)) {
+            return false;
         }
         break;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            return false;
         }
         val = env->spec_ctrl;
         break;
     case MSR_IA32_PRED_CMD:
     case MSR_IA32_FLUSH_CMD:
         /* Write-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
-        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        return false;
     default:
-        if ((uint32_t)env->regs[R_ECX] >= MSR_MC0_CTL
-            && (uint32_t)env->regs[R_ECX] < MSR_MC0_CTL + 4 * 32) {
-            uint32_t offset = (uint32_t)env->regs[R_ECX] - MSR_MC0_CTL;
+        if (msr >= MSR_MC0_CTL
+            && msr < MSR_MC0_CTL + 4 * 32) {
+            uint32_t offset = msr - MSR_MC0_CTL;
 
             /* Banks past MCG_CAP.Count do not exist. */
             if (offset >= 4 * (env->mcg_cap & MCG_CAP_BANKS_MASK)) {
-                raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+                return false;
             }
             val = env->mce_banks[offset];
             break;
@@ -957,6 +954,30 @@ void HELPER(rdmsr)(CPUX86State *env)
         /* XXX: exception? */
         val = 0;
         break;
+    }
+    *valp = val;
+    return true;
+}
+
+void HELPER(rdmsr)(CPUX86State *env)
+{
+    uint64_t val;
+
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
+
+    if (unlikely(env->svm_x2avic) &&
+        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
+        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
+        if (!svm_x2avic_rdmsr(env, env->regs[R_ECX], &val, GETPC())) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        env->regs[R_EAX] = (uint32_t)val;
+        env->regs[R_EDX] = (uint32_t)(val >> 32);
+        return;
+    }
+
+    if (!x86_cpu_rdmsr(env, (uint32_t)env->regs[R_ECX], &val)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
     env->regs[R_EAX] = (uint32_t)(val);
     env->regs[R_EDX] = (uint32_t)(val >> 32);
@@ -1080,7 +1101,6 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
         cpu_loop_exit(cs);
     }
     env->monitor_armed = false;
-
     /* XXX: not complete but not completely erroneous */
     if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {
         HELPER(pause)(env);

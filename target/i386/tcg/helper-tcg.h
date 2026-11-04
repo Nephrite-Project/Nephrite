@@ -134,6 +134,13 @@ void x86_vmx_smm_enter(CPUX86State *env);
 void x86_vmx_smm_leave(CPUX86State *env);
 #endif
 
+/* system/misc_helper.c */
+#ifndef CONFIG_USER_ONLY
+uint64_t x86_efer_writable(CPUX86State *env);
+bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
+bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+#endif
+
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
