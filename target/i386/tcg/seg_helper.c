@@ -646,7 +646,26 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
 
     if (has_error_code) {
         int cpl = env->hflags & HF_CPL_MASK;
+        SegmentCache *ss = &env->segs[R_SS];
+        bool big = ss->flags & DESC_B_MASK;
+        uint32_t size = type & 8 ? 4 : 2;
+        uint32_t sp = (env->regs[R_ESP] - size) & (big ? 0xffffffff : 0xffff);
+        uint64_t low = 0, high = ss->limit;
         StackAccess sa;
+
+        /*
+         * Where the new stack cannot take the error code, #SS is part of
+         * the event's delivery (Intel SDM 325462-093 Vol. 2A, INT n,
+         * TASK-GATE), which makes a double fault of it after a contributory
+         * exception, as Intel's and AMD's processors raise.
+         */
+        if (ss->flags & DESC_E_MASK) {
+            low = (uint64_t)ss->limit + 1;
+            high = big ? 0xffffffff : 0xffff;
+        }
+        if (sp < low || (uint64_t)sp + size - 1 > high) {
+            raise_exception_err_ra(env, EXCP0C_STACK, 0, retaddr);
+        }
 
         /* push the error code */
         sa.env = env;
