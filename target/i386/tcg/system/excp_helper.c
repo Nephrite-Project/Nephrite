@@ -520,9 +520,18 @@ do_check_protect_pse36:
     if (in->ptw_idx != MMU_PHYS_IDX) {
         CPUTLBEntryFull *full;
         int flags, nested_page_size;
+        int idx = in->ptw_idx;
 
+        /*
+         * A linear address is user-mode where every paging-structure entry
+         * has U/S set, or without paging (Intel SDM 325462-093 Vol. 3C,
+         * 31.3.3.2).
+         */
+        if (x86_vmx_ept_mbec(env) && !(ptep & PG_USER_MASK)) {
+            idx = MMU_NESTED_SUP_IDX;
+        }
         flags = probe_access_full_mmu(env, paddr, 0, access_type,
-                                      in->ptw_idx, &pte_trans.haddr, &full);
+                                      idx, &pte_trans.haddr, &full);
         if (unlikely(flags & TLB_INVALID_MASK)) {
             x86_vmx_ept_guest_page(env, ptep);
             *err = (TranslateFault){
@@ -661,7 +670,8 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         if (x86_vmx_ept_active(env)) {
             hwaddr hpa;
 
-            if (!x86_vmx_ept_translate(env, addr, access_type, &hpa,
+            if (!x86_vmx_ept_translate(env, addr, access_type,
+                                       mmu_idx == MMU_NESTED_SUP_IDX, &hpa,
                                        &out->prot, &out->page_size)) {
                 *err = (TranslateFault){ .stage2 = S2_GPA, .cr2 = addr };
                 return false;

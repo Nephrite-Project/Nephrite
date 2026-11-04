@@ -2053,7 +2053,8 @@ static void vmx_save_pdptes(CPUX86State *env)
         if (env->vmx.pdpte_loaded) {
             pdpte = env->vmx.pdpte[i];
         } else if (x86_vmx_ept_translate(env, (env->cr[3] & ~0x1fULL) + 8 * i,
-                                         MMU_DATA_LOAD, &hpa, &prot, &size)) {
+                                         MMU_DATA_LOAD, false, &hpa, &prot,
+                                         &size)) {
             pdpte = x86_ldq_phys(env_cpu(env), hpa);
         }
         x86_vmcs_write(env, VMCS_GUEST_PDPTE(i), pdpte);
@@ -2633,7 +2634,8 @@ static bool vmx_controls_valid(CPUX86State *env)
         !vmx_eptp_valid(env, x86_vmcs_read(env, 0x201a))) {
         return false;
     }
-    if ((proc2 & VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST) &&
+    if ((proc2 & (VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST |
+                  VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC)) &&
         !(proc2 & VMX_SECONDARY_EXEC_ENABLE_EPT)) {
         return false;
     }
@@ -3255,7 +3257,8 @@ static void vmx_entry_tlb(CPUX86State *env)
         env->vmx.apic_access != env->vmx.tlb_apic_access ||
         env->cr[0] != env->vmx.tlb_cr0 || env->cr[3] != env->vmx.tlb_cr3 ||
         env->cr[4] != env->vmx.tlb_cr4 || env->efer != env->vmx.tlb_efer) {
-        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
+        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
+                                1 << MMU_NESTED_SUP_IDX);
         env->vmx.tlb_vpid = vpid;
         env->vmx.tlb_eptp = eptp;
         env->vmx.tlb_apic_access = env->vmx.apic_access;
@@ -3798,6 +3801,7 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPT_WRITE 2
 #define EPT_EXEC 4
 #define EPT_LARGE (1ULL << 7)
+#define EPT_EXEC_USER (1ULL << 10)
 #define EPT_ACCESSED (1ULL << 8)
 #define EPT_DIRTY (1ULL << 9)
 #define EPTP_AD (1ULL << 6)
@@ -3809,6 +3813,18 @@ bool x86_vmx_ept_active(CPUX86State *env)
 {
     return env->vmx.nonroot &&
            (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT);
+}
+
+/*
+ * Under the mode-based execute control, EPT allows fetches from user-mode and
+ * from supervisor-mode linear addresses apart (Intel SDM 325462-093 Vol. 3C,
+ * 31.3.3.2): the translations of supervisor-mode ones go through
+ * MMU_NESTED_SUP_IDX.
+ */
+bool x86_vmx_ept_mbec(CPUX86State *env)
+{
+    return x86_vmx_ept_active(env) &&
+           (vmx_proc2(env) & VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC);
 }
 
 /*
@@ -3889,7 +3905,8 @@ void HELPER(vmfunc)(CPUX86State *env)
     }
     VMCS_SET(EPT_POINTER, eptp);
     env->vmx.tlb_eptp = eptp;
-    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX);
+    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
+                            1 << MMU_NESTED_SUP_IDX);
 }
 
 static bool ept_set_flags(CPUX86State *env, hwaddr addr, uint64_t old,
@@ -3933,11 +3950,15 @@ static void ept_pml_log(CPUX86State *env, hwaddr gpa)
  * the exit (Intel SDM 325462-093 Vol. 3C, 31.3.3). Stores include, with A/D
  * flags, the guest's paging-structure accesses. Under page-modification
  * logging, a flag to set with the PML index past 511 makes a log-full event
- * instead, setting nothing (Intel SDM 325462-093 Vol. 3C, 31.3.6).
+ * instead, setting nothing (Intel SDM 325462-093 Vol. 3C, 31.3.6). Under the
+ * mode-based execute control, bit 10 makes an entry present too, and allows
+ * the fetches bit 2 then leaves to supervisor-mode linear addresses, those
+ * from user-mode ones, a fetch being SUPERVISOR's or not (Intel SDM
+ * 325462-093 Vol. 3C, 31.3.2 and 31.3.3.2).
  */
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
-                           MMUAccessType access, hwaddr *hpa, int *prot,
-                           int *page_size)
+                           MMUAccessType access, bool supervisor,
+                           hwaddr *hpa, int *prot, int *page_size)
 {
     CPUState *cs = env_cpu(env);
     uint64_t eptp = VMCS(EPT_POINTER);
@@ -3946,9 +3967,12 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                          MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
     bool ad = eptp & EPTP_AD;
     bool pml = ad && (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_PML);
+    bool mbec = vmx_proc2(env) & VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC;
     int levels = ((eptp >> 3) & 7) + 1;
     hwaddr table = eptp & addr_mask;
-    uint64_t perms = EPT_READ | EPT_WRITE | EPT_EXEC;
+    uint64_t present = mbec ? 7 | EPT_EXEC_USER : 7;
+    uint64_t exec = mbec && !supervisor ? EPT_EXEC_USER : EPT_EXEC;
+    uint64_t perms = present;
     uint64_t need, entry = 0;
     hwaddr entry_addr = 0;
     int level, shift = 12;
@@ -3956,7 +3980,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     env->vmx.ept_misconfig = false;
     env->vmx.pml_full = false;
     need = access == MMU_DATA_STORE ? EPT_WRITE :
-           access == MMU_INST_FETCH ? EPT_EXEC : EPT_READ;
+           access == MMU_INST_FETCH ? exec : EPT_READ;
     for (level = levels; level >= 1; level--) {
         bool large;
 
@@ -3964,12 +3988,12 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         entry_addr = table + ((gpa >> shift) & 0x1ff) * 8;
     again:
         entry = x86_ldq_phys(cs, entry_addr);
-        if (!(entry & 7)) {
+        if (!(entry & present)) {
             goto violation;
         }
         large = (entry & EPT_LARGE) && level <= 3 && level >= 2;
         if ((entry & 3) == EPT_WRITE ||
-            ((entry & 7) == EPT_EXEC && !(caps & MSR_VMX_EPT_EXECONLY)) ||
+            (!(entry & 3) && !(caps & MSR_VMX_EPT_EXECONLY)) ||
             (entry & ~addr_mask & MAKE_64BIT_MASK(12, 40)) ||
             (level >= 4 && (entry & 0xf8)) ||
             (level == 3 && large && !(caps & MSR_VMX_EPT_1GB)) ||
@@ -3985,7 +4009,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                 goto misconfig;
             }
         }
-        perms &= entry & 7;
+        perms &= entry & present;
         if (ad && !(entry & EPT_ACCESSED)) {
             if (pml && VMCS(PML_INDEX) > 511) {
                 goto pml_full;
@@ -4008,8 +4032,8 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
             goto pml_full;
         }
         if (!ept_set_flags(env, entry_addr, entry, entry | EPT_DIRTY)) {
-            return x86_vmx_ept_translate(env, gpa, access, hpa, prot,
-                                         page_size);
+            return x86_vmx_ept_translate(env, gpa, access, supervisor, hpa,
+                                         prot, page_size);
         }
         entry |= EPT_DIRTY;
         if (pml) {
@@ -4020,7 +4044,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     *hpa = (entry & addr_mask & ~(uint64_t)(*page_size - 1)) |
            (gpa & (*page_size - 1));
     *prot = (perms & EPT_READ ? PAGE_READ : 0) |
-            (perms & EPT_EXEC ? PAGE_EXEC : 0);
+            (perms & exec ? PAGE_EXEC : 0);
     /* Writes wait for the dirty flag where EPT keeps one. */
     if ((perms & EPT_WRITE) && (!ad || (entry & EPT_DIRTY))) {
         *prot |= PAGE_WRITE;
@@ -4028,9 +4052,11 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     return true;
 
 violation:
-    env->vmx.ept_qual = need == EPT_WRITE ? 2 : need == EPT_EXEC ? 4 : 1;
-    if (level < 1 || (entry & 7)) {
-        env->vmx.ept_qual |= (perms & entry & 7) << 3;
+    env->vmx.ept_qual = access == MMU_DATA_STORE ? 2 :
+                        access == MMU_INST_FETCH ? 4 : 1;
+    if (level < 1 || (entry & present)) {
+        env->vmx.ept_qual |= (perms & entry & 7) << 3 |
+                             (perms & entry & EPT_EXEC_USER ? 1 << 6 : 0);
     }
     return false;
 misconfig:

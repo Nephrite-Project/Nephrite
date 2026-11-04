@@ -177,10 +177,11 @@ void x86_vmx_tsc_seen(CPUX86State *env);
 void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra);
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);
+bool x86_vmx_ept_mbec(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
-                           MMUAccessType access, hwaddr *hpa, int *prot,
-                           int *page_size);
+                           MMUAccessType access, bool supervisor,
+                           hwaddr *hpa, int *prot, int *page_size);
 void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
