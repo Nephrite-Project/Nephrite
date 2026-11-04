@@ -311,6 +311,7 @@ typedef enum X86Seg {
 #define CR4_PKE_MASK   (1U << 22)
 #define CR4_CET_MASK   (1U << 23)
 #define CR4_PKS_MASK   (1U << 24)
+#define CR4_LASS_MASK  (1U << 27)
 #define CR4_LAM_SUP_MASK (1U << 28)
 
 #define CR3_LAM_U57_MASK (1ULL << 61)
@@ -330,7 +331,8 @@ typedef enum X86Seg {
                 | CR4_LA57_MASK | CR4_VMXE_MASK \
                 | CR4_FSGSBASE_MASK | CR4_PCIDE_MASK | CR4_OSXSAVE_MASK \
                 | CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_PKE_MASK | CR4_CET_MASK \
-                | CR4_PKS_MASK | CR4_LAM_SUP_MASK | CR4_FRED_MASK))
+                | CR4_PKS_MASK | CR4_LASS_MASK | CR4_LAM_SUP_MASK \
+                | CR4_FRED_MASK))
 
 #define DR6_BD          (1 << 13)
 #define DR6_BS          (1 << 14)
@@ -3679,6 +3681,9 @@ static inline uint64_t cr4_reserved_bits(CPUX86State *env)
     }
     if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM)) {
         reserved_bits |= CR4_LAM_SUP_MASK;
+    }
+    if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LASS)) {
+        reserved_bits |= CR4_LASS_MASK;
     }
     if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED)) {
         reserved_bits |= CR4_FRED_MASK;

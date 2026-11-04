@@ -672,6 +672,32 @@ static G_NORETURN void raise_stage2(CPUX86State *env, TranslateFault *err,
     cpu_vmexit(env, SVM_EXIT_NPF, exit_info_1, retaddr);
 }
 
+/*
+ * Linear-address-space separation, in IA-32e mode with CR4.LASS (Intel SDM
+ * 325462-093 Vol. 3A, 4.3.2): user accesses fault in the upper half, which
+ * bit 63 picks, supervisor fetches in the lower half, and supervisor data
+ * accesses there where SMAP applies to them, as it does to supervisor
+ * shadow-stack accesses; addresses of 32 bits are in the lower half. The
+ * fault is #GP(0), also for stack accesses, where it should be #SS(0).
+ */
+static bool lass_violation(CPUX86State *env, vaddr addr,
+                           MMUAccessType access_type, int mmu_idx)
+{
+    bool upper = addr >> 63;
+
+    if (is_mmu_index_user(mmu_idx)) {
+        return upper;
+    }
+    if (upper) {
+        return false;
+    }
+    if (access_type == MMU_INST_FETCH) {
+        return true;
+    }
+    return is_mmu_index_ss(mmu_idx) ? !!(env->cr[4] & CR4_SMAP_MASK)
+                                    : is_mmu_index_smap(mmu_idx);
+}
+
 static bool get_physical_address(CPUX86State *env, vaddr addr,
                                  MMUAccessType access_type, int mmu_idx,
                                  TranslateResult *out, TranslateFault *err,
@@ -761,6 +787,14 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
                     *err = (TranslateFault){
                         .exception_index = EXCP0D_GPF,
                         /* non-canonical #GP doesn't change CR2 */
+                        .cr2 = env->cr[2],
+                    };
+                    return false;
+                }
+                if ((env->cr[4] & CR4_LASS_MASK) &&
+                    lass_violation(env, addr, access_type, mmu_idx)) {
+                    *err = (TranslateFault){
+                        .exception_index = EXCP0D_GPF,
                         .cr2 = env->cr[2],
                     };
                     return false;

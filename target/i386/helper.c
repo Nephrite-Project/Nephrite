@@ -258,12 +258,13 @@ void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
     }
     /*
      * TLB entries hold the protection key rights of their fill, which
-     * CR4.PKE and CR4.PKS decide, so changing either drops them too.
+     * CR4.PKE and CR4.PKS decide, and exist only for accesses that LASS
+     * allowed, so changing any of those bits drops them too.
      */
     if ((new_cr4 ^ env->cr[4]) &
         (CR4_PGE_MASK | CR4_PAE_MASK | CR4_PSE_MASK |
          CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_LA57_MASK |
-         CR4_PKE_MASK | CR4_PKS_MASK | CR4_PCIDE_MASK)) {
+         CR4_PKE_MASK | CR4_PKS_MASK | CR4_PCIDE_MASK | CR4_LASS_MASK)) {
         x86_flush_paging(env);
     }
 

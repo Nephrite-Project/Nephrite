@@ -1132,9 +1132,14 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
           TCG_7_0_EDX_CET_IBT)
 
+#ifdef CONFIG_USER_ONLY
+#define TCG_7_1_EAX_LASS 0
+#else
+#define TCG_7_1_EAX_LASS CPUID_7_1_EAX_LASS
+#endif
 #define TCG_7_1_EAX_FEATURES (CPUID_7_1_EAX_FZRM | CPUID_7_1_EAX_FSRS | \
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
-          CPUID_7_1_EAX_WRMSRNS)
+          CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS)
 #define TCG_7_1_ECX_FEATURES 0
 #define TCG_7_1_EDX_FEATURES CPUID_7_1_EDX_APXF
 #define TCG_7_2_EDX_FEATURES TCG_7_2_EDX_SPEC_CTRL
@@ -1377,7 +1382,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             "sha512", "sm3", "sm4", NULL,
-            "avx-vnni", "avx512-bf16", NULL, "cmpccxadd",
+            "avx-vnni", "avx512-bf16", "lass", "cmpccxadd",
             NULL, NULL, "fzrm", "fsrs",
             "fsrc", NULL, NULL, NULL,
             NULL, "fred", "lkgs", "wrmsrns",
