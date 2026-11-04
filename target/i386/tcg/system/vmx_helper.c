@@ -81,6 +81,8 @@
 #define VMCS_APIC_ACCESS_ADDR 0x2014
 #define VMCS_PI_DESC_ADDR 0x2016
 #define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
+#define VMCS_VMREAD_BITMAP 0x2026
+#define VMCS_VMWRITE_BITMAP 0x2028
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
@@ -422,46 +424,50 @@ void x86_vmcs_write(CPUX86State *env, uint32_t encoding, uint64_t val)
 }
 
 /*
- * VMREAD of a field of the VMCS fields: the high access type of a 64-bit
- * field reads its bits 63:32; narrower fields read zero-extended.
+ * The slot of a field that VMREAD and VMWRITE take, or -1: the high access
+ * type exists for 64-bit fields only.
  */
-static bool vmcs_get(const uint64_t *vmcs, uint64_t encoding, uint64_t *val)
+static int vmcs_field_slot(uint64_t encoding)
 {
-    unsigned width = VMCS_ENC_WIDTH(encoding);
-    bool high = encoding & VMCS_ENC_HIGH;
-    int slot;
-
-    if (encoding >> 15 || (high && width != VMCS_WIDTH_64)) {
-        return false;
+    if (encoding >> 15 ||
+        ((encoding & VMCS_ENC_HIGH) &&
+         VMCS_ENC_WIDTH(encoding) != VMCS_WIDTH_64)) {
+        return -1;
     }
-    slot = vmcs_slot(encoding & ~VMCS_ENC_HIGH);
-    if (slot < 0) {
-        return false;
-    }
-    *val = vmcs[slot];
-    if (high) {
-        *val >>= 32;
-    } else if (width == VMCS_WIDTH_16) {
-        *val &= 0xffff;
-    } else if (width == VMCS_WIDTH_32) {
-        *val &= 0xffffffff;
-    }
-    return true;
+    return vmcs_slot(encoding & ~VMCS_ENC_HIGH);
 }
 
 /*
- * VMWRITE: the high access type writes bits 63:32 only; a field longer than
- * the value gets its high bits cleared. Access rights keep their defined
- * bits, as Linux 7.3's KVM does with them.
+ * VMREAD's value of a field: the high access type of a 64-bit field reads
+ * its bits 63:32; narrower fields read zero-extended.
  */
-static void vmcs_set(uint64_t *vmcs, int slot, uint64_t encoding,
-                     uint64_t val)
+static uint64_t vmcs_value(uint64_t encoding, uint64_t field)
 {
     unsigned width = VMCS_ENC_WIDTH(encoding);
 
     if (encoding & VMCS_ENC_HIGH) {
-        vmcs[slot] = (uint32_t)vmcs[slot] | (uint64_t)(uint32_t)val << 32;
-        return;
+        return field >> 32;
+    }
+    if (width == VMCS_WIDTH_16) {
+        return field & 0xffff;
+    }
+    if (width == VMCS_WIDTH_32) {
+        return field & 0xffffffff;
+    }
+    return field;
+}
+
+/*
+ * A field after VMWRITE: the high access type writes bits 63:32 only; a
+ * field longer than the value gets its high bits cleared. Access rights
+ * keep their defined bits, as Linux 7.3's KVM does with them.
+ */
+static uint64_t vmcs_merge(uint64_t encoding, uint64_t field, uint64_t val)
+{
+    unsigned width = VMCS_ENC_WIDTH(encoding);
+
+    if (encoding & VMCS_ENC_HIGH) {
+        return (uint32_t)field | (uint64_t)(uint32_t)val << 32;
     }
     if (width == VMCS_WIDTH_16) {
         val &= 0xffff;
@@ -471,7 +477,7 @@ static void vmcs_set(uint64_t *vmcs, int slot, uint64_t encoding,
     if (encoding >= 0x4814 && encoding <= 0x4822) {
         val &= 0x1f0ff;
     }
-    vmcs[slot] = val;
+    return val;
 }
 
 /* The current VMCS's fields to and from its VMCS region. */
@@ -724,20 +730,44 @@ void HELPER(vmptrst)(CPUX86State *env, target_ulong ptr, int seg)
 /*
  * VMREAD and VMWRITE: the field encoding and the value or memory operand
  * are 64 bits in 64-bit mode and 32 bits outside IA-32e mode. A register
- * destination keeps its old value where VMREAD fails.
+ * destination keeps its old value where VMREAD fails. In non-root
+ * operation, where "VMCS shadowing" lets them through, they access the
+ * shadow VMCS that the VMCS link pointer references, in its VMCS region
+ * (Intel SDM 325462-093 Vol. 3C, 33.3).
  */
-static bool vmx_check_vmread(CPUX86State *env, target_ulong field,
-                             uint64_t *val, uintptr_t ra)
+static bool vmx_check_vmcs(CPUX86State *env, uintptr_t ra)
 {
     vmx_check_root(env, ra);
-    if (env->vmx.vmcs_ptr == ~0ULL) {
+    if (env->vmx.nonroot ? x86_vmcs_read(env, VMCS_LINK_POINTER) == ~0ULL
+                         : env->vmx.vmcs_ptr == ~0ULL) {
         vmx_fail_invalid(env);
         return false;
     }
-    if (!vmcs_get(env->vmx.vmcs, field, val)) {
+    return true;
+}
+
+static hwaddr vmx_shadow_field(CPUX86State *env, int slot)
+{
+    return x86_vmcs_read(env, VMCS_LINK_POINTER) + VMCS_FIELDS_OFFSET +
+           8 * slot;
+}
+
+static bool vmx_check_vmread(CPUX86State *env, target_ulong field,
+                             uint64_t *val, uintptr_t ra)
+{
+    int slot;
+
+    if (!vmx_check_vmcs(env, ra)) {
+        return false;
+    }
+    slot = vmcs_field_slot(field);
+    if (slot < 0) {
         vmx_fail(env, VMXERR_FIELD);
         return false;
     }
+    *val = vmcs_value(field, env->vmx.nonroot ?
+                      x86_ldq_phys(env_cpu(env), vmx_shadow_field(env, slot)) :
+                      env->vmx.vmcs[slot]);
     return true;
 }
 
@@ -773,10 +803,10 @@ void HELPER(vmread_mem)(CPUX86State *env, target_ulong field,
 
 static void vmx_vmwrite(CPUX86State *env, target_ulong field, uint64_t val)
 {
-    uint64_t old;
-    int slot;
+    CPUState *cs = env_cpu(env);
+    int slot = vmcs_field_slot(field);
 
-    if (!vmcs_get(env->vmx.vmcs, field, &old)) {
+    if (slot < 0) {
         vmx_fail(env, VMXERR_FIELD);
         return;
     }
@@ -785,19 +815,21 @@ static void vmx_vmwrite(CPUX86State *env, target_ulong field, uint64_t val)
         vmx_fail(env, VMXERR_READ_ONLY);
         return;
     }
-    slot = vmcs_slot(field & ~VMCS_ENC_HIGH);
-    vmcs_set(env->vmx.vmcs, slot, field, val);
+    if (env->vmx.nonroot) {
+        hwaddr addr = vmx_shadow_field(env, slot);
+
+        x86_stq_phys(cs, addr, vmcs_merge(field, x86_ldq_phys(cs, addr), val));
+    } else {
+        env->vmx.vmcs[slot] = vmcs_merge(field, env->vmx.vmcs[slot], val);
+    }
     vmx_succeed(env);
 }
 
 void HELPER(vmwrite)(CPUX86State *env, target_ulong field, target_ulong val)
 {
-    vmx_check_root(env, GETPC());
-    if (env->vmx.vmcs_ptr == ~0ULL) {
-        vmx_fail_invalid(env);
-        return;
+    if (vmx_check_vmcs(env, GETPC())) {
+        vmx_vmwrite(env, field, val);
     }
-    vmx_vmwrite(env, field, val);
 }
 
 void HELPER(vmwrite_mem)(CPUX86State *env, target_ulong field,
@@ -806,9 +838,7 @@ void HELPER(vmwrite_mem)(CPUX86State *env, target_ulong field,
     uintptr_t ra = GETPC();
     uint64_t val;
 
-    vmx_check_root(env, ra);
-    if (env->vmx.vmcs_ptr == ~0ULL) {
-        vmx_fail_invalid(env);
+    if (!vmx_check_vmcs(env, ra)) {
         return;
     }
     vmx_check_operand(env, ptr, 8, seg, ra);
@@ -1866,13 +1896,36 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
 }
 
 /*
- * The VMX instructions exit unconditionally in non-root operation; their
- * instruction information and displacement come from the translator.
+ * The VMX instructions exit unconditionally in non-root operation, but
+ * VMREAD and VMWRITE where "VMCS shadowing" lets them access the shadow
+ * VMCS: for a field encoding, in the register that bits 31:28 of the
+ * instruction information name, with bits 63:15 clear and its bit in the
+ * VMREAD or VMWRITE bitmap clear (Intel SDM 325462-093 Vol. 3C, 28.1.3).
+ * The instruction information and displacement come from the translator.
  */
+static bool vmx_shadowed(CPUX86State *env, uint32_t reason,
+                         uint32_t insn_info)
+{
+    uint64_t field = env->regs[insn_info >> 28];
+    uint64_t bitmap;
+
+    if (!(env->hflags & HF_CS64_MASK)) {
+        field = (uint32_t)field;
+    }
+    if ((reason != VMX_EXIT_VMREAD && reason != VMX_EXIT_VMWRITE) ||
+        !(vmx_proc2(env) & VMX_SECONDARY_EXEC_SHADOW_VMCS) || field >> 15) {
+        return false;
+    }
+    bitmap = reason == VMX_EXIT_VMREAD ? VMCS(VMREAD_BITMAP) :
+                                         VMCS(VMWRITE_BITMAP);
+    return !(x86_ldub_phys(env_cpu(env), bitmap + (field >> 3)) &
+             1 << (field & 7));
+}
+
 void HELPER(vmx_insn_exit)(CPUX86State *env, uint32_t reason,
                            uint32_t insn_info, target_ulong disp)
 {
-    if (env->vmx.nonroot) {
+    if (env->vmx.nonroot && !vmx_shadowed(env, reason, insn_info)) {
         VMCS_SET(EXIT_INSN_INFO, insn_info);
         x86_vmx_exit(env, reason, disp, GETPC());
     }
@@ -2489,6 +2542,11 @@ static bool vmx_controls_valid(CPUX86State *env)
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE) &&
         (proc2 & VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES)) {
+        return false;
+    }
+    if ((proc2 & VMX_SECONDARY_EXEC_SHADOW_VMCS) &&
+        (!vmx_addr_valid(env, VMCS(VMREAD_BITMAP), 4096) ||
+         !vmx_addr_valid(env, VMCS(VMWRITE_BITMAP), 4096))) {
         return false;
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
@@ -3241,7 +3299,9 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     int bad;
 
     vmx_check_root(env, GETPC());
-    if (env->vmx.vmcs_ptr == ~0ULL) {
+    /* A shadow VMCS cannot be entered (Intel SDM 325462-093 Vol. 3C, 29.1). */
+    if (env->vmx.vmcs_ptr == ~0ULL ||
+        x86_ldl_phys(cs, env->vmx.vmcs_ptr) >> 31) {
         vmx_fail_invalid(env);
         goto vmfail;
     }
