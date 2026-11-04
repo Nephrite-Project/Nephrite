@@ -1642,6 +1642,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             .ecx = 1,
             .reg = R_ECX,
         },
+        .tcg_features = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK,
         .migratable_flags = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK |
             XSTATE_ARCH_LBR_MASK,
     },
@@ -9580,6 +9581,7 @@ const char *x86_exception_name(int excp)
         [EXCP10_COPR]       = "COPR",
         [EXCP11_ALGN]       = "ALGN",
         [EXCP12_MCHK]       = "MCHK",
+        [EXCP15_CP]         = "CP",
         [EXCP_VMEXIT]       = "VMEXIT",
         [EXCP_SYSCALL]      = "SYSCALL",
         [EXCP_VSYSCALL]     = "VSYSCALL",

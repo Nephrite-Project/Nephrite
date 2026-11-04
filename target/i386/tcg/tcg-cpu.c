@@ -243,6 +243,14 @@ static void x86_tcg_cpu_xsave_init(void)
     XO(XSTATE_APX_BIT, apx_state);
 
 #undef XO
+
+    /*
+     * CET state is supervisor state: IA32_XSS manages it and only the
+     * compacted format holds it, so it has no offset of its own (Intel SDM
+     * 325462-093 Vol. 1, 13.2 and 13.5.9).
+     */
+    x86_ext_save_areas[XSTATE_CET_U_BIT].ecx = ESA_FEATURE_XSS_MASK;
+    x86_ext_save_areas[XSTATE_CET_S_BIT].ecx = ESA_FEATURE_XSS_MASK;
 }
 
 /*

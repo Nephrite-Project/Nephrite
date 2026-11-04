@@ -695,6 +695,32 @@ typedef enum X86Seg {
 #define MSR_IA32_PL3_SSP                0x000006a7       /* ring-3 shadow stack pointer */
 #define MSR_IA32_INT_SSP_TAB            0x000006a8       /* exception shadow stack table */
 
+/*
+ * IA32_U_CET and IA32_S_CET: shadow stacks have bits 1:0, indirect branch
+ * tracking bits 5:2 and 63:10 (Intel SDM 325462-093 Vol. 4, Table 2-2).
+ */
+#define CET_SH_STK_EN                   (1ULL << 0)
+#define CET_WR_SHSTK_EN                 (1ULL << 1)
+#define CET_ENDBR_EN                    (1ULL << 2)
+#define CET_LEG_IW_EN                   (1ULL << 3)
+#define CET_NO_TRACK_EN                 (1ULL << 4)
+#define CET_SUPPRESS_DIS                (1ULL << 5)
+#define CET_RESERVED                    (0xfULL << 6)
+#define CET_SUPPRESS                    (1ULL << 10)
+#define CET_WAIT_ENDBR                  (1ULL << 11)
+#define CET_SHSTK_MASK                  (CET_SH_STK_EN | CET_WR_SHSTK_EN)
+#define CET_IBT_MASK                    (~(CET_SHSTK_MASK | CET_RESERVED))
+
+/*
+ * #CP error codes (Intel SDM 325462-093 Vol. 3A, 7.15, "Event 21--Control
+ * Protection Exception").
+ */
+#define CP_NEAR_RET                     1
+#define CP_FAR_RET_IRET                 2
+#define CP_ENDBRANCH                    3
+#define CP_RSTORSSP                     4
+#define CP_SETSSBSY                     5
+
 #define XSTATE_FP_BIT                   0
 #define XSTATE_SSE_BIT                  1
 #define XSTATE_YMM_BIT                  2
@@ -1592,6 +1618,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define EXCP10_COPR     16
 #define EXCP11_ALGN     17
 #define EXCP12_MCHK     18
+#define EXCP15_CP       21
 
 #define EXCP_VMEXIT     0x100 /* only for system emulation */
 #define EXCP_SYSCALL    0x101 /* only for user emulation */
@@ -3626,6 +3653,58 @@ static inline bool x86_canonical(CPUX86State *env, uint64_t addr,
     int64_t high = (int64_t)addr >> (la57 ? 56 : 47);
 
     return high == 0 || high == -1;
+}
+
+static inline bool x86_has_shstk(CPUX86State *env)
+{
+    return env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_CET_SHSTK;
+}
+
+static inline bool x86_has_ibt(CPUX86State *env)
+{
+    return env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_CET_IBT;
+}
+
+/* IA32_PLn_SSP, the shadow-stack pointer for privilege level pl. */
+static inline uint64_t *x86_pl_ssp(CPUX86State *env, int pl)
+{
+    switch (pl) {
+    case 0:
+        return &env->pl0_ssp;
+    case 1:
+        return &env->pl1_ssp;
+    case 2:
+        return &env->pl2_ssp;
+    default:
+        return &env->pl3_ssp;
+    }
+}
+
+/*
+ * Whether the CET MSR msr can hold val: no reserved bit, no SUPPRESS with
+ * TRACKER = WAIT_FOR_ENDBRANCH, and canonical linear addresses, those of
+ * the shadow-stack pointers 4-byte aligned (Intel SDM 325462-093 Vol. 4,
+ * Table 2-2; Vol. 1, 18.2.3; Vol. 3A, 4.5.3).  WRMSR and XRSTORS refuse
+ * anything else with #GP (Intel SDM 325462-093 Vol. 1, 13.12).
+ */
+static inline bool x86_cet_msr_valid(CPUX86State *env, uint32_t msr,
+                                     uint64_t val)
+{
+    switch (msr) {
+    case MSR_IA32_U_CET:
+    case MSR_IA32_S_CET:
+        if ((val & CET_RESERVED) ||
+            (!x86_has_shstk(env) && (val & CET_SHSTK_MASK)) ||
+            (!x86_has_ibt(env) && (val & CET_IBT_MASK))) {
+            return false;
+        }
+        return !((val & CET_SUPPRESS) && (val & CET_WAIT_ENDBR)) &&
+               x86_canonical(env, val & ~0xfffULL, false);
+    case MSR_IA32_INT_SSP_TAB:
+        return x86_canonical(env, val, false);
+    default:
+        return !(val & 3) && x86_canonical(env, val, false);
+    }
 }
 
 static inline bool ctl_has_irq(CPUX86State *env)

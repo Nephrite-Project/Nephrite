@@ -94,9 +94,14 @@ target_ulong HELPER(read_cr8)(CPUX86State *env)
  */
 static bool cr0_valid(CPUX86State *env, uint64_t cr0)
 {
+    /*
+     * CR0.WP cannot be cleared while CR4.CET is set (Intel SDM 325462-093
+     * Vol. 3A, 2.5).
+     */
     if ((cr0 >> 32) ||
         ((cr0 & CR0_PG_MASK) && !(cr0 & CR0_PE_MASK)) ||
-        ((cr0 & CR0_NW_MASK) && !(cr0 & CR0_CD_MASK))) {
+        ((cr0 & CR0_NW_MASK) && !(cr0 & CR0_CD_MASK)) ||
+        ((env->cr[4] & CR4_CET_MASK) && !(cr0 & CR0_WP_MASK))) {
         return false;
     }
     if (env->vmx.on && !x86_vmx_cr_valid(env, 0, cr0)) {
@@ -122,12 +127,14 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
  * The CR4 writes MOV to CR4 refuses with #GP: reserved bits, which include
  * those of absent features, a change of LA57 or clearing PAE in IA-32e
  * mode, setting PCIDE outside IA-32e mode or with CR3[11:0] not 0 (the same
- * documents), and in VMX root operation what IA32_VMX_CR4_FIXED0 and FIXED1
- * do not allow.
+ * documents), setting CET without CR0.WP (Intel SDM 325462-093 Vol. 3A,
+ * 2.5), and in VMX root operation what IA32_VMX_CR4_FIXED0 and FIXED1 do
+ * not allow.
  */
 static bool cr4_valid(CPUX86State *env, uint64_t cr4)
 {
-    if (cr4 & cr4_reserved_bits(env)) {
+    if ((cr4 & cr4_reserved_bits(env)) ||
+        ((cr4 & CR4_CET_MASK) && !(env->cr[0] & CR0_WP_MASK))) {
         return false;
     }
     if (env->vmx.on && !x86_vmx_cr_valid(env, 4, cr4)) {
@@ -601,6 +608,40 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
         break;
+    /*
+     * IA32_U_CET and IA32_S_CET exist with either CET feature, the shadow
+     * stack pointers and their table with shadow stacks (Intel SDM
+     * 325462-093 Vol. 4, Table 2-2).
+     */
+    case MSR_IA32_U_CET:
+    case MSR_IA32_S_CET:
+        if ((!x86_has_shstk(env) && !x86_has_ibt(env)) ||
+            !x86_cet_msr_valid(env, msr, val)) {
+            return false;
+        }
+        if (msr == MSR_IA32_U_CET) {
+            env->u_cet = val;
+        } else {
+            env->s_cet = val;
+        }
+        break;
+    case MSR_IA32_PL0_SSP:
+    case MSR_IA32_PL1_SSP:
+    case MSR_IA32_PL2_SSP:
+    case MSR_IA32_PL3_SSP:
+        if (!x86_has_shstk(env) || !x86_cet_msr_valid(env, msr, val)) {
+            return false;
+        }
+        *x86_pl_ssp(env, msr - MSR_IA32_PL0_SSP) = val;
+        break;
+#ifdef TARGET_X86_64
+    case MSR_IA32_INT_SSP_TAB:
+        if (!x86_has_shstk(env) || !x86_cet_msr_valid(env, msr, val)) {
+            return false;
+        }
+        env->int_ssp_table = val;
+        break;
+#endif
     case MSR_MISC_FEATURES_ENABLES:
         /*
          * Bit 0 makes CPUID fault at CPL > 0 (Intel SDM 325462-093 Vol. 4,
@@ -953,6 +994,30 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_IA32_BNDCFGS:
         val = env->msr_bndcfgs;
         break;
+    case MSR_IA32_U_CET:
+    case MSR_IA32_S_CET:
+        if (!x86_has_shstk(env) && !x86_has_ibt(env)) {
+            return false;
+        }
+        val = msr == MSR_IA32_U_CET ? env->u_cet : env->s_cet;
+        break;
+    case MSR_IA32_PL0_SSP:
+    case MSR_IA32_PL1_SSP:
+    case MSR_IA32_PL2_SSP:
+    case MSR_IA32_PL3_SSP:
+        if (!x86_has_shstk(env)) {
+            return false;
+        }
+        val = *x86_pl_ssp(env, msr - MSR_IA32_PL0_SSP);
+        break;
+#ifdef TARGET_X86_64
+    case MSR_IA32_INT_SSP_TAB:
+        if (!x86_has_shstk(env)) {
+            return false;
+        }
+        val = env->int_ssp_table;
+        break;
+#endif
     case MSR_IA32_XSS:
         if (!(env->features[FEAT_XSAVE] & CPUID_XSAVE_XSAVES)) {
             return false;

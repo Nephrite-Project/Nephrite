@@ -55,11 +55,17 @@ G_NORETURN void HELPER(raise_gpf)(CPUX86State *env)
 static int check_exception(CPUX86State *env, int intno, int *error_code,
                            uintptr_t retaddr)
 {
+    /*
+     * The contributory exceptions: #DE, #TS, #NP, #SS, #GP, and #CP (Intel
+     * SDM 325462-093 Vol. 3A, Table 7-4).
+     */
     int first_contributory = env->old_exception == 0 ||
                               (env->old_exception >= 10 &&
-                               env->old_exception <= 13);
+                               env->old_exception <= 13) ||
+                              env->old_exception == EXCP15_CP;
     int second_contributory = intno == 0 ||
-                               (intno >= 10 && intno <= 13);
+                               (intno >= 10 && intno <= 13) ||
+                               intno == EXCP15_CP;
 
     qemu_log_mask(CPU_LOG_INT, "check_exception old: 0x%x (%s) new 0x%x (%s)\n",
                 env->old_exception,

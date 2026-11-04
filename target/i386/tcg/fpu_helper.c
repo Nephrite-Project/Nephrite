@@ -2825,6 +2825,8 @@ static uint32_t xsave_extent(uint64_t xcomp_bv, uint64_t mask)
 
 static void do_xsave_component(X86Access *ac, int i, target_ulong addr)
 {
+    CPUX86State *env = ac->env;
+
     switch (i) {
     case XSTATE_YMM_BIT:
         do_xsave_ymmh(ac, addr);
@@ -2837,6 +2839,15 @@ static void do_xsave_component(X86Access *ac, int i, target_ulong addr)
         break;
     case XSTATE_PKRU_BIT:
         do_xsave_pkru(ac, addr);
+        break;
+    case XSTATE_CET_U_BIT:
+        access_stq(ac, addr, env->u_cet);
+        access_stq(ac, addr + 8, env->pl3_ssp);
+        break;
+    case XSTATE_CET_S_BIT:
+        access_stq(ac, addr, env->pl0_ssp);
+        access_stq(ac, addr + 8, env->pl1_ssp);
+        access_stq(ac, addr + 16, env->pl2_ssp);
         break;
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
@@ -3260,6 +3271,15 @@ static void do_xrstor_component(X86Access *ac, int i, target_ulong addr,
             tlb_flush(cs);
         }
         break;
+    case XSTATE_CET_U_BIT:
+        env->u_cet = load ? access_ldq(ac, addr) : 0;
+        env->pl3_ssp = load ? access_ldq(ac, addr + 8) : 0;
+        break;
+    case XSTATE_CET_S_BIT:
+        env->pl0_ssp = load ? access_ldq(ac, addr) : 0;
+        env->pl1_ssp = load ? access_ldq(ac, addr + 8) : 0;
+        env->pl2_ssp = load ? access_ldq(ac, addr + 16) : 0;
+        break;
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
         if (load) {
@@ -3327,6 +3347,37 @@ static void do_xrstor(X86Access *ac, target_ulong ptr, uint64_t rfbm,
     }
 }
 
+/*
+ * Whether XRSTORS can load the CET state components in mask: it refuses
+ * values that their MSRs cannot hold (Intel SDM 325462-093 Vol. 1, 13.12).
+ */
+static bool valid_xrstor_cet(X86Access *ac, target_ulong ptr, uint64_t mask,
+                             uint64_t xcomp_bv)
+{
+    CPUX86State *env = ac->env;
+    target_ulong addr;
+    int i;
+
+    if (mask & XSTATE_CET_U_MASK) {
+        addr = ptr + xsave_offset(xcomp_bv, XSTATE_CET_U_BIT);
+        if (!x86_cet_msr_valid(env, MSR_IA32_U_CET, access_ldq(ac, addr)) ||
+            !x86_cet_msr_valid(env, MSR_IA32_PL3_SSP,
+                               access_ldq(ac, addr + 8))) {
+            return false;
+        }
+    }
+    if (mask & XSTATE_CET_S_MASK) {
+        addr = ptr + xsave_offset(xcomp_bv, XSTATE_CET_S_BIT);
+        for (i = 0; i < 3; i++) {
+            if (!x86_cet_msr_valid(env, MSR_IA32_PL0_SSP + i,
+                                   access_ldq(ac, addr + i * 8))) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 /* XRSTOR, and XRSTORS with supervisor set. */
 static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
                            bool supervisor, uintptr_t ra)
@@ -3357,6 +3408,9 @@ static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     if (size < size_ext) {
         /* TODO: See if existing page probe has covered extra size. */
         access_prepare(&ac, env, ptr, size_ext, MMU_DATA_LOAD, ra);
+    }
+    if (!valid_xrstor_cet(&ac, ptr, rfbm & xstate_bv, xcomp_bv)) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
     }
 
     do_xrstor(&ac, ptr, rfbm, xstate_bv, xcomp_bv);
