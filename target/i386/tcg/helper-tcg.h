@@ -104,6 +104,15 @@ uint64_t x86_tsc_read(CPUX86State *env);
 G_NORETURN void cpu_vmexit(CPUX86State *nenv, uint64_t exit_code,
                            uint64_t exit_info_1, uintptr_t retaddr);
 void do_vmexit(CPUX86State *env);
+target_ulong svm_next_rip(CPUX86State *env);
+
+/* system/avic.c */
+void svm_avic_init(X86CPU *cpu);
+void svm_avic_request(CPUX86State *env);
+bool svm_avic_has_interrupt(CPUX86State *env);
+int svm_avic_take_interrupt(CPUX86State *env);
+void svm_avic_set_tpr(CPUX86State *env, uint32_t tpr);
+void svm_avic_doorbell(CPUX86State *env, uint32_t apic_id);
 #endif
 
 /* seg_helper.c */

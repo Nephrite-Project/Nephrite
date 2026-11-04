@@ -41,6 +41,8 @@ typedef struct TranslateResult {
     hwaddr paddr;
     int prot;
     int page_size;
+    /* paddr is an offset in the AVIC address space's vAPIC page. */
+    bool avic;
 } TranslateResult;
 
 typedef enum TranslateFaultStage2 {
@@ -472,6 +474,22 @@ do_check_protect_pse36:
             goto do_fault_protect;
         }
 
+        /*
+         * xAVIC sends the guest's data accesses to its vAPIC page, which
+         * the nested page table must map, to the backing page instead
+         * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+         * 3.45, 15.29.3): to the AVIC address space's page.
+         */
+        if (unlikely(env->svm_avic) && !env->svm_x2avic &&
+            access_type != MMU_INST_FETCH &&
+            (paddr & TARGET_PAGE_MASK) == env->svm_avic_bar) {
+            out->paddr = paddr & ~TARGET_PAGE_MASK;
+            out->prot = prot & ~PAGE_EXEC;
+            out->page_size = TARGET_PAGE_SIZE;
+            out->avic = true;
+            return true;
+        }
+
         /* Merge stage1 & stage2 addresses to final physical address. */
         nested_page_size = 1 << full->lg_page_size;
         paddr = (full->phys_addr & ~(nested_page_size - 1))
@@ -558,6 +576,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
     TranslateParams in;
     bool use_stage2 = env->hflags2 & HF2_NPT_MASK;
 
+    out->avic = false;
     in.addr = addr;
     in.access_type = access_type;
 
@@ -704,14 +723,16 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
 
     if (get_physical_address(env, addr, access_type, mmu_idx, &out, &err,
                              retaddr)) {
+        MemTxAttrs attrs = cpu_get_mem_attrs(env);
+
+        attrs.avic = out.avic;
         /*
          * Even if 4MB pages, we map only one 4KB page in the cache to
          * avoid filling it too fast.
          */
         assert(out.prot & (1 << access_type));
         tlb_set_page_with_attrs(cs, addr & TARGET_PAGE_MASK,
-                                out.paddr & TARGET_PAGE_MASK,
-                                cpu_get_mem_attrs(env),
+                                out.paddr & TARGET_PAGE_MASK, attrs,
                                 out.prot, mmu_idx, out.page_size);
         return true;
     }

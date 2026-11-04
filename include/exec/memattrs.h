@@ -57,6 +57,9 @@ typedef struct MemTxAttrs {
     /* PCI - IOMMU operations, see PCIAddressType */
     unsigned int address_type:1;
 
+    /* x86: an access an SVM guest makes to its AVIC vAPIC page */
+    unsigned int avic:1;
+
     /*
      * Bus masters which don't specify any attributes will get this
      * (via the MEMTXATTRS_UNSPECIFIED constant), so that we can

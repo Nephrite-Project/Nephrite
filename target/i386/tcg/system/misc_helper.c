@@ -67,7 +67,11 @@ target_ulong HELPER(inl)(CPUX86State *env, uint32_t port)
 
 target_ulong HELPER(read_cr8)(CPUX86State *env)
 {
-    if (!(env->hflags2 & HF2_VINTR_MASK)) {
+    /*
+     * AVIC has CR8 be V_TPR whatever V_INTR_MASKING (AMD64 Architecture
+     * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.29.4.1).
+     */
+    if (!(env->hflags2 & HF2_VINTR_MASK) && !env->svm_avic) {
         return cpu_get_apic_tpr(env_archcpu(env)->apic_state);
     } else {
         return env->int_ctl & V_TPR_MASK;
@@ -111,6 +115,11 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         cpu_x86_update_cr4(env, t0);
         break;
     case 8:
+        /* Under AVIC, CR8 writes V_TPR and the backing page's TPR. */
+        if (env->svm_avic) {
+            svm_avic_set_tpr(env, (t0 & V_TPR_MASK) << 4);
+            break;
+        }
         if (!(env->hflags2 & HF2_VINTR_MASK)) {
             bql_lock();
             cpu_set_apic_tpr(env_archcpu(env)->apic_state, t0);
@@ -309,6 +318,17 @@ void HELPER(wrmsr)(CPUX86State *env)
         }
         env->amd_tsc_scale_msr = val;
         break;
+    case MSR_AMD64_AVIC_DOORBELL:
+        /*
+         * A doorbell to the processor whose APIC ID bits 7:0 give (AMD64
+         * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+         * 15.29.8.2).
+         */
+        if (!(env->features[FEAT_SVM] & CPUID_SVM_AVIC) || (val >> 8)) {
+            goto error;
+        }
+        svm_avic_doorbell(env, val);
+        break;
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
         break;
@@ -501,6 +521,9 @@ void HELPER(rdmsr)(CPUX86State *env)
         }
         val = env->amd_tsc_scale_msr;
         break;
+    case MSR_AMD64_AVIC_DOORBELL:
+        /* Write-only. */
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;
         break;

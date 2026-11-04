@@ -148,6 +148,60 @@ static void svm_load_lbr(CPUX86State *env, hwaddr addr)
                                                        save.last_excp_to));
 }
 
+/*
+ * AVIC, which needs nested paging, and x2AVIC, which needs AVIC, with
+ * their pointers in the physical address width and a physical APIC ID
+ * table of up to 256 entries for xAVIC, 512 for x2AVIC, else VMRUN fails
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+ * 15.29.4).
+ */
+static void svm_vmrun_avic(CPUX86State *env, SVMStateCache *c,
+                           uint32_t clean, uintptr_t retaddr)
+{
+    CPUState *cs = env_cpu(env);
+    uint64_t high = ~MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
+
+    env->svm_avic = (env->features[FEAT_SVM] & CPUID_SVM_AVIC) &&
+                    (env->int_ctl & AVIC_ENABLE_MASK);
+    env->svm_x2avic = (env->features[FEAT_SVM] & CPUID_SVM_X2AVIC) &&
+                      (env->int_ctl & X2AVIC_ENABLE_MASK);
+    if (env->svm_x2avic && !env->svm_avic) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, retaddr);
+    }
+    /*
+     * The processor may cache the group at any VMRUN, AVIC on or not, so
+     * a VMM that wrote it before turning AVIC on leaves it clean.
+     */
+    if (!(clean & SVM_CLEAN_AVIC)) {
+        c->avic_vapic_bar =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.avic_vapic_bar));
+        c->avic_backing_page =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.avic_backing_page));
+        c->avic_logical_id =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.avic_logical_id));
+        c->avic_physical_id =
+            x86_ldq_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.avic_physical_id));
+    }
+    if (!env->svm_avic) {
+        return;
+    }
+    env->svm_avic_bar = c->avic_vapic_bar & ~0xfffULL;
+    env->svm_avic_backing = c->avic_backing_page & ~0xfffULL;
+    env->svm_avic_logical = c->avic_logical_id & ~0xfffULL;
+    env->svm_avic_physical = c->avic_physical_id & ~0xfffULL;
+    env->svm_avic_max_index = c->avic_physical_id & 0xfff;
+    if (!(env->hflags2 & HF2_NPT_MASK) ||
+        ((env->svm_avic_bar | env->svm_avic_backing | env->svm_avic_logical |
+          env->svm_avic_physical) & high) ||
+        env->svm_avic_max_index > (env->svm_x2avic ? 511 : 255)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, retaddr);
+    }
+}
+
 /* The guest's DebugCtl and last branch MSRs, which the cache now holds. */
 static void svm_cache_lbr(CPUX86State *env, SVMStateCache *c)
 {
@@ -184,17 +238,21 @@ static void svm_cache_seg(CPUX86State *env, SegmentCache *dst,
  * The guest's translations outlive #VMEXIT and VMRUN, tagged with its
  * ASID, until TLB_CONTROL or the guest drops them (AMD64 Architecture
  * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16.1). Guest mode's
- * MMU indexes hold those of one ASID, made under one CR4 protection and
- * nested paging mode, as their entries hold what those decided.
+ * MMU indexes hold those of one ASID, made under one CR4 protection,
+ * nested paging mode, and xAVIC vAPIC base, as their entries hold what
+ * those decided.
  */
 static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
 {
     CPUState *cs = env_cpu(env);
     uint8_t tlb_ctl = x86_ldub_phys(cs, env->vm_vmcb +
                                     offsetof(struct vmcb, control.tlb_ctl));
+    hwaddr avic_bar = env->svm_avic && !env->svm_x2avic ?
+                      env->svm_avic_bar : (hwaddr)-1;
     bool flush_guest = asid != env->svm_tlb_asid ||
                        ((env->cr[4] ^ env->svm_tlb_cr4) & SVM_TLB_CR4_BITS) ||
-                       env->nested_pg_mode != env->svm_tlb_nested_pg_mode;
+                       env->nested_pg_mode != env->svm_tlb_nested_pg_mode ||
+                       avic_bar != env->svm_tlb_avic_bar;
 
     switch (tlb_ctl) {
     case TLB_CONTROL_DO_NOTHING:
@@ -222,6 +280,7 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
     env->svm_tlb_asid = asid;
     env->svm_tlb_cr4 = env->cr[4];
     env->svm_tlb_nested_pg_mode = env->nested_pg_mode;
+    env->svm_tlb_avic_bar = avic_bar;
 }
 
 static inline bool is_efer_invalid_state (CPUX86State *env)
@@ -559,6 +618,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (svm_vnmi_enabled(env) && !cpu_svm_has_intercept(env, SVM_EXIT_NMI)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
+    svm_vmrun_avic(env, c, clean, GETPC());
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
     if (env->int_ctl & V_INTR_MASKING_MASK) {
         env->hflags2 |= HF2_VINTR_MASK;
@@ -653,7 +713,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
 
     env->hflags2 |= HF2_GIF_MASK;
 
-    if (ctl_has_irq(env)) {
+    /* AVIC looks at the backing page upon entry into the guest. */
+    if (env->svm_avic) {
+        svm_avic_request(env);
+    } else if (ctl_has_irq(env)) {
         cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
     }
     if (svm_vnmi_enabled(env) && (env->int_ctl & V_NMI_PENDING_MASK)) {
@@ -1076,7 +1139,7 @@ static bool svm_exit_saves_next_rip(uint64_t exit_code)
 }
 
 /* The RIP a trap after the current instruction would push. */
-static target_ulong svm_next_rip(CPUX86State *env)
+target_ulong svm_next_rip(CPUX86State *env)
 {
     target_ulong next = env->eip + env->svm_insn_len;
 
@@ -1287,6 +1350,8 @@ load_host:
         svm_load_lbr(env, env->vm_hsave);
         env->svm_lbr_virt = false;
     }
+    env->svm_avic = false;
+    env->svm_x2avic = false;
 
     env->gdt.base  = x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                        save.gdtr.base));

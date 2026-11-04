@@ -140,12 +140,24 @@ void x86_cpu_do_interrupt(CPUState *cs)
 void x86_cpu_poll_during_halt(CPUState *cpu)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
+    CPUX86State *env = &x86_cpu->env;
 
     if (cpu_test_interrupt(cpu, CPU_INTERRUPT_POLL)) {
         bql_lock();
         apic_poll_irq(x86_cpu->apic_state);
         cpu_reset_interrupt(cpu, CPU_INTERRUPT_POLL);
         bql_unlock();
+    }
+    /*
+     * Under AVIC, only an interrupt the backing page can deliver ends HLT;
+     * a doorbell setting an IRR bit after the look requests another.
+     */
+    if (env->svm_avic && cpu_test_interrupt(cpu, CPU_INTERRUPT_VIRQ)) {
+        cpu_reset_interrupt(cpu, CPU_INTERRUPT_VIRQ);
+        smp_mb();
+        if (svm_avic_has_interrupt(env)) {
+            cpu_set_interrupt(cpu, CPU_INTERRUPT_VIRQ);
+        }
     }
 }
 
@@ -227,13 +239,36 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         break;
     case CPU_INTERRUPT_HARD:
         cpu_svm_check_intercept_param(env, SVM_EXIT_INTR, 0, 0);
-        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD | CPU_INTERRUPT_VIRQ);
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD |
+                                (env->svm_avic ? 0 : CPU_INTERRUPT_VIRQ));
         intno = cpu_get_pic_interrupt(env);
         qemu_log_mask(CPU_LOG_INT,
                       "Servicing hardware INT=0x%02x\n", intno);
         do_interrupt_x86_hardirq(env, intno, 1);
         break;
     case CPU_INTERRUPT_VIRQ:
+        /*
+         * Under AVIC, the request is to look at the backing page, which
+         * doorbells make; V_IRQ and the VINTR intercept no longer apply
+         * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+         * 3.45, 15.29.8.3). A doorbell may also find a vCPU running
+         * without AVIC, or none.
+         */
+        if (env->svm_avic) {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
+            smp_mb();
+            intno = svm_avic_take_interrupt(env);
+            if (intno < 0) {
+                return false;
+            }
+            qemu_log_mask(CPU_LOG_INT, "Servicing AVIC INT=0x%02x\n", intno);
+            do_interrupt_x86_hardirq(env, intno, 1);
+            break;
+        }
+        if (!(env->hflags & HF_GUEST_MASK) || !ctl_has_irq(env)) {
+            cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
+            return false;
+        }
         cpu_svm_check_intercept_param(env, SVM_EXIT_VINTR, 0, 0);
         intno = env->svm_int_vector & 0xff;
         qemu_log_mask(CPU_LOG_INT,

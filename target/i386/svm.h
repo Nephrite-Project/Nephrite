@@ -26,6 +26,9 @@
 #define V_NMI_ENABLE_SHIFT 26
 #define V_NMI_ENABLE_MASK (1 << V_NMI_ENABLE_SHIFT)
 
+#define X2AVIC_ENABLE_MASK (1u << 30)
+#define AVIC_ENABLE_MASK (1u << 31)
+
 #define V_INTR_PRIO_SHIFT 16
 #define V_INTR_PRIO_MASK (0x0f << V_INTR_PRIO_SHIFT)
 
@@ -154,6 +157,8 @@
 #define SVM_EXIT_BUSLOCK        0x0a5
 #define SVM_EXIT_IDLE_HLT       0x0a6
 #define SVM_EXIT_NPF            0x400
+#define SVM_EXIT_AVIC_INCOMPLETE_IPI 0x401
+#define SVM_EXIT_AVIC_NOACCEL   0x402
 
 #define SVM_EXIT_ERR            -1
 
@@ -212,7 +217,8 @@ struct QEMU_PACKED vmcb_control_area {
     uint32_t exit_int_info;
     uint32_t exit_int_info_err;
     uint64_t nested_ctl;
-    uint8_t reserved_4[16];
+    uint64_t avic_vapic_bar;
+    uint8_t reserved_4[8];
     uint32_t event_inj;
     uint32_t event_inj_err;
     uint64_t nested_cr3;
@@ -222,7 +228,11 @@ struct QEMU_PACKED vmcb_control_area {
     uint64_t next_rip;
     uint8_t insn_len;
     uint8_t insn_bytes[15];
-    uint8_t reserved_6[800];
+    uint64_t avic_backing_page;
+    uint8_t reserved_6[8];
+    uint64_t avic_logical_id;
+    uint64_t avic_physical_id;
+    uint8_t reserved_7[768];
 };
 
 struct QEMU_PACKED vmcb_seg {

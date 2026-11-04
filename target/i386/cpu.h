@@ -602,6 +602,7 @@ typedef enum X86Seg {
 #define MSR_K7_HWCR                     0xc0010015
 
 #define MSR_VM_HSAVE_PA                 0xc0010117
+#define MSR_AMD64_AVIC_DOORBELL         0xc001011b
 
 #define MSR_IA32_XFD                    0x000001c4
 #define MSR_IA32_XFD_ERR                0x000001c5
@@ -917,6 +918,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_V_VMSAVE_VMLOAD (1U << 15)
 #define CPUID_SVM_VGIF            (1U << 16)
 #define CPUID_SVM_GMET            (1U << 17)
+#define CPUID_SVM_X2AVIC          (1U << 18)
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
@@ -2074,6 +2076,11 @@ typedef struct SVMStateCache {
     SegmentCache segs[4];
     /* CR2 */
     uint64_t cr2;
+    /* AVIC */
+    uint64_t avic_vapic_bar;
+    uint64_t avic_backing_page;
+    uint64_t avic_logical_id;
+    uint64_t avic_physical_id;
     /* LBR, where LBR virtualization loaded it */
     bool lbr_virt;
     uint64_t dbgctl;
@@ -2345,6 +2352,19 @@ typedef struct CPUArchState {
     bool svm_insn_bytes_valid;
     /* LBR virtualization has swapped DebugCtl and the last branch MSRs. */
     bool svm_lbr_virt;
+    /*
+     * AVIC, in xAVIC or x2AVIC mode, with the guest's vAPIC base, its backing
+     * page, and the VM's logical and physical APIC ID tables; and the vAPIC
+     * base that guest mode's translations were made under, ~0 for none.
+     */
+    bool svm_avic;
+    bool svm_x2avic;
+    hwaddr svm_avic_bar;
+    hwaddr svm_avic_backing;
+    hwaddr svm_avic_logical;
+    hwaddr svm_avic_physical;
+    uint32_t svm_avic_max_index;
+    hwaddr svm_tlb_avic_bar;
 
     /* DebugCtl, and the last control transfers it has had recorded. */
     uint64_t debugctl;
@@ -2658,6 +2678,8 @@ struct ArchCPU {
        user */
     APICCommonState *apic_state;
     struct MemoryRegion *cpu_as_root, *cpu_as_mem, *smram;
+    /* TCG: the address space of SVM AVIC's guest vAPIC page. */
+    struct MemoryRegion *avic_page;
     Notifier machine_done;
 
     struct kvm_msrs *kvm_msr_buf;
@@ -2909,12 +2931,17 @@ void cpu_sync_apx_hflag(CPUX86State *env);
 typedef enum X86ASIdx {
     X86ASIdx_MEM = 0,
     X86ASIdx_SMM = 1,
-    X86ASIdx_MAX = X86ASIdx_SMM
+    /* TCG: SVM AVIC's guest vAPIC page, whose accesses it filters. */
+    X86ASIdx_AVIC = 2,
+    X86ASIdx_MAX = X86ASIdx_AVIC
 } X86ASIdx;
 
 #ifndef CONFIG_USER_ONLY
 static inline int x86_asidx_from_attrs(CPUState *cs, MemTxAttrs attrs)
 {
+    if (attrs.avic) {
+        return X86ASIdx_AVIC;
+    }
     return !!attrs.secure;
 }
 
