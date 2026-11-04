@@ -170,7 +170,7 @@ uint32_t x86_vmx_lmsw(CPUX86State *env, uint32_t src, bool mem,
 void x86_vmx_task_switch(CPUX86State *env, int selector, int source,
                          uintptr_t ra);
 void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
-                         int error_code, int is_hw, int rm);
+                         int error_code, int is_hw, bool has_error_code);
 void x86_vmx_event_end(CPUX86State *env);
 void x86_vmx_do_vmexit(CPUX86State *env);
 G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps);

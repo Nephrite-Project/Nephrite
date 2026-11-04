@@ -2095,7 +2095,7 @@ void x86_vmx_task_switch(CPUX86State *env, int selector, int source,
  * exit during it reports (Intel SDM 325462-093 Vol. 3C, 30.2.4).
  */
 void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
-                         int error_code, int is_hw, int rm)
+                         int error_code, int is_hw, bool has_error_code)
 {
     uint32_t type;
 
@@ -2113,8 +2113,7 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
     env->vmx.idt_vectoring_info = intno | type << VMX_INTR_TYPE_SHIFT |
                                   VMX_INTR_VALID;
     env->vmx.idt_vectoring_error = 0;
-    if (type == VMX_INTR_TYPE_HW_EXCEPTION && !rm &&
-        exception_has_error_code(intno)) {
+    if (type == VMX_INTR_TYPE_HW_EXCEPTION && has_error_code) {
         env->vmx.idt_vectoring_info |= VMX_INTR_ERROR_VALID;
         env->vmx.idt_vectoring_error = error_code;
     }
@@ -2620,9 +2619,14 @@ static bool vmx_injection_valid(CPUX86State *env)
     if (error && (real || type != VMX_INTR_TYPE_HW_EXCEPTION)) {
         return false;
     }
+    /*
+     * Without IA32_VMX_BASIC[56], exactly #DF, #TS, #NP, #SS, #GP, #PF, and
+     * #AC come with error codes: not #CP (Intel SDM 325462-093 Vol. 3C,
+     * 29.2.1.3).
+     */
     if (!(env->features[FEAT_VMX_BASIC] & MSR_VMX_BASIC_ANY_ERRCODE) &&
         error != (!real && type == VMX_INTR_TYPE_HW_EXCEPTION &&
-                  exception_has_error_code(vector))) {
+                  vector != EXCP15_CP && exception_has_error_code(vector))) {
         return false;
     }
     if (error && (VMCS(ENTRY_EXCEPTION_ERROR) >> 16)) {
@@ -3326,6 +3330,8 @@ static void vmx_inject(CPUX86State *env)
     case VMX_INTR_TYPE_HW_EXCEPTION:
         cs->exception_index = vector;
         env->error_code = VMCS(ENTRY_EXCEPTION_ERROR);
+        env->vmx.inject_exception = true;
+        env->vmx.inject_error = info & VMX_INTR_ERROR_VALID;
         env->exception_is_int = 0;
         env->exception_next_eip = -1;
         if (vector == EXCP0E_PAGE || vector == EXCP08_DBLE ||

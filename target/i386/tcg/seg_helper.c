@@ -875,12 +875,12 @@ int exception_has_error_code(int intno)
 /* protected mode interrupt */
 static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
                                    int error_code, unsigned int next_eip,
-                                   int is_hw)
+                                   int is_hw, int has_error_code)
 {
     SegmentCache *dt;
     target_ulong ptr;
     int type, dpl, selector, ss_dpl, cpl;
-    int has_error_code, new_stack, shift;
+    int new_stack, shift;
     uint32_t e1, e2, offset, ss = 0, ss_e1 = 0, ss_e2 = 0;
     uint32_t old_eip, eflags;
     int vm86 = env->eflags & VM_MASK;
@@ -893,10 +893,6 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
     StackAccess sa;
     bool set_rf;
 
-    has_error_code = 0;
-    if (!is_int && !is_hw) {
-        has_error_code = exception_has_error_code(intno);
-    }
     if (is_int) {
         old_eip = next_eip;
         set_rf = false;
@@ -1156,22 +1152,19 @@ static inline target_ulong get_rsp_from_tss(CPUX86State *env, int level,
 
 /* 64 bit interrupt */
 static void do_interrupt64(CPUX86State *env, int intno, int is_int,
-                           int error_code, target_ulong next_eip, int is_hw)
+                           int error_code, target_ulong next_eip, int is_hw,
+                           int has_error_code)
 {
     SegmentCache *dt;
     target_ulong ptr;
     int type, dpl, selector, cpl, ist;
-    int has_error_code, new_stack;
+    int new_stack;
     uint32_t e1, e2, e3, eflags;
     target_ulong old_eip, offset;
     int ext = !is_int; /* as do_interrupt_protected()'s */
     bool set_rf;
     StackAccess sa;
 
-    has_error_code = 0;
-    if (!is_int && !is_hw) {
-        has_error_code = exception_has_error_code(intno);
-    }
     if (is_int) {
         old_eip = next_eip;
         set_rf = false;
@@ -1456,7 +1449,20 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
     target_ulong from = env->eip;
+    /*
+     * Outside real mode, an exception pushes an error code by its vector,
+     * and one VM entry injects as the injected-event identification field
+     * says (Intel SDM 325462-093 Vol. 3C, 29.6.1.1).
+     */
+    int has_error_code = (env->cr[0] & CR0_PE_MASK) && !is_int && !is_hw &&
+                         exception_has_error_code(intno);
 
+#if !defined(CONFIG_USER_ONLY)
+    if (env->vmx.inject_exception) {
+        has_error_code = env->vmx.inject_error;
+        env->vmx.inject_exception = false;
+    }
+#endif
     if (qemu_loglevel_mask(CPU_LOG_INT)) {
         if ((env->cr[0] & CR0_PE_MASK)) {
             static int count;
@@ -1502,24 +1508,26 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     if (env->cr[0] & CR0_PE_MASK) {
 #if !defined(CONFIG_USER_ONLY)
         if (env->vmx.nonroot) {
-            x86_vmx_event_start(env, intno, is_int, error_code, is_hw, 0);
+            x86_vmx_event_start(env, intno, is_int, error_code, is_hw,
+                                has_error_code);
         } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 0);
         }
 #endif
 #ifdef TARGET_X86_64
         if (env->hflags & HF_LMA_MASK) {
-            do_interrupt64(env, intno, is_int, error_code, next_eip, is_hw);
+            do_interrupt64(env, intno, is_int, error_code, next_eip, is_hw,
+                           has_error_code);
         } else
 #endif
         {
             do_interrupt_protected(env, intno, is_int, error_code, next_eip,
-                                   is_hw);
+                                   is_hw, has_error_code);
         }
     } else {
 #if !defined(CONFIG_USER_ONLY)
         if (env->vmx.nonroot) {
-            x86_vmx_event_start(env, intno, is_int, error_code, is_hw, 1);
+            x86_vmx_event_start(env, intno, is_int, error_code, is_hw, false);
         } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 1);
         }

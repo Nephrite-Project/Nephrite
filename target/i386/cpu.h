@@ -2261,6 +2261,12 @@ typedef struct X86VMXState {
     uint64_t exception_qual;
     /* The interruption type of INT3, INTO, or INT1 being raised, else 0. */
     uint8_t soft_exception;
+    /*
+     * A hardware exception VM entry injects, until its delivery begins,
+     * and whether it pushes an error code.
+     */
+    bool inject_exception;
+    bool inject_error;
     /* The exit under way is due to an NMI. */
     bool exit_nmi;
     /* The HLT state ended for an event not taken yet. */
