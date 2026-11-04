@@ -3962,6 +3962,27 @@ static void gen_VMWRITEm(DisasContext *s, X86DecodedInsn *decode)
                            tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
 }
+
+/*
+ * XSAVES and XRSTORS check what VMX non-root operation asks of them, with
+ * the instruction information of an exit's memory operand.
+ */
+static void gen_vmx_xsaves(DisasContext *s, X86DecodedInsn *decode,
+                           uint32_t reason, TCGv_i64 features)
+{
+    if (GUEST(s)) {
+        gen_update_cc_op(s);
+        gen_update_eip_cur(s);
+        gen_helper_vmx_xsaves(tcg_env, tcg_constant_i32(reason),
+                              tcg_constant_i32(vmx_mem_insn_info(s, decode)),
+                              tcg_constant_tl(decode->mem.disp), features);
+    }
+}
+#else
+static void gen_vmx_xsaves(DisasContext *s, X86DecodedInsn *decode,
+                           uint32_t reason, TCGv_i64 features)
+{
+}
 #endif
 
 #ifndef CONFIG_USER_ONLY
@@ -5267,6 +5288,7 @@ static void gen_XRSTORS(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i64 features = tcg_temp_new_i64();
 
     tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
+    gen_vmx_xsaves(s, decode, VMX_EXIT_XRSTORS, features);
     gen_helper_xrstors(tcg_env, s->A0, features);
     if (s->cpuid_7_0_ebx_features & CPUID_7_0_EBX_MPX) {
         /* As for XRSTOR.  */
@@ -5303,5 +5325,6 @@ static void gen_XSAVES(DisasContext *s, X86DecodedInsn *decode)
     TCGv_i64 features = tcg_temp_new_i64();
 
     tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
+    gen_vmx_xsaves(s, decode, VMX_EXIT_XSAVES, features);
     gen_helper_xsaves(tcg_env, s->A0, features);
 }

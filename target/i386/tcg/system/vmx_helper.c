@@ -83,6 +83,7 @@
 #define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
 #define VMCS_VMREAD_BITMAP 0x2026
 #define VMCS_VMWRITE_BITMAP 0x2028
+#define VMCS_XSS_EXIT_BITMAP 0x202c
 #define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
@@ -3700,6 +3701,37 @@ void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra)
                                  VMX_SECONDARY_EXEC_RDRAND_EXITING)) {
         VMCS_SET(EXIT_INSN_INFO, info & ~(1u << 31));
         x86_vmx_exit(env, seed ? VMX_EXIT_RDSEED : VMX_EXIT_RDRAND, 0, ra);
+    }
+}
+
+/*
+ * XSAVES and XRSTORS need "enable XSAVES/XRSTORS" in non-root operation,
+ * and exit where EDX:EAX, IA32_XSS, and the XSS-exiting bitmap share a
+ * bit (Intel SDM 325462-093 Vol. 3C, 28.1.3 and 28.3), with the memory
+ * operand in the instruction information (Intel SDM 325462-093 Vol. 3C,
+ * Table 30-14). #UD, #NM, and the #GP of CPL > 0 come before the exit
+ * and the operand's faults after it: Intel SDM 325462-093 Vol. 3C, 28.1.1
+ * has #UD go first but does not name #NM, which Intel SDM 325462-093 Vol.
+ * 3A, Table 7-2 counts with #UD as a fault of decoding, and which an Intel
+ * processor raised first. The XSAVES and XRSTORS helpers raise the faults
+ * this one leaves.
+ */
+void HELPER(vmx_xsaves)(CPUX86State *env, uint32_t reason, uint32_t info,
+                        target_ulong disp, uint64_t rfbm)
+{
+    if (!env->vmx.nonroot || !(env->cr[4] & CR4_OSXSAVE_MASK)) {
+        return;
+    }
+    if (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_XSAVES)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+    if (env->cr[0] & CR0_TS_MASK) {
+        raise_exception_ra(env, EXCP07_PREX, GETPC());
+    }
+    if (!(env->hflags & HF_CPL_MASK) &&
+        (rfbm & env->xss & VMCS(XSS_EXIT_BITMAP))) {
+        VMCS_SET(EXIT_INSN_INFO, info);
+        x86_vmx_exit(env, reason, disp, GETPC());
     }
 }
 
