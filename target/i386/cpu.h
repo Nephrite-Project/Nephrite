@@ -510,6 +510,9 @@ typedef enum X86Seg {
 #define MSR_IA32_SYSENTER_ESP           0x175
 #define MSR_IA32_SYSENTER_EIP           0x176
 
+#define MSR_P5_MC_ADDR                  0x0
+#define MSR_P5_MC_TYPE                  0x1
+
 #define MSR_MCG_CAP                     0x179
 #define MSR_MCG_STATUS                  0x17a
 #define MSR_MCG_CTL                     0x17b

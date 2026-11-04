@@ -507,6 +507,14 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_MCG_STATUS:
         env->mcg_status = val;
         break;
+    /*
+     * The Pentium's machine-check MSRs (Intel SDM 325462-093 Vol. 4, Table
+     * 2-2) read 0 and refuse writes, as Linux 7.3's KVM has them
+     * (get_msr_mce()).
+     */
+    case MSR_P5_MC_ADDR:
+    case MSR_P5_MC_TYPE:
+        return false;
     case MSR_MCG_CTL:
         if ((env->mcg_cap & MCG_CTL_P)
             && (val == 0 || val == ~(uint64_t)0)) {
@@ -845,6 +853,10 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
             /* XXX: exception? */
             val = 0;
         }
+        break;
+    case MSR_P5_MC_ADDR:
+    case MSR_P5_MC_TYPE:
+        val = 0;
         break;
     case MSR_MCG_CAP:
         val = env->mcg_cap;
