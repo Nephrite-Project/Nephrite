@@ -10706,7 +10706,12 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
             !(env->hflags & HF_SMM_MASK)) {
             return CPU_INTERRUPT_SMI;
         } else if ((interrupt_request & CPU_INTERRUPT_NMI) &&
-                   !(env->hflags2 & HF2_NMI_MASK)) {
+                   !(env->hflags2 & HF2_NMI_MASK) &&
+                   !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
+            /*
+             * The MOV SS shadow blocks NMIs, and STI's may (Intel SDM
+             * 325462-093 Vol. 3C, Table 27-3).
+             */
             return CPU_INTERRUPT_NMI;
         } else if ((interrupt_request & CPU_INTERRUPT_VNMI) &&
                    svm_vnmi_enabled(env) &&
