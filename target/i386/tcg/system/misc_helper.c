@@ -492,6 +492,18 @@ void HELPER(wrmsr)(CPUX86State *env)
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
         break;
+    case MSR_DR0_ADDR_MASK:
+    case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
+        int index = (uint32_t)env->regs[R_ECX] == MSR_DR0_ADDR_MASK ? 0 :
+                    (uint32_t)env->regs[R_ECX] - MSR_DR1_ADDR_MASK + 1;
+
+        /* Bits 63:32 are reserved. */
+        if (!x86_dr_addr_mask_exists(env, index) || (val >> 32)) {
+            goto error;
+        }
+        x86_set_dr_addr_mask(env, index, val);
+        break;
+    }
     case MSR_IA32_XSS:
         /*
          * It may hold the supervisor state components CPUID.(EAX=0DH,
@@ -733,6 +745,17 @@ void HELPER(rdmsr)(CPUX86State *env)
         }
         val = env->xss;
         break;
+    case MSR_DR0_ADDR_MASK:
+    case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
+        int index = (uint32_t)env->regs[R_ECX] == MSR_DR0_ADDR_MASK ? 0 :
+                    (uint32_t)env->regs[R_ECX] - MSR_DR1_ADDR_MASK + 1;
+
+        if (!x86_dr_addr_mask_exists(env, index)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        }
+        val = env->dr_addr_mask[index];
+        break;
+    }
      case MSR_IA32_UCODE_REV:
         val = x86_cpu->ucode_rev;
         break;

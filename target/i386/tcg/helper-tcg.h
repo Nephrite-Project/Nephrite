@@ -132,6 +132,7 @@ void do_smm_enter(X86CPU *cpu);
 
 /* system/bpt_helper.c */
 bool check_hw_breakpoints(CPUX86State *env, bool force_dr6_update);
+bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);
 
 /*
  * Do the tasks usually performed by gen_eob().  Callers of this function

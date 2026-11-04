@@ -629,6 +629,8 @@ typedef enum X86Seg {
 
 #define MSR_IA32_BNDCFGS                0x00000d90
 #define MSR_IA32_XSS                    0x00000da0
+#define MSR_DR1_ADDR_MASK               0xc0011019 /* to DR3's, 0xc001101b */
+#define MSR_DR0_ADDR_MASK               0xc0011027
 #define MSR_IA32_UMWAIT_CONTROL         0xe1
 
 #define MSR_IA32_VMX_BASIC              0x00000480
@@ -912,6 +914,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_EXT3_TOPOEXT (1U << 22)
 #define CPUID_EXT3_PERFCORE (1U << 23)
 #define CPUID_EXT3_PERFNB  (1U << 24)
+#define CPUID_EXT3_BPEXT   (1U << 26) /* DataBkptExt: DR0_ADDR_MASK */
+#define CPUID_EXT3_ADDRMASKEXT (1U << 30) /* DR1-3_ADDR_MASK too */
 
 #define CPUID_SVM_NPT             (1U << 0)
 #define CPUID_SVM_LBRV            (1U << 1)
@@ -2312,6 +2316,7 @@ typedef struct CPUArchState {
     int exception_is_int;
     target_ulong exception_next_eip;
     target_ulong dr[8]; /* debug registers; note dr4 and dr5 are unused */
+    uint64_t dr_addr_mask[4]; /* AMD DR0-3_ADDR_MASK */
     union {
         struct CPUBreakpoint *cpu_breakpoint[4];
         struct CPUWatchpoint *cpu_watchpoint[4];
@@ -2983,6 +2988,8 @@ void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3);
 void x86_update_lam(CPUX86State *env);
 void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4);
 void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7);
+bool x86_dr_addr_mask_exists(CPUX86State *env, int index);
+void x86_set_dr_addr_mask(CPUX86State *env, int index, uint64_t mask);
 
 /* hw/pc.c */
 uint64_t cpu_get_tsc(CPUX86State *env);

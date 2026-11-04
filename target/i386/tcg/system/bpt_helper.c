@@ -52,6 +52,59 @@ static inline int hw_breakpoint_len(unsigned long dr7, int index)
     return (len == 2) ? 8 : len + 1;
 }
 
+/*
+ * AMD's DR0_ADDR_MASK comes with DataBkptExt, those of DR1-3 with
+ * AddrMaskExt; bits set exclude address bits from data breakpoint matches
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+ * 13.1.7).  Instruction breakpoints still match one address only.
+ */
+bool x86_dr_addr_mask_exists(CPUX86State *env, int index)
+{
+    uint32_t ecx = env->features[FEAT_8000_0001_ECX];
+
+    return ecx & CPUID_EXT3_ADDRMASKEXT ||
+           (index == 0 && (ecx & CPUID_EXT3_BPEXT));
+}
+
+/* The address bits a data breakpoint leaves out of its match. */
+static uint64_t hw_breakpoint_ignored(CPUX86State *env, int index)
+{
+    uint64_t ignored = hw_breakpoint_len(env->dr[7], index) - 1;
+
+    if (x86_dr_addr_mask_exists(env, index)) {
+        ignored |= env->dr_addr_mask[index];
+    }
+    return ignored;
+}
+
+static int hw_watchpoint_insert(CPUX86State *env, int index, int flags)
+{
+    uint64_t ignored = hw_breakpoint_ignored(env, index);
+    vaddr addr = env->dr[index] & ~ignored;
+
+    /*
+     * One range from the lowest address that matches to the highest;
+     * x86_debug_check_watchpoint() drops what a mask with holes leaves.
+     */
+    return cpu_watchpoint_insert(env_cpu(env), addr,
+                                 (env->dr[index] | ignored) - addr + 1,
+                                 flags, &env->cpu_watchpoint[index]);
+}
+
+bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp)
+{
+    CPUX86State *env = cpu_env(cs);
+    int i;
+
+    for (i = 0; i < DR7_MAX_BP; i++) {
+        if (env->cpu_watchpoint[i] == wp) {
+            return !((wp->hitaddr ^ env->dr[i]) &
+                     ~hw_breakpoint_ignored(env, i));
+        }
+    }
+    return true;
+}
+
 static int hw_breakpoint_insert(CPUX86State *env, int index)
 {
     CPUState *cs = env_cpu(env);
@@ -74,19 +127,13 @@ static int hw_breakpoint_insert(CPUX86State *env, int index)
 
     case DR7_TYPE_DATA_WR:
         if (hw_breakpoint_enabled(dr7, index)) {
-            err = cpu_watchpoint_insert(cs, drN,
-                                        hw_breakpoint_len(dr7, index),
-                                        BP_CPU | BP_MEM_WRITE,
-                                        &env->cpu_watchpoint[index]);
+            err = hw_watchpoint_insert(env, index, BP_CPU | BP_MEM_WRITE);
         }
         break;
 
     case DR7_TYPE_DATA_RW:
         if (hw_breakpoint_enabled(dr7, index)) {
-            err = cpu_watchpoint_insert(cs, drN,
-                                        hw_breakpoint_len(dr7, index),
-                                        BP_CPU | BP_MEM_ACCESS,
-                                        &env->cpu_watchpoint[index]);
+            err = hw_watchpoint_insert(env, index, BP_CPU | BP_MEM_ACCESS);
         }
         break;
     }
@@ -119,6 +166,18 @@ static void hw_breakpoint_remove(CPUX86State *env, int index)
     case DR7_TYPE_IO_RW:
         /* HF_IOBPT_MASK cleared elsewhere.  */
         break;
+    }
+}
+
+void x86_set_dr_addr_mask(CPUX86State *env, int index, uint64_t mask)
+{
+    if (hw_breakpoint_enabled(env->dr[7], index) &&
+        hw_breakpoint_type(env->dr[7], index) != DR7_TYPE_IO_RW) {
+        hw_breakpoint_remove(env, index);
+        env->dr_addr_mask[index] = mask;
+        hw_breakpoint_insert(env, index);
+    } else {
+        env->dr_addr_mask[index] = mask;
     }
 }
 

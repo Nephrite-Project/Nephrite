@@ -958,7 +958,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_EXT3_FEATURES (CPUID_EXT3_LAHF_LM | CPUID_EXT3_SVM | \
           CPUID_EXT3_CR8LEG | CPUID_EXT3_ABM | CPUID_EXT3_SSE4A | \
           CPUID_EXT3_3DNOWPREFETCH | CPUID_EXT3_KERNEL_FEATURES | \
-          CPUID_EXT3_CMP_LEG)
+          CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT)
 
 #define TCG_EXT4_FEATURES 0
 
@@ -1116,8 +1116,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "skinit", "wdt", NULL, "lwp",
             "fma4", "tce", NULL, "nodeid-msr",
             NULL, "tbm", "topoext", "perfctr-core",
-            "perfctr-nb", NULL, NULL, NULL,
-            NULL, NULL, NULL, NULL,
+            "perfctr-nb", NULL, "bpext", NULL,
+            NULL, NULL, "addrmaskext", NULL,
         },
         .cpuid = { .eax = 0x80000001, .reg = R_ECX, },
         .tcg_features = TCG_EXT3_FEATURES,
