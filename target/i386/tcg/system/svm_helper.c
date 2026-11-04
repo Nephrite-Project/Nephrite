@@ -222,23 +222,39 @@ static inline bool virtual_gif_enabled(CPUX86State *env)
     return false;
 }
 
-static inline bool virtual_vm_load_save_enabled(CPUX86State *env, uint64_t exit_code, uintptr_t retaddr)
+/*
+ * Whether VMLOAD or VMSAVE, run in guest mode without its intercept, takes
+ * RAX as a guest physical address, as VMSAVE and VMLOAD virtualization has
+ * it where enabled, rather than as a host physical one. Enabled, it needs
+ * nested paging and a hypervisor in 64-bit mode, else the instruction exits
+ * as if intercepted (AMD64 Architecture Programmer's Manual Volume 2, 24593
+ * rev. 3.45, 15.33.1).
+ */
+static bool virtual_vm_load_save_enabled(CPUX86State *env, uint64_t exit_code,
+                                         uintptr_t retaddr)
 {
-    uint64_t lbr_ctl;
+    CPUState *cs = env_cpu(env);
+    uint64_t lbr_ctl, host_efer;
+    uint16_t host_cs_attrib;
 
-    if (likely(env->hflags & HF_GUEST_MASK)) {
-        if (likely(!(env->hflags2 & HF2_NPT_MASK)) || !(env->efer & MSR_EFER_LMA)) {
-            cpu_vmexit(env, exit_code, 0, retaddr);
-        }
-
-        lbr_ctl = x86_ldl_phys(env_cpu(env), env->vm_vmcb + offsetof(struct vmcb,
-                                                  control.lbr_ctl));
-        return (env->features[FEAT_SVM] & CPUID_SVM_V_VMSAVE_VMLOAD)
-                && (lbr_ctl & V_VMLOAD_VMSAVE_ENABLED_MASK);
-
+    if (likely(!(env->hflags & HF_GUEST_MASK)) ||
+        !(env->features[FEAT_SVM] & CPUID_SVM_V_VMSAVE_VMLOAD)) {
+        return false;
     }
-
-    return false;
+    lbr_ctl = x86_ldq_phys(cs, env->vm_vmcb +
+                           offsetof(struct vmcb, control.lbr_ctl));
+    if (!(lbr_ctl & V_VMLOAD_VMSAVE_ENABLED_MASK)) {
+        return false;
+    }
+    host_efer = x86_ldq_phys(cs, env->vm_hsave +
+                             offsetof(struct vmcb, save.efer));
+    host_cs_attrib = x86_lduw_phys(cs, env->vm_hsave +
+                                   offsetof(struct vmcb, save.cs.attrib));
+    if (!(env->hflags2 & HF2_NPT_MASK) || !(host_efer & MSR_EFER_LMA) ||
+        !(host_cs_attrib & (DESC_L_MASK >> 12))) {
+        cpu_vmexit(env, exit_code, 0, retaddr);
+    }
+    return true;
 }
 
 static inline bool virtual_gif_set(CPUX86State *env)
