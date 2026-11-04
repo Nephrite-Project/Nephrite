@@ -1199,11 +1199,36 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
  * the int instruction. next_eip is the env->eip value AFTER the interrupt
  * instruction. It is only relevant if is_int is TRUE.
  */
+/*
+ * A delivered interrupt or exception is a control transfer from FROM that
+ * DebugCtl.LBR has recorded, LastIntFromIP and LastIntToIP taking the last
+ * branch before it but for #MC; a #DB, ICEBP's too, records nothing and
+ * clears DebugCtl.LBR and DebugCtl.BTF (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, 13.1.6.1 and 13.1.6.2).
+ */
+static void x86_lbr_interrupt(CPUX86State *env, int intno, int is_int,
+                              target_ulong from)
+{
+    if (intno == EXCP01_DB && !is_int) {
+        env->debugctl &= ~(DEBUGCTL_LBR | DEBUGCTL_BTF);
+        return;
+    }
+    if (env->debugctl & DEBUGCTL_LBR) {
+        if (intno != EXCP12_MCHK || is_int) {
+            env->lbr_int_from = env->lbr_from;
+            env->lbr_int_to = env->lbr_to;
+        }
+        env->lbr_from = from;
+        env->lbr_to = env->eip;
+    }
+}
+
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
                       int error_code, target_ulong next_eip, int is_hw)
 {
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
+    target_ulong from = env->eip;
 
     if (qemu_loglevel_mask(CPU_LOG_INT)) {
         if ((env->cr[0] & CR0_PE_MASK)) {
@@ -1281,6 +1306,7 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     }
 #endif
 
+    x86_lbr_interrupt(env, intno, is_int, from);
     qemu_plugin_vcpu_interrupt_cb(CPU(cpu), last_pc);
 }
 

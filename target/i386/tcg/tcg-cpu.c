@@ -58,6 +58,13 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
 
     flags = env->hflags |
         (env->eflags & (IOPL_MASK | TF_MASK | RF_MASK | VM_MASK | AC_MASK));
+    if (unlikely(env->debugctl & DEBUGCTL_LBR)) {
+        flags |= HF_LBR_MASK;
+    }
+    /* With DebugCtl.BTF, TF single-steps only control transfers. */
+    if (unlikely(env->debugctl & DEBUGCTL_BTF) && (flags & HF_TF_MASK)) {
+        flags = (flags & ~HF_TF_MASK) | HF_BTF_MASK;
+    }
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
         pc = env->eip;

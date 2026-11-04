@@ -312,6 +312,15 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
         break;
+    case MSR_IA32_DEBUGCTL:
+        if (val & ~(DEBUGCTL_LBR | DEBUGCTL_BTF)) {
+            goto error;
+        }
+        env->debugctl = val;
+        break;
+    case MSR_LASTBRANCH_FROM_IP ... MSR_LASTINT_TO_IP:
+        /* Read-only. */
+        goto error;
     case MSR_IA32_BNDCFGS:
         /* FIXME: #GP if reserved bits are set.  */
         /* FIXME: Extend highest implemented bit of linear address.  */
@@ -494,6 +503,21 @@ void HELPER(rdmsr)(CPUX86State *env)
         break;
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;
+        break;
+    case MSR_IA32_DEBUGCTL:
+        val = env->debugctl;
+        break;
+    case MSR_LASTBRANCH_FROM_IP:
+        val = env->lbr_from;
+        break;
+    case MSR_LASTBRANCH_TO_IP:
+        val = env->lbr_to;
+        break;
+    case MSR_LASTINT_FROM_IP:
+        val = env->lbr_int_from;
+        break;
+    case MSR_LASTINT_TO_IP:
+        val = env->lbr_int_to;
         break;
     case MSR_IA32_BNDCFGS:
         val = env->msr_bndcfgs;

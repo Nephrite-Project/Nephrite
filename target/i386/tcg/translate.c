@@ -118,6 +118,7 @@ typedef struct DisasContext {
     uint8_t evex3;
     uint8_t evex4;
     bool jmp_opt; /* use direct block chaining for direct jumps */
+    bool branch; /* the instruction transfers control, as BTF steps */
     bool cc_op_dirty;
 
     CCOp cc_op;  /* current CC operation */
@@ -612,6 +613,54 @@ static TCGv eip_cur_tl(DisasContext *s)
     } else {
         return tcg_constant_tl((uint32_t)(s->base.pc_next - s->cs_base));
     }
+}
+
+/*
+ * The current instruction transfers control from FROM, its EIP, to TO,
+ * which DebugCtl.LBR has recorded in the last branch MSRs, and after which
+ * DebugCtl.BTF has TF single-step.
+ */
+static void gen_branch_from(DisasContext *s, TCGv from, TCGv to)
+{
+    if (s->flags & HF_LBR_MASK) {
+        tcg_gen_st_tl(from, tcg_env, offsetof(CPUX86State, lbr_from));
+        tcg_gen_st_tl(to, tcg_env, offsetof(CPUX86State, lbr_to));
+    }
+    s->branch = true;
+}
+
+/* A control transfer to TO, before cpu_eip changes. */
+static void gen_branch(DisasContext *s, TCGv to)
+{
+    gen_branch_from(s, s->flags & HF_LBR_MASK ? eip_cur_tl(s) : NULL, to);
+}
+
+/* A relative control transfer to EIP + DIFF, truncated to OT. */
+static void gen_branch_rel(DisasContext *s, MemOp ot, int diff)
+{
+    TCGv to = NULL;
+
+    if (s->flags & HF_LBR_MASK) {
+        to = tcg_temp_new();
+        tcg_gen_addi_tl(to, eip_next_tl(s), diff);
+        if (!CODE64(s)) {
+            if (ot == MO_16) {
+                tcg_gen_ext16u_tl(to, to);
+            } else {
+                tcg_gen_ext32u_tl(to, to);
+            }
+        }
+    }
+    gen_branch(s, to);
+}
+
+/*
+ * The EIP of an instruction whose control transfer a helper carries out,
+ * for gen_branch_from() with the EIP the helper leaves.
+ */
+static TCGv gen_branch_start(DisasContext *s)
+{
+    return s->flags & HF_LBR_MASK ? eip_cur_tl(s) : NULL;
 }
 
 /* Compute SEG:REG into DEST.  SEG is selected from the override segment
@@ -1796,6 +1845,7 @@ static void gen_conditional_jump_labels(DisasContext *s, target_long diff,
     gen_jmp_rel_csize(s, 0, 1);
 
     gen_set_label(taken);
+    gen_branch_rel(s, s->dflag, diff);
     gen_jmp_rel(s, s->dflag, diff, 0);
 }
 
@@ -1855,6 +1905,7 @@ static void gen_movl_seg(DisasContext *s, X86Seg seg_reg, TCGv src, bool inhibit
 
 static void gen_far_call(DisasContext *s)
 {
+    TCGv from = gen_branch_start(s);
     TCGv_i32 new_cs = tcg_temp_new_i32();
     tcg_gen_trunc_tl_i32(new_cs, s->T1);
     if (PE(s) && !VM86(s)) {
@@ -1868,11 +1919,14 @@ static void gen_far_call(DisasContext *s)
                               tcg_constant_i32(s->dflag - 1),
                               eip_next_i32(s));
     }
+    gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_JUMP;
 }
 
 static void gen_far_jmp(DisasContext *s)
 {
+    TCGv from = gen_branch_start(s);
+
     if (PE(s) && !VM86(s)) {
         TCGv_i32 new_cs = tcg_temp_new_i32();
         tcg_gen_trunc_tl_i32(new_cs, s->T1);
@@ -1882,6 +1936,7 @@ static void gen_far_jmp(DisasContext *s)
         gen_op_movl_seg_real(s, R_CS, s->T1);
         gen_op_jmp_v(s, s->T0);
     }
+    gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_JUMP;
 }
 
@@ -2065,7 +2120,8 @@ gen_eob(DisasContext *s, int mode)
     if (mode == DISAS_EOB_RECHECK_TF) {
         gen_helper_rechecking_single_step(tcg_env);
         tcg_gen_exit_tb(NULL, 0);
-    } else if (s->flags & HF_TF_MASK) {
+    } else if ((s->flags & HF_TF_MASK) ||
+               (s->branch && (s->flags & HF_BTF_MASK))) {
         gen_helper_single_step(tcg_env);
     } else if (mode == DISAS_JUMP &&
                /* give irqs a chance to happen */
@@ -3572,7 +3628,8 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cpuid_7_1_eax_features = env->features[FEAT_7_1_EAX];
     dc->cpuid_xsave_features = env->features[FEAT_XSAVE];
     dc->jmp_opt = !((cflags & CF_NO_GOTO_TB) ||
-                    (flags & (HF_RF_MASK | HF_TF_MASK | HF_INHIBIT_IRQ_MASK)));
+                    (flags & (HF_RF_MASK | HF_TF_MASK | HF_INHIBIT_IRQ_MASK |
+                              HF_BTF_MASK)));
 
     dc->T0 = tcg_temp_new();
     dc->T1 = tcg_temp_new();
@@ -3608,6 +3665,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     CCOp orig_cc_op = dc->cc_op;
     target_ulong orig_pc_save = dc->pc_save;
 
+    dc->branch = false;
 #ifdef TARGET_VSYSCALL_PAGE
     /*
      * Detect entry into the vsyscall page and invoke the syscall.

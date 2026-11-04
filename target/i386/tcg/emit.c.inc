@@ -2445,12 +2445,15 @@ static void gen_INTO(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_IRET(DisasContext *s, X86DecodedInsn *decode)
 {
+    TCGv from = gen_branch_start(s);
+
     if (!PE(s) || VM86(s)) {
         gen_helper_iret_real(tcg_env, tcg_constant_i32(s->dflag - 1));
     } else {
         gen_helper_iret_protected(tcg_env, tcg_constant_i32(s->dflag - 1),
                                   eip_next_i32(s));
     }
+    gen_branch_from(s, from, cpu_eip);
     assume_cc_op(s, CC_OP_EFLAGS);
     s->base.is_jmp = DISAS_EOB_ONLY;
 }
@@ -2476,11 +2479,13 @@ static void gen_JCXZ(DisasContext *s, X86DecodedInsn *decode)
 static void gen_JMP(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
+    gen_branch_rel(s, s->dflag, decode->immediate);
     gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
 
 static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode)
 {
+    gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
     gen_bnd_jmp(s);
     s->base.is_jmp = DISAS_JUMP;
@@ -3833,6 +3838,7 @@ static void gen_RET(DisasContext *s, X86DecodedInsn *decode)
 
     MemOp ot = gen_pop_T0(s);
     gen_stack_update(s, adjust + (1 << ot));
+    gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
     gen_bnd_jmp(s);
     s->base.is_jmp = DISAS_JUMP;
@@ -3841,6 +3847,7 @@ static void gen_RET(DisasContext *s, X86DecodedInsn *decode)
 static void gen_RETF(DisasContext *s, X86DecodedInsn *decode)
 {
     uint16_t adjust = decode->e.op1 == X86_TYPE_I ? decode->immediate : 0;
+    TCGv from = gen_branch_start(s);
 
     if (!PE(s) || VM86(s)) {
         gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], 0);
@@ -3861,6 +3868,7 @@ static void gen_RETF(DisasContext *s, X86DecodedInsn *decode)
         gen_helper_lret_protected(tcg_env, tcg_constant_i32(s->dflag - 1),
                                   tcg_constant_i32(adjust));
     }
+    gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_EOB_ONLY;
 }
 
@@ -4359,9 +4367,12 @@ static void gen_SUB(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_SYSCALL(DisasContext *s, X86DecodedInsn *decode)
 {
+    TCGv from = gen_branch_start(s);
+
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
     gen_helper_syscall(tcg_env, cur_insn_len_i32(s));
+    gen_branch_from(s, from, cpu_eip);
     if (LMA(s)) {
         assume_cc_op(s, CC_OP_EFLAGS);
     }
@@ -4376,19 +4387,28 @@ static void gen_SYSCALL(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_SYSENTER(DisasContext *s, X86DecodedInsn *decode)
 {
+    TCGv from = gen_branch_start(s);
+
     gen_helper_sysenter(tcg_env);
+    gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_EOB_ONLY;
 }
 
 static void gen_SYSEXIT(DisasContext *s, X86DecodedInsn *decode)
 {
+    TCGv from = gen_branch_start(s);
+
     gen_helper_sysexit(tcg_env, tcg_constant_i32(s->dflag - 1));
+    gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_EOB_ONLY;
 }
 
 static void gen_SYSRET(DisasContext *s, X86DecodedInsn *decode)
 {
+    TCGv from = gen_branch_start(s);
+
     gen_helper_sysret(tcg_env, tcg_constant_i32(s->dflag - 1));
+    gen_branch_from(s, from, cpu_eip);
     if (LMA(s)) {
         assume_cc_op(s, CC_OP_EFLAGS);
     }

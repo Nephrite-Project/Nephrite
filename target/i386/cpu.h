@@ -192,6 +192,9 @@ typedef enum X86Seg {
 #define HF_UMIP_SHIFT       27 /* CR4.UMIP */
 #define HF_AVX_EN_SHIFT     28 /* AVX Enabled (CR4+XCR0) */
 #define HF_APX_EN_SHIFT     29 /* APX Enabled (CR4+XCR0) */
+/* Translation block flags only, from DebugCtl, never in hflags: */
+#define HF_BTF_SHIFT         2 /* DebugCtl.BTF with TF: step branches */
+#define HF_LBR_SHIFT        30 /* DebugCtl.LBR: record control transfers */
 
 #define HF_CPL_MASK          (3 << HF_CPL_SHIFT)
 #define HF_INHIBIT_IRQ_MASK  (1 << HF_INHIBIT_IRQ_SHIFT)
@@ -220,6 +223,8 @@ typedef enum X86Seg {
 #define HF_UMIP_MASK         (1 << HF_UMIP_SHIFT)
 #define HF_AVX_EN_MASK       (1 << HF_AVX_EN_SHIFT)
 #define HF_APX_EN_MASK       (1 << HF_APX_EN_SHIFT)
+#define HF_BTF_MASK          (1 << HF_BTF_SHIFT)
+#define HF_LBR_MASK          (1 << HF_LBR_SHIFT)
 
 /* hflags2 */
 
@@ -490,6 +495,15 @@ typedef enum X86Seg {
 /* Indicates good rep/movs microcode on some processors: */
 #define MSR_IA32_MISC_ENABLE_DEFAULT    1
 #define MSR_IA32_MISC_ENABLE_MWAIT      (1ULL << 18)
+
+#define MSR_IA32_DEBUGCTL               0x1d9
+#define MSR_LASTBRANCH_FROM_IP          0x1db
+#define MSR_LASTBRANCH_TO_IP            0x1dc
+#define MSR_LASTINT_FROM_IP             0x1dd
+#define MSR_LASTINT_TO_IP               0x1de
+
+#define DEBUGCTL_LBR                    (1ULL << 0)
+#define DEBUGCTL_BTF                    (1ULL << 1)
 
 #define MSR_MTRRphysBase(reg)           (0x200 + 2 * (reg))
 #define MSR_MTRRphysMask(reg)           (0x200 + 2 * (reg) + 1)
@@ -2312,6 +2326,13 @@ typedef struct CPUArchState {
     uint8_t svm_insn_bytes[15];
     uint8_t svm_insn_fetched;
     bool svm_insn_bytes_valid;
+
+    /* DebugCtl, and the last control transfers it has had recorded. */
+    uint64_t debugctl;
+    target_ulong lbr_from;
+    target_ulong lbr_to;
+    target_ulong lbr_int_from;
+    target_ulong lbr_int_to;
 
     /* KVM states, automatically cleared on reset */
     uint8_t nmi_injected;
