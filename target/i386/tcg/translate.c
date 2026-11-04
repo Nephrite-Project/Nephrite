@@ -3164,6 +3164,9 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (dflag == MO_16) {
                 tcg_gen_andi_tl(s->T0, s->T0, 0xffffff);
             }
+            if (CODE64(s)) {
+                gen_helper_check_canonical(tcg_env, s->T0, tcg_constant_i32(0));
+            }
             tcg_gen_st_tl(s->T0, tcg_env, offsetof(CPUX86State, gdt.base));
             tcg_gen_st32_tl(s->T1, tcg_env, offsetof(CPUX86State, gdt.limit));
             break;
@@ -3179,6 +3182,9 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_op_ld_v(s, CODE64(s) + MO_32, s->T0, s->A0);
             if (dflag == MO_16) {
                 tcg_gen_andi_tl(s->T0, s->T0, 0xffffff);
+            }
+            if (CODE64(s)) {
+                gen_helper_check_canonical(tcg_env, s->T0, tcg_constant_i32(0));
             }
             tcg_gen_st_tl(s->T0, tcg_env, offsetof(CPUX86State, idt.base));
             tcg_gen_st32_tl(s->T1, tcg_env, offsetof(CPUX86State, idt.limit));

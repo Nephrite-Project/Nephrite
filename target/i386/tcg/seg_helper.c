@@ -1358,6 +1358,11 @@ void HELPER(lldt)(CPUX86State *env, int selector)
             uint32_t e3;
 
             e3 = cpu_ldl_kernel_ra(env, ptr + 8, GETPC());
+            if (!x86_canonical(env, get_seg_base(e1, e2) |
+                                    (uint64_t)e3 << 32, false)) {
+                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc,
+                                       GETPC());
+            }
             load_seg_cache_raw_dt(&env->ldt, e1, e2);
             env->ldt.base |= (target_ulong)e3 << 32;
         } else
@@ -1416,7 +1421,9 @@ void HELPER(ltr)(CPUX86State *env, int selector)
 
             e3 = cpu_ldl_kernel_ra(env, ptr + 8, GETPC());
             e4 = cpu_ldl_kernel_ra(env, ptr + 12, GETPC());
-            if ((e4 >> DESC_TYPE_SHIFT) & 0xf) {
+            if (((e4 >> DESC_TYPE_SHIFT) & 0xf) ||
+                !x86_canonical(env, get_seg_base(e1, e2) |
+                                    (uint64_t)e3 << 32, false)) {
                 raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
             }
             load_seg_cache_raw_dt(&env->tr, e1, e2);

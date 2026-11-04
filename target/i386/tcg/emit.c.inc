@@ -5009,6 +5009,7 @@ static void gen_WRxxBASE(DisasContext *s, X86DecodedInsn *decode)
 
     /* Preserve hflags bits by testing CR4 at runtime.  */
     gen_helper_cr4_testbit(tcg_env, tcg_constant_i32(CR4_FSGSBASE_MASK));
+    gen_helper_check_canonical(tcg_env, s->T0, tcg_constant_i32(1));
     tcg_gen_mov_tl(base, s->T0);
 }
 

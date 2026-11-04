@@ -3309,6 +3309,22 @@ static inline uint64_t cr4_reserved_bits(CPUX86State *env)
     return reserved_bits;
 }
 
+/*
+ * Whether ADDR is canonical for the processor, with 57 bits where it has
+ * 5-level paging, as system registers holding linear addresses must be
+ * whatever the paging mode, or for the paging mode, as the bases WRFSBASE
+ * and WRGSBASE load must be (Intel SDM 325462-093 Vol. 3A, 4.5.3).
+ */
+static inline bool x86_canonical(CPUX86State *env, uint64_t addr,
+                                 bool for_paging)
+{
+    bool la57 = for_paging ? env->cr[4] & CR4_LA57_MASK :
+                env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_LA57;
+    int64_t high = (int64_t)addr >> (la57 ? 56 : 47);
+
+    return high == 0 || high == -1;
+}
+
 static inline bool ctl_has_irq(CPUX86State *env)
 {
     uint32_t int_prio;

@@ -441,6 +441,15 @@ void HELPER(cr4_testbit)(CPUX86State *env, uint32_t bit)
     }
 }
 
+/* A base that LGDT, LIDT, WRFSBASE, or WRGSBASE loads must be canonical. */
+void HELPER(check_canonical)(CPUX86State *env, target_ulong addr,
+                             uint32_t for_paging)
+{
+    if (!x86_canonical(env, addr, for_paging)) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
+}
+
 target_ulong HELPER(rdrand)(CPUX86State *env)
 {
     Error *err = NULL;

@@ -242,10 +242,21 @@ void HELPER(wrmsr)(CPUX86State *env)
     case MSR_IA32_SYSENTER_CS:
         env->sysenter_cs = val & 0xffff;
         break;
+    /*
+     * The MSRs holding linear addresses take canonical ones only (Intel SDM
+     * 325462-093 Vol. 3A, 4.5.3), the SYSENTER ones on Intel only, where
+     * SYSENTER works in 64-bit mode.
+     */
     case MSR_IA32_SYSENTER_ESP:
+        if (IS_INTEL_CPU(env) && !x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->sysenter_esp = val;
         break;
     case MSR_IA32_SYSENTER_EIP:
+        if (IS_INTEL_CPU(env) && !x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->sysenter_eip = val;
         break;
     case MSR_IA32_APICBASE: {
@@ -309,21 +320,36 @@ void HELPER(wrmsr)(CPUX86State *env)
         break;
 #ifdef TARGET_X86_64
     case MSR_LSTAR:
+        if (!x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->lstar = val;
         break;
     case MSR_CSTAR:
+        if (!x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->cstar = val;
         break;
     case MSR_FMASK:
         env->fmask = val;
         break;
     case MSR_FSBASE:
+        if (!x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->segs[R_FS].base = val;
         break;
     case MSR_GSBASE:
+        if (!x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->segs[R_GS].base = val;
         break;
     case MSR_KERNELGSBASE:
+        if (!x86_canonical(env, val, false)) {
+            goto error;
+        }
         env->kernelgsbase = val;
         break;
 #endif
@@ -418,8 +444,10 @@ void HELPER(wrmsr)(CPUX86State *env)
         /* Read-only. */
         goto error;
     case MSR_IA32_BNDCFGS:
-        /* FIXME: #GP if reserved bits are set.  */
-        /* FIXME: Extend highest implemented bit of linear address.  */
+        /* Bits 11:2 are reserved, and the base is a linear address. */
+        if ((val & 0xffc) || !x86_canonical(env, val & ~0xfffULL, false)) {
+            goto error;
+        }
         env->msr_bndcfgs = val;
         cpu_sync_bndcs_hflags(env);
         break;
@@ -674,17 +702,15 @@ void HELPER(rdmsr)(CPUX86State *env)
  * with the descriptor's address in EXITINFO1 and the type in EXITINFO2,
  * where Linux 7.3's KVM reads them; then types above 3, descriptor bits
  * 63:12, PCIDs other than 0 for types 0 and 1 without CR4.PCIDE, and a
- * type 0 address that is not canonical for the processor, with 57 bits
- * where it has 5-level paging, raise #GP (Intel SDM 325462-093 Vol. 2A,
- * INVPCID, and Vol. 3A, 4.5). QEMU's TLB holds the current PCID's translations
- * only, so type 0 drops the page and the others drop all, the global ones
- * too, as the processor may.
+ * type 0 address that is not canonical for the processor raise #GP (Intel
+ * SDM 325462-093 Vol. 2A, INVPCID). QEMU's TLB holds the current PCID's
+ * translations only, so type 0 drops the page and the others drop all,
+ * the global ones too, as the processor may.
  */
 void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type)
 {
     CPUState *cs = env_cpu(env);
     uintptr_t ra = GETPC();
-    int shift = env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_LA57 ? 56 : 47;
     uint64_t desc, laddr;
 
     if (cpu_svm_has_intercept(env, SVM_EXIT_INVPCID)) {
@@ -699,8 +725,7 @@ void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type)
     laddr = cpu_ldq_le_data_ra(env, addr + 8, ra);
     if ((desc >> 12) ||
         (type <= 1 && (desc & 0xfff) && !(env->cr[4] & CR4_PCIDE_MASK)) ||
-        (type == 0 && (int64_t)laddr >> shift != 0 &&
-         (int64_t)laddr >> shift != -1)) {
+        (type == 0 && !x86_canonical(env, laddr, false))) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
     }
     if (type == 0) {
