@@ -522,6 +522,15 @@ static void apic_eoi(APICCommonState *s)
     apic_update_irq(s);
 }
 
+/*
+ * A write to the EOI register by the processor itself, as VMX's
+ * posted-interrupt processing makes (Intel SDM 325462-093 Vol. 3C, 32.6).
+ */
+void apic_write_eoi(APICCommonState *s)
+{
+    apic_eoi(s);
+}
+
 static bool apic_match_dest(APICCommonState *apic, uint32_t dest)
 {
     if (is_x2apic_mode(apic)) {

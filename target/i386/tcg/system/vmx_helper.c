@@ -19,6 +19,7 @@
 #include "system/runstate.h"
 #include "system/memory.h"
 #include "exec/page-protection.h"
+#include "hw/i386/apic.h"
 #include "tcg/helper-tcg.h"
 
 /* The VMCS revision identifier IA32_VMX_BASIC reports. */
@@ -64,6 +65,7 @@
  * Appendix B).
  */
 #define VMCS_VPID 0x0000
+#define VMCS_PI_NOTIFICATION_VECTOR 0x0002
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
 #define VMCS_HOST_SEL(seg) (0x0c00 + 2 * (seg))
@@ -77,6 +79,7 @@
 #define VMCS_TSC_OFFSET 0x2010
 #define VMCS_VIRTUAL_APIC_ADDR 0x2012
 #define VMCS_APIC_ACCESS_ADDR 0x2014
+#define VMCS_PI_DESC_ADDR 0x2016
 #define VMCS_EOI_EXIT_BITMAP(n) (0x201c + 2 * (n))
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_LINK_POINTER 0x2800
@@ -1474,6 +1477,43 @@ static void vmx_self_ipi_virtualize(CPUX86State *env, int vector)
 }
 
 /*
+ * Posted-interrupt processing, for an external interrupt of the
+ * notification vector (Intel SDM 325462-093 Vol. 3C, 32.6): the
+ * outstanding-notification bit of the descriptor, which other processors
+ * write too, clears atomically, the local APIC takes an EOI, the requests
+ * of the descriptor move atomically to VIRR and RVI, and pending virtual
+ * interrupts are evaluated.
+ */
+static void vmx_posted_interrupts(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+    hwaddr len = 64;
+    uint32_t *desc = address_space_map(cs->as, VMCS(PI_DESC_ADDR), &len,
+                                       true, MEMTXATTRS_UNSPECIFIED);
+    int rvi = VMCS(GUEST_INTR_STATUS) & 0xff;
+
+    if (desc && len == 64) {
+        qatomic_and(&desc[8], cpu_to_le32(~1U));
+    }
+    apic_write_eoi(env_archcpu(env)->apic_state);
+    for (int i = 0; desc && len == 64 && i < 8; i++) {
+        uint32_t pir = le32_to_cpu(qatomic_xchg(&desc[i], 0));
+        hwaddr virr = vapic + VMX_VAPIC_VIRR + i * 0x10;
+
+        if (pir) {
+            x86_stl_phys(cs, virr, x86_ldl_phys(cs, virr) | pir);
+            rvi = MAX(rvi, i * 32 + 31 - clz32(pir));
+        }
+    }
+    if (desc) {
+        address_space_unmap(cs->as, desc, len, true, len);
+    }
+    vmx_set_rvi(env, rvi);
+    vmx_vintr_evaluate(env);
+}
+
+/*
  * MOV to CR8 leaves VTPR its source's bits 3:0 in bits 7:4 (Intel SDM
  * 325462-093 Vol. 3C, 32.3).
  */
@@ -2388,6 +2428,13 @@ static bool vmx_controls_valid(CPUX86State *env)
     }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
         !(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
+        return false;
+    }
+    if ((pin & VMX_PIN_BASED_POSTED_INTR) &&
+        (!(proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
+         !(exit_ctl & VMX_VM_EXIT_ACK_INTR_ON_EXIT) ||
+         (VMCS(PI_NOTIFICATION_VECTOR) & 0xff00) ||
+         !vmx_addr_valid(env, VMCS(PI_DESC_ADDR), 64))) {
         return false;
     }
     if (!(pin & VMX_PIN_BASED_NMI_EXITING) &&
@@ -3337,6 +3384,24 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
 
             cpu_reset_interrupt(cs, CPU_INTERRUPT_HARD);
             intno = cpu_get_pic_interrupt(env);
+            if ((pin & VMX_PIN_BASED_POSTED_INTR) &&
+                intno == (int)VMCS(PI_NOTIFICATION_VECTOR)) {
+                vmx_posted_interrupts(env);
+                /*
+                 * Out of the HLT state, the processor goes back to it but
+                 * for a virtual interrupt it can deliver (Intel SDM
+                 * 325462-093 Vol. 3C, 32.6).
+                 */
+                if (env->vmx.exit_hlt && !(env->vmx.vintr_pending &&
+                                           (env->eflags & IF_MASK))) {
+                    env->vmx.exit_hlt = false;
+                    cs->halted = 1;
+                    cs->exception_index = EXCP_HLT;
+                    cpu_loop_exit(cs);
+                }
+                env->vmx.exit_hlt = false;
+                return true;
+            }
             x86_vmx_exit_full(env, VMX_EXIT_EXTERNAL_INTERRUPT, 0,
                               intno | VMX_INTR_VALID, 0, 0);
         }
