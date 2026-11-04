@@ -1057,6 +1057,7 @@ void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
     }
     /* XXX: store address? */
     cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
+    env->monitor_armed = true;
 }
 
 G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
@@ -1068,6 +1069,17 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
     env->eip += next_eip_addend;
+
+    /*
+     * Without monitoring armed, MWAIT continues at once (Intel SDM
+     * 325462-093 Vol. 2B, MWAIT).
+     */
+    if (!env->monitor_armed) {
+        do_end_instruction(env);
+        HELPER(rechecking_single_step)(env);
+        cpu_loop_exit(cs);
+    }
+    env->monitor_armed = false;
 
     /* XXX: not complete but not completely erroneous */
     if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {

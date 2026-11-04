@@ -2368,6 +2368,8 @@ typedef struct CPUArchState {
     /* The DR6 bits of the #DB being raised, which reach DR6 at delivery. */
     uint32_t db_payload;
     int old_exception;  /* exception in flight */
+    /* MONITOR armed address-range monitoring, which MWAIT waits on. */
+    bool monitor_armed;
 
     uint64_t vm_vmcb;
     uint64_t tsc_offset;
