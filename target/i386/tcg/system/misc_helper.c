@@ -85,7 +85,8 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         */
         if (cpu_svm_has_intercept(env, SVM_EXIT_CR0_SEL_WRITE) &&
             ((env->cr[0] ^ t0) & ~(CR0_TS_MASK | CR0_MP_MASK))) {
-            cpu_vmexit(env, SVM_EXIT_CR0_SEL_WRITE, 0, GETPC());
+            cpu_vmexit(env, SVM_EXIT_CR0_SEL_WRITE, env->svm_decode_info,
+                       GETPC());
         }
         cpu_x86_update_cr0(env, t0);
         break;

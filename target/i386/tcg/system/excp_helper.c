@@ -20,6 +20,7 @@
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-loop.h"
 #include "accel/tcg/probe.h"
 #include "exec/cputlb.h"
 #include "exec/page-protection.h"
@@ -615,6 +616,62 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
     return true;
 }
 
+/*
+ * Decode assists: up to 15 bytes at the guest's CS:RIP for a nested or
+ * intercepted page fault of a data access, fewer where fetching them faults,
+ * none for a fetch's (AMD64 Architecture Programmer's Manual Volume 2, 24593
+ * rev. 3.45, 15.8.4).
+ */
+static void svm_fetch_insn_bytes(CPUX86State *env, MMUAccessType access_type,
+                                 uintptr_t retaddr)
+{
+    CPUState *cs = env_cpu(env);
+    target_ulong page = -1;
+    hwaddr frame = 0;
+    int mmu_idx;
+    int n;
+
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST)) {
+        return;
+    }
+    env->svm_insn_fetched = 0;
+    env->svm_insn_bytes_valid = true;
+    if (access_type == MMU_INST_FETCH) {
+        return;
+    }
+
+    cpu_restore_state(cs, retaddr);
+    mmu_idx = cpu_mmu_index(cs, true);
+    for (n = 0; n < sizeof(env->svm_insn_bytes); n++) {
+        target_ulong eip = env->eip + n;
+        target_ulong addr;
+
+        if (env->hflags & HF_CS64_MASK) {
+            addr = env->segs[R_CS].base + eip;
+        } else {
+            eip = env->hflags & HF_CS32_MASK ? (uint32_t)eip : (uint16_t)eip;
+            if (eip > env->segs[R_CS].limit) {
+                break;
+            }
+            addr = (uint32_t)(env->segs[R_CS].base + eip);
+        }
+        if ((addr & TARGET_PAGE_MASK) != page) {
+            TranslateResult out;
+            TranslateFault err;
+
+            if (!get_physical_address(env, addr, MMU_INST_FETCH, mmu_idx,
+                                      &out, &err, 0)) {
+                break;
+            }
+            page = addr & TARGET_PAGE_MASK;
+            frame = out.paddr & TARGET_PAGE_MASK;
+        }
+        env->svm_insn_bytes[n] = x86_ldub_phys(cs, frame |
+                                               (addr & ~TARGET_PAGE_MASK));
+    }
+    env->svm_insn_fetched = n;
+}
+
 bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
                       MMUAccessType access_type, int mmu_idx,
                       bool probe, uintptr_t retaddr)
@@ -644,6 +701,7 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     }
 
     if (err.stage2 != S2_NONE) {
+        svm_fetch_insn_bytes(env, access_type, retaddr);
         raise_stage2(env, &err, retaddr);
     }
 
@@ -652,6 +710,9 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
         x86_stq_phys(cs, env->vm_vmcb +
                      offsetof(struct vmcb, control.exit_info_2),
                      err.cr2);
+        if (err.exception_index == EXCP0E_PAGE) {
+            svm_fetch_insn_bytes(env, access_type, retaddr);
+        }
     } else {
         env->cr[2] = err.cr2;
     }

@@ -731,9 +731,21 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
     cpu_vmexit(env, type, param, retaddr);
 }
 
-void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type)
+/*
+ * With decode assists, info is EXITINFO1 of the instruction's intercept: for
+ * MOV to or from a CR, the GPR number and bit 63, for MOV to or from a DR the
+ * GPR number, and for INVLPG the linear address (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.8). write_crN takes it
+ * for the selective CR0 write intercept.
+ */
+void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type,
+                                 uint64_t info)
 {
-    cpu_svm_check_intercept_param(env, type, 0, GETPC());
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST)) {
+        info = 0;
+    }
+    env->svm_decode_info = info;
+    cpu_svm_check_intercept_param(env, type, info, GETPC());
 }
 
 void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
@@ -809,6 +821,26 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
                      env->vm_vmcb + offsetof(struct vmcb, control.next_rip),
                      svm_exit_saves_next_rip(exit_code) ?
                      svm_next_rip(env) : 0);
+    }
+
+    /*
+     * Decode assists: the instruction bytes of nested and intercepted page
+     * faults; all other intercepts clear their count.
+     */
+    if (env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST) {
+        bool page_fault = exit_code == SVM_EXIT_NPF ||
+                          exit_code == SVM_EXIT_EXCP_BASE + EXCP0E_PAGE;
+        uint8_t count = page_fault && env->svm_insn_bytes_valid ?
+                        env->svm_insn_fetched : 0;
+
+        x86_stb_phys(cs, env->vm_vmcb + offsetof(struct vmcb, control.insn_len),
+                     count);
+        for (int i = 0; i < count; i++) {
+            x86_stb_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.insn_bytes) + i,
+                         env->svm_insn_bytes[i]);
+        }
+        env->svm_insn_bytes_valid = false;
     }
 
     qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmexit(%08x, %016" PRIx64 ", %016"

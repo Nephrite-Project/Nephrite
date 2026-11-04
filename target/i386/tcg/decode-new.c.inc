@@ -3677,8 +3677,25 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
         }
     }
     if (decode.e.has_intercept && unlikely(GUEST(s))) {
+        uint64_t info = 0;
+
+        /*
+         * Decode assists: the GPR of MOV to or from a CR, with bit 63, or a
+         * DR.  LMSW, SMSW, and CLTS give no information.
+         */
+        if (decode.e.gen == gen_MOV &&
+            decode.e.intercept <= SVM_EXIT_WRITE_DR0 + 15) {
+            X86DecodedOp *gpr = decode.op[0].unit == X86_OP_INT ?
+                                &decode.op[0] : &decode.op[1];
+
+            info = gpr->n;
+            if (decode.e.intercept < SVM_EXIT_READ_DR0) {
+                info |= 1ULL << 63;
+            }
+        }
         gen_helper_svm_check_intercept(tcg_env,
-                                       tcg_constant_i32(decode.e.intercept));
+                                       tcg_constant_i32(decode.e.intercept),
+                                       tcg_constant_i64(info));
     }
     if (decode.e.check) {
         if ((decode.e.check & X86_CHECK_smm) && !(s->flags & HF_SMM_MASK)) {

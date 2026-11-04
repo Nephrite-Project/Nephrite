@@ -250,7 +250,8 @@ STUB_HELPER(outb, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outw, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outl, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(stgi, TCGv_env env)
-STUB_HELPER(svm_check_intercept, TCGv_env env, TCGv_i32 type)
+STUB_HELPER(svm_check_intercept, TCGv_env env, TCGv_i32 type,
+            TCGv_i64 param)
 STUB_HELPER(vmload, TCGv_env env, TCGv_i32 aflag)
 STUB_HELPER(vmmcall, TCGv_env env)
 STUB_HELPER(vmrun, TCGv_env env, TCGv_i32 aflag, TCGv_i32 pc_ofs)
@@ -1889,7 +1890,8 @@ static void gen_svm_check_intercept(DisasContext *s, uint32_t type)
     if (likely(!GUEST(s))) {
         return;
     }
-    gen_helper_svm_check_intercept(tcg_env, tcg_constant_i32(type));
+    gen_helper_svm_check_intercept(tcg_env, tcg_constant_i32(type),
+                                   tcg_constant_i64(0));
 }
 
 static inline void gen_stack_update(DisasContext *s, int addend)
@@ -3181,8 +3183,14 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_INVLPG);
             gen_lea_modrm(s, decode);
+            if (GUEST(s)) {
+                TCGv_i32 type = tcg_constant_i32(SVM_EXIT_INVLPG);
+                TCGv_i64 address = tcg_temp_new_i64();
+
+                tcg_gen_extu_tl_i64(address, s->A0);
+                gen_helper_svm_check_intercept(tcg_env, type, address);
+            }
             gen_helper_flush_page(tcg_env, s->A0);
             s->base.is_jmp = DISAS_EOB_NEXT;
             break;

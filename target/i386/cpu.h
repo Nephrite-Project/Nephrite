@@ -2235,6 +2235,12 @@ typedef struct CPUArchState {
     uint32_t int_ctl;
     /* The length of the instruction an SVM intercept reports. */
     uint32_t svm_insn_len;
+    /* Decode assists: EXITINFO1 of the current instruction's intercepts. */
+    uint64_t svm_decode_info;
+    /* Decode assists: the guest instruction bytes of a page fault. */
+    uint8_t svm_insn_bytes[15];
+    uint8_t svm_insn_fetched;
+    bool svm_insn_bytes_valid;
 
     /* KVM states, automatically cleared on reset */
     uint8_t nmi_injected;

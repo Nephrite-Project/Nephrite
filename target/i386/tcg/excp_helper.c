@@ -115,8 +115,12 @@ void raise_interrupt2(CPUX86State *env, int intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
     } else {
+        /* Decode assists: the vector of INTn. */
+        uint64_t info = env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST ?
+                        intno : 0;
+
         env->svm_insn_len = next_eip_addend;
-        cpu_svm_check_intercept_param(env, SVM_EXIT_SWINT, 0, retaddr);
+        cpu_svm_check_intercept_param(env, SVM_EXIT_SWINT, info, retaddr);
     }
 
     cs->exception_index = intno;
