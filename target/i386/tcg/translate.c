@@ -3028,6 +3028,23 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_op_st_v(s, CODE64(s) + MO_32, s->T0, s->A0);
             break;
 
+#ifndef CONFIG_USER_ONLY
+        case 0xc6: /* wrmsrns */
+            /* WRMSR without serialization: here, WRMSR. */
+            if (!(s->cpuid_7_1_eax_features & CPUID_7_1_EAX_WRMSRNS)
+                || (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ | PREFIX_DATA))) {
+                goto illegal_op;
+            }
+            if (!check_cpl0(s)) {
+                break;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_helper_wrmsr(tcg_env);
+            s->base.is_jmp = DISAS_EOB_NEXT;
+            break;
+#endif
+
         case 0xc8: /* monitor */
             if (!(s->cpuid_ext_features & CPUID_EXT_MONITOR) || CPL(s) != 0) {
                 goto illegal_op;
