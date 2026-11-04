@@ -363,6 +363,11 @@ typedef enum X86Seg {
 #define PG_MODE_NXE      (1 << 2)
 #define PG_MODE_PSE      (1 << 3)
 #define PG_MODE_LA57     (1 << 4)
+/*
+ * Not a page format bit: the host's CR4.SMEP, which does not apply to nested
+ * page tables but does make their fetch faults set I/D.
+ */
+#define PG_MODE_NESTED_SMEP (1 << 5)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */

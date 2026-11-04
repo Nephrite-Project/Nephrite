@@ -506,7 +506,7 @@ do_check_protect_pse36:
         error_code |= PG_ERROR_W_MASK;
         break;
     case MMU_INST_FETCH:
-        if (pg_mode & (PG_MODE_NXE | PG_MODE_SMEP)) {
+        if (pg_mode & (PG_MODE_NXE | PG_MODE_SMEP | PG_MODE_NESTED_SMEP)) {
             error_code |= PG_ERROR_I_D_MASK;
         }
         break;

@@ -297,6 +297,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         env->hflags2 |= HF2_NPT_MASK;
 
         env->nested_pg_mode = get_pg_mode(env) & PG_MODE_SVM_MASK;
+        if (env->cr[4] & CR4_SMEP_MASK) {
+            env->nested_pg_mode |= PG_MODE_NESTED_SMEP;
+        }
 
         tlb_flush_by_mmuidx(cs, 1 << MMU_NESTED_IDX);
     }
