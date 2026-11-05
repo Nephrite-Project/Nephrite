@@ -2248,7 +2248,7 @@ static int amdvi_int_remap_msi(AMDVIState *iommu,
      * then requester id will be invalid.
      */
     if (sid == X86_IOMMU_SID_INVALID) {
-        sid = AMDVI_IOAPIC_SB_DEVID;
+        sid = iommu->sb_devid;
     }
 
     trace_amdvi_ir_remap_msi_req(origin->address, origin->data, sid);
@@ -2373,9 +2373,10 @@ static MemTxResult amdvi_mem_ir_write(void *opaque, hwaddr addr,
                                       uint64_t value, unsigned size,
                                       MemTxAttrs attrs)
 {
+    AMDVIState *s = opaque;
     int ret;
     MSIMessage from = { 0, 0 }, to = { 0, 0 };
-    uint16_t sid = AMDVI_IOAPIC_SB_DEVID;
+    uint16_t sid = s->sb_devid;
 
     from.address = (uint64_t) addr + AMDVI_INT_ADDR_FIRST;
     from.data = (uint32_t) value;
@@ -2744,6 +2745,32 @@ out:
     return bus;
 }
 
+static void amdvi_find_isa_bridge(PCIBus *bus, PCIDevice *dev, void *opaque)
+{
+    uint16_t *devid = opaque;
+
+    if (*devid == UINT16_MAX &&
+        pci_get_word(dev->config + PCI_CLASS_DEVICE) == PCI_CLASS_BRIDGE_ISA) {
+        *devid = PCI_BUILD_BDF(pci_bus_num(bus), dev->devfn);
+    }
+}
+
+/*
+ * The I/O APIC and the HPET, which have no PCI function of their own, send
+ * their messages as part of the southbridge: as the root bus's ISA bridge
+ * where it has one, since Linux 7.3 takes interrupt remapping only where the
+ * southbridge I/O APIC's IVRS entry names an SMBus controller or ISA bridge
+ * (check_sb_ioapic()), else as 00:14.0, where AMD's chipsets have their SMBus
+ * controller.
+ */
+static uint16_t amdvi_sb_devid(PCIBus *bus)
+{
+    uint16_t devid = UINT16_MAX;
+
+    pci_for_each_device(bus, pci_bus_num(bus), amdvi_find_isa_bridge, &devid);
+    return devid == UINT16_MAX ? AMDVI_IOAPIC_SB_DEVID : devid;
+}
+
 static void amdvi_sysbus_realize(DeviceState *dev, Error **errp)
 {
     DeviceClass *dc = (DeviceClass *) object_get_class(OBJECT(dev));
@@ -2809,6 +2836,8 @@ static void amdvi_sysbus_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion_overlap(&s->mr_sys, AMDVI_INT_ADDR_FIRST,
                                         &s->mr_ir, 1);
 
+    s->sb_devid = amdvi_sb_devid(pcms->pcibus);
+
     /**
      * Pseudo address space under root PCI bus.
      * The linux kernel disables the intremap when it cannot find IOAPIC under
@@ -2817,7 +2846,7 @@ static void amdvi_sysbus_realize(DeviceState *dev, Error **errp)
      */
     if (x86_iommu_ir_supported(X86_IOMMU_DEVICE(s))) {
         x86ms->ioapic_as = amdvi_host_dma_iommu(pcms->pcibus, s,
-                                                AMDVI_IOAPIC_SB_DEVID);
+                                                PCI_BDF_TO_DEVFN(s->sb_devid));
     }
 
     if (kvm_enabled() && x86ms->apic_id_limit > 255 && !s->xtsup) {

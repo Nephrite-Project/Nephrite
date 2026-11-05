@@ -1770,8 +1770,6 @@ build_waet(GArray *table_data, BIOSLinker *linker, const char *oem_id,
  *   IVRS table as specified in AMD IOMMU Specification v2.62, Section 5.2
  *   accessible here http://support.amd.com/TechDocs/48882_IOMMU.pdf
  */
-#define IOAPIC_SB_DEVID   (uint64_t)PCI_BUILD_BDF(0, PCI_DEVFN(0x14, 0))
-
 /*
  * Insert IVHD entry for device and recurse, insert alias, or insert range as
  * necessary for the PCI topology.
@@ -1955,7 +1953,7 @@ build_amd_iommu(GArray *table_data, BIOSLinker *linker, const char *oem_id,
     if (x86_iommu_ir_supported(x86_iommu_get_default())) {
         build_append_int_noprefix(ivhd_blob,
                                  (0x1ull << 56) |           /* type IOAPIC */
-                                 (IOAPIC_SB_DEVID << 40) |  /* IOAPIC devid */
+                                 ((uint64_t)s->sb_devid << 40) | /* devid */
                                  0x48,                      /* special device */
                                  8);
         /*
@@ -1966,7 +1964,7 @@ build_amd_iommu(GArray *table_data, BIOSLinker *linker, const char *oem_id,
         if (hpet_find_msi()) {
             build_append_int_noprefix(ivhd_blob,
                                      (0x2ull << 56) |           /* HPET */
-                                     (IOAPIC_SB_DEVID << 40) |  /* devid */
+                                     ((uint64_t)s->sb_devid << 40) |
                                      0x48,                      /* special */
                                      8);
         }

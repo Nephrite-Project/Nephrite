@@ -391,6 +391,9 @@ struct AMDVIState {
 
     /* root bus to register IOMMU ops */
     PCIBus *root_bus;
+
+    /* southbridge's requester ID: the I/O APIC's and the HPET's messages' */
+    uint16_t sb_devid;
 };
 
 uint64_t amdvi_extended_feature_register(AMDVIState *s);
