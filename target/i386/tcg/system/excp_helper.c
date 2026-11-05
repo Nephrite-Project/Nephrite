@@ -80,11 +80,15 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr)
     /*
      * Walks may set accessed and dirty flags: stores, but for EPT without
      * A/D flags, which takes paging-structure accesses as reads (Intel SDM
-     * 325462-093 Vol. 3C, 31.3.5).
+     * 325462-093 Vol. 3C, 31.3.5), and for nested paging with ROGPT, which
+     * takes them as writes only to update a flag (AMD64 Architecture
+     * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.25.5).
      */
     inout->gaddr = addr;
-    inout->load_only = x86_vmx_ept_active(inout->env) &&
-                       !x86_vmx_ept_ad(inout->env);
+    inout->load_only = x86_vmx_ept_active(inout->env) ?
+                       !x86_vmx_ept_ad(inout->env) :
+                       inout->ptw_idx != MMU_PHYS_IDX &&
+                       (inout->env->nested_pg_mode & PG_MODE_ROGPT);
     flags = probe_access_full_mmu(inout->env, addr, 0,
                                   inout->load_only ? MMU_DATA_LOAD
                                                    : MMU_DATA_STORE,

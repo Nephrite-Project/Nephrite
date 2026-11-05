@@ -116,8 +116,9 @@ AMD SVM, completing what QEMU's TCG has:
 * Next-RIP saving, decode assists, VMCB clean bits, ASID-tagged
   translations with flushes by ASID, NMI virtualization, the PAUSE filter
   and its threshold, the TSC ratio MSR, VMSAVE/VMLOAD virtualization, LBR
-  virtualization, ERAPS, GMET, the idle HLT and INVPCID intercepts, AVIC
-  and x2AVIC, and CET state in the VMCB.
+  virtualization, ERAPS, GMET, read-only guest page tables (ROGPT), the
+  idle HLT and INVPCID intercepts, AVIC and x2AVIC, and CET state in the
+  VMCB.
 
 Processor features:
 
@@ -268,7 +269,7 @@ Known deviations and limits
   supervisor-shadow-stack control, nested page fault exit information
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
-* Not implemented: ROGPT, HOST_MCE_OVERRIDE, the bus-lock threshold,
+* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold,
   TlbiCtl and INVLPGB, SVM's PML, AMD's UAI, RDPRU, AMD's extended
   interrupt LVTs and IBS, VT-d posted interrupts, AMD-Vi's guest virtual
   APIC mode, and FRED.

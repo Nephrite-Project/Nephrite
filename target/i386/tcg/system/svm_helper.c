@@ -611,6 +611,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             (env->features[FEAT_SVM] & CPUID_SVM_GMET)) {
             env->nested_pg_mode |= PG_MODE_GMET;
         }
+        if ((nested_ctl & SVM_NPT_ROGPT) &&
+            (env->features[FEAT_SVM] & CPUID_SVM_ROGPT)) {
+            env->nested_pg_mode |= PG_MODE_ROGPT;
+        }
     }
 
     /* enable intercepts */

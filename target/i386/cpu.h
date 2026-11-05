@@ -431,6 +431,12 @@ typedef enum X86Seg {
  * Manual Volume 2, 24593 rev. 3.45, 15.25.13).
  */
 #define PG_MODE_GMET     (1 << 6)
+/*
+ * And ROGPT, with which walks write guest page tables at the nested level
+ * only to update accessed and dirty flags (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, 15.25.5).
+ */
+#define PG_MODE_ROGPT    (1 << 7)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */
@@ -1037,6 +1043,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_VGIF            (1U << 16)
 #define CPUID_SVM_GMET            (1U << 17)
 #define CPUID_SVM_X2AVIC          (1U << 18)
+#define CPUID_SVM_ROGPT           (1U << 21)
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
