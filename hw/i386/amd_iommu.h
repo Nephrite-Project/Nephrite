@@ -62,6 +62,10 @@
 #define AMDVI_MMIO_PPR_BASE           0x0038
 #define AMDVI_MMIO_PPR_HEAD           0x2030
 #define AMDVI_MMIO_PPR_TAIL           0x2038
+#define AMDVI_MMIO_GA_LOG_BASE        0x00e0
+#define AMDVI_MMIO_GA_LOG_TAIL_ADDR   0x00e8
+#define AMDVI_MMIO_GA_LOG_HEAD        0x2040
+#define AMDVI_MMIO_GA_LOG_TAIL        0x2048
 
 #define AMDVI_MMIO_SIZE               0x4000
 
@@ -103,6 +107,10 @@
 #define AMDVI_MMIO_CONTROL_COMWAITINTEN   (1ULL << 4)
 #define AMDVI_MMIO_CONTROL_CMDBUFLEN      (1ULL << 12)
 #define AMDVI_MMIO_CONTROL_GAEN           (1ULL << 17)
+#define AMDVI_MMIO_CONTROL_GAMEN_MASK     (7ULL << 25)
+#define AMDVI_MMIO_CONTROL_GAMEN_VAPIC    (1ULL << 25)
+#define AMDVI_MMIO_CONTROL_GALOGEN        (1ULL << 28)
+#define AMDVI_MMIO_CONTROL_GAINTEN        (1ULL << 29)
 #define AMDVI_MMIO_CONTROL_XTEN           (1ULL << 50)
 #define AMDVI_MMIO_CONTROL_INTCAPXTEN     (1ULL << 51)
 
@@ -112,6 +120,9 @@
 #define AMDVI_MMIO_STATUS_COMP_INT    (1 << 2)
 #define AMDVI_MMIO_STATUS_EVENT_INT   (1 << 1)
 #define AMDVI_MMIO_STATUS_EVT_OVF     (1 << 0)
+#define AMDVI_MMIO_STATUS_GALOG_RUN   (1 << 8)
+#define AMDVI_MMIO_STATUS_GALOG_OVF   (1 << 9)
+#define AMDVI_MMIO_STATUS_GA_INT      (1 << 10)
 
 #define AMDVI_CMDBUF_ID_BYTE              0x07
 #define AMDVI_CMDBUF_ID_RSHIFT            4
@@ -166,6 +177,7 @@
 #define AMDVI_FEATURE_GA                  (1ULL << 7) /* guest VAPIC support */
 #define AMDVI_FEATURE_HE                  (1ULL << 8) /* hardware error regs */
 #define AMDVI_FEATURE_PC                  (1ULL << 9) /* Perf counters       */
+#define AMDVI_FEATURE_GAM_VAPIC           (1ULL << 21) /* GAMSup: vAPIC   */
 
 /* reserved DTE bits */
 #define AMDVI_DTE_QUAD0_RESERVED        (GENMASK64(6, 2) | GENMASK64(63, 63))
@@ -228,7 +240,8 @@
 /* default extended feature */
 #define AMDVI_DEFAULT_EXT_FEATURES \
         (AMDVI_FEATURE_PREFETCH | AMDVI_FEATURE_IA | AMDVI_FEATURE_GT | \
-         AMDVI_GATS_MODE | AMDVI_HATS_MODE | AMDVI_FEATURE_GA)
+         AMDVI_GATS_MODE | AMDVI_HATS_MODE | AMDVI_FEATURE_GA | \
+         AMDVI_FEATURE_GAM_VAPIC)
 
 /* capabilities header */
 #define AMDVI_CAPAB_FEATURES (AMDVI_CAPAB_FLAT_EXT | \

@@ -133,6 +133,16 @@ FIELD(AMDVI_IRTE_GA_LO, DESTINATION, 8, 24)
 FIELD(AMDVI_IRTE_GA_HI, VECTOR, 0, 8)
 FIELD(AMDVI_IRTE_GA_HI, DESTINATION_HI, 56, 8)
 
+/*
+ * The 128-bit IRTE in guest virtual APIC mode (GuestMode=1; AMD IOMMU 48882
+ * rev. 3.11, Table 23): GALogIntr, IsRun, the GATag, and the vAPIC backing
+ * page's address, bits 51:12.
+ */
+FIELD(AMDVI_IRTE_GA_LO, GA_LOG_INTR, 2, 1)
+FIELD(AMDVI_IRTE_GA_LO, IS_RUN, 6, 1)
+FIELD(AMDVI_IRTE_GA_LO, GA_TAG, 32, 32)
+FIELD(AMDVI_IRTE_GA_HI, GA_ROOT, 12, 40)
+
 uint64_t amdvi_extended_feature_register(AMDVIState *s)
 {
     uint64_t feature = AMDVI_DEFAULT_EXT_FEATURES;
@@ -1706,6 +1716,11 @@ static void amdvi_handle_control_write(AMDVIState *s)
     } else {
         amdvi_assign_andq(s, AMDVI_MMIO_STATUS, ~AMDVI_MMIO_STATUS_EVT_RUN);
     }
+    if (s->enabled && (control & AMDVI_MMIO_CONTROL_GALOGEN)) {
+        amdvi_assign_orq(s, AMDVI_MMIO_STATUS, AMDVI_MMIO_STATUS_GALOG_RUN);
+    } else {
+        amdvi_assign_andq(s, AMDVI_MMIO_STATUS, ~AMDVI_MMIO_STATUS_GALOG_RUN);
+    }
 
     trace_amdvi_control_status(control);
     amdvi_cmdbuf_run(s);
@@ -1901,6 +1916,12 @@ static void amdvi_mmio_write(void *opaque, hwaddr addr, uint64_t val,
         amdvi_handle_pprtail_write(s);
         break;
     case AMDVI_MMIO_STATUS:
+        amdvi_mmio_reg_write(s, size, val, addr);
+        break;
+    case AMDVI_MMIO_GA_LOG_BASE:
+    case AMDVI_MMIO_GA_LOG_TAIL_ADDR:
+    case AMDVI_MMIO_GA_LOG_HEAD:
+    case AMDVI_MMIO_GA_LOG_TAIL:
         amdvi_mmio_reg_write(s, size, val, addr);
         break;
     case AMDVI_MMIO_XT_GEN_INTR:
@@ -2142,12 +2163,108 @@ static int amdvi_get_irte_ga(AMDVIState *s, MSIMessage *origin, uint64_t *dte,
     return 0;
 }
 
+/* The interrupt was delivered to a guest virtual APIC: nothing to send. */
+#define AMDVI_IR_VIRTUAL 1
+
+/*
+ * The GA log (AMD IOMMU 48882 rev. 3.11, 2.7): a GA_GUEST_NR entry with the
+ * GATag and DeviceID at the tail, which a copy at the tail address follows,
+ * and GAInt, whose setting signals the interrupt with GAIntEn. A full log
+ * sets GALOverflow instead, which keeps it from logging.
+ */
+static void amdvi_ga_log(AMDVIState *s, uint32_t tag, uint16_t devid)
+{
+    uint64_t control = amdvi_readq(s, AMDVI_MMIO_CONTROL);
+    uint64_t base = amdvi_readq(s, AMDVI_MMIO_GA_LOG_BASE);
+    uint64_t tail_addr = amdvi_readq(s, AMDVI_MMIO_GA_LOG_TAIL_ADDR);
+    /* GALogLen 1000b is 512 entries, each one more doubles them. */
+    uint32_t size = 8 << (extract64(base, 56, 4) + 1);
+    uint32_t head = amdvi_readq(s, AMDVI_MMIO_GA_LOG_HEAD) % size;
+    uint32_t tail = amdvi_readq(s, AMDVI_MMIO_GA_LOG_TAIL) % size;
+    uint64_t entry = cpu_to_le64(tag | (uint64_t)devid << 32 | 1ULL << 60);
+    uint64_t next;
+
+    if (!s->enabled || !(control & AMDVI_MMIO_CONTROL_GALOGEN) ||
+        amdvi_test_mask(s, AMDVI_MMIO_STATUS, AMDVI_MMIO_STATUS_GALOG_OVF)) {
+        return;
+    }
+    next = (tail + 8) % size;
+    if (next == head) {
+        amdvi_assign_orq(s, AMDVI_MMIO_STATUS, AMDVI_MMIO_STATUS_GALOG_OVF);
+        return;
+    }
+    dma_memory_write(&address_space_memory,
+                     (base & AMDVI_MMIO_EVTLOG_BASE_MASK) + tail, &entry,
+                     sizeof(entry), MEMTXATTRS_UNSPECIFIED);
+    amdvi_writeq_raw(s, AMDVI_MMIO_GA_LOG_TAIL, next);
+    if (tail_addr) {
+        next = cpu_to_le64(next);
+        dma_memory_write(&address_space_memory, tail_addr, &next, sizeof(next),
+                         MEMTXATTRS_UNSPECIFIED);
+    }
+    if (!amdvi_test_mask(s, AMDVI_MMIO_STATUS, AMDVI_MMIO_STATUS_GA_INT)) {
+        amdvi_assign_orq(s, AMDVI_MMIO_STATUS, AMDVI_MMIO_STATUS_GA_INT);
+        if (control & AMDVI_MMIO_CONTROL_GAINTEN) {
+            amdvi_generate_msi_interrupt(s);
+        }
+    }
+}
+
+/*
+ * A guest virtual interrupt (AMD IOMMU 48882 rev. 3.11, 2.2.5.2): the
+ * vector's bit set atomically in the virtual IRR of the vAPIC backing page,
+ * then, by the IRTE read again, a doorbell to the destination where IsRun
+ * says the guest runs, and otherwise, with GALogIntr, a GA log entry.
+ */
+static int amdvi_ga_deliver(AMDVIState *s, MSIMessage *origin, uint64_t *dte,
+                            AMDVIIrteGA *irte, uint16_t devid)
+{
+    uint8_t vector = FIELD_EX64(irte->ga_hi, AMDVI_IRTE_GA_HI, VECTOR);
+    hwaddr irr = (FIELD_EX64(irte->ga_hi, AMDVI_IRTE_GA_HI, GA_ROOT) << 12) +
+                 0x200 + vector / 32 * 16;
+    hwaddr len = sizeof(uint32_t);
+    uint32_t *p, dest;
+    CPUState *cs;
+
+    p = address_space_map(&address_space_memory, irr, &len, true,
+                          MEMTXATTRS_UNSPECIFIED);
+    if (!p || len < sizeof(uint32_t)) {
+        if (p) {
+            address_space_unmap(&address_space_memory, p, len, true, 0);
+        }
+        return -AMDVI_IR_ERR;
+    }
+    qatomic_or(p, cpu_to_le32(1U << (vector % 32)));
+    address_space_unmap(&address_space_memory, p, len, true, len);
+
+    if (amdvi_get_irte_ga(s, origin, dte, irte, devid) < 0) {
+        return -AMDVI_IR_GET_IRTE;
+    }
+    if (FIELD_EX64(irte->ga_lo, AMDVI_IRTE_GA_LO, IS_RUN)) {
+        dest = FIELD_EX64(irte->ga_lo, AMDVI_IRTE_GA_LO, DESTINATION) & 0xff;
+        if (s->xten) {
+            dest = FIELD_EX64(irte->ga_lo, AMDVI_IRTE_GA_LO, DESTINATION) |
+                   FIELD_EX64(irte->ga_hi, AMDVI_IRTE_GA_HI, DESTINATION_HI) <<
+                   24;
+        }
+        cs = cpu_by_arch_id(dest);
+        if (cs) {
+            cpu_interrupt(cs, CPU_INTERRUPT_VIRQ);
+        }
+    } else if (FIELD_EX64(irte->ga_lo, AMDVI_IRTE_GA_LO, GA_LOG_INTR)) {
+        amdvi_ga_log(s, FIELD_EX64(irte->ga_lo, AMDVI_IRTE_GA_LO, GA_TAG),
+                     devid);
+    }
+    return AMDVI_IR_VIRTUAL;
+}
+
 static int amdvi_int_remap_ga(AMDVIState *iommu,
                               MSIMessage *origin,
                               MSIMessage *translated,
                               uint64_t *dte,
                               X86IOMMUIrq *irq,
-                              uint16_t sid)
+                              uint16_t sid,
+                              bool deliver)
 {
     AMDVIIrteGA irte;
     uint8_t int_type;
@@ -2165,6 +2282,12 @@ static int amdvi_int_remap_ga(AMDVIState *iommu,
     }
 
     if (FIELD_EX64(irte.ga_lo, AMDVI_IRTE_GA_LO, GUEST_MODE)) {
+        /* Guest virtual APIC mode, from GAMEn; and with interrupts to send. */
+        if ((amdvi_readq(iommu, AMDVI_MMIO_CONTROL) &
+             AMDVI_MMIO_CONTROL_GAMEN_MASK) == AMDVI_MMIO_CONTROL_GAMEN_VAPIC &&
+            deliver) {
+            return amdvi_ga_deliver(iommu, origin, dte, &irte, sid);
+        }
         error_report_once("guest mode is not zero");
         return -AMDVI_IR_ERR;
     }
@@ -2196,7 +2319,8 @@ static int __amdvi_int_remap_msi(AMDVIState *iommu,
                                  MSIMessage *translated,
                                  uint64_t *dte,
                                  X86IOMMUIrq *irq,
-                                 uint16_t sid)
+                                 uint16_t sid,
+                                 bool deliver)
 {
     int ret;
     uint8_t int_ctl;
@@ -2219,7 +2343,8 @@ static int __amdvi_int_remap_msi(AMDVIState *iommu,
     }
 
     if (iommu->ga_enabled) {
-        ret = amdvi_int_remap_ga(iommu, origin, translated, dte, irq, sid);
+        ret = amdvi_int_remap_ga(iommu, origin, translated, dte, irq, sid,
+                                 deliver);
     } else {
         ret = amdvi_int_remap_legacy(iommu, origin, translated, dte, irq, sid);
     }
@@ -2227,11 +2352,15 @@ static int __amdvi_int_remap_msi(AMDVIState *iommu,
     return ret;
 }
 
-/* Interrupt remapping for MSI/MSI-X entry */
+/*
+ * Interrupt remapping for MSI/MSI-X entry; DELIVER is false where nothing is
+ * sent, which no guest virtual APIC IRTE may serve.
+ */
 static int amdvi_int_remap_msi(AMDVIState *iommu,
                                MSIMessage *origin,
                                MSIMessage *translated,
-                               uint16_t sid)
+                               uint16_t sid,
+                               bool deliver)
 {
     int ret = 0;
     uint64_t pass = 0;
@@ -2296,9 +2425,12 @@ static int amdvi_int_remap_msi(AMDVIState *iommu,
     case AMDVI_IOAPIC_INT_TYPE_FIXED:
     case AMDVI_IOAPIC_INT_TYPE_ARBITRATED:
         trace_amdvi_ir_delivery_mode("fixed/arbitrated");
-        ret = __amdvi_int_remap_msi(iommu, origin, translated, dte, &irq, sid);
+        ret = __amdvi_int_remap_msi(iommu, origin, translated, dte, &irq, sid,
+                                    deliver);
         if (ret < 0) {
             goto remap_fail;
+        } else if (ret == AMDVI_IR_VIRTUAL) {
+            return ret;
         } else {
             /* Translate IRQ to MSI messages */
             x86_iommu_irq_to_msi_message(&irq, translated);
@@ -2366,7 +2498,7 @@ static int amdvi_int_remap(X86IOMMUState *iommu,
                            uint16_t sid)
 {
     return amdvi_int_remap_msi(AMD_IOMMU_DEVICE(iommu), origin,
-                               translated, sid);
+                               translated, sid, false);
 }
 
 static MemTxResult amdvi_mem_ir_write(void *opaque, hwaddr addr,
@@ -2388,11 +2520,14 @@ static MemTxResult amdvi_mem_ir_write(void *opaque, hwaddr addr,
         sid = attrs.requester_id;
     }
 
-    ret = amdvi_int_remap_msi(opaque, &from, &to, sid);
+    ret = amdvi_int_remap_msi(opaque, &from, &to, sid, true);
     if (ret < 0) {
         /* TODO: log the event using IOMMU log event interface */
         error_report_once("failed to remap interrupt from devid 0x%x", sid);
         return MEMTX_ERROR;
+    }
+    if (ret == AMDVI_IR_VIRTUAL) {
+        return MEMTX_OK;
     }
 
     apic_get_class(NULL)->send_msi(&to);
@@ -2581,7 +2716,20 @@ static void amdvi_init(AMDVIState *s)
     amdvi_set_quad(s, AMDVI_MMIO_EXT_FEATURES,
                    amdvi_extended_feature_register(s),
                    0xffffffffffffffef, 0);
-    amdvi_set_quad(s, AMDVI_MMIO_STATUS, 0, 0x98, 0x67);
+    amdvi_set_quad(s, AMDVI_MMIO_STATUS, 0,
+                   0x98 | AMDVI_MMIO_STATUS_GALOG_RUN,
+                   0x67 | AMDVI_MMIO_STATUS_GALOG_OVF |
+                   AMDVI_MMIO_STATUS_GA_INT);
+    /*
+     * The GA log's base and length (512 entries at reset), its tail
+     * address, and its head and tail (AMD IOMMU 48882 rev. 3.11, 3.4.4 and
+     * 3.4.18).
+     */
+    amdvi_set_quad(s, AMDVI_MMIO_GA_LOG_BASE, 8ULL << 56,
+                   ~(GENMASK64(59, 56) | GENMASK64(51, 12)), 0);
+    amdvi_set_quad(s, AMDVI_MMIO_GA_LOG_TAIL_ADDR, 0, ~GENMASK64(51, 3), 0);
+    amdvi_set_quad(s, AMDVI_MMIO_GA_LOG_HEAD, 0, ~GENMASK64(18, 3), 0);
+    amdvi_set_quad(s, AMDVI_MMIO_GA_LOG_TAIL, 0, ~GENMASK64(18, 3), 0);
 }
 
 static void amdvi_pci_realize(PCIDevice *pdev, Error **errp)

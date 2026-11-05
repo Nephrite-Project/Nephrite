@@ -212,6 +212,9 @@ Devices:
 
 * The Intel IOMMU posts interrupts: those through posted-format IRTEs go
   to their posted-interrupt descriptors, with notifications.
+* The AMD IOMMU has the guest virtual APIC mode: interrupts through
+  GuestMode IRTEs go to vAPIC backing pages, with doorbells or GA log
+  entries.
 * The AMD IOMMU has one MSI capability. It had a second, unused one, which
   drivers that take the last MSI capability they find programmed instead.
 * The AMD IOMMU reads every DTE again at INVALIDATE_IOMMU_ALL.
@@ -287,7 +290,7 @@ Known deviations and limits
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
-  RDPRU, AMD's IBS, AMD-Vi's guest virtual APIC mode, and FRED.
+  RDPRU, AMD's IBS, and FRED.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.
