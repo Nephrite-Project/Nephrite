@@ -1247,17 +1247,11 @@ static void enable_nodma_mode(AMDVIAddressSpace *as)
  * enable the corresponding IOMMU memory region to allow for DMA translation if
  * appropriate.
  */
-static void amdvi_update_addr_translation_mode(AMDVIState *s, uint16_t devid)
+static void amdvi_update_as_translation_mode(AMDVIAddressSpace *as)
 {
     uint8_t dte_mode;
-    AMDVIAddressSpace *as;
     uint64_t dte[4] = { 0 };
     int ret;
-
-    as = amdvi_get_as_by_devid(s, devid);
-    if (!as) {
-        return;
-    }
 
     ret = amdvi_as_to_dte(as, dte);
 
@@ -1286,6 +1280,15 @@ static void amdvi_update_addr_translation_mode(AMDVIState *s, uint16_t devid)
          */
         enable_dma_mode(as, true);
         break;
+    }
+}
+
+static void amdvi_update_addr_translation_mode(AMDVIState *s, uint16_t devid)
+{
+    AMDVIAddressSpace *as = amdvi_get_as_by_devid(s, devid);
+
+    if (as) {
+        amdvi_update_as_translation_mode(as);
     }
 }
 
@@ -1341,6 +1344,22 @@ static void amdvi_inval_all(AMDVIState *s, uint64_t *cmd)
     amdvi_intremap_inval_notify_all(s, true, 0, 0);
 
     amdvi_iotlb_reset(s);
+
+    /*
+     * The command also drops the cached portions of the Device Table (AMD
+     * I/O Virtualization Technology (IOMMU) Specification 48882 rev. 3.11,
+     * 2.4.8): every device's DTE is read again, as after its own
+     * INVALIDATE_DEVTAB_ENTRY.
+     */
+    if (s->dma_remap) {
+        AMDVIAddressSpace *iommu_as;
+        GHashTableIter as_it;
+
+        g_hash_table_iter_init(&as_it, s->address_spaces);
+        while (g_hash_table_iter_next(&as_it, NULL, (void **)&iommu_as)) {
+            amdvi_update_as_translation_mode(iommu_as);
+        }
+    }
 
     /*
      * Fully replay the address space i.e. send both UNMAP and MAP events in
