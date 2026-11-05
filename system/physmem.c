@@ -563,27 +563,64 @@ iotlb_fail:
 }
 
 /* Called from RCU critical section */
-MemoryRegion *flatview_translate(FlatView *fv, hwaddr addr, hwaddr *xlat,
-                                 hwaddr *plen, bool is_write,
-                                 MemTxAttrs attrs)
+static MemoryRegionSection flatview_translate_section(FlatView *fv,
+                                                      hwaddr addr,
+                                                      hwaddr *xlat,
+                                                      hwaddr *plen,
+                                                      bool is_write,
+                                                      MemTxAttrs attrs)
 {
-    MemoryRegion *mr;
     MemoryRegionSection section;
     AddressSpace *as = NULL;
 
     /* This can be MMIO, so setup MMIO bit. */
     section = flatview_do_translate(fv, addr, xlat, plen, NULL,
                                     is_write, true, &as, attrs);
-    mr = section.mr;
 
     if (xen_map_cache_enabled() &&
-        memory_access_is_direct(mr, is_write, attrs)) {
+        memory_access_is_direct(section.mr, is_write, attrs)) {
         /* mapcache: Next page may be unmapped or in a different bucket/VA. */
         hwaddr page = ((addr & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE) - addr;
         *plen = MIN(page, *plen);
     }
 
-    return mr;
+    return section;
+}
+
+/* Called from RCU critical section */
+MemoryRegion *flatview_translate(FlatView *fv, hwaddr addr, hwaddr *xlat,
+                                 hwaddr *plen, bool is_write,
+                                 MemTxAttrs attrs)
+{
+    return flatview_translate_section(fv, addr, xlat, plen, is_write,
+                                      attrs).mr;
+}
+
+/*
+ * flatview_translate() for an access by the guest or a device: a write to
+ * RAM that the section maps read-only, as a write-protected PAM segment maps
+ * it, goes to io_mem_unassigned, which fails it as a write to a ROM fails,
+ * and leaves the RAM as the CPU's writes leave it (TLB_DISCARD_WRITE).  The
+ * memory controller forwards such writes from PCI initiators too instead of
+ * storing them (Intel 3 Series Express Chipset Family Datasheet 316966-002,
+ * 5.1.18).
+ *
+ * Called from RCU critical section
+ */
+static MemoryRegion *flatview_translate_access(FlatView *fv, hwaddr addr,
+                                               hwaddr *xlat, hwaddr *plen,
+                                               bool is_write,
+                                               MemTxAttrs attrs)
+{
+    MemoryRegionSection section;
+
+    section = flatview_translate_section(fv, addr, xlat, plen, is_write,
+                                         attrs);
+    if (is_write && unlikely(section.readonly) && !attrs.debug &&
+        memory_access_is_direct(section.mr, true, attrs)) {
+        return &io_mem_unassigned;
+    }
+    return section.mr;
 }
 
 #ifdef CONFIG_TCG
@@ -3354,7 +3391,7 @@ static MemTxResult flatview_write_continue(FlatView *fv, hwaddr addr,
         }
 
         l = len;
-        mr = flatview_translate(fv, addr, &mr_addr, &l, true, attrs);
+        mr = flatview_translate_access(fv, addr, &mr_addr, &l, true, attrs);
     }
 
     return result;
@@ -3369,7 +3406,7 @@ static MemTxResult flatview_write(FlatView *fv, hwaddr addr, MemTxAttrs attrs,
     MemoryRegion *mr;
 
     l = len;
-    mr = flatview_translate(fv, addr, &mr_addr, &l, true, attrs);
+    mr = flatview_translate_access(fv, addr, &mr_addr, &l, true, attrs);
     if (!flatview_access_allowed(mr, attrs, mr_addr, l)) {
         return MEMTX_ACCESS_ERROR;
     }
@@ -3686,7 +3723,7 @@ static bool flatview_access_valid(FlatView *fv, hwaddr addr, hwaddr len,
 
     while (len > 0) {
         l = len;
-        mr = flatview_translate(fv, addr, &xlat, &l, is_write, attrs);
+        mr = flatview_translate_access(fv, addr, &xlat, &l, is_write, attrs);
         if (!memory_access_is_direct(mr, is_write, attrs)) {
             l = memory_access_size(mr, l, addr);
             if (!memory_region_access_valid(mr, xlat, l, is_write, attrs)) {
@@ -3741,8 +3778,8 @@ flatview_extend_translation(FlatView *fv, hwaddr addr,
         }
 
         len = target_len;
-        this_mr = flatview_translate(fv, addr, &xlat,
-                                     &len, is_write, attrs);
+        this_mr = flatview_translate_access(fv, addr, &xlat,
+                                            &len, is_write, attrs);
         if (this_mr != mr || xlat != base + done) {
             return done;
         }
@@ -3776,7 +3813,7 @@ void *address_space_map(AddressSpace *as,
     l = len;
     RCU_READ_LOCK_GUARD();
     fv = address_space_to_flatview(as);
-    mr = flatview_translate(fv, addr, &xlat, &l, is_write, attrs);
+    mr = flatview_translate_access(fv, addr, &xlat, &l, is_write, attrs);
 
     if (!memory_access_is_direct(mr, is_write, attrs)) {
         size_t used = qatomic_read(&as->bounce_buffer_size);
