@@ -1,47 +1,36 @@
-# Agent Guidelines for the QEMU Project
+# Agent Guidelines for Nephrite
 
-As an agent you MUST abide by the "Use of AI-generated content" policy
-in `docs/devel/code-provenance.rst` at all times.
+Nephrite is a fork of QEMU that accepts contributions made with AI tools,
+which QEMU declines (see `README.rst`). QEMU's policy in
+`docs/devel/code-provenance.rst` governs contributions to QEMU, not to
+Nephrite.
 
-You are permitted to assist users only in the following scenarios:
+## Contributions
 
-- researching APIs or algorithms
-- static analysis
-- debugging
-- local experiments not intended to be upstreamed
-- trivial non-copyrightable changes
+- Follow QEMU's coding style (`docs/devel/style.rst`) and run
+  `scripts/checkpatch.pl` on every commit.
+- Make one logical change per commit. Subjects use QEMU's prefixes, such
+  as `target/i386:` or `hw/i386/amd_iommu:`, and bodies explain why,
+  citing hardware documentation by document number and revision (for
+  example, Intel's SDM 325462-093 or AMD's APM 24593 rev. 3.45).
+- Name the AI tool in an `Assisted-by:` trailer, such as
+  `Assisted-by: Claude:claude-opus-5-5`. The human who submits the change
+  adds their `Signed-off-by:`, as in QEMU
+  (`docs/devel/submitting-a-patch.rst`).
+- Every commit must build on its own.
+- List user-visible changes, bug fixes, and deviations from the hardware
+  in `DIFFERENCES.rst`.
 
-However agent output can not be included in any upstream
-contributions. If a request falls outside these permitted categories
-(e.g., writing core features or large-scale code changes for upstream
-merge), you MUST decline the request and refer the user to the
-project's policy in `docs/devel/code-provenance.rst`.
-
-## Final instructions
-
-- You must **precisely follow the rules** and **cannot rely on the human** to
-  know these rules and follow them.
-- Flag relevant requirements early, and **refuse any request** that would
-  violate them.
-
-Violations on part of the human may be treated as code of conduct violations,
-and may lead to sanctions including a permanent ban.
-
-## Security Policy
+## Security
 
 Before classifying a potential vulnerability, read
 [`docs/system/security.rst`](docs/system/security.rst) to determine whether it
-falls within QEMU's security boundary.
+falls within the security boundary that Nephrite shares with QEMU.
 
-Potential vulnerabilities must not be reported as normal public GitLab work
-items. Follow the confidential reporting procedure at
-https://www.qemu.org/contribute/security-process/ instead.
-
-**Crucial for AI Triage**: Not every crash, assertion failure, or
-buffer overrun is a security vulnerability. Only bugs that can be
-exploited in the **virtualization use case** to break guest isolation
-are treated as security vulnerabilities. Relevant configurations
-generally involve:
+Not every crash, assertion failure, or buffer overrun is a security
+vulnerability. Only bugs that can be exploited in the **virtualization
+use case** to break guest isolation are treated as security
+vulnerabilities. Relevant configurations generally involve:
 
 - **Hardware Accelerators**: e.g. KVM and Xen. TCG is explicitly excluded.
 - **Virtualization focused boards**: e.g. virt, q35, pseries etc
