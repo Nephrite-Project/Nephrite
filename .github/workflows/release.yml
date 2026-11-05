@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+      sha: ${{ steps.validate.outputs.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag
+        id: validate
+        env:
+          TAG_INPUT: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -eu
+
+          if ! printf '%s' "$TAG_INPUT" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Invalid release tag: $TAG_INPUT" >&2
+            exit 1
+          fi
+
+          git fetch --force origin "refs/tags/$TAG_INPUT:refs/tags/$TAG_INPUT"
+          TAG_SHA="$(git rev-list -n 1 "refs/tags/$TAG_INPUT")"
+
+          # make dist names the tarball, and picks the tag to package, after
+          # NEPHRITE_VERSION.
+          if [ "v$(git show "$TAG_SHA:NEPHRITE_VERSION")" != "$TAG_INPUT" ]; then
+            echo "NEPHRITE_VERSION at $TAG_INPUT does not say ${TAG_INPUT#v}" >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG_INPUT" >> "$GITHUB_OUTPUT"
+          echo "sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build release artifacts
+    needs: validate
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Install dependencies
+        run: pacman --noconfirm -Syu && pacman --needed --noconfirm -S base-devel git nodejs python meson ninja glib2 pixman xz
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Git config
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Package the source release tarball
+        run: make dist
+
+      # Nephrite is released only once its tarball builds.
+      - name: Build Nephrite from the source release tarball
+        env:
+          TAG_NAME: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -eu
+          VERSION="${TAG_NAME#v}"
+          mkdir build
+          tar -xf "nephrite-$VERSION.tar.xz" -C build
+          mkdir "build/nephrite-$VERSION/build"
+          cd "build/nephrite-$VERSION/build"
+          ../configure --target-list=x86_64-softmmu
+          make -j"$(nproc)"
+          ./nephrite-system-x86_64 --version
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-artifacts
+          if-no-files-found: error
+          path: nephrite-*.tar.xz
+
+  release:
+    name: Upload release artifacts
+    needs:
+      - validate
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: release-artifacts
+          path: dist
+
+      - name: Create release notes
+        env:
+          TAG_NAME: ${{ needs.validate.outputs.tag }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -eu
+          VERSION="${TAG_NAME#v}"
+          cat >rel_notes.txt <<'EOF'
+          [DIFFERENCES.rst](@REPO_URL@/blob/@TAG@/DIFFERENCES.rst) lists how Nephrite differs from the QEMU it is
+          based on.
+
+          To build Nephrite from source, use the source tarball uploaded with this release, `nephrite-@VERSION@.tar.xz`,
+          which comes with the firmware sources and the Meson subprojects, or a Git checkout of the `@TAG@` tag with its
+          submodules, as the [README](@REPO_URL@/blob/@TAG@/README.rst) explains. The "Source code" zip and tarball
+          GitHub generates for every release lack the submodules and the subprojects.
+          EOF
+          sed -i -e "s|@VERSION@|$VERSION|g" -e "s|@TAG@|$TAG_NAME|g" -e "s|@REPO_URL@|$REPO_URL|g" rel_notes.txt
+
+      - name: Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          body_path: rel_notes.txt
+          files: dist/nephrite-*.tar.xz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
