@@ -28,6 +28,7 @@
 
 typedef struct CPUBreakpoint {
     vaddr pc;
+    vaddr mask; /* address bits the match leaves out, 0 unless set */
     int flags; /* BP_* */
     QTAILQ_ENTRY(CPUBreakpoint) entry;
 } CPUBreakpoint;

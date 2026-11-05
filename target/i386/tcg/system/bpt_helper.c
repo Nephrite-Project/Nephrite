@@ -53,28 +53,40 @@ static inline int hw_breakpoint_len(unsigned long dr7, int index)
 }
 
 /*
- * AMD's DR0_ADDR_MASK comes with DataBkptExt, those of DR1-3 with
- * AddrMaskExt; bits set exclude address bits from data breakpoint matches
- * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
- * 13.1.7).  Instruction breakpoints still match one address only.
+ * AMD's DR0-3_ADDR_MASK come with DataBkptExt, whose bits set exclude
+ * address bits from breakpoint matches: bits 11:0 for instruction
+ * breakpoints, all of DR0's for data ones; AddrMaskExt extends them to
+ * all bits and registers (AMD64 Architecture Programmer's Manual Volume
+ * 2, 24593 rev. 3.45, 13.1.7).
  */
 bool x86_dr_addr_mask_exists(CPUX86State *env, int index)
 {
-    uint32_t ecx = env->features[FEAT_8000_0001_ECX];
-
-    return ecx & CPUID_EXT3_ADDRMASKEXT ||
-           (index == 0 && (ecx & CPUID_EXT3_BPEXT));
+    return env->features[FEAT_8000_0001_ECX] &
+           (CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT);
 }
 
 /* The address bits a data breakpoint leaves out of its match. */
 static uint64_t hw_breakpoint_ignored(CPUX86State *env, int index)
 {
+    uint32_t ecx = env->features[FEAT_8000_0001_ECX];
     uint64_t ignored = hw_breakpoint_len(env->dr[7], index) - 1;
 
-    if (x86_dr_addr_mask_exists(env, index)) {
+    if ((ecx & CPUID_EXT3_ADDRMASKEXT) ||
+        (index == 0 && (ecx & CPUID_EXT3_BPEXT))) {
         ignored |= env->dr_addr_mask[index];
     }
     return ignored;
+}
+
+/* The address bits an instruction breakpoint leaves out of its match. */
+static uint64_t hw_breakpoint_insn_ignored(CPUX86State *env, int index)
+{
+    uint32_t ecx = env->features[FEAT_8000_0001_ECX];
+
+    if (ecx & CPUID_EXT3_ADDRMASKEXT) {
+        return env->dr_addr_mask[index];
+    }
+    return ecx & CPUID_EXT3_BPEXT ? env->dr_addr_mask[index] & 0xfff : 0;
 }
 
 /*
@@ -126,6 +138,10 @@ static int hw_breakpoint_insert(CPUX86State *env, int index)
         if (hw_breakpoint_enabled(dr7, index)) {
             err = cpu_breakpoint_insert(cs, drN, BP_CPU,
                                         &env->cpu_breakpoint[index]);
+            if (!err) {
+                env->cpu_breakpoint[index]->mask =
+                    hw_breakpoint_insn_ignored(env, index);
+            }
         }
         break;
 
@@ -250,7 +266,8 @@ static uint32_t breakpoint_hits(CPUX86State *env, bool insn, bool *enabled)
 
         switch (hw_breakpoint_type(env->dr[7], reg)) {
         case DR7_TYPE_BP_INST:
-            if (insn && env->dr[reg] == insn_linear(env)) {
+            if (insn && !((env->dr[reg] ^ insn_linear(env)) &
+                          ~hw_breakpoint_insn_ignored(env, reg))) {
                 bp_match = true;
             }
             break;

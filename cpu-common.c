@@ -395,7 +395,7 @@ bool cpu_breakpoint_test(CPUState *cpu, vaddr pc, int mask)
 
     if (unlikely(!QTAILQ_EMPTY(&cpu->breakpoints))) {
         QTAILQ_FOREACH(bp, &cpu->breakpoints, entry) {
-            if (bp->pc == pc && (bp->flags & mask)) {
+            if (!((bp->pc ^ pc) & ~bp->mask) && (bp->flags & mask)) {
                 return true;
             }
         }
@@ -416,6 +416,7 @@ int cpu_breakpoint_insert(CPUState *cpu, vaddr pc, int flags,
     bp = g_malloc(sizeof(*bp));
 
     bp->pc = pc;
+    bp->mask = 0;
     bp->flags = flags;
 
     /* keep all GDB-injected breakpoints in front */
