@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The installer's welcome bitmap, pc-bios/nephrite-nsis.bmp: see Makefile. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="164" height="314" viewBox="0 0 164 314">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d6efdf"/>
+    </linearGradient>
+  </defs>
+  <rect width="164" height="314" fill="url(#bg)"/>
+  <image href="nephrite.svg" x="22" y="56" width="120" height="120"/>
+  <text x="82" y="212" font-family="Noto Sans" font-weight="bold" font-size="26" fill="#1a6b40" text-anchor="middle">Nephrite</text>
+</svg>

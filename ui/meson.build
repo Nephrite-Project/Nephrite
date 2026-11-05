@@ -196,7 +196,7 @@ subdir('shader')
 if have_system
   subdir('icons')
 
-  install_data('qemu.desktop', install_dir: qemu_desktopdir)
+  install_data('nephrite.desktop', install_dir: qemu_desktopdir)
 endif
 
 modules += {'ui': ui_modules}

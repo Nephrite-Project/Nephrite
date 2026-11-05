@@ -27,4 +27,4 @@ FILESUBTYPE VFT2_UNKNOWN
   }
 }
 
-IDI_ICON1 ICON "pc-bios/qemu-nsis.ico"
+IDI_ICON1 ICON "pc-bios/nephrite-nsis.ico"

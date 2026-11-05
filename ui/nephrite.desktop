@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
-Name=QEMU
-Icon=qemu
+Name=Nephrite
+Icon=nephrite
 Type=Application
 Terminal=false
 Keywords=Emulators;Virtualization;KVM;

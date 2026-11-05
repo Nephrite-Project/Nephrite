@@ -71,13 +71,13 @@ RequestExecutionLevel admin
 
 ;--------------------------------
 ; Interface Settings.
-;!define MUI_HEADERIMAGE "qemu-nsis.bmp"
+;!define MUI_HEADERIMAGE "nephrite-nsis.bmp"
 ; !define MUI_SPECIALBITMAP "qemu.bmp"
-!define MUI_ICON "${SRCDIR}\pc-bios\qemu-nsis.ico"
-!define MUI_UNICON "${SRCDIR}\pc-bios\qemu-nsis.ico"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "${SRCDIR}\pc-bios\qemu-nsis.bmp"
-; !define MUI_HEADERIMAGE_BITMAP "qemu-install.bmp"
-; !define MUI_HEADERIMAGE_UNBITMAP "qemu-uninstall.bmp"
+!define MUI_ICON "${SRCDIR}\pc-bios\nephrite-nsis.ico"
+!define MUI_UNICON "${SRCDIR}\pc-bios\nephrite-nsis.ico"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${SRCDIR}\pc-bios\nephrite-nsis.bmp"
+; !define MUI_HEADERIMAGE_BITMAP "nephrite-install.bmp"
+; !define MUI_HEADERIMAGE_UNBITMAP "nephrite-uninstall.bmp"
 ; !define MUI_COMPONENTSPAGE_SMALLDESC
 ; !define MUI_WELCOMEPAGE_TEXT "Insert text here.$\r$\n$\r$\n$\r$\n$_CLICK"
 

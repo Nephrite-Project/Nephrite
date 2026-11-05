@@ -1,13 +1,18 @@
+# Regenerates Nephrite's bitmaps from nephrite.svg with librsvg's
+# rsvg-convert and ImageMagick: the PNGs and the BMP that the UIs and the
+# icon theme take, and the Windows icon, the installer's bitmap, and the
+# macOS icon resource in pc-bios.
 
-# Regenerate bitmaps from the SVG using inkscape CLI export
-# and ImageMagick. Don't use ImageMagick for the initial
-# SVG conversion, since it merely calls inkscape, but uses
-# 96 DPI res resulting in poor quality output.
+SIZES = 16 24 32 48 64 128 256 512
 
 regenerate:
-	for s in 16 24 32 48 64 128 256 512; \
-	do \
-	    inkscape --without-gui --export-png=qemu_$${s}x$${s}.png \
-		--export-width=$$s --export-height=$$s qemu.svg ; \
+	for s in $(SIZES); do \
+	    rsvg-convert -w $$s -h $$s nephrite.svg -o nephrite_$${s}x$${s}.png; \
 	done
-	convert qemu_32x32.png qemu_32x32.bmp
+	magick nephrite_32x32.png BMP:nephrite_32x32.bmp
+	magick nephrite_16x16.png nephrite_24x24.png nephrite_32x32.png \
+	    nephrite_48x48.png nephrite_64x64.png nephrite_256x256.png \
+	    ../../pc-bios/nephrite-nsis.ico
+	rsvg-convert nephrite-nsis.svg | magick - -background white -flatten \
+	    -type TrueColor BMP3:../../pc-bios/nephrite-nsis.bmp
+	python3 rez-icns.py ../../pc-bios/nephrite.rsrc

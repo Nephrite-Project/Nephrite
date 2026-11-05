@@ -857,7 +857,7 @@ if host_os == 'windows'
 
   win = import('windows')
   version_res = win.compile_resources('version.rc',
-                                      depend_files: files('pc-bios/qemu-nsis.ico'),
+                                      depend_files: files('pc-bios/nephrite-nsis.ico'),
                                       include_directories: include_directories('.'))
   host_dsosuf = '.dll'
 elif host_os == 'darwin'
@@ -4532,7 +4532,7 @@ foreach target : target_dirs
                win_subsystem: exe['win_subsystem'])
 
     if host_os == 'darwin'
-      icon = 'pc-bios/qemu.rsrc'
+      icon = 'pc-bios/nephrite.rsrc'
       build_input = [emulator, files(icon)]
       install_input = [
         get_option('bindir') / exe_name,

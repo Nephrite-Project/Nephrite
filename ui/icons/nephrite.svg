@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nephrite's logo: a green chip with a jade die. SPDX-License-Identifier: GPL-2.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Nephrite</title>
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2fa267"/>
+      <stop offset="1" stop-color="#1a6b40"/>
+    </linearGradient>
+    <radialGradient id="die" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#b4f0cc"/>
+      <stop offset="0.45" stop-color="#56c08a"/>
+      <stop offset="1" stop-color="#26855a"/>
+    </radialGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e1f4e7"/>
+      <stop offset="1" stop-color="#86c59d"/>
+    </linearGradient>
+    <g id="pins">
+      <rect x="120" y="36" width="32" height="72" rx="10"/>
+      <rect x="200" y="36" width="32" height="72" rx="10"/>
+      <rect x="280" y="36" width="32" height="72" rx="10"/>
+      <rect x="360" y="36" width="32" height="72" rx="10"/>
+    </g>
+  </defs>
+  <g fill="url(#pin)" stroke="#2c6a47" stroke-width="7">
+    <use href="#pins"/>
+    <use href="#pins" transform="rotate(90 256 256)"/>
+    <use href="#pins" transform="rotate(180 256 256)"/>
+    <use href="#pins" transform="rotate(270 256 256)"/>
+  </g>
+  <rect x="96" y="96" width="320" height="320" rx="40" fill="url(#body)" stroke="#0f4a2b" stroke-width="10"/>
+  <circle cx="140" cy="140" r="15" fill="#0f4a2b" opacity="0.85"/>
+  <rect x="172" y="172" width="168" height="168" rx="30" fill="url(#die)" stroke="#145a35" stroke-width="7"/>
+  <path d="M 196 236 C 198 206 214 192 246 190 L 270 190 C 238 198 222 214 214 244 Z" fill="#ffffff" opacity="0.5"/>
+</svg>

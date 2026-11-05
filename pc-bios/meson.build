@@ -57,7 +57,7 @@ blobs = [
   'efi-virtio.rom',
   'efi-e1000e.rom',
   'efi-vmxnet3.rom',
-  'qemu-nsis.bmp',
+  'nephrite-nsis.bmp',
   'multiboot_dma.bin',
   'linuxboot_dma.bin',
   'kvmvapic.bin',
