@@ -1121,6 +1121,13 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
             pushw(&sa, error_code);
         }
     }
+    /*
+     * After the stack's room, the handler must be within its code segment
+     * (Intel SDM 325462-093 Vol. 2A, INT n).
+     */
+    if (offset > get_seg_limit(e1, e2)) {
+        raise_exception_err(env, EXCP0D_GPF, ext);
+    }
 #if !defined(CONFIG_USER_ONLY)
     x86_shstk_enter(env, cpl, dpl, 0, false, env->segs[R_CS].selector,
                     (uint32_t)(env->segs[R_CS].base + old_eip), 0);
