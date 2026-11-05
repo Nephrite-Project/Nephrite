@@ -60,6 +60,15 @@ typedef struct StackAccess
     target_ulong sp;
     target_ulong sp_mask;
     int mmu_index;
+    /*
+     * Where set, the stack segment's limit and flags, which every 16-bit
+     * and 32-bit push and pop must fit, else #SS(error) (Intel SDM
+     * 325462-093 Vol. 2A, CALL and INT n; Vol. 2B, IRET and RET).
+     */
+    bool checked;
+    uint32_t limit;
+    uint32_t flags;
+    int error;
 } StackAccess;
 
 /*
@@ -80,9 +89,31 @@ static bool seg_range_ok(uint32_t limit, uint32_t flags, target_ulong ofs,
     return end <= limit;
 }
 
+/*
+ * Has the stack's accesses checked against a segment of LIMIT and FLAGS,
+ * with no expand-down flag in real-address mode.
+ */
+static void stack_limit(StackAccess *sa, uint32_t limit, uint32_t flags,
+                        int error)
+{
+    sa->checked = true;
+    sa->limit = limit;
+    sa->flags = flags;
+    sa->error = error;
+}
+
+static void stack_check(StackAccess *sa, uint32_t size)
+{
+    if (sa->checked &&
+        !seg_range_ok(sa->limit, sa->flags, sa->sp & sa->sp_mask, size)) {
+        raise_exception_err_ra(sa->env, EXCP0C_STACK, sa->error, sa->ra);
+    }
+}
+
 static void pushw(StackAccess *sa, uint16_t val)
 {
     sa->sp -= 2;
+    stack_check(sa, 2);
     cpu_stw_le_mmuidx_ra(sa->env, sa->ss_base + (sa->sp & sa->sp_mask),
                       val, sa->mmu_index, sa->ra);
 }
@@ -90,24 +121,29 @@ static void pushw(StackAccess *sa, uint16_t val)
 static void pushl(StackAccess *sa, uint32_t val)
 {
     sa->sp -= 4;
+    stack_check(sa, 4);
     cpu_stl_le_mmuidx_ra(sa->env, sa->ss_base + (sa->sp & sa->sp_mask),
                       val, sa->mmu_index, sa->ra);
 }
 
 static uint16_t popw(StackAccess *sa)
 {
-    uint16_t ret = cpu_lduw_le_mmuidx_ra(sa->env,
-                                      sa->ss_base + (sa->sp & sa->sp_mask),
-                                      sa->mmu_index, sa->ra);
+    uint16_t ret;
+
+    stack_check(sa, 2);
+    ret = cpu_lduw_le_mmuidx_ra(sa->env, sa->ss_base + (sa->sp & sa->sp_mask),
+                                sa->mmu_index, sa->ra);
     sa->sp += 2;
     return ret;
 }
 
 static uint32_t popl(StackAccess *sa)
 {
-    uint32_t ret = cpu_ldl_le_mmuidx_ra(sa->env,
-                                     sa->ss_base + (sa->sp & sa->sp_mask),
-                                     sa->mmu_index, sa->ra);
+    uint32_t ret;
+
+    stack_check(sa, 4);
+    ret = cpu_ldl_le_mmuidx_ra(sa->env, sa->ss_base + (sa->sp & sa->sp_mask),
+                               sa->mmu_index, sa->ra);
     sa->sp += 4;
     return ret;
 }
@@ -793,7 +829,7 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
         uint32_t size = type & 8 ? 4 : 2;
         uint32_t sp = (env->regs[R_ESP] - size) & (big ? 0xffffffff : 0xffff);
         uint64_t low = 0, high = ss->limit;
-        StackAccess sa;
+        StackAccess sa = {};
 
         /*
          * Where the new stack cannot take the error code, #SS(EXT) is part
@@ -908,7 +944,7 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
      * than INT n, INT3, and INTO (Intel SDM 325462-093 Vol. 3A, 7.13).
      */
     int ext = !is_int;
-    StackAccess sa;
+    StackAccess sa = {};
     bool set_rf;
 
     if (is_int) {
@@ -1017,6 +1053,8 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
         sa.sp = esp;
         sa.sp_mask = get_sp_mask(ss_e2);
         sa.ss_base = get_seg_base(ss_e1, ss_e2);
+        stack_limit(&sa, get_seg_limit(ss_e1, ss_e2), ss_e2,
+                    (ss & 0xfffc) | ext);
     } else  {
         /* to same privilege */
         if (vm86) {
@@ -1026,6 +1064,7 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
         sa.sp = env->regs[R_ESP];
         sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
         sa.ss_base = env->segs[R_SS].base;
+        stack_limit(&sa, env->segs[R_SS].limit, env->segs[R_SS].flags, ext);
     }
 
     shift = type >> 3;
@@ -1181,7 +1220,7 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
     target_ulong old_eip, offset;
     int ext = !is_int; /* as do_interrupt_protected()'s */
     bool set_rf;
-    StackAccess sa;
+    StackAccess sa = {};
 
     if (is_int) {
         old_eip = next_eip;
@@ -1395,7 +1434,7 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
     int selector;
     uint32_t offset;
     uint32_t old_cs, old_eip;
-    StackAccess sa;
+    StackAccess sa = {};
 
     /* real mode (simpler!) */
     dt = &env->idt;
@@ -1412,6 +1451,7 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
     sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
     sa.ss_base = env->segs[R_SS].base;
     sa.mmu_index = x86_mmu_index_pl(env, 0);
+    stack_limit(&sa, env->segs[R_SS].limit, 0, 0);
 
     if (is_int) {
         old_eip = next_eip;
@@ -1973,7 +2013,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
 void HELPER(lcall_real)(CPUX86State *env, uint32_t new_cs, uint32_t new_eip,
                        int shift, uint32_t next_eip)
 {
-    StackAccess sa;
+    StackAccess sa = {};
 
     sa.env = env;
     sa.ra = GETPC();
@@ -1981,6 +2021,7 @@ void HELPER(lcall_real)(CPUX86State *env, uint32_t new_cs, uint32_t new_eip,
     sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
     sa.ss_base = env->segs[R_SS].base;
     sa.mmu_index = x86_mmu_index_pl(env, 0);
+    stack_limit(&sa, env->segs[R_SS].limit, 0, 0);
 
     if (shift) {
         pushl(&sa, env->segs[R_CS].selector);
@@ -2016,7 +2057,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
     uint32_t ss = 0, ss_e1 = 0, ss_e2 = 0, type, ss_dpl;
     uint32_t val, limit, old_sp_mask;
     target_ulong old_ssp, offset;
-    StackAccess sa;
+    StackAccess sa = {};
 
     LOG_PCALL("lcall %04x:" TARGET_FMT_lx " s=%d\n", new_cs, new_eip, shift);
     LOG_PCALL_STATE(env_cpu(env));
@@ -2087,6 +2128,10 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             sa.sp = env->regs[R_ESP];
             sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
             sa.ss_base = env->segs[R_SS].base;
+            if (!(env->hflags & HF_CS64_MASK)) {
+                stack_limit(&sa, env->segs[R_SS].limit,
+                            env->segs[R_SS].flags, 0);
+            }
             if (shift) {
                 pushl(&sa, env->segs[R_CS].selector);
                 pushl(&sa, next_eip);
@@ -2246,6 +2291,8 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                 sa.sp = sp32;
                 sa.sp_mask = get_sp_mask(ss_e2);
                 sa.ss_base = get_seg_base(ss_e1, ss_e2);
+                stack_limit(&sa, get_seg_limit(ss_e1, ss_e2), ss_e2,
+                            ss & 0xfffc);
             }
 
             /* push_size = ((param_count * 2) + 8) << shift; */
@@ -2286,6 +2333,10 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             sa.sp = env->regs[R_ESP];
             sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
             sa.ss_base = env->segs[R_SS].base;
+            if (!(env->hflags & HF_CS64_MASK)) {
+                stack_limit(&sa, env->segs[R_SS].limit,
+                            env->segs[R_SS].flags, 0);
+            }
             /* push_size = (4 << shift); */
             new_stack = 0;
         }
@@ -2366,7 +2417,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
 {
     uint32_t new_cs, new_eip, new_eflags;
     int eflags_mask;
-    StackAccess sa;
+    StackAccess sa = {};
 
     env->umonitor_armed = false;
     sa.env = env;
@@ -2375,6 +2426,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
     sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
     sa.sp = env->regs[R_ESP];
     sa.ss_base = env->segs[R_SS].base;
+    stack_limit(&sa, env->segs[R_SS].limit, 0, 0);
 
     if (shift == 1) {
         /* 32 bits */
@@ -2461,7 +2513,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     uint32_t e1, e2, ss_e1, ss_e2;
     int cpl, dpl, rpl, eflags_mask, iopl;
     target_ulong new_eip, new_esp;
-    StackAccess sa;
+    StackAccess sa = {};
 #if !defined(CONFIG_USER_ONLY)
     X86ShstkReturn shstk = { 0 };
     bool shstk_on;
@@ -2483,6 +2535,9 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     }
     sa.sp = env->regs[R_ESP];
     sa.ss_base = env->segs[R_SS].base;
+    if (!(env->hflags & HF_CS64_MASK)) {
+        stack_limit(&sa, env->segs[R_SS].limit, env->segs[R_SS].flags, 0);
+    }
     new_eflags = 0; /* avoid warning */
 #ifdef TARGET_X86_64
     if (shift == 2) {
