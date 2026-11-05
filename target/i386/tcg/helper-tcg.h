@@ -203,6 +203,8 @@ void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
                                  uintptr_t ra);
+bool x86_vmx_senduipi(CPUX86State *env, uint32_t ndst, uint8_t nv,
+                      uintptr_t ra);
 G_NORETURN void x86_vmx_pdpte_exit(CPUX86State *env, hwaddr gpa,
                                    uintptr_t ra);
 void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra);

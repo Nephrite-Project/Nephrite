@@ -318,7 +318,7 @@ void HELPER(uiret)(CPUX86State *env)
  * SENDUIPI (Intel SDM 325462-093 Vol. 2B; Vol. 3A, 9.8): posts the user
  * interrupt of the UITT entry that index selects in the UPID the entry
  * names, then, where neither ON nor SN was set, sets ON and sends the
- * UPID's notification.
+ * UPID's notification, which VMX non-root operation may virtualize.
  */
 void HELPER(senduipi)(CPUX86State *env, target_ulong index)
 {
@@ -361,9 +361,12 @@ void HELPER(senduipi)(CPUX86State *env, target_ulong index)
         new = cpu_atomic_cmpxchgq_le_mmu(env, upid, old, old | UPID_ON, oi,
                                          ra);
         if (new == old) {
-            BQL_LOCK_GUARD();
-            apic_send_user_ipi(env_archcpu(env)->apic_state, old >> 32,
-                               old >> 16);
+            if (!env->vmx.nonroot ||
+                !x86_vmx_senduipi(env, old >> 32, old >> 16, ra)) {
+                BQL_LOCK_GUARD();
+                apic_send_user_ipi(env_archcpu(env)->apic_state, old >> 32,
+                                   old >> 16);
+            }
             break;
         }
         old = new;

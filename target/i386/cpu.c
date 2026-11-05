@@ -978,11 +978,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_VM_EXIT_ACK_INTR_ON_EXIT | VMX_VM_EXIT_SAVE_IA32_PAT | \
           VMX_VM_EXIT_LOAD_IA32_PAT | VMX_VM_EXIT_SAVE_IA32_EFER | \
           VMX_VM_EXIT_LOAD_IA32_EFER | VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER | \
-          VMX_VM_EXIT_SAVE_CET | TCG_VMX_EXIT_PMU)
+          VMX_VM_EXIT_SAVE_CET | VMX_VM_EXIT_CLEAR_UINV | TCG_VMX_EXIT_PMU)
 #define TCG_VMX_ENTRY (VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS | \
           VMX_VM_ENTRY_IA32E_MODE | VMX_VM_ENTRY_LOAD_IA32_PAT | \
           VMX_VM_ENTRY_LOAD_IA32_EFER | VMX_VM_ENTRY_LOAD_CET | \
-          TCG_VMX_ENTRY_PMU)
+          VMX_VM_ENTRY_LOAD_UINV | TCG_VMX_ENTRY_PMU)
 
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
           CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_CX16 | \
@@ -1883,7 +1883,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, "vmx-exit-save-pat", "vmx-exit-load-pat",
             "vmx-exit-save-efer", "vmx-exit-load-efer",
                 "vmx-exit-save-preemption-timer", "vmx-exit-clear-bndcfgs",
-            NULL, "vmx-exit-clear-rtit-ctl", NULL, NULL,
+            NULL, "vmx-exit-clear-rtit-ctl", NULL, "vmx-exit-clear-uinv",
             "vmx-exit-save-cet", "vmx-exit-load-pkrs",
                 "vmx-exit-save-perf-global-ctrl", "vmx-exit-secondary-ctls",
         },
@@ -1900,7 +1900,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, NULL, NULL,
             NULL, "vmx-entry-ia32e-mode", NULL, NULL,
             NULL, "vmx-entry-load-perf-global-ctrl", "vmx-entry-load-pat", "vmx-entry-load-efer",
-            "vmx-entry-load-bndcfgs", NULL, "vmx-entry-load-rtit-ctl", NULL,
+            "vmx-entry-load-bndcfgs", NULL, "vmx-entry-load-rtit-ctl",
+                "vmx-entry-load-uinv",
             "vmx-entry-load-cet", NULL, "vmx-entry-load-pkrs", "vmx-entry-load-fred",
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -2098,6 +2099,14 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_UINTR },
         .to = { FEAT_7_1_EDX,               CPUID_7_1_EDX_UIRET_UIF },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_UINTR },
+        .to = { FEAT_VMX_EXIT_CTLS,         VMX_VM_EXIT_CLEAR_UINV },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_UINTR },
+        .to = { FEAT_VMX_ENTRY_CTLS,        VMX_VM_ENTRY_LOAD_UINV },
     },
     {
         .from = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB },

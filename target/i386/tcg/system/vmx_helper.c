@@ -71,6 +71,7 @@
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
 #define VMCS_PML_INDEX 0x0812
+#define VMCS_GUEST_UINV 0x0814
 #define VMCS_HOST_SEL(seg) (0x0c00 + 2 * (seg))
 #define VMCS_HOST_TR_SEL 0x0c0c
 #define VMCS_IO_BITMAP_A 0x2000
@@ -249,6 +250,7 @@ static const uint16_t vmcs_fields[] = {
     0x080e, /* guest TR selector */
     0x0810, /* guest interrupt status */
     0x0812, /* PML index */
+    0x0814, /* guest UINV */
     0x0c00, /* host ES selector */
     0x0c02, /* host CS selector */
     0x0c04, /* host SS selector */
@@ -1529,6 +1531,26 @@ static void vmx_vintr_deliver(CPUX86State *env)
     vmx_vapic_set_bit(env, VMX_VAPIC_VIRR, vector, false);
     vmx_set_rvi(env, vmx_vapic_highest(env, VMX_VAPIC_VIRR));
     env->vmx.vintr_pending = false;
+    /*
+     * The vector UINV, with CR4.UINTR and IA32_EFER.LMA set, is a user-
+     * interrupt notification: the first steps of EOI virtualization take
+     * it out of service, without the EOI-exit bitmap, then processing
+     * follows, and the HLT state, where it came in it, holds (Intel SDM
+     * 325462-093 Vol. 3C, 32.2.3).
+     */
+    if ((env->cr[4] & CR4_UINTR_MASK) && (env->hflags & HF_LMA_MASK) &&
+        vector == x86_uintr_uinv(env)) {
+        vmx_vapic_set_bit(env, VMX_VAPIC_VISR, vector, false);
+        vmx_set_svi(env, vmx_vapic_highest(env, VMX_VAPIC_VISR));
+        vmx_ppr_virtualize(env);
+        x86_uintr_process(env);
+        if (env->vmx.exit_hlt) {
+            cs->halted = 1;
+            cs->exception_index = EXCP_HLT;
+            cpu_loop_exit(cs);
+        }
+        return;
+    }
     do_interrupt_x86_hardirq(env, vector, 1);
     cs->exception_index = -1;
 }
@@ -1647,6 +1669,37 @@ static void vmx_ipi_virtualize(CPUX86State *env, int vector, uint32_t id,
         apic_send_fixed_ipi(is_x2apic_mode(apic) ? ndst : ndst >> 8 & 0xff,
                             nv);
     }
+}
+
+/*
+ * The notification IPI of SENDUIPI in non-root operation (Intel SDM
+ * 325462-093 Vol. 3C, 32.7): without "use TPR shadow", sent as outside it;
+ * otherwise written to VICR, the xAPIC way with "virtualize APIC accesses"
+ * and the x2APIC way without, then virtualized by IPI virtualization, or
+ * an APIC-write VM exit for 300H without that. False where it is sent.
+ */
+bool x86_vmx_senduipi(CPUX86State *env, uint32_t ndst, uint8_t nv,
+                      uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr vapic = VMCS(VIRTUAL_APIC_ADDR);
+    uint32_t id = ndst;
+
+    if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_TPR_SHADOW)) {
+        return false;
+    }
+    if (env->vmx.apic_access != ~0ULL) {
+        id = ndst >> 8 & 0xff;
+        x86_stl_phys(cs, vapic + VMX_VAPIC_VICR_LO + 0x10, id << 24);
+        x86_stl_phys(cs, vapic + VMX_VAPIC_VICR_LO, nv);
+    } else {
+        x86_stq_phys(cs, vapic + VMX_VAPIC_VICR_LO, (uint64_t)ndst << 32 | nv);
+    }
+    if (!(vmx_proc3(env) & VMX_TERTIARY_EXEC_IPI_VIRT)) {
+        vmx_trap_exit(env, VMX_EXIT_APIC_WRITE, VMX_VAPIC_VICR_LO, ra);
+    }
+    vmx_ipi_virtualize(env, nv, id, ra);
+    return true;
 }
 
 /*
@@ -2339,6 +2392,13 @@ static void vmx_save_guest(CPUX86State *env)
 #endif
         VMCS_SET(GUEST_SSP, env->guest_ssp);
     }
+    /*
+     * With user interrupts, every VM exit saves UINV (Intel SDM 325462-093
+     * Vol. 3C, 30.3.1).
+     */
+    if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_UINTR) {
+        VMCS_SET(GUEST_UINV, x86_uintr_uinv(env));
+    }
     for (int i = 0; i < 8; i++) {
         const SegmentCache *sc = i == R_LDTR ? &env->ldt :
                                  i == R_TR ? &env->tr : &env->segs[i];
@@ -2545,6 +2605,10 @@ static void vmx_load_host(CPUX86State *env)
         env->int_ssp_table = VMCS(HOST_ISST);
 #endif
         env->guest_ssp = VMCS(HOST_SSP);
+    }
+    /* "Clear UINV" (Intel SDM 325462-093 Vol. 3C, 30.5.1). */
+    if (exit_ctl & VMX_VM_EXIT_CLEAR_UINV) {
+        x86_uintr_set_uinv(env, 0);
     }
 
     cpu_x86_load_seg_cache(env, R_CS, VMCS(HOST_SEL(R_CS)), 0, 0xffffffff,
@@ -3183,6 +3247,9 @@ static int vmx_guest_state_check(CPUX86State *env)
          !vmx_canonical(env, VMCS(GUEST_ISST)))) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_UINV) && (VMCS(GUEST_UINV) & 0xff00)) {
+        return 1;
+    }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_EFER) {
         uint64_t efer = VMCS(GUEST_EFER);
 
@@ -3336,6 +3403,10 @@ static void vmx_load_guest(CPUX86State *env)
 #endif
         env->guest_ssp = VMCS(GUEST_SSP);
     }
+    /* "Load UINV" (Intel SDM 325462-093 Vol. 3C, 29.3.2.1). */
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_UINV) {
+        x86_uintr_set_uinv(env, VMCS(GUEST_UINV));
+    }
 
     env->eflags = 0;
     cpu_load_eflags(env, VMCS(GUEST_RFLAGS),
@@ -3416,6 +3487,17 @@ static void vmx_inject(CPUX86State *env)
     }
     switch (type) {
     case VMX_INTR_TYPE_EXT_INTR:
+        /*
+         * The vector UINV, for a guest in IA-32e mode with CR4.UINTR set,
+         * makes user-interrupt notification processing instead, after
+         * which the HLT state holds (Intel SDM 325462-093 Vol. 3C, 29.6.1).
+         */
+        if ((env->cr[4] & CR4_UINTR_MASK) && (env->hflags & HF_LMA_MASK) &&
+            vector == x86_uintr_uinv(env)) {
+            x86_uintr_process(env);
+            cs->halted = VMCS(GUEST_ACTIVITY) == VMX_ACTIVITY_HLT;
+            return;
+        }
         do_interrupt_x86_hardirq(env, vector, 1);
         cs->exception_index = -1;
         return;
@@ -3810,6 +3892,13 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
         ((pin & VMX_PIN_BASED_EXT_INTR_MASK) ||
          (env->eflags & IF_MASK))) {
         return CPU_INTERRUPT_HARD;
+    }
+    /*
+     * User interrupts come just below external interrupts (Intel SDM
+     * 325462-093 Vol. 3A, 9.4.2).
+     */
+    if ((request & CPU_INTERRUPT_UINTR) && x86_uintr_deliverable(env)) {
+        return CPU_INTERRUPT_UINTR;
     }
     return 0;
 }
