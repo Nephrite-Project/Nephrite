@@ -318,9 +318,15 @@ static void kvm_pit_realizefn(DeviceState *dev, Error **errp)
     kpc->parent_realize(dev, errp);
 }
 
+/*
+ * An 8254 never delivers the ticks a busy processor missed later, nor does
+ * TCG's: the in-kernel PIT discards them too unless asked to redeliver them,
+ * back to back, which nests the timer handlers of guests that reenable
+ * interrupts in them.
+ */
 static const Property kvm_pit_properties[] = {
     DEFINE_PROP_LOSTTICKPOLICY("lost_tick_policy", KVMPITState,
-                               lost_tick_policy, LOST_TICK_POLICY_DELAY),
+                               lost_tick_policy, LOST_TICK_POLICY_DISCARD),
 };
 
 static void kvm_pit_class_init(ObjectClass *klass, const void *data)
