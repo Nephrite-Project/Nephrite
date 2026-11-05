@@ -6,6 +6,9 @@
 #define TLB_CONTROL_FLUSH_ASID 3
 #define TLB_CONTROL_FLUSH_ASID_LOCAL 7
 
+/* The ASIDs, CPUID Fn8000_000A_EBX */
+#define SVM_NR_ASIDS 0x10
+
 #define V_TPR_MASK 0x0f
 
 #define V_IRQ_SHIFT 8

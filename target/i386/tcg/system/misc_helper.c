@@ -19,6 +19,7 @@
 
 #include "qemu/osdep.h"
 #include "qemu/main-loop.h"
+#include "qemu/units.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "accel/tcg/cpu-ldst.h"
@@ -27,6 +28,7 @@
 #include "system/address-spaces.h"
 #include "system/memory.h"
 #include "exec/cputlb.h"
+#include "exec/target_page.h"
 #include "tcg/helper-tcg.h"
 #include "hw/i386/apic.h"
 
@@ -1420,6 +1422,78 @@ void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
         tlb_flush_page_by_mmuidx(cs, addr, MMU_HOST_IDX_MAP);
     } else if (asid == env->svm_tlb_asid) {
         tlb_flush_page_by_mmuidx(cs, addr, MMU_GUEST_IDX_MAP);
+    }
+}
+
+/* INVLPGB's attributes in rAX, those it compares and those it allows. */
+#define INVLPGB_VA              (1 << 0)
+#define INVLPGB_ASID            (1 << 2)
+#define INVLPGB_NESTED          (1 << 5)
+#define INVLPGB_RESERVED        0xfc0
+
+/*
+ * INVLPGB: its SVM intercept comes before all its checks but CPL's, and
+ * that of illegal ones before their #GP (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, Table 15-7; Volume 3, 24594 rev. 3.38,
+ * INVLPGB). Without the IOMMU's invalidations (EnhancedTlbi), rAX[6] is
+ * reserved. It drops, on every processor, the translations of the address
+ * range, PCID, and ASID it selects, a guest's of its own ASID, and the
+ * nested ones with rAX[5]. QEMU's TLB holds the current PCID's
+ * translations only, and guest mode's MMU indexes those of one ASID, so a
+ * PCID drops the whole range and any ASID but the host's drops the range
+ * from every processor's guest translations, as INVLPGB may. All of it is
+ * done when INVLPGB ends, before the next instruction.
+ */
+void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
+{
+    CPUState *cs = env_cpu(env);
+    uintptr_t ra = GETPC();
+    uint32_t ecx = env->regs[R_ECX];
+    uint32_t edx = env->regs[R_EDX];
+    uint32_t asid = edx & 0xffff;
+    bool guest = env->hflags & HF_GUEST_MASK;
+    MMUIdxMap idxmap;
+
+    if (cpu_svm_has_intercept(env, SVM_EXIT_INVLPGB)) {
+        cpu_vmexit(env, SVM_EXIT_INVLPGB, 0, ra);
+    }
+    if ((rax & INVLPGB_RESERVED) ||
+        ((rax & INVLPGB_NESTED) &&
+         !(env->features[FEAT_8000_0008_EBX] &
+           CPUID_8000_0008_EBX_INVLPGB_NESTED)) ||
+        (edx >> 28) ||
+        ((edx >> 16) && !(env->cr[4] & CR4_PCIDE_MASK)) ||
+        (asid && !(env->efer & MSR_EFER_SVME)) ||
+        asid > SVM_NR_ASIDS ||
+        (ecx & 0xffff) > INVLPGB_COUNT_MAX ||
+        ((env->cr[0] & CR0_PG_MASK) &&
+         (env->cr[4] & (CR4_PAE_MASK | CR4_PSE_MASK)) == CR4_PSE_MASK)) {
+        if (cpu_svm_has_intercept(env, SVM_EXIT_INVLPGB_ILLEGAL)) {
+            cpu_vmexit(env, SVM_EXIT_INVLPGB_ILLEGAL, 0, ra);
+        }
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
+
+    if (guest || ((rax & INVLPGB_ASID) && asid)) {
+        idxmap = MMU_GUEST_IDX_MAP;
+    } else if (rax & INVLPGB_ASID) {
+        idxmap = MMU_HOST_IDX_MAP;
+    } else {
+        idxmap = MMU_HOST_IDX_MAP | MMU_GUEST_IDX_MAP;
+    }
+    if (rax & INVLPGB_VA) {
+        vaddr stride = ecx >> 31 ? 2 * MiB : 4 * KiB;
+
+        tlb_flush_range_by_mmuidx_all_cpus_synced(cs, rax & TARGET_PAGE_MASK,
+                                                  ((ecx & 0xffff) + 1) *
+                                                  stride, idxmap,
+                                                  TARGET_LONG_BITS);
+    } else {
+        tlb_flush_by_mmuidx_all_cpus_synced(cs, idxmap);
+    }
+    if (rax & INVLPGB_NESTED) {
+        tlb_flush_by_mmuidx_all_cpus_synced(cs, 1 << MMU_NESTED_IDX |
+                                                1 << MMU_NESTED_SUP_IDX);
     }
 }
 

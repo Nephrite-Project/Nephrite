@@ -1178,13 +1178,16 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_8000_0008_EBX_IBRS | CPUID_8000_0008_EBX_STIBP | \
           CPUID_8000_0008_EBX_STIBP_ALWAYS_ON | CPUID_8000_0008_EBX_AMD_SSBD | \
           CPUID_8000_0008_EBX_AMD_PSFD)
+#define TCG_8000_0008_EBX_INVLPGB 0
 #else
 #define CPUID_8000_0008_EBX_KERNEL_FEATURES 0
+#define TCG_8000_0008_EBX_INVLPGB (CPUID_8000_0008_EBX_INVLPGB | \
+          CPUID_8000_0008_EBX_INVLPGB_NESTED)
 #endif
 
 #define TCG_8000_0008_EBX  (CPUID_8000_0008_EBX_XSAVEERPTR | \
           CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_KERNEL_FEATURES | \
-          TCG_8000_0008_EBX_SPEC_CTRL)
+          TCG_8000_0008_EBX_SPEC_CTRL | TCG_8000_0008_EBX_INVLPGB)
 
 #if defined CONFIG_USER_ONLY
 #define CPUID_8000_0021_EAX_KERNEL_FEATURES CPUID_8000_0021_EAX_AUTO_IBRS
@@ -1570,12 +1573,12 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_8000_0008_EBX] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
-            "clzero", NULL, "xsaveerptr", NULL,
+            "clzero", NULL, "xsaveerptr", "invlpgb",
             NULL, NULL, NULL, NULL,
             NULL, "wbnoinvd", NULL, NULL,
             "ibpb", NULL, "ibrs", "amd-stibp",
             NULL, "stibp-always-on", NULL, NULL,
-            NULL, NULL, NULL, NULL,
+            NULL, "invlpgb-nested", NULL, NULL,
             "amd-ssbd", "virt-ssbd", "amd-no-ssb", NULL,
             "amd-psfd", NULL, NULL, NULL,
         },
@@ -2065,6 +2068,10 @@ bool is_feature_word_cpuid(uint32_t feature, uint32_t index, int reg)
 }
 
 static FeatureDep feature_dependencies[] = {
+    {
+        .from = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB },
+        .to = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB_NESTED },
+    },
     {
         .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_ARCH_CAPABILITIES },
         .to = { FEAT_ARCH_CAPABILITIES,     ~0ull },
@@ -9423,6 +9430,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
              *eax |= (cpu->guest_phys_bits << 16);
         }
         *ebx = env->features[FEAT_8000_0008_EBX];
+        *edx = *ebx & CPUID_8000_0008_EBX_INVLPGB ? INVLPGB_COUNT_MAX : 0;
 
         /*
          * Don't emulate Bits [7:0] & Bits [15:12] for Intel/Zhaoxin, since
@@ -9430,7 +9438,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
          */
         if (cpu->vendor_cpuid_only_v2 &&
             (IS_INTEL_CPU(env) || IS_ZHAOXIN_CPU(env))) {
-            *ecx = *edx = 0;
+            *ecx = 0;
             break;
         }
 
@@ -9446,12 +9454,11 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         } else {
             *ecx = 0;
         }
-        *edx = 0;
         break;
     case 0x8000000A:
         if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
             *eax = 0x00000001; /* SVM Revision */
-            *ebx = 0x00000010; /* nr of ASIDs */
+            *ebx = SVM_NR_ASIDS;
             *ecx = 0;
             *edx = env->features[FEAT_SVM]; /* optional features */
         } else {

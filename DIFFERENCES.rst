@@ -117,16 +117,17 @@ AMD SVM, completing what QEMU's TCG has:
   translations with flushes by ASID, NMI virtualization, the PAUSE filter
   and its threshold, the TSC ratio MSR, VMSAVE/VMLOAD virtualization, LBR
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT), the
-  idle HLT and INVPCID intercepts, AVIC and x2AVIC, and CET state in the
-  VMCB.
+  INVLPGB, idle HLT, and INVPCID intercepts, AVIC and x2AVIC, and CET
+  state in the VMCB.
 
 Processor features:
 
-* PCID and INVPCID, IA32_TSC_ADJUST and writable IA32_TSC, the local
-  APIC's TSC-deadline mode, XSAVEC, XSAVES, XRSTORS, and IA32_XSS, LAM,
-  LASS, WAITPKG (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID
-  faulting, WRMSRNS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
-  AMD's CPUID override MSRs, and AMD's breakpoint address masks.
+* PCID and INVPCID, INVLPGB and TLBSYNC, IA32_TSC_ADJUST and writable
+  IA32_TSC, the local APIC's TSC-deadline mode, XSAVEC, XSAVES, XRSTORS,
+  and IA32_XSS, LAM, LASS, WAITPKG (UMONITOR, UMWAIT, TPAUSE,
+  IA32_UMWAIT_CONTROL), CPUID faulting, WRMSRNS, the speculation control
+  MSRs, IA32_ARCH_CAPABILITIES, AMD's CPUID override MSRs, and AMD's
+  breakpoint address masks.
 * The ``x2apic-locked`` CPU property emulates firmware that locked the
   local APIC in x2APIC mode, as recent Intel platforms do: the APIC comes
   out of reset in x2APIC mode and cannot leave it, as
@@ -277,10 +278,9 @@ Known deviations and limits
   supervisor-shadow-stack control, nested page fault exit information
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
-* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold,
-  TlbiCtl and INVLPGB, SVM's PML, AMD's UAI, RDPRU, AMD's extended
-  interrupt LVTs and IBS, VT-d posted interrupts, AMD-Vi's guest virtual
-  APIC mode, and FRED.
+* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, TlbiCtl,
+  SVM's PML, AMD's UAI, RDPRU, AMD's extended interrupt LVTs and IBS, VT-d
+  posted interrupts, AMD-Vi's guest virtual APIC mode, and FRED.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.

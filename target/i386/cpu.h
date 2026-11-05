@@ -1334,6 +1334,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0008_EBX_CLZERO      (1U << 0)
 /* Always save/restore FP error pointers */
 #define CPUID_8000_0008_EBX_XSAVEERPTR  (1U << 2)
+/* INVLPGB and TLBSYNC */
+#define CPUID_8000_0008_EBX_INVLPGB     (1U << 3)
 /* Write back and do not invalidate cache */
 #define CPUID_8000_0008_EBX_WBNOINVD    (1U << 9)
 /* Indirect Branch Prediction Barrier */
@@ -1344,12 +1346,17 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0008_EBX_STIBP       (1U << 15)
 /* STIBP mode has enhanced performance and may be left always on */
 #define CPUID_8000_0008_EBX_STIBP_ALWAYS_ON    (1U << 17)
+/* INVLPGB invalidates the nested translations of guests */
+#define CPUID_8000_0008_EBX_INVLPGB_NESTED (1U << 21)
 /* Speculative Store Bypass Disable */
 #define CPUID_8000_0008_EBX_AMD_SSBD    (1U << 24)
 /* Paravirtualized Speculative Store Bypass Disable MSR */
 #define CPUID_8000_0008_EBX_VIRT_SSBD   (1U << 25)
 /* Predictive Store Forwarding Disable */
 #define CPUID_8000_0008_EBX_AMD_PSFD    (1U << 28)
+
+/* The highest page count INVLPGB takes, CPUID Fn8000_0008_EDX[15:0] */
+#define INVLPGB_COUNT_MAX               7
 
 /* Processor ignores nested data breakpoints */
 #define CPUID_8000_0021_EAX_NO_NESTED_DATA_BP            (1U << 0)

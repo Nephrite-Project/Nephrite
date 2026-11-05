@@ -140,6 +140,7 @@ typedef struct DisasContext {
     int cpuid_7_0_ecx_features;
     int cpuid_7_1_eax_features;
     int cpuid_xsave_features;
+    int cpuid_8000_0008_ebx_features;
 
     /* TCG local temps */
     TCGv cc_srcT;
@@ -292,6 +293,7 @@ typedef struct DisasContext {
 STUB_HELPER(clgi, TCGv_env env)
 STUB_HELPER(flush_page, TCGv_env env, TCGv addr)
 STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
+STUB_HELPER(invlpgb, TCGv_env env, TCGv rax)
 STUB_HELPER(inb, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inw, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inl, TCGv ret, TCGv_env env, TCGv_i32 port)
@@ -3854,6 +3856,32 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
             break;
 
+        case 0xfe: /* INVLPGB */
+            if (!(s->cpuid_8000_0008_ebx_features &
+                  CPUID_8000_0008_EBX_INVLPGB) || !PE(s) || VM86(s)) {
+                goto illegal_op;
+            }
+            if (!check_cpl0(s)) {
+                break;
+            }
+            if (s->aflag == MO_64) {
+                tcg_gen_mov_tl(s->A0, cpu_regs[R_EAX]);
+            } else {
+                tcg_gen_ext32u_tl(s->A0, cpu_regs[R_EAX]);
+            }
+            gen_helper_invlpgb(tcg_env, s->A0);
+            s->base.is_jmp = DISAS_EOB_NEXT;
+            break;
+
+        case 0xff: /* TLBSYNC */
+            if (!(s->cpuid_8000_0008_ebx_features &
+                  CPUID_8000_0008_EBX_INVLPGB) || !PE(s) || VM86(s)) {
+                goto illegal_op;
+            }
+            /* Each INVLPGB is done when it ends: nothing to wait for. */
+            check_cpl0(s);
+            break;
+
         default:
             goto illegal_op;
         }
@@ -4213,6 +4241,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cpuid_7_0_ecx_features = env->features[FEAT_7_0_ECX];
     dc->cpuid_7_1_eax_features = env->features[FEAT_7_1_EAX];
     dc->cpuid_xsave_features = env->features[FEAT_XSAVE];
+    dc->cpuid_8000_0008_ebx_features = env->features[FEAT_8000_0008_EBX];
     dc->jmp_opt = !((cflags & CF_NO_GOTO_TB) ||
                     (flags & (HF_RF_MASK | HF_TF_MASK | HF_INHIBIT_IRQ_MASK |
                               HF_BTF_MASK)));
