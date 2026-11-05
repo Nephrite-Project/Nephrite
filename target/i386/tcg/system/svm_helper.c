@@ -439,6 +439,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     qemu_log_mask(CPU_LOG_TB_IN_ASM, "vmrun! " TARGET_FMT_lx "\n", addr);
 
     env->vm_vmcb = addr;
+    env->db_movss = 0;
 
     /* save the current CPU state in the hsave page */
     x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.gdtr.base),
@@ -1283,6 +1284,8 @@ void do_vmexit(CPUX86State *env)
                                      offsetof(struct vmcb, control.exit_code))
                         == (uint64_t)SVM_EXIT_ERR;
 
+    /* MOV SS's held #DB stays with the side the switch leaves. */
+    env->db_movss = 0;
     env->hflags2 &= ~HF2_NPT_MASK;
     if (vmrun_failed) {
         env->svm_cache.valid = false;

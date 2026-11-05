@@ -10880,6 +10880,14 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
     const CPUX86State *env = cpu_env(cs);
 
 #ifdef CONFIG_TCG
+    /*
+     * The #DB that MOV SS or POP SS held, a trap on the previous
+     * instruction, goes before NMIs and interrupts (Intel SDM 325462-093
+     * Vol. 3A, Table 7-3), at the start of the next TB.
+     */
+    if (env->db_movss && !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
+        return 0;
+    }
     if (env->vmx.nonroot) {
         return x86_vmx_pending_interrupt(env, interrupt_request);
     }

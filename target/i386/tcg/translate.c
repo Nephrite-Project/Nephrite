@@ -4265,6 +4265,9 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 #endif
 
 #ifndef CONFIG_USER_ONLY
+    if ((dc->base.tb->cs_base & TB_DB_PENDING) && dc->base.num_insns == 1) {
+        gen_helper_db_pending(tcg_env);
+    }
     if ((dc->ibt & TB_IBT_WAIT) && dc->base.num_insns == 1 &&
         !ibt_landing_pad(dc, cpu_env(cpu))) {
         gen_helper_ibt_missing(tcg_env);

@@ -292,17 +292,20 @@ void breakpoint_handler(CPUState *cs)
 
             cs->watchpoint_hit = NULL;
             hits = hw_breakpoint_hits(env, &enabled);
-            if (enabled) {
-                /*
-                 * FIXME: #DB should be delayed by one instruction if
-                 * INHIBIT_IRQ is set (STI cannot trigger a watchpoint).
-                 * The delayed #DB should also fuse with one generated
-                 * by ICEBP (aka INT1).
-                 */
-                raise_debug_exception(env, hits, 0);
-            } else {
+            if (!enabled) {
                 cpu_loop_exit_noexc(cs);
             }
+            /*
+             * MOV SS and POP SS hold the #DB of their data breakpoints
+             * until the instruction boundary after the next instruction
+             * (Intel SDM 325462-093 Vol. 3A, 7.8.3), where a #DB of that
+             * instruction, ICEBP's or TF's, takes their bits too.
+             */
+            if ((env->hflags & HF_INHIBIT_IRQ_MASK) && env->shadow_movss) {
+                env->db_movss |= hits;
+                cpu_loop_exit_noexc(cs);
+            }
+            raise_debug_exception(env, hits, 0);
         }
     } else {
         if (cpu_breakpoint_test(cs, env->eip, BP_CPU)) {
@@ -389,4 +392,10 @@ void HELPER(bpt_io)(CPUX86State *env, uint32_t port,
         }
         raise_debug_exception(env, hit, 0);
     }
+}
+
+/* The #DB MOV SS or POP SS held, at the instruction boundary it waited for. */
+void HELPER(db_pending)(CPUX86State *env)
+{
+    raise_debug_exception(env, 0, GETPC());
 }

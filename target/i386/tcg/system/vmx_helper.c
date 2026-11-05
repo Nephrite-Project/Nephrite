@@ -2468,6 +2468,9 @@ static void vmx_load_host(CPUX86State *env)
     uint64_t cr0 = (VMCS(HOST_CR0) & ~cr0_kept) | (env->cr[0] & cr0_kept);
     uint64_t cr4 = VMCS(HOST_CR4) | vmx_cr_fixed0(4);
     uint64_t efer;
+
+    /* MOV SS's held #DB stays with the side the switch leaves. */
+    env->db_movss = 0;
     uint32_t data = DESC_P_MASK | DESC_S_MASK | DESC_W_MASK | DESC_A_MASK |
                     DESC_B_MASK | DESC_G_MASK;
 
@@ -3286,6 +3289,7 @@ static void vmx_load_guest(CPUX86State *env)
     uint32_t intr = VMCS(GUEST_INTERRUPTIBILITY);
     uint64_t efer;
 
+    env->db_movss = 0;
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_EFER) {
         efer = VMCS(GUEST_EFER);
     } else {

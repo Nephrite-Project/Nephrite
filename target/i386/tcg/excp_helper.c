@@ -240,13 +240,14 @@ G_NORETURN void raise_exception_ra(CPUX86State *env, int exception_index,
 
 /*
  * A #DB of the DR6 bits PAYLOAD (B0-B3, BD, BS, BT), merged with the debug
- * exceptions a VM entry left pending.
+ * exceptions a VM entry left pending and those MOV SS or POP SS held.
  */
 G_NORETURN void raise_debug_exception(CPUX86State *env, uint32_t payload,
                                       uintptr_t retaddr)
 {
-    env->db_payload = payload | env->vmx.db_held;
+    env->db_payload = payload | env->vmx.db_held | env->db_movss;
     env->vmx.db_held = 0;
+    env->db_movss = 0;
     raise_exception_ra(env, EXCP01_DB, retaddr);
 }
 
@@ -266,6 +267,12 @@ G_NORETURN void HELPER(icebp)(CPUX86State *env)
     }
 #endif
     do_end_instruction(env);
+
+    /* The data breakpoints MOV SS or POP SS held join ICEBP's #DB. */
+    if (env->db_movss) {
+        env->dr[6] = (env->dr[6] & ~0xf) | env->db_movss;
+        env->db_movss = 0;
+    }
 
     /*
      * INT1 aka ICEBP generates a trap-like #DB, but it is pretty special.

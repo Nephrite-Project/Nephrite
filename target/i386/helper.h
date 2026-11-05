@@ -140,6 +140,7 @@ DEF_HELPER_4(wruss, void, env, tl, tl, i32)
 DEF_HELPER_FLAGS_1(ibt_missing, TCG_CALL_NO_WG, noreturn, env)
 DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
 DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)
+DEF_HELPER_FLAGS_1(db_pending, TCG_CALL_NO_WG, noreturn, env)
 #endif /* !CONFIG_USER_ONLY */
 
 /* x86 FPU */

@@ -263,6 +263,8 @@ typedef enum X86Seg {
  */
 #define TB_FETCH_SHIFT       49
 #define TB_FETCH_END_SHIFT   51
+/* The #DB of env->db_movss is due before the TB's first instruction. */
+#define TB_DB_PENDING        (1ULL << 63)
 
 /* hflags2 */
 
@@ -2642,6 +2644,11 @@ typedef struct CPUArchState {
     }; /* break/watchpoints for dr[0..3] */
     /* The DR6 bits of the #DB being raised, which reach DR6 at delivery. */
     uint32_t db_payload;
+    /*
+     * The DR6 bits of the data breakpoints MOV SS or POP SS hit, whose #DB
+     * waits for the instruction boundary after the next instruction.
+     */
+    uint32_t db_movss;
     /* The interrupt shadow (HF_INHIBIT_IRQ_MASK) is MOV SS's, not STI's. */
     bool shadow_movss;
     int old_exception;  /* exception in flight */

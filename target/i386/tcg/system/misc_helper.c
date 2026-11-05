@@ -1339,6 +1339,11 @@ G_NORETURN void HELPER(hlt)(CPUX86State *env)
         env->vmx.exit_hlt = true;
         x86_vmx_mtf_step(env, x86_step_trap(env, false));
     }
+    /* The #DB MOV SS or POP SS held comes after the HLT, which ends. */
+    if (env->db_movss) {
+        do_end_instruction(env);
+        raise_debug_exception(env, 0, 0);
+    }
     do_hlt(env);
 }
 

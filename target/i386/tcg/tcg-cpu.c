@@ -137,6 +137,14 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
                           (cet & CET_WAIT_ENDBR ? TB_IBT_WAIT : 0);
         }
     }
+    /*
+     * Past MOV SS's or POP SS's shadow, the #DB of their data breakpoints
+     * comes first, where the next instruction or the handler of its event
+     * starts.
+     */
+    if (unlikely(env->db_movss) && !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
+        more_flags |= TB_DB_PENDING;
+    }
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
         pc = env->eip;
