@@ -27,6 +27,7 @@
 #include "exec/target_page.h"
 #include "exec/tlb-flags.h"
 #include "tcg/helper-tcg.h"
+#include "tcg/insn-start-words.h"
 
 typedef struct TranslateParams {
     target_ulong addr;
@@ -922,6 +923,22 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
             svm_fetch_insn_bytes(env, access_type, retaddr);
         }
         raise_stage2(env, &err, addr, retaddr);
+    }
+
+    /*
+     * Where an instruction's data accesses all go through SS, a
+     * non-canonical address or a LASS violation raises #SS(0) (Intel SDM
+     * 325462-093 Vol. 3A, 4.3.2 and 7.15, Event 12), but not for the
+     * shadow stack.
+     */
+    if (err.exception_index == EXCP0D_GPF && access_type != MMU_INST_FETCH &&
+        !is_mmu_index_ss(mmu_idx) && retaddr) {
+        uint64_t data[INSN_START_WORDS];
+
+        if (cpu_unwind_state_data(cs, retaddr, data) &&
+            (data[2] & X86_INSN_STACK)) {
+            err.exception_index = EXCP0C_STACK;
+        }
     }
 
     if (env->intercept_exceptions & (1 << err.exception_index)) {

@@ -161,6 +161,9 @@ typedef struct DisasContext {
     /* The add whose operand becomes the TB's instruction count. */
     TCGOp *pmu_insns;
 
+    /* The instruction makes data accesses through SS, and through others. */
+    bool insn_ss;
+    bool insn_other;
     /* The TB_SEG class of each segment's data accesses. */
     uint8_t seg_class[6];
     /* The TB_SEG class of fetches, and the TB_FETCH_END offset. */
@@ -904,6 +907,13 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
     }
 
 #ifndef CONFIG_USER_ONLY
+    if (acc != SEG_NONE && ovr_seg >= 0) {
+        if (ovr_seg == R_SS) {
+            s->insn_ss = true;
+        } else {
+            s->insn_other = true;
+        }
+    }
     if (acc != SEG_NONE && ovr_seg >= 0 &&
         s->seg_class[ovr_seg] != TB_SEG_FLAT) {
         TCGv ofs = tcg_temp_new();
@@ -4252,6 +4262,8 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 #ifndef CONFIG_USER_ONLY
     dc->pmu_counted = 0;
     dc->fetch_checked = false;
+    dc->insn_ss = false;
+    dc->insn_other = false;
 #endif
 #ifdef TARGET_VSYSCALL_PAGE
     /*
@@ -4304,6 +4316,9 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
      */
     insn_word = dc->pc - dc->base.pc_next;
 #ifndef CONFIG_USER_ONLY
+    if (dc->insn_ss && !dc->insn_other) {
+        insn_word |= X86_INSN_STACK;
+    }
     if (dc->pmu) {
         insn_word |= dc->pmu_counted |
                      (dc->base.num_insns - 1) << X86_PMU_INSN_INDEX_SHIFT;

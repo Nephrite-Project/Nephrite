@@ -224,6 +224,8 @@ void x86_amd_cpuid_hide(CPUX86State *env, uint32_t leaf, uint32_t subleaf,
 #define X86_PMU_INSN_BRANCH 0x20
 #define X86_PMU_INSN_MISPREDICT 0x40
 #define X86_PMU_INSN_INDEX_SHIFT 8
+/* The instruction's data accesses all go through SS. */
+#define X86_INSN_STACK 0x80
 
 /* system/pmu.c */
 #ifndef CONFIG_USER_ONLY
