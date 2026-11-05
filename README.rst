@@ -1,54 +1,73 @@
-===========
-QEMU README
-===========
+===============
+Nephrite README
+===============
 
-QEMU is a generic and open source machine & userspace emulator and
-virtualizer.
-
-QEMU is capable of emulating a complete machine in software without any
-need for hardware virtualization support. By using dynamic translation,
-it achieves very good performance. QEMU can also integrate with the Xen
-and KVM hypervisors to provide emulated hardware while allowing the
-hypervisor to manage the CPU. With hypervisor support, QEMU can achieve
-near native performance for CPUs. When QEMU emulates CPUs directly it is
-capable of running operating systems made for one machine (e.g. an ARMv7
-board) on a different machine (e.g. an x86_64 PC board).
-
-QEMU is also capable of providing userspace API virtualization for Linux
-and BSD kernel interfaces. This allows binaries compiled against one
-architecture ABI (e.g. the Linux PPC64 ABI) to be run on a host using a
-different architecture ABI (e.g. the Linux x86_64 ABI). This does not
-involve any hardware emulation, simply CPU and syscall emulation.
-
-QEMU aims to fit into a variety of use cases. It can be invoked directly
-by users wishing to have full control over its behaviour and settings.
-It also aims to facilitate integration into higher level management
-layers, by providing a stable command line interface and monitor API.
-It is commonly invoked indirectly via the libvirt library when using
-open source applications such as oVirt, OpenStack and virt-manager.
-
-QEMU as a whole is released under the GNU General Public License,
-version 2. For full licensing details, consult the LICENSE file.
+Nephrite is a fork of `QEMU <https://www.qemu.org>`_, the generic and open
+source machine emulator and virtualizer. It is not affiliated with or
+endorsed by the QEMU project.
 
 
-Documentation
-=============
+Why a fork
+==========
 
-Documentation can be found hosted online at
-`<https://www.qemu.org/documentation/>`_. The documentation for the
-current development version that is available at
-`<https://www.qemu.org/docs/master/>`_ is generated from the ``docs/``
-folder in the source tree, and is built by `Sphinx
-<https://www.sphinx-doc.org/en/master/>`_.
+Nephrite exists because QEMU does not accept contributions made with AI
+tools. QEMU's code provenance policy (``docs/devel/code-provenance.rst``)
+says:
+
+    Current QEMU project policy is to DECLINE any contributions which are
+    believed to include or derive from AI generated content. This includes
+    ChatGPT, Claude, Copilot, Llama and similar tools.
+
+Nephrite's changes were written with such tools, so they cannot go to QEMU.
+Nephrite publishes them for anyone who can use them instead, and it accepts
+contributions made with AI tools.
+
+Its changes so far are mostly in x86 emulation (TCG): Intel VMX with EPT
+and the APIC virtualization features, AMD SVM's remaining features, a PMU,
+CET, segment limit checks, and many corrections to how the emulated
+processor behaves, along with fixes to devices, the IOMMUs, and the
+firmware. `DIFFERENCES.rst <DIFFERENCES.rst>`_ lists every difference from
+QEMU: new features, bug fixes, behaviour changes, and the known deviations
+from the hardware.
+
+
+Nephrite next to QEMU
+=====================
+
+Nephrite installs next to QEMU without overwriting any of its files. Its
+programs are ``nephrite-system-x86_64``, ``nephrite-img``,
+``nephrite-nbd``, and so on, with QEMU's options and interfaces, and it keeps
+its data, modules, configuration, documentation, man pages, translations,
+icons, and plugin header under names of its own: ``share/nephrite``,
+``/etc/nephrite``, and the like.
+
+Guests see the same machines as under QEMU. The names and IDs of devices,
+firmware interfaces, and protocols that guests, drivers, and management
+tools depend on are QEMU's: the "QEMU" models of disks and CPUs, the
+fw_cfg signature, PCI IDs, QMP, and the monitor's ``(qemu)`` prompt.
+
+
+Versions
+========
+
+Nephrite's version numbers are its own, starting at 0.1.0, and its
+programs name the version of QEMU that they are based on too:
+
+.. code-block:: shell
+
+  $ nephrite-system-x86_64 --version
+  Nephrite emulator version 0.1.0, based on QEMU 11.1.50
+
+Its release tags are ``v0.1.0`` and on. QEMU has tags of the same names
+for its old releases, so leave QEMU's tags out of a clone of Nephrite:
+fetch QEMU with ``git fetch --no-tags``, or set ``git config
+remote.<name>.tagOpt --no-tags``.
 
 
 Building
 ========
 
-QEMU is multi-platform software intended to be buildable on all modern
-Linux platforms, OS-X, Win32 (via the Mingw64 toolchain) and a variety
-of other UNIX targets. The simple steps to build QEMU are:
-
+Nephrite builds as QEMU does:
 
 .. code-block:: shell
 
@@ -56,116 +75,32 @@ of other UNIX targets. The simple steps to build QEMU are:
   cd build
   ../configure
   make
+  make install
 
-Additional information can also be found online via the QEMU website:
-
-* `<https://wiki.qemu.org/Hosts/Linux>`_
-* `<https://wiki.qemu.org/Hosts/Mac>`_
-* `<https://wiki.qemu.org/Hosts/W32>`_
+``configure --help`` lists the options; ``make install`` installs under
+``/usr/local`` unless ``configure --prefix`` says otherwise. QEMU's build
+documentation, ``docs/devel/build-system.rst``, applies to Nephrite too.
 
 
-Submitting patches
-==================
-
-The QEMU source code is maintained under the GIT version control system.
-
-.. code-block:: shell
-
-   git clone https://gitlab.com/qemu-project/qemu.git
-
-When submitting patches, one common approach is to use 'git
-format-patch' and/or 'git send-email' to format & send the mail to the
-qemu-devel@nongnu.org mailing list. All patches submitted must contain
-a 'Signed-off-by' line from the author. Patches should follow the
-guidelines set out in the `style section
-<https://www.qemu.org/docs/master/devel/style.html>`_ of
-the Developers Guide.
-
-Additional information on submitting patches can be found online via
-the QEMU website:
-
-* `<https://wiki.qemu.org/Contribute/SubmitAPatch>`_
-* `<https://wiki.qemu.org/Contribute/TrivialPatches>`_
-
-The QEMU website is also maintained under source control.
-
-.. code-block:: shell
-
-  git clone https://gitlab.com/qemu-project/qemu-web.git
-
-* `<https://www.qemu.org/2017/02/04/the-new-qemu-website-is-up/>`_
-
-A 'git-publish' utility was created to make above process less
-cumbersome, and is highly recommended for making regular contributions,
-or even just for sending consecutive patch series revisions. It also
-requires a working 'git send-email' setup, and by default doesn't
-automate everything, so you may want to go through the above steps
-manually for once.
-
-For installation instructions, please go to:
-
-*  `<https://github.com/stefanha/git-publish>`_
-
-The workflow with 'git-publish' is:
-
-.. code-block:: shell
-
-  $ git checkout master -b my-feature
-  $ # work on new commits, add your 'Signed-off-by' lines to each
-  $ git publish
-
-Your patch series will be sent and tagged as my-feature-v1 if you need to refer
-back to it in the future.
-
-Sending v2:
-
-.. code-block:: shell
-
-  $ git checkout my-feature # same topic branch
-  $ # making changes to the commits (using 'git rebase', for example)
-  $ git publish
-
-Your patch series will be sent with 'v2' tag in the subject and the git tip
-will be tagged as my-feature-v2.
-
-Bug reporting
+Documentation
 =============
 
-The QEMU project uses GitLab issues to track bugs. Bugs
-found when running code built from QEMU git or upstream released sources
-should be reported via:
-
-* `<https://gitlab.com/qemu-project/qemu/-/issues>`_
-
-If using QEMU via an operating system vendor pre-built binary package, it
-is preferable to report bugs to the vendor's own bug tracker first. If
-the bug is also known to affect latest upstream code, it can also be
-reported via GitLab.
-
-For additional information on bug reporting consult:
-
-* `<https://wiki.qemu.org/Contribute/ReportABug>`_
+The ``docs/`` folder holds QEMU's documentation, kept up to date with
+Nephrite's changes; ``configure --enable-docs`` builds it with `Sphinx
+<https://www.sphinx-doc.org/en/master/>`_. Where it names QEMU's programs,
+Nephrite's have the same names with ``nephrite`` in place of ``qemu``.
 
 
-ChangeLog
-=========
+Bugs and contributions
+======================
 
-For version history and release notes, please visit
-`<https://wiki.qemu.org/ChangeLog/>`_ or look at the git history for
-more detailed information.
+Report bugs and send changes through the issues and pull requests of
+`<https://github.com/Nephrite-Project/Nephrite>`_.
 
 
-Contact
+License
 =======
 
-The QEMU community can be contacted in a number of ways, with the two
-main methods being email and IRC:
-
-* `<mailto:qemu-devel@nongnu.org>`_
-* `<https://lists.nongnu.org/mailman/listinfo/qemu-devel>`_
-* #qemu on irc.oftc.net
-
-Information on additional methods of contacting the community can be
-found online via the QEMU website:
-
-* `<https://wiki.qemu.org/Contribute/StartHere>`_
+Like QEMU, Nephrite as a whole is released under the GNU General Public
+License, version 2; the LICENSE file has the details. QEMU is a trademark of
+Fabrice Bellard.
