@@ -212,6 +212,8 @@ Devices:
 
 * The Intel IOMMU posts interrupts: those through posted-format IRTEs go
   to their posted-interrupt descriptors, with notifications.
+* The AMD IOMMU has one MSI capability. It had a second, unused one, which
+  drivers that take the last MSI capability they find programmed instead.
 * The AMD IOMMU reads every DTE again at INVALIDATE_IOMMU_ALL.
 * HPET FSB interrupts go through the IOMMU, with the DMAR and IVRS entries
   that let guests remap them.
