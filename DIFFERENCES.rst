@@ -190,6 +190,8 @@ Processor emulation (TCG):
   it too.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
   hflags2 for IGNNE# only from the first CPU's thread").
+* CPUID leaf 0DH marks the CET and Arch LBR state components as
+  supervisor ones, which IA32_XSS manages, for TCG as well as for KVM.
 
 AMD SVM (TCG):
 
