@@ -341,6 +341,16 @@ bool is_x2apic_mode(APICCommonState *s)
 
 static int apic_set_base_check(APICCommonState *s, uint64_t val)
 {
+    /*
+     * An APIC that firmware locked in x2APIC mode stays in it (Intel SDM
+     * 325462-093 Vol. 4, Table 2-2, IA32_XAPIC_DISABLE_STATUS).
+     */
+    if (s->cpu->x2apic_locked &&
+        (!(val & MSR_IA32_APICBASE_ENABLE) ||
+         !(val & MSR_IA32_APICBASE_EXTD))) {
+        return -1;
+    }
+
     /* Enable x2apic when x2apic is not supported by CPU */
     if (!cpu_has_x2apic_feature(&s->cpu->env) &&
         val & MSR_IA32_APICBASE_EXTD) {

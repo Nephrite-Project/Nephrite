@@ -513,6 +513,8 @@ typedef enum X86Seg {
 #define FLUSH_CMD_L1D_FLUSH             (1ULL << 0)
 
 #define MSR_IA32_ARCH_CAPABILITIES      0x10a
+#define MSR_IA32_XAPIC_DISABLE_STATUS   0xbd
+#define LEGACY_XAPIC_DISABLED           (1ULL << 0)
 #define ARCH_CAP_TSX_CTRL_MSR           (1 << 7)
 
 #define MSR_IA32_PERF_CAPABILITIES      0x345
@@ -1494,6 +1496,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define MSR_ARCH_CAP_PSDP_NO            (1U << 15)
 #define MSR_ARCH_CAP_FB_CLEAR           (1U << 17)
 #define MSR_ARCH_CAP_BHI_NO             (1U << 20)
+#define MSR_ARCH_CAP_XAPIC_DISABLE_STATUS (1U << 21)
 #define MSR_ARCH_CAP_PBRSB_NO           (1U << 24)
 #define MSR_ARCH_CAP_GDS_NO             (1U << 26)
 #define MSR_ARCH_CAP_RFDS_NO            (1U << 27)
@@ -2976,6 +2979,13 @@ struct ArchCPU {
      * host CPU and kernel capabilities) to the guest.
      */
     uint64_t lbr_fmt;
+
+    /*
+     * Emulate firmware that locked the local APIC in x2APIC mode, as
+     * IA32_XAPIC_DISABLE_STATUS reports (Intel SDM 325462-093 Vol. 4,
+     * Table 2-2).
+     */
+    bool x2apic_locked;
 
     /* LMCE support can be enabled/disabled via cpu option 'lmce=on/off'. It is
      * disabled by default to avoid breaking migration between QEMU with

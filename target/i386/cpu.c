@@ -1145,7 +1145,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           MSR_ARCH_CAP_TAA_NO | MSR_ARCH_CAP_SBDR_SSDP_NO | \
           MSR_ARCH_CAP_FBSDP_NO | MSR_ARCH_CAP_PSDP_NO | \
           MSR_ARCH_CAP_BHI_NO | MSR_ARCH_CAP_PBRSB_NO | MSR_ARCH_CAP_GDS_NO | \
-          MSR_ARCH_CAP_RFDS_NO | MSR_ARCH_CAP_ITS_NO)
+          MSR_ARCH_CAP_RFDS_NO | MSR_ARCH_CAP_ITS_NO | \
+          MSR_ARCH_CAP_XAPIC_DISABLE_STATUS)
 #endif
 
 #ifdef CONFIG_USER_ONLY
@@ -1735,7 +1736,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "taa-no", NULL, NULL, NULL,
             NULL, "sbdr-ssdp-no", "fbsdp-no", "psdp-no",
             NULL, "fb-clear", NULL, NULL,
-            "bhi-no", NULL, NULL, NULL,
+            "bhi-no", "xapic-disable-status", NULL, NULL,
             "pbrsb-no", NULL, "gds-no", "rfds-no",
             "rfds-clear", NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -10033,6 +10034,30 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
         }
     }
 
+    /*
+     * Only Intel's processors have the lock, and only TCG's APIC can keep
+     * it.
+     */
+    if (cpu->x2apic_locked) {
+        if (!tcg_enabled()) {
+            error_setg(errp, "x2apic-locked needs TCG");
+            return;
+        }
+        if (!IS_INTEL_CPU(env)) {
+            error_setg(errp, "x2apic-locked needs an Intel CPU model");
+            return;
+        }
+        if ((env->user_features[FEAT_1_ECX] & CPUID_EXT_X2APIC) &&
+            !(env->features[FEAT_1_ECX] & CPUID_EXT_X2APIC)) {
+            error_setg(errp, "x2apic-locked needs x2apic");
+            return;
+        }
+        env->features[FEAT_1_ECX] |= CPUID_EXT_X2APIC;
+        env->features[FEAT_7_0_EDX] |= CPUID_7_0_EDX_ARCH_CAPABILITIES;
+        env->features[FEAT_ARCH_CAPABILITIES] |=
+            MSR_ARCH_CAP_XAPIC_DISABLE_STATUS;
+    }
+
     if (!cpu->enable_pmu) {
         /* PDCM is fixed1 bit for TDX */
         if (!cpu->pdcm_on_even_without_pmu && !is_tdx_vm()) {
@@ -11054,6 +11079,9 @@ static const Property x86_cpu_properties[] = {
 #endif
     DEFINE_PROP_INT32("node-id", X86CPU, node_id, CPU_UNSET_NUMA_NODE_ID),
     DEFINE_PROP_BOOL("pmu", X86CPU, enable_pmu, false),
+#ifndef CONFIG_USER_ONLY
+    DEFINE_PROP_BOOL("x2apic-locked", X86CPU, x2apic_locked, false),
+#endif
     DEFINE_PROP_UINT64_CHECKMASK("lbr-fmt", X86CPU, lbr_fmt, PERF_CAP_LBR_FMT),
 
     DEFINE_PROP_UINT32("hv-spinlocks", X86CPU, hyperv_spinlock_attempts,

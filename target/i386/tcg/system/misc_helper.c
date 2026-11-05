@@ -894,7 +894,8 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         break;
     case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_PROCBASED_CTLS3:
     case MSR_IA32_ARCH_CAPABILITIES:
-        /* The VMX capability MSRs and IA32_ARCH_CAPABILITIES are read-only. */
+    case MSR_IA32_XAPIC_DISABLE_STATUS:
+        /* Read-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
         return false;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
@@ -1283,6 +1284,14 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
             return false;
         }
         val = env->features[FEAT_ARCH_CAPABILITIES];
+        break;
+    case MSR_IA32_XAPIC_DISABLE_STATUS:
+        if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_CAPABILITIES) ||
+            !(env->features[FEAT_ARCH_CAPABILITIES] &
+              MSR_ARCH_CAP_XAPIC_DISABLE_STATUS)) {
+            return false;
+        }
+        val = env_archcpu(env)->x2apic_locked ? LEGACY_XAPIC_DISABLED : 0;
         break;
     case MSR_IA32_PRED_CMD:
     case MSR_IA32_FLUSH_CMD:

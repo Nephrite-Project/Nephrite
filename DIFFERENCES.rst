@@ -127,6 +127,11 @@ Processor features:
   LASS, WAITPKG (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID
   faulting, WRMSRNS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, and AMD's breakpoint address masks.
+* The ``x2apic-locked`` CPU property emulates firmware that locked the
+  local APIC in x2APIC mode, as recent Intel platforms do: the APIC comes
+  out of reset in x2APIC mode and cannot leave it, as
+  IA32_ARCH_CAPABILITIES[21], IA32_XAPIC_DISABLE_STATUS, and ``info
+  lapic`` report (TCG and Intel CPU models only).
 * A PMU: Intel's architectural performance monitoring (version 2) and
   AMD's core counters.
 * CET: shadow stacks and indirect branch tracking.

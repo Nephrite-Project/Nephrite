@@ -290,6 +290,15 @@ static void dump_apic_interrupt(const char *name, uint32_t *ireg_tab,
     qemu_printf("%s\n", empty ? "(none)" : "");
 }
 
+/* The APIC base and the mode it sets, which firmware may have locked. */
+static void dump_apic_base(APICCommonState *s)
+{
+    qemu_printf("BASE\t 0x%08x %s%s\n", s->apicbase,
+                !(s->apicbase & MSR_IA32_APICBASE_ENABLE) ? "disabled" :
+                s->apicbase & MSR_IA32_APICBASE_EXTD ? "x2APIC" : "xAPIC",
+                s->cpu->x2apic_locked ? ", locked" : "");
+}
+
 void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
 {
     X86CPU *cpu = X86_CPU(cs);
@@ -302,6 +311,7 @@ void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
 
     qemu_printf("dumping local APIC state for CPU %-2u\n\n",
                 CPU(cpu)->cpu_index);
+    dump_apic_base(s);
     dump_apic_lvt("LVT0", lvt[APIC_LVT_LINT0], false);
     dump_apic_lvt("LVT1", lvt[APIC_LVT_LINT1], false);
     dump_apic_lvt("LVTPC", lvt[APIC_LVT_PERFORM], false);
