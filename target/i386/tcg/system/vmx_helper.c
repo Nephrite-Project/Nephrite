@@ -2194,8 +2194,8 @@ G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps)
 
 /*
  * The PDPTEs of a guest with PAE paging under EPT, which an exit saves
- * (Intel SDM 325462-093 Vol. 3C, 30.3.4): the registers the entry loaded,
- * else the guest's own, at CR3 through EPT.
+ * (Intel SDM 325462-093 Vol. 3C, 30.3.4): the PDPTE registers, else the
+ * guest's own, at CR3 through EPT.
  */
 static void vmx_save_pdptes(CPUX86State *env)
 {
@@ -2204,8 +2204,8 @@ static void vmx_save_pdptes(CPUX86State *env)
         hwaddr hpa;
         int prot, size;
 
-        if (env->vmx.pdpte_loaded) {
-            pdpte = env->vmx.pdpte[i];
+        if (env->pdpte_loaded) {
+            pdpte = env->pdpte[i];
         } else if (x86_vmx_ept_translate(env, (env->cr[3] & ~0x1fULL) + 8 * i,
                                          MMU_DATA_LOAD, false, &hpa, &prot,
                                          &size)) {
@@ -2510,6 +2510,14 @@ static void vmx_load_host(CPUX86State *env)
     cpu_x86_update_cr3(env, VMCS(HOST_CR3));
     env->svm_loading_crs = false;
     cpu_load_efer(env, efer);
+    /*
+     * A host with PAE paging gets the PDPTE registers from the PDPTEs at its
+     * CR3, which reserved bits make a VMX abort (Intel SDM 325462-093 Vol. 3C,
+     * 30.5.4).
+     */
+    if (x86_pae_paging(cr0, cr4, efer) && !x86_load_pdptes(env)) {
+        vmx_abort(env, 2);
+    }
     /*
      * A data breakpoint's #DB still to come is the guest's, which the exit
      * saved or dropped; its watchpoint goes with the guest's DR7.
@@ -3355,16 +3363,19 @@ static void vmx_load_guest(CPUX86State *env)
         env->hflags2 &= ~HF2_NMI_MASK;
     }
     /*
-     * PAE paging under EPT takes its PDPTEs from the VMCS (Intel SDM 325462-093
-     * Vol. 3C, 29.3.2.4).
+     * PAE paging takes its PDPTE registers from the VMCS under EPT, else from
+     * the PDPTEs at CR3, which the entry checked (Intel SDM 325462-093 Vol.
+     * 3C, 29.3.2.4).
      */
-    if ((vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT) &&
-        (env->cr[0] & CR0_PG_MASK) && (env->cr[4] & CR4_PAE_MASK) &&
-        !(env->efer & MSR_EFER_LMA)) {
-        for (int i = 0; i < 4; i++) {
-            env->vmx.pdpte[i] = x86_vmcs_read(env, VMCS_GUEST_PDPTE(i));
+    if (x86_pae_paging(env->cr[0], env->cr[4], env->efer)) {
+        if (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT) {
+            for (int i = 0; i < 4; i++) {
+                env->pdpte[i] = x86_vmcs_read(env, VMCS_GUEST_PDPTE(i));
+            }
+            env->pdpte_loaded = true;
+        } else {
+            x86_load_pdptes(env);
         }
-        env->vmx.pdpte_loaded = true;
     }
     /*
      * An entry that injects ends active (Intel SDM 325462-093 Vol. 3C,
@@ -4374,4 +4385,22 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
     }
     VMCS_SET(GUEST_LINEAR_ADDR, linear);
     x86_vmx_exit(env, VMX_EXIT_EPT_VIOLATION, qual, ra);
+}
+
+/*
+ * The exit of an EPT violation or misconfiguration, or of a page-modification
+ * log-full event, as a MOV to CR loads the PDPTE registers, which has no
+ * linear address (Intel SDM 325462-093 Vol. 3C, Table 30-7).
+ */
+G_NORETURN void x86_vmx_pdpte_exit(CPUX86State *env, hwaddr gpa,
+                                   uintptr_t ra)
+{
+    VMCS_SET(GUEST_PHYS_ADDR, gpa);
+    if (env->vmx.ept_misconfig) {
+        x86_vmx_exit(env, VMX_EXIT_EPT_MISCONFIG, 0, ra);
+    }
+    if (env->vmx.pml_full) {
+        x86_vmx_exit(env, VMX_EXIT_PML_FULL, 0, ra);
+    }
+    x86_vmx_exit(env, VMX_EXIT_EPT_VIOLATION, env->vmx.ept_qual, ra);
 }

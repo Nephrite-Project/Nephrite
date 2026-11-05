@@ -203,6 +203,8 @@ void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
                                  uintptr_t ra);
+G_NORETURN void x86_vmx_pdpte_exit(CPUX86State *env, hwaddr gpa,
+                                   uintptr_t ra);
 #endif
 
 /* system/misc_helper.c */
@@ -213,6 +215,15 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
 void x86_amd_cpuid_hide(CPUX86State *env, uint32_t leaf, uint32_t subleaf,
                         uint32_t *eax, uint32_t *ebx, uint32_t *ecx,
                         uint32_t *edx);
+/* Whether paging is PAE paging (Intel SDM 325462-093 Vol. 3A, 5.1.1). */
+static inline bool x86_pae_paging(uint64_t cr0, uint64_t cr4, uint64_t efer)
+{
+    return (cr0 & CR0_PG_MASK) && (cr4 & CR4_PAE_MASK) &&
+           !(efer & MSR_EFER_LME);
+}
+bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
+                     uintptr_t ra);
+bool x86_load_pdptes(CPUX86State *env);
 #endif
 
 /*

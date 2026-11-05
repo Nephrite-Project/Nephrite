@@ -24,6 +24,7 @@
 #include "exec/cputlb.h"
 #include "accel/tcg/cpu-ldst.h"
 #include "accel/tcg/cpu-loop.h"
+#include "system/runstate.h"
 #include "tcg/helper-tcg.h"
 
 /* Secure Virtual Machine helpers */
@@ -737,6 +738,16 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (is_efer_invalid_state(env)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
+    /*
+     * A guest with PAE paging gets, without nested paging, the PDPEs at its
+     * CR3 for the PDPTE registers, where reserved bits make VMRUN fail (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.5.1).
+     */
+    if (!(env->hflags2 & HF2_NPT_MASK) &&
+        x86_pae_paging(env->cr[0], env->cr[4], env->efer) &&
+        !x86_load_pdptes(env)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
 
     if ((env->features[FEAT_SVM] & CPUID_SVM_LBRV) &&
         (x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
@@ -1448,11 +1459,6 @@ load_host:
     /*
      * Resets the current ASID register to zero, the host's, whose
      * translations the guest's never displaced.
-     *
-     * If the host is in PAE mode, the processor reloads the host's PDPEs
-     * from the page table indicated the host's CR3. FIXME: If the PDPEs
-     * contain illegal state, the processor causes a shutdown (QEMU does
-     * not implement PDPTRs).
      */
     cpu_x86_update_cr3(env, x86_ldq_phys(cs,
                                      env->vm_hsave + offsetof(struct vmcb,
@@ -1462,6 +1468,16 @@ load_host:
        set properly */
     cpu_load_efer(env, x86_ldq_phys(cs, env->vm_hsave + offsetof(struct vmcb,
                                                          save.efer)));
+    /*
+     * A host with PAE paging gets the PDPTE registers from the PDPEs at its
+     * CR3, where illegal state shuts the processor down (AMD64 Architecture
+     * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.6).
+     */
+    if (x86_pae_paging(env->cr[0], env->cr[4], env->efer) &&
+        !x86_load_pdptes(env)) {
+        qemu_log_mask(LOG_GUEST_ERROR, "#VMEXIT: illegal host PDPEs\n");
+        qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+    }
 
     /* Completion of the VMRUN instruction clears the host EFLAGS.RF bit.  */
     env->eflags = 0;

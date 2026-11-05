@@ -174,8 +174,84 @@ void HELPER(lmsw)(CPUX86State *env, target_ulong src, int mem)
     cpu_x86_update_cr0(env, cr0);
 }
 
+/*
+ * Whether a MOV to CR that leaves CR0 at CR0 and CR4 at CR4 loads the PDPTE
+ * registers: where PAE paging is then in use and the move changes CR0.CD,
+ * NW, or PG, or CR4.PAE, PGE, PSE, or SMEP, or loads CR3 (Intel SDM
+ * 325462-093 Vol. 3A, 5.4.1), but not under nested paging, where walks read
+ * the guest's PDPTEs (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.45, 15.25.10).
+ */
+static bool cr_loads_pdptes(CPUX86State *env, int reg, uint64_t cr0,
+                            uint64_t cr4)
+{
+    if (!x86_pae_paging(cr0, cr4, env->efer) ||
+        ((env->hflags2 & HF2_NPT_MASK) && !env->vmx.nonroot)) {
+        return false;
+    }
+    return reg == 3 ||
+           ((cr0 ^ env->cr[0]) & (CR0_CD_MASK | CR0_NW_MASK | CR0_PG_MASK)) ||
+           ((cr4 ^ env->cr[4]) &
+            (CR4_PAE_MASK | CR4_PGE_MASK | CR4_PSE_MASK | CR4_SMEP_MASK));
+}
+
+/*
+ * The PDPTEs at CR3 for the PDPTE registers, false where a present one sets
+ * a reserved bit, 2:1, 8:5, or 63:MAXPHYADDR (Intel SDM 325462-093 Vol. 3A,
+ * 5.4.1 and Table 5-8). Under EPT, CR3 is translated as a read (Intel SDM
+ * 325462-093 Vol. 3C, 31.3.1), where a violation, misconfiguration, or
+ * log-full event exits from the instruction at RA.
+ */
+bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
+                     uintptr_t ra)
+{
+    uint64_t reserved = 0x1e6 | ~0ULL << env_archcpu(env)->phys_bits;
+    hwaddr base = cr3 & 0xffffffe0;
+
+    if (x86_vmx_ept_active(env)) {
+        hwaddr hpa;
+        int prot, size;
+
+        if (!x86_vmx_ept_translate(env, base, MMU_DATA_LOAD, false, &hpa,
+                                   &prot, &size)) {
+            x86_vmx_pdpte_exit(env, base, ra);
+        }
+        base = hpa;
+    } else {
+        base &= x86_get_a20_mask(env);
+    }
+    for (int i = 0; i < 4; i++) {
+        pdpte[i] = x86_ldq_phys(env_cpu(env), base + 8 * i);
+        if ((pdpte[i] & PG_PRESENT_MASK) && (pdpte[i] & reserved)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Loads the PDPTE registers from the PDPTEs at CR3, unless they set reserved
+ * bits, for what loads them along with CR3 (Intel SDM 325462-093 Vol. 3A,
+ * 5.11.1; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+ * 15.5.1 and 15.6).
+ */
+bool x86_load_pdptes(CPUX86State *env)
+{
+    uint64_t pdpte[4];
+
+    if (!x86_read_pdptes(env, env->cr[3], pdpte, 0)) {
+        return false;
+    }
+    memcpy(env->pdpte, pdpte, sizeof(pdpte));
+    env->pdpte_loaded = true;
+    return true;
+}
+
 void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
 {
+    uint64_t pdpte[4];
+    bool load = false;
+
     if (env->vmx.nonroot) {
         t0 = x86_vmx_cr_write(env, reg, t0, env->svm_decode_info & 0xf,
                               GETPC());
@@ -195,6 +271,10 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
             ((env->cr[0] ^ t0) & ~(CR0_TS_MASK | CR0_MP_MASK))) {
             cpu_vmexit(env, SVM_EXIT_CR0_SEL_WRITE, env->svm_decode_info,
                        GETPC());
+        }
+        load = cr_loads_pdptes(env, 0, t0, env->cr[4]);
+        if (load && !x86_read_pdptes(env, env->cr[3], pdpte, GETPC())) {
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
         cpu_x86_update_cr0(env, t0);
         break;
@@ -221,10 +301,18 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         } else {
             t0 &= 0xffffffffUL;
         }
+        load = cr_loads_pdptes(env, 3, env->cr[0], env->cr[4]);
+        if (load && !x86_read_pdptes(env, t0, pdpte, GETPC())) {
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
+        }
         cpu_x86_update_cr3(env, t0);
         break;
     case 4:
         if (!cr4_valid(env, t0)) {
+            raise_exception_ra(env, EXCP0D_GPF, GETPC());
+        }
+        load = cr_loads_pdptes(env, 4, env->cr[0], t0);
+        if (load && !x86_read_pdptes(env, env->cr[3], pdpte, GETPC())) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
         cpu_x86_update_cr4(env, t0);
@@ -264,6 +352,11 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     default:
         env->cr[reg] = t0;
         break;
+    }
+    /* The updates above dropped the PDPTE registers the move loads. */
+    if (load) {
+        memcpy(env->pdpte, pdpte, sizeof(pdpte));
+        env->pdpte_loaded = true;
     }
 }
 

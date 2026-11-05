@@ -2340,9 +2340,6 @@ typedef struct X86VMXState {
     bool ple_loop;
     uint64_t ple_first;
     uint64_t ple_last;
-    /* The PDPTE registers of a guest with PAE paging under EPT. */
-    uint64_t pdpte[4];
-    bool pdpte_loaded;
     /*
      * The last EPT walk's violation qualification, or misconfiguration, or
      * page-modification log-full event.
@@ -2651,6 +2648,15 @@ typedef struct CPUArchState {
      * waits for the instruction boundary after the next instruction.
      */
     uint32_t db_movss;
+    /*
+     * The PDPTE registers of PAE paging, where pdpte_loaded: what a MOV to
+     * CR, a VMX transition, VMRUN, or #VMEXIT loaded (Intel SDM 325462-093
+     * Vol. 3A, 5.4.1); else walks read the PDPTEs at CR3, as those under
+     * nested paging do (AMD64 Architecture Programmer's Manual Volume 2,
+     * 24593 rev. 3.45, 15.25.10).
+     */
+    uint64_t pdpte[4];
+    bool pdpte_loaded;
     /* The interrupt shadow (HF_INHIBIT_IRQ_MASK) is MOV SS's, not STI's. */
     bool shadow_movss;
     int old_exception;  /* exception in flight */

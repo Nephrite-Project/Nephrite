@@ -769,8 +769,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
 
         if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
             in.cr3 = env->cr[3];
-            in.pdptes = use_stage2 && env->vmx.pdpte_loaded ?
-                        env->vmx.pdpte : NULL;
+            in.pdptes = env->pdpte_loaded ? env->pdpte : NULL;
             in.mmu_idx = mmu_idx;
             in.ptw_idx = MMU_PHYS_IDX;
             if (use_stage2) {
