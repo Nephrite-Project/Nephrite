@@ -77,6 +77,15 @@ static uint64_t hw_breakpoint_ignored(CPUX86State *env, int index)
     return ignored;
 }
 
+/*
+ * Instruction breakpoints match the linear address of an instruction's
+ * first byte (Intel SDM 325462-093 Vol. 3B, 20.2.1 and 20.2.4).
+ */
+static target_ulong insn_linear(CPUX86State *env)
+{
+    return env->segs[R_CS].base + env->eip;
+}
+
 static int hw_watchpoint_insert(CPUX86State *env, int index, int flags)
 {
     uint64_t ignored = hw_breakpoint_ignored(env, index);
@@ -241,7 +250,7 @@ static uint32_t breakpoint_hits(CPUX86State *env, bool insn, bool *enabled)
 
         switch (hw_breakpoint_type(env->dr[7], reg)) {
         case DR7_TYPE_BP_INST:
-            if (insn && env->dr[reg] == env->eip) {
+            if (insn && env->dr[reg] == insn_linear(env)) {
                 bp_match = true;
             }
             break;
@@ -308,7 +317,7 @@ void breakpoint_handler(CPUState *cs)
             raise_debug_exception(env, hits, 0);
         }
     } else {
-        if (cpu_breakpoint_test(cs, env->eip, BP_CPU)) {
+        if (cpu_breakpoint_test(cs, insn_linear(env), BP_CPU)) {
             raise_debug_exception(env, hw_breakpoint_hits(env, NULL), 0);
         }
     }
