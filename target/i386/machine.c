@@ -1116,6 +1116,32 @@ static const VMStateDescription vmstate_pkrs = {
     }
 };
 
+static bool uintr_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return env->uintr_rr || env->uintr_handler || env->uintr_stackadjust ||
+           env->uintr_misc || env->uintr_pd || env->uintr_tt || env->uif;
+}
+
+static const VMStateDescription vmstate_uintr = {
+    .name = "cpu/uintr",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = uintr_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT64(env.uintr_rr, X86CPU),
+        VMSTATE_UINT64(env.uintr_handler, X86CPU),
+        VMSTATE_UINT64(env.uintr_stackadjust, X86CPU),
+        VMSTATE_UINT64(env.uintr_misc, X86CPU),
+        VMSTATE_UINT64(env.uintr_pd, X86CPU),
+        VMSTATE_UINT64(env.uintr_tt, X86CPU),
+        VMSTATE_BOOL(env.uif, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool tsc_khz_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -1929,6 +1955,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_smi_count,
         &vmstate_pkru,
         &vmstate_pkrs,
+        &vmstate_uintr,
         &vmstate_spec_ctrl,
         &amd_tsc_scale_msr_ctrl,
         &vmstate_mcg_ext_ctl,

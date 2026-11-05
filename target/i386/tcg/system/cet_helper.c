@@ -353,6 +353,25 @@ void x86_shstk_task_push(CPUX86State *env, const X86ShstkTask *t,
     env->guest_ssp = ssp;
 }
 
+void x86_shstk_push(CPUX86State *env, uint64_t val, uintptr_t ra)
+{
+    uint64_t ssp = env->guest_ssp - 8;
+
+    shstk_stq(env, ssp, val, shstk_cpl(env) == 3, ra);
+    env->guest_ssp = ssp;
+}
+
+void x86_shstk_pop_check(CPUX86State *env, uint64_t val, int code,
+                         uintptr_t ra)
+{
+    uint64_t ssp = env->guest_ssp;
+
+    if (shstk_ldq(env, ssp, shstk_cpl(env) == 3, ra) != val) {
+        raise_cp(env, code, ra);
+    }
+    env->guest_ssp = ssp + 8;
+}
+
 void x86_ibt_far(CPUX86State *env, int cpl)
 {
     uint64_t *cet = cpl == 3 ? &env->u_cet : &env->s_cet;

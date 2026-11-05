@@ -21,6 +21,7 @@ void apic_poll_irq(APICCommonState *s);
 void apic_write_eoi(APICCommonState *s);
 int apic_get_sipi_vector(APICCommonState *s);
 void apic_send_fixed_ipi(uint32_t dest, uint8_t vector);
+void apic_send_user_ipi(APICCommonState *s, uint32_t ndst, uint8_t vector);
 void apic_designate_bsp(APICCommonState *s, bool bsp);
 int apic_get_highest_priority_irr(APICCommonState *s);
 int apic_msr_read(APICCommonState *s, int index, uint64_t *val);

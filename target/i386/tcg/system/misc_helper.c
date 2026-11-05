@@ -536,9 +536,14 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 {
     CPUState *cs = env_cpu(env);
     int pmu = x86_pmu_wrmsr(env, msr, val);
+    int uintr;
 
     if (pmu >= 0) {
         return pmu;
+    }
+    uintr = x86_uintr_wrmsr(env, msr, val);
+    if (uintr >= 0) {
+        return uintr;
     }
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:
@@ -987,9 +992,14 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     X86CPU *x86_cpu = env_archcpu(env);
     uint64_t val;
     int pmu = x86_pmu_rdmsr(env, msr, valp);
+    int uintr;
 
     if (pmu >= 0) {
         return pmu;
+    }
+    uintr = x86_uintr_rdmsr(env, msr, valp);
+    if (uintr >= 0) {
+        return uintr;
     }
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:

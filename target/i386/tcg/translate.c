@@ -138,6 +138,7 @@ typedef struct DisasContext {
     int cpuid_ext3_features;
     int cpuid_7_0_ebx_features;
     int cpuid_7_0_ecx_features;
+    int cpuid_7_0_edx_features;
     int cpuid_7_1_eax_features;
     int cpuid_xsave_features;
     int cpuid_8000_0008_ebx_features;
@@ -3285,7 +3286,22 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 goto do_rdrand;
             }
 
-        case 6: /* RDRAND */
+        case 6: /* RDRAND, SENDUIPI with f3 */
+#ifndef CONFIG_USER_ONLY
+            if (mod == 3 &&
+                (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ)) == PREFIX_REPZ) {
+                /* The operand is the 64-bit register, 66 or not. */
+                if (!CODE64(s) || (s->prefix & PREFIX_LOCK) ||
+                    !(s->cpuid_7_0_edx_features & CPUID_7_0_EDX_UINTR)) {
+                    goto illegal_op;
+                }
+                gen_update_cc_op(s);
+                gen_update_eip_cur(s);
+                gen_helper_senduipi(tcg_env, cpu_regs[(modrm & 7) | REX_B(s)]);
+                s->base.is_jmp = DISAS_EOB_NEXT;
+                break;
+            }
+#endif
             if (mod != 3 ||
                 (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ)) ||
                 !(s->cpuid_ext_features & CPUID_EXT_RDRAND)) {
@@ -3756,8 +3772,46 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_helper_rstorssp(cpu_cc_src, tcg_env, s->A0);
             set_cc_op(s, CC_OP_EFLAGS);
             break;
+        /*
+         * F3 alone makes UIRET, TESTUI, CLUI, and STUI, in 64-bit mode only
+         * (Intel SDM 325462-093 Vol. 2A and 2B).
+         */
+        case 0xec: /* uiret */
+        case 0xed: /* testui */
+        uintr:
+            if ((prefixes & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) !=
+                PREFIX_REPZ || (prefixes & PREFIX_LOCK) || !CODE64(s) ||
+                !(s->cpuid_7_0_edx_features & CPUID_7_0_EDX_UINTR)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            if (modrm == 0xec) {
+                TCGv from = gen_branch_start(s);
+
+                gen_helper_uiret(tcg_env);
+                gen_branch_from(s, from, cpu_eip);
+                assume_cc_op(s, CC_OP_EFLAGS);
+                s->base.is_jmp = DISAS_EOB_ONLY;
+            } else if (modrm == 0xed) {
+                /* CF is UIF, the other arithmetic flags clear. */
+                gen_helper_testui(cpu_cc_src, tcg_env);
+                set_cc_op(s, CC_OP_EFLAGS);
+            } else if (modrm == 0xee) {
+                gen_helper_clui(tcg_env);
+            } else {
+                /* A user interrupt may be due at once. */
+                gen_helper_stui(tcg_env);
+                s->base.is_jmp = DISAS_EOB_NEXT;
+            }
+            break;
 #endif
-        case 0xee: /* rdpkru */
+        case 0xee: /* rdpkru, clui with f3 */
+#ifndef CONFIG_USER_ONLY
+            if (prefixes & PREFIX_REPZ) {
+                goto uintr;
+            }
+#endif
             if (s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) {
                 goto illegal_op;
             }
@@ -3767,7 +3821,12 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_helper_rdpkru(t64, tcg_env, t32);
             tcg_gen_extr_i64_tl(cpu_regs[R_EAX], cpu_regs[R_EDX], t64);
             break;
-        case 0xef: /* wrpkru */
+        case 0xef: /* wrpkru, stui with f3 */
+#ifndef CONFIG_USER_ONLY
+            if (prefixes & PREFIX_REPZ) {
+                goto uintr;
+            }
+#endif
             if (s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ)) {
                 goto illegal_op;
             }
@@ -4242,6 +4301,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cpuid_ext3_features = env->features[FEAT_8000_0001_ECX];
     dc->cpuid_7_0_ebx_features = env->features[FEAT_7_0_EBX];
     dc->cpuid_7_0_ecx_features = env->features[FEAT_7_0_ECX];
+    dc->cpuid_7_0_edx_features = env->features[FEAT_7_0_EDX];
     dc->cpuid_7_1_eax_features = env->features[FEAT_7_1_EAX];
     dc->cpuid_xsave_features = env->features[FEAT_XSAVE];
     dc->cpuid_8000_0008_ebx_features = env->features[FEAT_8000_0008_EBX];

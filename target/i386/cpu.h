@@ -335,6 +335,7 @@ typedef enum X86Seg {
 #define CR4_PKE_MASK   (1U << 22)
 #define CR4_CET_MASK   (1U << 23)
 #define CR4_PKS_MASK   (1U << 24)
+#define CR4_UINTR_MASK (1U << 25)
 #define CR4_LASS_MASK  (1U << 27)
 #define CR4_LAM_SUP_MASK (1U << 28)
 
@@ -355,7 +356,8 @@ typedef enum X86Seg {
                 | CR4_LA57_MASK | CR4_VMXE_MASK \
                 | CR4_FSGSBASE_MASK | CR4_PCIDE_MASK | CR4_OSXSAVE_MASK \
                 | CR4_SMEP_MASK | CR4_SMAP_MASK | CR4_PKE_MASK | CR4_CET_MASK \
-                | CR4_PKS_MASK | CR4_LASS_MASK | CR4_LAM_SUP_MASK \
+                | CR4_PKS_MASK | CR4_UINTR_MASK | CR4_LASS_MASK \
+                | CR4_LAM_SUP_MASK \
                 | CR4_FRED_MASK))
 
 #define DR6_BD          (1 << 13)
@@ -723,6 +725,12 @@ typedef enum X86Seg {
 #define MSR_DR1_ADDR_MASK               0xc0011019 /* to DR3's, 0xc001101b */
 #define MSR_DR0_ADDR_MASK               0xc0011027
 #define MSR_IA32_UMWAIT_CONTROL         0xe1
+#define MSR_IA32_UINTR_RR               0x985
+#define MSR_IA32_UINTR_HANDLER          0x986
+#define MSR_IA32_UINTR_STACKADJUST      0x987
+#define MSR_IA32_UINTR_MISC             0x988
+#define MSR_IA32_UINTR_PD               0x989
+#define MSR_IA32_UINTR_TT               0x98a
 
 #define MSR_IA32_VMX_BASIC              0x00000480
 #define MSR_IA32_VMX_PINBASED_CTLS      0x00000481
@@ -1171,6 +1179,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_7_0_EDX_AVX512_4FMAPS     (1U << 3)
 /* Fast Short Rep Mov */
 #define CPUID_7_0_EDX_FSRM              (1U << 4)
+/* User interrupts */
+#define CPUID_7_0_EDX_UINTR             (1U << 5)
 /* AVX512 Vector Pair Intersection to a Pair of Mask Registers */
 #define CPUID_7_0_EDX_AVX512_VP2INTERSECT (1U << 8)
  /* "md_clear" VERW clears CPU buffers */
@@ -1252,6 +1262,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_7_1_EDX_AVX_VNNI_INT16    (1U << 10)
 /* PREFETCHIT0/1 Instructions */
 #define CPUID_7_1_EDX_PREFETCHITI       (1U << 14)
+/* UIRET loads UIF from bit 1 of the RFLAGS it pops */
+#define CPUID_7_1_EDX_UIRET_UIF         (1U << 17)
 /* Support for Advanced Vector Extensions 10 */
 #define CPUID_7_1_EDX_AVX10             (1U << 19)
 /* Support for Advanced Performance Extensions  */
@@ -1712,6 +1724,8 @@ const char *x86_exception_name(int excp);
 #define CPU_INTERRUPT_TPR       CPU_INTERRUPT_TGT_INT_2
 /* VMX non-root operation has a window or timer to look at. */
 #define CPU_INTERRUPT_VMX       CPU_INTERRUPT_TGT_INT_3
+/* UIRR is not 0: a user interrupt is recognized. */
+#define CPU_INTERRUPT_UINTR     CPU_INTERRUPT_TGT_INT_4
 
 /* Use a clearer name for this.  */
 #define CPU_INTERRUPT_INIT      CPU_INTERRUPT_RESET
@@ -2693,6 +2707,20 @@ typedef struct CPUArchState {
     hwaddr apic_moved_base;
     /* The interrupt shadow (HF_INHIBIT_IRQ_MASK) is MOV SS's, not STI's. */
     bool shadow_movss;
+    /*
+     * User interrupts (Intel SDM 325462-093 Vol. 3A, 9.3): UIRR, UIF, and
+     * what IA32_UINTR_HANDLER, _STACKADJUST, _MISC (UITTSZ and UINV), _PD,
+     * and _TT hold.
+     */
+    uint64_t uintr_rr;
+    uint64_t uintr_handler;
+    uint64_t uintr_stackadjust;
+    uint64_t uintr_misc;
+    uint64_t uintr_pd;
+    uint64_t uintr_tt;
+    bool uif;
+    /* The processor left the HLT state for the interrupt it now takes. */
+    bool hlt_woke;
     int old_exception;  /* exception in flight */
     /* MONITOR armed address-range monitoring, which MWAIT waits on. */
     bool monitor_armed;
@@ -3774,6 +3802,9 @@ static inline uint64_t cr4_reserved_bits(CPUX86State *env)
     if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_PKS)) {
         reserved_bits |= CR4_PKS_MASK;
     }
+    if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_UINTR)) {
+        reserved_bits |= CR4_UINTR_MASK;
+    }
     if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM)) {
         reserved_bits |= CR4_LAM_SUP_MASK;
     }
@@ -3822,6 +3853,19 @@ static inline bool x86_shstk_enabled(CPUX86State *env, int cpl)
     return (env->cr[4] & CR4_CET_MASK) && (env->cr[0] & CR0_PE_MASK) &&
            !(env->eflags & VM_MASK) &&
            ((cpl == 3 ? env->u_cet : env->s_cet) & CET_SH_STK_EN);
+}
+
+/*
+ * Whether a recognized user interrupt can be delivered at this instruction
+ * boundary: with CR4.UINTR and UIF set, no blocking by MOV SS or POP SS
+ * (STI's does not block it), and CPL 3 in 64-bit mode (Intel SDM
+ * 325462-093 Vol. 3A, 9.4.2).
+ */
+static inline bool x86_uintr_deliverable(const CPUX86State *env)
+{
+    return (env->cr[4] & CR4_UINTR_MASK) && env->uif &&
+           !((env->hflags & HF_INHIBIT_IRQ_MASK) && env->shadow_movss) &&
+           (env->hflags & HF_CPL_MASK) == 3 && (env->hflags & HF_CS64_MASK);
 }
 
 /* IA32_PLn_SSP, the shadow-stack pointer for privilege level pl. */

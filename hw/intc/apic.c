@@ -1441,6 +1441,21 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
     return 0;
 }
 
+/*
+ * The ICR writes that SENDUIPI sends its notification with (Intel SDM
+ * 325462-093 Vol. 3C, 32.7): NDST[15:8] to ICR_HI and then the vector to
+ * ICR_LO in xAPIC mode, the ICR as WRMSR to 830H writes it in x2APIC mode.
+ */
+void apic_send_user_ipi(APICCommonState *s, uint32_t ndst, uint8_t vector)
+{
+    if (is_x2apic_mode(s)) {
+        apic_register_write(s, 0x30, (uint64_t)ndst << 32 | vector);
+    } else {
+        apic_register_write(s, 0x31, (ndst >> 8 & 0xff) << 24);
+        apic_register_write(s, 0x30, vector);
+    }
+}
+
 static void apic_mem_write(void *opaque, hwaddr addr, uint64_t val,
                            unsigned size)
 {

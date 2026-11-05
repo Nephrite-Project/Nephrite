@@ -24,6 +24,7 @@
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "accel/tcg/cpu-ldst.h"
+#include "accel/tcg/cpu-loop.h"
 #include "tcg/helper-tcg.h"
 #include "../seg_helper.h"
 
@@ -185,6 +186,7 @@ void x86_cpu_leaving_halt(CPUState *cpu)
         x86_user_wait_end(env);
     } else {
         env->vmx.hlt_wake = env->vmx.nonroot;
+        env->hlt_woke = true;
     }
     /* Complete HLT, UMWAIT, or TPAUSE instruction.  */
     if (env->eflags & TF_MASK) {
@@ -213,9 +215,11 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
     bool woke = env->vmx.hlt_wake;
+    bool hlt_woke = env->hlt_woke;
     int intno;
 
     env->vmx.hlt_wake = false;
+    env->hlt_woke = false;
     interrupt_request = x86_cpu_pending_interrupt(cs, interrupt_request);
     if (!interrupt_request) {
         return false;
@@ -275,7 +279,22 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         intno = cpu_get_pic_interrupt(env);
         qemu_log_mask(CPU_LOG_INT,
                       "Servicing hardware INT=0x%02x\n", intno);
+        if (x86_uintr_notification(env, intno)) {
+            /*
+             * A notification that came in the HLT state leaves the
+             * processor in it (Intel SDM 325462-093 Vol. 3A, 9.5.2).
+             */
+            if (hlt_woke) {
+                cs->halted = 1;
+                cs->exception_index = EXCP_HLT;
+                cpu_loop_exit(cs);
+            }
+            break;
+        }
         do_interrupt_x86_hardirq(env, intno, 1);
+        break;
+    case CPU_INTERRUPT_UINTR:
+        x86_uintr_deliver(env);
         break;
     case CPU_INTERRUPT_VIRQ:
         /*

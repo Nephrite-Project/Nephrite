@@ -140,6 +140,9 @@ Processor features:
 * A PMU: Intel's architectural performance monitoring (version 2) and
   AMD's core counters.
 * CET: shadow stacks and indirect branch tracking.
+* User interrupts: their MSRs, delivery at CPL 3, user-interrupt
+  notifications, UIRET with UIRET_UIF, CLUI, STUI, TESTUI, and SENDUIPI;
+  register dumps show their state.
 * DebugCtl's branch recording (LBRs) and branch single-stepping.
 
 Devices:
@@ -252,7 +255,8 @@ Behaviour changes
 * KVM's in-kernel PIT drops the ticks that a guest missed, as an 8254 and
   TCG's PIT do, where QEMU redelivers them back to back;
   ``-global kvm-pit.lost_tick_policy=delay`` brings QEMU's behaviour back.
-* TCG's ``max`` CPU model has VMX; SVM tests need ``-cpu max,+svm,-vmx``.
+* TCG's ``max`` CPU model has VMX and user interrupts, which AMD processors
+  lack; SVM tests need ``-cpu max,+svm,-vmx,-uintr``.
 * MWAIT without an armed monitor continues at once.
 * The STI and MOV SS shadows hold external-interrupt and NMI VM exits.
 * VMX MSR lists of more than 512 entries fail VM entry, as with Linux's

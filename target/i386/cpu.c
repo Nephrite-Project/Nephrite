@@ -1127,12 +1127,17 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 #ifdef CONFIG_USER_ONLY
 #define TCG_7_0_EDX_CET_IBT 0
+#define TCG_7_0_EDX_UINTR 0
+#define TCG_7_1_EDX_UIRET_UIF 0
 #else
 #define TCG_7_0_EDX_CET_IBT CPUID_7_0_EDX_CET_IBT
+#define TCG_7_0_EDX_UINTR CPUID_7_0_EDX_UINTR
+#define TCG_7_1_EDX_UIRET_UIF CPUID_7_1_EDX_UIRET_UIF
 #endif
 #define TCG_7_0_EDX_FEATURES (CPUID_7_0_EDX_FSRM | \
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
-          TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES)
+          TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES | \
+          TCG_7_0_EDX_UINTR)
 
 #ifdef CONFIG_USER_ONLY
 /*
@@ -1160,7 +1165,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
           CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS)
 #define TCG_7_1_ECX_FEATURES 0
-#define TCG_7_1_EDX_FEATURES CPUID_7_1_EDX_APXF
+#define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
 #define TCG_7_2_EDX_FEATURES TCG_7_2_EDX_SPEC_CTRL
 #define TCG_APM_FEATURES 0
 #define TCG_6_EAX_FEATURES CPUID_6_EAX_ARAT
@@ -1400,7 +1405,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             NULL, NULL, "avx512-4vnniw", "avx512-4fmaps",
-            "fsrm", NULL, NULL, NULL,
+            "fsrm", "uintr", NULL, NULL,
             "avx512-vp2intersect", NULL, "md-clear", NULL,
             NULL, NULL, "serialize", NULL,
             "tsx-ldtrk", NULL, NULL /* pconfig */, "arch-lbr",
@@ -1460,7 +1465,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "avx-vnni-int8", "avx-ne-convert", NULL, NULL,
             "amx-complex", NULL, "avx-vnni-int16", NULL,
             NULL, NULL, "prefetchiti", NULL,
-            NULL, NULL, NULL, "avx10",
+            NULL, "uiret-uif", NULL, "avx10",
             NULL, "apxf", NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -2085,6 +2090,14 @@ bool is_feature_word_cpuid(uint32_t feature, uint32_t index, int reg)
 }
 
 static FeatureDep feature_dependencies[] = {
+    {
+        .from = { FEAT_8000_0001_EDX,       CPUID_EXT2_LM },
+        .to = { FEAT_7_0_EDX,               CPUID_7_0_EDX_UINTR },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_UINTR },
+        .to = { FEAT_7_1_EDX,               CPUID_7_1_EDX_UIRET_UIF },
+    },
     {
         .from = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB },
         .to = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB_NESTED },
@@ -10999,6 +11012,13 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request)
                     (!(env->hflags2 & HF2_VINTR_MASK) &&
                      x86_cpu_interrupts_enabled(env)))) {
             return CPU_INTERRUPT_HARD;
+        } else if ((interrupt_request & CPU_INTERRUPT_UINTR) &&
+                   x86_uintr_deliverable(env)) {
+            /*
+             * Just below ordinary interrupts (Intel SDM 325462-093 Vol.
+             * 3A, 9.4.2).
+             */
+            return CPU_INTERRUPT_UINTR;
         } else if (env->hflags2 & HF2_VGIF_MASK) {
             if ((interrupt_request & CPU_INTERRUPT_VIRQ) &&
                 x86_cpu_interrupts_enabled(env)) {
@@ -11022,6 +11042,11 @@ static bool x86_cpu_has_work(CPUState *cs)
     if (env->user_wait &&
         (qatomic_read(&env->user_wait_over) ||
          (pending_interrupts & (CPU_INTERRUPT_HARD | CPU_INTERRUPT_INIT)))) {
+        return true;
+    }
+    /* So does a user interrupt it can deliver (Vol. 3A, 9.4.2). */
+    if (env->user_wait && (pending_interrupts & CPU_INTERRUPT_UINTR) &&
+        x86_uintr_deliverable(env)) {
         return true;
     }
     /*

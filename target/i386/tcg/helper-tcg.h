@@ -310,6 +310,24 @@ void x86_shstk_task_push(CPUX86State *env, const X86ShstkTask *t,
  * 325462-093 Vol. 1, 18.3.3).
  */
 void x86_ibt_far(CPUX86State *env, int cpl);
+/* ShadowStackPush of 8 bytes at the CPL. */
+void x86_shstk_push(CPUX86State *env, uint64_t val, uintptr_t ra);
+/* A pop of 8 bytes at the CPL that must give val, else #CP(code). */
+void x86_shstk_pop_check(CPUX86State *env, uint64_t val, int code,
+                         uintptr_t ra);
+#endif
+
+/* system/uintr_helper.c */
+#ifndef CONFIG_USER_ONLY
+uint8_t x86_uintr_uinv(CPUX86State *env);
+void x86_uintr_set_uinv(CPUX86State *env, uint8_t uinv);
+void x86_uintr_recognize(CPUX86State *env);
+bool x86_uintr_msr_valid(CPUX86State *env, uint32_t msr, uint64_t val);
+int x86_uintr_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+int x86_uintr_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
+void x86_uintr_deliver(CPUX86State *env);
+void x86_uintr_process(CPUX86State *env);
+bool x86_uintr_notification(CPUX86State *env, int vector);
 #endif
 
 /* The VMX interruption types of INT1 and of INT3 and INTO. */

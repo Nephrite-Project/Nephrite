@@ -391,6 +391,34 @@ void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
 #define DUMP_CODE_BYTES_TOTAL    50
 #define DUMP_CODE_BYTES_BACKWARD 20
 
+#if !defined(CONFIG_USER_ONLY)
+/*
+ * Whether a dump shows the state of a feature that the processor HAS: a
+ * full one, as "info registers" makes, does, and others while the feature
+ * is ENABLED.
+ */
+static bool dump_feature(int flags, bool has, bool enabled)
+{
+    return has && ((flags & CPU_DUMP_FPU) || enabled);
+}
+
+/* User interrupts' MSRs and UIF (Intel SDM 325462-093 Vol. 3A, 9.3). */
+static void dump_uintr(CPUX86State *env, FILE *f, int flags)
+{
+    if (!dump_feature(flags,
+                      env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_UINTR,
+                      env->cr[4] & CR4_UINTR_MASK)) {
+        return;
+    }
+    qemu_fprintf(f, "UINTR_HANDLER=%016" PRIx64 " UINTR_STACKADJUST=%016"
+                 PRIx64 "\nUINTR_MISC=%016" PRIx64 " UINTR_PD=%016" PRIx64
+                 " UINTR_TT=%016" PRIx64 "\nUINTR_RR=%016" PRIx64
+                 " UIF=%d\n", env->uintr_handler, env->uintr_stackadjust,
+                 env->uintr_misc, env->uintr_pd, env->uintr_tt,
+                 env->uintr_rr, env->uif);
+}
+#endif
+
 void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
 {
     X86CPU *cpu = X86_CPU(cs);
@@ -552,6 +580,9 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
         }
     }
     qemu_fprintf(f, "EFER=%016" PRIx64 "\n", env->efer);
+#if !defined(CONFIG_USER_ONLY)
+    dump_uintr(env, f, flags);
+#endif
     if (flags & CPU_DUMP_FPU) {
         int fptag;
         const uint64_t avx512_mask = XSTATE_OPMASK_MASK | \
