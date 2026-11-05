@@ -188,5 +188,6 @@ struct Q35PCIHost {
  */
 #define Q35_PSEUDO_BUS_PLATFORM         (0xff)
 #define Q35_PSEUDO_DEVFN_IOAPIC         (0x00)
+#define Q35_PSEUDO_DEVFN_HPET           (0x01)
 
 #endif /* HW_Q35_H */

@@ -37,6 +37,7 @@
 #include "migration/vmstate.h"
 #include "hw/timer/i8254.h"
 #include "system/address-spaces.h"
+#include "hw/i386/x86.h"
 #include "qom/object.h"
 #include "qemu/lockable.h"
 #include "qemu/seqlock.h"
@@ -188,6 +189,19 @@ static uint64_t hpet_next_wrap(uint64_t cur_tick)
     return (cur_tick | 0xffffffffU) + 1;
 }
 
+/*
+ * FSB messages go where the I/O APIC's do, through the IOMMU's interrupt
+ * remapping where there is one, which must translate them (VT-d D51397-019
+ * rev. 5.20, 8.3.1.2).
+ */
+static AddressSpace *hpet_fsb_as(void)
+{
+    Object *machine = object_dynamic_cast(qdev_get_machine(),
+                                          TYPE_X86_MACHINE);
+
+    return machine ? X86_MACHINE(machine)->ioapic_as : &address_space_memory;
+}
+
 static void update_irq(struct HPETTimer *timer, int set)
 {
     uint64_t mask;
@@ -218,7 +232,7 @@ static void update_irq(struct HPETTimer *timer, int set)
 
     if (set && timer_enabled(timer) && hpet_enabled(s)) {
         if (timer_fsb_route(timer)) {
-            address_space_stl_le(&address_space_memory, timer->fsb >> 32,
+            address_space_stl_le(hpet_fsb_as(), timer->fsb >> 32,
                                  timer->fsb & 0xffffffff, MEMTXATTRS_UNSPECIFIED,
                                  NULL);
         } else if (timer->config & HPET_TN_TYPE_LEVEL) {

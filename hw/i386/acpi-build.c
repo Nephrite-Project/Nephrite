@@ -1653,6 +1653,7 @@ build_dmar_q35(GArray *table_data, BIOSLinker *linker, const char *oem_id,
     X86IOMMUState *iommu = x86_iommu_get_default();
     IntelIOMMUState *intel_iommu = INTEL_IOMMU_DEVICE(iommu);
     GArray *scope_blob = g_array_new(false, true, 1);
+    size_t hpet_scope_size = 0;
 
     AcpiTable table = { .sig = "DMAR", .rev = 1, .oem_id = oem_id,
                         .oem_table_id = oem_table_id };
@@ -1668,6 +1669,10 @@ build_dmar_q35(GArray *table_data, BIOSLinker *linker, const char *oem_id,
     assert(iommu);
     if (x86_iommu_ir_supported(iommu)) {
         dmar_flags |= 0x1;      /* Flags: 0x1: INT_REMAP */
+        if (hpet_find_msi()) {
+            hpet_scope_size = 6 /* device scope structure */ +
+                              2 /* 1 path entry */;
+        }
     }
 
     acpi_table_begin(&table, table_data);
@@ -1679,8 +1684,8 @@ build_dmar_q35(GArray *table_data, BIOSLinker *linker, const char *oem_id,
     /* 8.3 DMAR Remapping Hardware Unit Definition structure */
     build_append_int_noprefix(table_data, 0, 2); /* Type */
     /* Length */
-    build_append_int_noprefix(table_data,
-                              16 + ioapic_scope_size + scope_blob->len, 2);
+    build_append_int_noprefix(table_data, 16 + ioapic_scope_size +
+                              hpet_scope_size + scope_blob->len, 2);
     /* Flags */
     build_append_int_noprefix(table_data, 0 /* Don't include all pci device */ ,
                               1);
@@ -1701,6 +1706,23 @@ build_dmar_q35(GArray *table_data, BIOSLinker *linker, const char *oem_id,
     /* Path, {Device, Function} pair */
     build_append_int_noprefix(table_data, PCI_SLOT(Q35_PSEUDO_DEVFN_IOAPIC), 1);
     build_append_int_noprefix(table_data, PCI_FUNC(Q35_PSEUDO_DEVFN_IOAPIC), 1);
+
+    /*
+     * Interrupt remapping must know of an MSI-capable HPET (VT-d D51397-019
+     * rev. 5.20, 8.3.1.2), whose messages go where the I/O APIC's do.
+     */
+    if (hpet_scope_size) {
+        build_append_int_noprefix(table_data, 0x04 /* MSI_CAPABLE_HPET */, 1);
+        build_append_int_noprefix(table_data, hpet_scope_size, 1);
+        build_append_int_noprefix(table_data, 0, 2); /* Reserved */
+        /* Enumeration ID: the HPET table's HPET Number */
+        build_append_int_noprefix(table_data, 0, 1);
+        build_append_int_noprefix(table_data, Q35_PSEUDO_BUS_PLATFORM, 1);
+        build_append_int_noprefix(table_data, PCI_SLOT(Q35_PSEUDO_DEVFN_HPET),
+                                  1);
+        build_append_int_noprefix(table_data, PCI_FUNC(Q35_PSEUDO_DEVFN_HPET),
+                                  1);
+    }
 
     /* Add scope found above */
     g_array_append_vals(table_data, scope_blob->data, scope_blob->len);
@@ -1936,6 +1958,18 @@ build_amd_iommu(GArray *table_data, BIOSLinker *linker, const char *oem_id,
                                  (IOAPIC_SB_DEVID << 40) |  /* IOAPIC devid */
                                  0x48,                      /* special device */
                                  8);
+        /*
+         * An MSI-capable HPET, HPET Number 0, whose messages go where the
+         * I/O APIC's do (AMD I/O Virtualization Technology (IOMMU)
+         * Specification 48882 rev. 3.11, Table 109).
+         */
+        if (hpet_find_msi()) {
+            build_append_int_noprefix(ivhd_blob,
+                                     (0x2ull << 56) |           /* HPET */
+                                     (IOAPIC_SB_DEVID << 40) |  /* devid */
+                                     0x48,                      /* special */
+                                     8);
+        }
     }
 
     /* IVHD definition - type 10h */

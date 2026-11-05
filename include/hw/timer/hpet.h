@@ -84,4 +84,12 @@ static inline bool hpet_find(void)
     return object_resolve_path_type("", TYPE_HPET, NULL);
 }
 
+/* Whether the machine's HPET can deliver its interrupts as messages. */
+static inline bool hpet_find_msi(void)
+{
+    Object *hpet = object_resolve_path_type("", TYPE_HPET, NULL);
+
+    return hpet && object_property_get_bool(hpet, "msi", NULL);
+}
+
 #endif
