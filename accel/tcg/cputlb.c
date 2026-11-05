@@ -942,31 +942,45 @@ void tlb_reset_dirty(CPUState *cpu, uintptr_t start, uintptr_t length)
 
 /* Called with tlb_c.lock held */
 static inline void tlb_set_dirty1_locked(CPUTLBEntry *tlb_entry,
-                                         vaddr addr)
+                                         const CPUTLBEntryFull *full,
+                                         vaddr addr, ram_addr_t ram_addr)
 {
-    if (tlb_entry->addr_write == (addr | TLB_NOTDIRTY)) {
+    if (tlb_entry->addr_write == (addr | TLB_NOTDIRTY) &&
+        addr + full->xlat_offset == ram_addr) {
         tlb_entry->addr_write = addr;
     }
 }
 
-/* update the TLB corresponding to virtual page vaddr
-   so that it is no longer dirty */
-static void tlb_set_dirty(CPUState *cpu, vaddr addr)
+/*
+ * Update the TLB entries of virtual page vaddr that map the RAM page at
+ * ram_addr so that they are no longer dirty. Other MMU indexes may map
+ * vaddr to other RAM, which may hold code, as SVM guest mode's map the
+ * guest's addresses.
+ */
+static void tlb_set_dirty(CPUState *cpu, vaddr addr, ram_addr_t ram_addr)
 {
     int mmu_idx;
 
     assert_cpu_is_self(cpu);
 
     addr &= TARGET_PAGE_MASK;
+    ram_addr &= TARGET_PAGE_MASK;
     qemu_spin_lock(&cpu->neg.tlb.c.lock);
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
-        tlb_set_dirty1_locked(tlb_entry(cpu, mmu_idx, addr), addr);
+        CPUTLBDesc *desc = &cpu->neg.tlb.d[mmu_idx];
+
+        tlb_set_dirty1_locked(tlb_entry(cpu, mmu_idx, addr),
+                              &desc->fulltlb[tlb_index(cpu, mmu_idx, addr)],
+                              addr, ram_addr);
     }
 
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
+        CPUTLBDesc *desc = &cpu->neg.tlb.d[mmu_idx];
         int k;
+
         for (k = 0; k < CPU_VTLB_SIZE; k++) {
-            tlb_set_dirty1_locked(&cpu->neg.tlb.d[mmu_idx].vtable[k], addr);
+            tlb_set_dirty1_locked(&desc->vtable[k], &desc->vfulltlb[k], addr,
+                                  ram_addr);
         }
     }
     qemu_spin_unlock(&cpu->neg.tlb.c.lock);
@@ -1354,7 +1368,7 @@ static void notdirty_write(CPUState *cpu, vaddr mem_vaddr, unsigned size,
     /* We remove the notdirty callback only if the code has been flushed. */
     if (!physical_memory_is_clean(ram_addr)) {
         trace_memory_notdirty_set_dirty(mem_vaddr);
-        tlb_set_dirty(cpu, mem_vaddr);
+        tlb_set_dirty(cpu, mem_vaddr, ram_addr);
     }
 }
 

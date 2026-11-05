@@ -216,6 +216,10 @@ Memory and KVM:
   Series Express Chipset Family Datasheet 316966-002, 5.1.18).
 * Under KVM, such RAM is in read-only slots, so that the vCPUs' writes to
   write-protected PAM segments are dropped as on TCG.
+* Once a store has made a page of RAM dirty, only the TLB entries that map
+  that page stop checking stores for translated code, not other MMU
+  indexes' entries for the same virtual address, which may map other RAM,
+  as SVM guest mode's do; guests ran stale copies of code they had changed.
 
 
 Behaviour changes
