@@ -383,3 +383,5 @@ struct X86DecodedInsn {
 };
 
 static void gen_lea_modrm(struct DisasContext *s, X86DecodedInsn *decode);
+static void gen_lea_modrm_acc(struct DisasContext *s, X86DecodedInsn *decode,
+                              int acc);

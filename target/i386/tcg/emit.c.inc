@@ -51,7 +51,7 @@ typedef void (*SSEFunc_0_eppppii)(TCGv_ptr env, TCGv_ptr reg_a, TCGv_ptr reg_b,
                                   TCGv_ptr reg_c, TCGv_ptr reg_d, TCGv_i32 even,
                                   TCGv_i32 odd);
 
-static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode);
+static void gen_jmp_m(DisasContext *s, X86DecodedInsn *decode);
 static void gen_JMP(DisasContext *s, X86DecodedInsn *decode);
 
 static inline TCGv_i32 tcg_constant8u_i32(uint8_t val)
@@ -64,7 +64,8 @@ static void gen_NM_exception(DisasContext *s)
     gen_exception(s, EXCP07_PREX);
 }
 
-static void gen_lea_modrm(DisasContext *s, X86DecodedInsn *decode)
+/* The memory operand's address, which ACC must be able to access. */
+static void gen_lea_modrm_acc(DisasContext *s, X86DecodedInsn *decode, int acc)
 {
     AddressParts *mem = &decode->mem;
     TCGv ea;
@@ -84,7 +85,7 @@ static void gen_lea_modrm(DisasContext *s, X86DecodedInsn *decode)
         ea = s->A0;
     }
 
-    gen_lea_v_seg(s, ea, mem->def_seg, s->override);
+    gen_lea_v_seg(s, ea, mem->def_seg, s->override, acc);
 }
 
 static inline int mmx_offset(MemOp ot)
@@ -1587,7 +1588,7 @@ static void gen_call_push(DisasContext *s, bool shstk)
     TCGv new_esp = tcg_temp_new();
 
     tcg_gen_subi_tl(new_esp, cpu_regs[R_ESP], 1 << d_ot);
-    gen_lea_ss_ofs(s, s->A0, new_esp, 0);
+    gen_lea_ss_ofs(s, s->A0, new_esp, 0, SEG_W(1 << d_ot));
     gen_op_st_v(s, d_ot, ret, s->A0);
 #ifndef CONFIG_USER_ONLY
     if (shstk && s->shstk) {
@@ -1597,17 +1598,24 @@ static void gen_call_push(DisasContext *s, bool shstk)
     gen_op_mov_reg_v(s, mo_stacksize(s), R_ESP, new_esp);
 }
 
-/* A CALL to the next instruction leaves the shadow stack alone. */
+/*
+ * A CALL to the next instruction leaves the shadow stack alone.  CALLs
+ * check their targets before the push.
+ */
 static void gen_CALL(DisasContext *s, X86DecodedInsn *decode)
 {
+    gen_rel_target_check(s, s->dflag, decode->immediate);
     gen_call_push(s, decode->immediate != 0);
-    gen_JMP(s, decode);
+    gen_update_cc_op(s);
+    gen_branch_rel(s, s->dflag, decode->immediate);
+    gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
 
 static void gen_CALL_m(DisasContext *s, X86DecodedInsn *decode)
 {
+    gen_target_check(s, s->dflag, s->T0);
     gen_call_push(s, true);
-    gen_JMP_m(s, decode);
+    gen_jmp_m(s, decode);
 }
 
 static void gen_CALLF(DisasContext *s, X86DecodedInsn *decode)
@@ -2560,6 +2568,7 @@ static void gen_JCXZ(DisasContext *s, X86DecodedInsn *decode)
 static void gen_JMP(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
+    gen_rel_target_check(s, s->dflag, decode->immediate);
     gen_branch_rel(s, s->dflag, decode->immediate);
     gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
@@ -2589,8 +2598,11 @@ static void gen_ibt_track(DisasContext *s)
 #endif
 }
 
-/* Also JMPABS, a direct jump (Intel APX 355828-009, Table 3.6). */
-static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode)
+/*
+ * A near JMP to T0, after its caller checked the target.  Also JMPABS, a
+ * direct jump (Intel APX 355828-009, Table 3.6).
+ */
+static void gen_jmp_m(DisasContext *s, X86DecodedInsn *decode)
 {
     if (decode->e.op1 != X86_TYPE_I) {
         gen_ibt_track(s);
@@ -2599,6 +2611,12 @@ static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode)
     gen_op_jmp_v(s, s->T0);
     gen_bnd_jmp(s);
     s->base.is_jmp = DISAS_JUMP;
+}
+
+static void gen_JMP_m(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_target_check(s, s->dflag, s->T0);
+    gen_jmp_m(s, decode);
 }
 
 static void gen_JMPF(DisasContext *s, X86DecodedInsn *decode)
@@ -2672,7 +2690,7 @@ static void gen_LDS(DisasContext *s, X86DecodedInsn *decode)
 static void gen_LEA(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv ea = gen_lea_modrm_1(s, decode->mem, false);
-    gen_lea_v_seg_dest(s, s->aflag, s->T0, ea, -1, -1);
+    gen_lea_v_seg_dest(s, s->aflag, s->T0, ea, -1, -1, SEG_NONE);
 }
 
 static void gen_LEAVE(DisasContext *s, X86DecodedInsn *decode)
@@ -2680,7 +2698,7 @@ static void gen_LEAVE(DisasContext *s, X86DecodedInsn *decode)
     MemOp d_ot = mo_pushpop(s, s->dflag);
     MemOp a_ot = mo_stacksize(s);
 
-    gen_lea_ss_ofs(s, s->A0, cpu_regs[R_EBP], 0);
+    gen_lea_ss_ofs(s, s->A0, cpu_regs[R_EBP], 0, SEG_R(1 << d_ot));
     gen_op_ld_v(s, d_ot, s->T0, s->A0);
 
     tcg_gen_addi_tl(s->T1, cpu_regs[R_EBP], 1 << d_ot);
@@ -2802,7 +2820,8 @@ static void gen_MOV(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_MASKMOV(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_lea_v_seg(s, cpu_regs[R_EDI], R_DS, s->override);
+    gen_lea_v_seg(s, cpu_regs[R_EDI], R_DS, s->override,
+                  SEG_W(s->prefix & PREFIX_DATA ? 16 : 8));
 
     if (s->prefix & PREFIX_DATA) {
         gen_helper_maskmov_xmm(tcg_env, OP_PTR1, OP_PTR2, s->A0);
@@ -3347,7 +3366,7 @@ static void gen_POP2(DisasContext *s, X86DecodedInsn *decode)
     gen_helper_raise_gpf(tcg_env);
     gen_set_label(aligned);
 
-    gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], 0);
+    gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], 0, SEG_R(16));
     tcg_gen_qemu_ld_i128(t, s->A0, s->mem_index,
                          MO_LE | MO_128 | MO_ALIGN | MO_ATOM_IFALIGN_PAIR);
     tcg_gen_extr_i128_i64(cpu_regs[s->vex_v], s->T0, t);
@@ -3564,7 +3583,7 @@ static void gen_PUSH2(DisasContext *s, X86DecodedInsn *decode)
     gen_set_label(aligned);
 
     tcg_gen_subi_tl(new_esp, cpu_regs[R_ESP], 16);
-    gen_lea_ss_ofs(s, s->A0, new_esp, 0);
+    gen_lea_ss_ofs(s, s->A0, new_esp, 0, SEG_W(16));
     tcg_gen_concat_i64_i128(t, s->T1, s->T0);
     tcg_gen_qemu_st_i128(t, s->A0, s->mem_index,
                          MO_LE | MO_128 | MO_ALIGN | MO_ATOM_IFALIGN_PAIR);
@@ -4146,6 +4165,8 @@ static void gen_RET(DisasContext *s, X86DecodedInsn *decode)
     uint16_t adjust = decode->e.op1 == X86_TYPE_I ? decode->immediate : 0;
 
     MemOp ot = gen_pop_T0(s);
+
+    gen_target_check(s, ot, s->T0);
 #ifndef CONFIG_USER_ONLY
     /*
      * The shadow stack's return address must match (Intel SDM 325462-093
@@ -4168,7 +4189,7 @@ static void gen_RETF(DisasContext *s, X86DecodedInsn *decode)
     TCGv from = gen_branch_start(s);
 
     if (!PE(s) || VM86(s)) {
-        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], 0);
+        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], 0, SEG_R(2 << s->dflag));
         /* pop offset */
         gen_op_ld_v(s, s->dflag, s->T0, s->A0);
         /* NOTE: keeping EIP updated is not a problem in case of
@@ -4797,7 +4818,8 @@ static void gen_UMONITOR(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
-    gen_lea_v_seg(s, cpu_regs[(s->modrm & 7) | REX_B(s)], R_DS, s->override);
+    gen_lea_v_seg(s, cpu_regs[(s->modrm & 7) | REX_B(s)], R_DS, s->override,
+                  SEG_R(1));
     gen_helper_umonitor(tcg_env, s->A0);
 }
 
@@ -5421,7 +5443,7 @@ static void gen_XLAT(DisasContext *s, X86DecodedInsn *decode)
 {
     /* AL is already zero-extended into s->T0.  */
     tcg_gen_add_tl(s->A0, cpu_regs[R_EBX], s->T0);
-    gen_lea_v_seg(s, s->A0, R_DS, s->override);
+    gen_lea_v_seg(s, s->A0, R_DS, s->override, SEG_R(1));
     gen_op_ld_v(s, MO_8, s->T0, s->A0);
 }
 
@@ -5506,4 +5528,74 @@ static void gen_XSAVES(DisasContext *s, X86DecodedInsn *decode)
     tcg_gen_concat_tl_i64(features, cpu_regs[R_EAX], cpu_regs[R_EDX]);
     gen_vmx_xsaves(s, decode, VMX_EXIT_XSAVES, features);
     gen_helper_xsaves(tcg_env, s->A0, features);
+}
+
+/*
+ * The access of a decoded instruction's memory operand: a write, which may
+ * read too, as its destination, else a read, of the operand's size.
+ */
+static int modrm_access(DisasContext *s, X86DecodedInsn *decode)
+{
+    const X86OpType type[3] = {
+        decode->e.op0, decode->e.op1, decode->e.op2
+    };
+    const X86OpSize size[3] = { decode->e.s0, decode->e.s1, decode->e.s2 };
+    X86GenFunc gen = decode->e.gen;
+    int i, bytes;
+
+    /*
+     * The areas FXSAVE and XSAVE access, the latter's legacy region and
+     * header only, and the lines of CLFLUSH, CLFLUSHOPT, and CLWB, which
+     * may be in an execute-only segment (Intel SDM 325462-093 Vol. 2A,
+     * CLFLUSH and CLFLUSHOPT), unlike the prefetches of 0F 0D, which
+     * access nothing.  Gathers' elements are not checked.
+     */
+    if (gen == gen_FXSAVE) {
+        return SEG_W(512);
+    } else if (gen == gen_FXRSTOR) {
+        return SEG_R(512);
+    } else if (gen == gen_XSAVE || gen == gen_XSAVEC || gen == gen_XSAVES ||
+               gen == gen_XSAVEOPT) {
+        return SEG_W(576);
+    } else if (gen == gen_XRSTOR || gen == gen_XRSTORS) {
+        return SEG_R(576);
+    } else if (gen == gen_NOP && type[0] == X86_TYPE_M) {
+        return size[0] == X86_SIZE_b ? SEG_ANY(1) : SEG_NONE;
+    } else if (decode->e.vex_class == 12) {
+        return SEG_NONE;
+    }
+
+    for (i = 0; i < 3; i++) {
+        if (!decode->op[i].has_ea) {
+            continue;
+        }
+        /* Hint NOPs and prefetches access nothing. */
+        if (type[i] == X86_TYPE_nop) {
+            return SEG_NONE;
+        }
+        switch (size[i]) {
+        case X86_SIZE_a:
+            bytes = 2 << s->dflag;
+            break;
+        case X86_SIZE_p:
+            bytes = (1 << decode->op[i].ot) + 2;
+            break;
+        case X86_SIZE_s:
+            bytes = CODE64(s) ? 10 : 6;
+            break;
+        default:
+            if ((int)decode->op[i].ot < 0) {
+                return SEG_NONE;
+            }
+            bytes = 1 << decode->op[i].ot;
+            break;
+        }
+        return i == 0 ? SEG_W(bytes) : SEG_R(bytes);
+    }
+    return SEG_NONE;
+}
+
+static void gen_lea_modrm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_lea_modrm_acc(s, decode, modrm_access(s, decode));
 }

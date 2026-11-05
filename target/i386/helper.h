@@ -138,6 +138,8 @@ DEF_HELPER_2(clrssbsy, tl, env, tl)
 DEF_HELPER_4(wrss, void, env, tl, tl, i32)
 DEF_HELPER_4(wruss, void, env, tl, tl, i32)
 DEF_HELPER_FLAGS_1(ibt_missing, TCG_CALL_NO_WG, noreturn, env)
+DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
+DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)
 #endif /* !CONFIG_USER_ONLY */
 
 /* x86 FPU */

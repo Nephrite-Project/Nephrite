@@ -341,3 +341,28 @@ void HELPER(check_io)(CPUX86State *env, uint32_t addr, uint32_t size)
         raise_exception_err_ra(env, EXCP0D_GPF, 0, retaddr);
     }
 }
+
+/*
+ * A data access that segment SEG, in INFO's bits 3:0, may not allow: of the
+ * kind in bits 5:4 and the size above them, at offset OFS (Intel SDM
+ * 325462-093 Vol. 3A, 6.3 and 6.4).
+ */
+void HELPER(seg_check)(CPUX86State *env, uint32_t info, target_ulong ofs)
+{
+    int seg = info & 0xf;
+
+    if (!x86_seg_access_ok(env, seg, ofs, info >> 6, (info >> 4) & 3)) {
+        raise_exception_err_ra(env, seg == R_SS ? EXCP0C_STACK : EXCP0D_GPF,
+                               0, GETPC());
+    }
+}
+
+/*
+ * An access past the limit of SEG, or a fetch or branch past CS's: #SS(0)
+ * for SS, else #GP(0).
+ */
+void HELPER(seg_fault)(CPUX86State *env, uint32_t seg)
+{
+    raise_exception_err_ra(env, seg == R_SS ? EXCP0C_STACK : EXCP0D_GPF, 0,
+                           GETPC());
+}

@@ -243,6 +243,26 @@ typedef enum X86Seg {
 #define TB_IBT_SUPPRESS      (1ULL << 34)
 #define TB_IBT_NOTRACK       (1ULL << 35)
 #define TB_IBT_WAIT          (1ULL << 36)
+/*
+ * Outside 64-bit mode, the checks that data accesses through each segment
+ * need, two bits each from ES to GS (Intel SDM 325462-093 Vol. 3A, 6.3
+ * and 6.4): TB_SEG_FLAT none, TB_SEG_64K that the access ends at or below
+ * FFFFH, TB_SEG_LIMIT that it ends at or below the segment's limit, and
+ * TB_SEG_SLOW whatever a helper finds.
+ */
+#define TB_SEG_SHIFT         37
+#define TB_SEG_FLAT          0
+#define TB_SEG_64K           1
+#define TB_SEG_LIMIT         2
+#define TB_SEG_SLOW          3
+/*
+ * How instruction fetches check CS's limit, TB_SEG_FLAT, TB_SEG_64K, or
+ * TB_SEG_LIMIT, and for TB_SEG_LIMIT the page offset of the first byte past
+ * the limit, from which the translator knows the instructions that may
+ * cross it.
+ */
+#define TB_FETCH_SHIFT       49
+#define TB_FETCH_END_SHIFT   51
 
 /* hflags2 */
 

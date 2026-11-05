@@ -160,8 +160,26 @@ typedef struct DisasContext {
     uint8_t pmu_counted;
     /* The add whose operand becomes the TB's instruction count. */
     TCGOp *pmu_insns;
+
+    /* The TB_SEG class of each segment's data accesses. */
+    uint8_t seg_class[6];
+    /* The TB_SEG class of fetches, and the TB_FETCH_END offset. */
+    uint8_t fetch_class;
+    uint16_t fetch_end;
+    /* The instruction's fetch is checked against CS's limit. */
+    bool fetch_checked;
 #endif
 } DisasContext;
+
+/*
+ * A data access for gen_lea_v_seg_dest() to check against its segment's
+ * limit and type: X86_SEG_READ, X86_SEG_WRITE, or X86_SEG_ANY in bits 1:0
+ * and its size in bytes above them, or SEG_NONE for no check.
+ */
+#define SEG_NONE         0
+#define SEG_R(size)      ((size) << 2 | X86_SEG_READ)
+#define SEG_W(size)      ((size) << 2 | X86_SEG_WRITE)
+#define SEG_ANY(size)    ((size) << 2 | X86_SEG_ANY)
 
 /*
  * Point EIP to next instruction before ending translation.
@@ -192,6 +210,13 @@ typedef struct DisasContext {
  * EFLAGS.TF to determine singlestep trap (SYSCALL/SYSRET).
  */
 #define DISAS_EOB_RECHECK_TF   DISAS_TARGET_4
+
+/*
+ * Point EIP to next instruction and look the next TB up for the CPU state
+ * the instruction left, with no direct chaining.  For instructions that
+ * change state the TB flags hold but that does not need the main loop.
+ */
+#define DISAS_EOB_LOOKUP       DISAS_TARGET_5
 
 /* The environment in which user-only runs is constrained. */
 #ifdef CONFIG_USER_ONLY
@@ -733,11 +758,143 @@ static void gen_lam_untag(TCGv addr)
 }
 #endif
 
-/* Compute SEG:REG into DEST.  SEG is selected from the override segment
-   (OVR_SEG) and the default segment (DEF_SEG).  OVR_SEG may be -1 to
-   indicate no override.  */
+#ifndef CONFIG_USER_ONLY
+/* #GP(0) where EIP is past CS's limit. */
+static void gen_code_check(DisasContext *s, TCGv eip)
+{
+    TCGLabel *ok = gen_new_label();
+
+    if (s->fetch_class == TB_SEG_64K) {
+        tcg_gen_brcondi_tl(TCG_COND_LEU, eip, 0xffff, ok);
+    } else {
+        TCGv limit = tcg_temp_new();
+
+        tcg_gen_ld32u_tl(limit, tcg_env,
+                         offsetof(CPUX86State, segs[R_CS].limit));
+        tcg_gen_brcond_tl(TCG_COND_LEU, eip, limit, ok);
+    }
+    gen_helper_seg_fault(tcg_env, tcg_constant_i32(R_CS));
+    gen_set_label(ok);
+}
+#endif
+
+/*
+ * #GP(0) where the bytes of the instruction fetched so far go past CS's
+ * limit, once per instruction and before anything it does (Intel SDM
+ * 325462-093 Vol. 3A, 6.3).  The TB's first instruction may start
+ * anywhere; a later one leaves the segment only if it holds the page offset
+ * where the limit ends, as the one before it ended within the limit.
+ */
+static void gen_fetch_check(DisasContext *s)
+{
+#ifndef CONFIG_USER_ONLY
+    target_ulong len = s->pc - s->base.pc_next;
+    TCGv last;
+
+    if (s->fetch_class == TB_SEG_FLAT || s->fetch_checked) {
+        return;
+    }
+    s->fetch_checked = true;
+    if (s->base.num_insns > 1) {
+        uint32_t start = (s->base.pc_next - s->cs_base) & 0xfff;
+        uint32_t end = s->fetch_class == TB_SEG_64K ? 0 : s->fetch_end;
+
+        if (((end - start) & 0xfff) >= len) {
+            return;
+        }
+    }
+    last = tcg_temp_new();
+    tcg_gen_addi_tl(last, eip_cur_tl(s), len - 1);
+    gen_code_check(s, last);
+#endif
+}
+
+/*
+ * #GP(0) where the target of a near branch, truncated to OT, is past CS's
+ * limit, before the branch changes anything (Intel SDM 325462-093 Vol. 2A,
+ * CALL and JMP; Vol. 2B, Jcc and RET).  16-bit targets need no check
+ * against a 64 KiB limit.
+ */
+static void gen_target_check(DisasContext *s, MemOp ot, TCGv target)
+{
+#ifndef CONFIG_USER_ONLY
+    TCGv eip;
+
+    if (CODE64(s) || s->fetch_class == TB_SEG_FLAT ||
+        (s->fetch_class == TB_SEG_64K && ot == MO_16)) {
+        return;
+    }
+    eip = tcg_temp_new();
+    tcg_gen_ext_tl(eip, target, ot == MO_16 ? MO_16 : MO_32);
+    gen_code_check(s, eip);
+#endif
+}
+
+/* The same for a relative branch by DIFF. */
+static void gen_rel_target_check(DisasContext *s, MemOp ot, int diff)
+{
+#ifndef CONFIG_USER_ONLY
+    TCGv target;
+
+    if (CODE64(s) || s->fetch_class == TB_SEG_FLAT ||
+        (s->fetch_class == TB_SEG_64K && ot == MO_16)) {
+        return;
+    }
+    target = tcg_temp_new();
+    tcg_gen_addi_tl(target, eip_next_tl(s), diff);
+    gen_target_check(s, ot, target);
+#endif
+}
+
+#ifndef CONFIG_USER_ONLY
+/*
+ * #GP(0), or #SS(0) for SS, where SEG does not allow the access ACC at
+ * offset OFS, truncated to AFLAG, before the access is made (Intel SDM
+ * 325462-093 Vol. 3A, 6.3 and 6.4).
+ */
+static void gen_seg_check(DisasContext *s, MemOp aflag, int seg, TCGv ofs,
+                          int acc)
+{
+    int size = acc >> 2;
+    TCGLabel *ok;
+    TCGv end, limit;
+
+    switch (s->seg_class[seg]) {
+    case TB_SEG_FLAT:
+        return;
+    case TB_SEG_SLOW:
+        gen_helper_seg_check(tcg_env, tcg_constant_i32(seg | acc << 4), ofs);
+        return;
+    case TB_SEG_64K:
+        /* 16-bit offsets of single bytes never pass FFFFH. */
+        if (aflag == MO_16 && size == 1) {
+            return;
+        }
+        limit = tcg_constant_tl(0xffff);
+        break;
+    default:
+        limit = tcg_temp_new();
+        tcg_gen_ld32u_tl(limit, tcg_env,
+                         offsetof(CPUX86State, segs[seg].limit));
+        break;
+    }
+    end = tcg_temp_new();
+    tcg_gen_addi_tl(end, ofs, size - 1);
+    ok = gen_new_label();
+    tcg_gen_brcond_tl(TCG_COND_LEU, end, limit, ok);
+    gen_helper_seg_fault(tcg_env, tcg_constant_i32(seg));
+    gen_set_label(ok);
+}
+#endif
+
+/*
+ * Compute SEG:REG into DEST.  SEG is selected from the override segment
+ * (OVR_SEG) and the default segment (DEF_SEG).  OVR_SEG may be -1 to
+ * indicate no override.  ACC is the access that SEG's limit and type must
+ * allow, or SEG_NONE.
+ */
 static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
-                               int def_seg, int ovr_seg)
+                               int def_seg, int ovr_seg, int acc)
 {
     int easize;
     bool has_base;
@@ -745,6 +902,16 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
     if (ovr_seg < 0) {
         ovr_seg = def_seg;
     }
+
+#ifndef CONFIG_USER_ONLY
+    if (acc != SEG_NONE && ovr_seg >= 0 &&
+        s->seg_class[ovr_seg] != TB_SEG_FLAT) {
+        TCGv ofs = tcg_temp_new();
+
+        tcg_gen_ext_tl(ofs, a0, aflag);
+        gen_seg_check(s, aflag, ovr_seg, ofs, acc);
+    }
+#endif
 
     has_base = ovr_seg >= R_FS || (ovr_seg >= 0 && ADDSEG(s));
     easize = CODE64(s) ? MO_64 : MO_32;
@@ -774,19 +941,19 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
 }
 
 static void gen_lea_v_seg(DisasContext *s, TCGv a0,
-                          int def_seg, int ovr_seg)
+                          int def_seg, int ovr_seg, int acc)
 {
-    gen_lea_v_seg_dest(s, s->aflag, s->A0, a0, def_seg, ovr_seg);
+    gen_lea_v_seg_dest(s, s->aflag, s->A0, a0, def_seg, ovr_seg, acc);
 }
 
-static inline void gen_string_movl_A0_ESI(DisasContext *s)
+static inline void gen_string_movl_A0_ESI(DisasContext *s, int acc)
 {
-    gen_lea_v_seg(s, cpu_regs[R_ESI], R_DS, s->override);
+    gen_lea_v_seg(s, cpu_regs[R_ESI], R_DS, s->override, acc);
 }
 
-static inline void gen_string_movl_A0_EDI(DisasContext *s)
+static inline void gen_string_movl_A0_EDI(DisasContext *s, int acc)
 {
-    gen_lea_v_seg(s, cpu_regs[R_EDI], R_ES, -1);
+    gen_lea_v_seg(s, cpu_regs[R_EDI], R_ES, -1, acc);
 }
 
 static void gen_op_j_ecx(DisasContext *s, TCGCond cond, TCGLabel *label1)
@@ -928,9 +1095,9 @@ static bool gen_check_io(DisasContext *s, MemOp ot, TCGv_i32 port,
 
 static void gen_movs(DisasContext *s, MemOp ot, TCGv dshift)
 {
-    gen_string_movl_A0_ESI(s);
+    gen_string_movl_A0_ESI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T0, s->A0);
-    gen_string_movl_A0_EDI(s);
+    gen_string_movl_A0_EDI(s, SEG_W(1 << ot));
     gen_op_st_v(s, ot, s->T0, s->A0);
 
     gen_op_add_reg(s, s->aflag, R_ESI, dshift);
@@ -1434,14 +1601,14 @@ static inline void gen_jcc(DisasContext *s, int b, TCGLabel *l1)
 
 static void gen_stos(DisasContext *s, MemOp ot, TCGv dshift)
 {
-    gen_string_movl_A0_EDI(s);
+    gen_string_movl_A0_EDI(s, SEG_W(1 << ot));
     gen_op_st_v(s, ot, s->T0, s->A0);
     gen_op_add_reg(s, s->aflag, R_EDI, dshift);
 }
 
 static void gen_lods(DisasContext *s, MemOp ot, TCGv dshift)
 {
-    gen_string_movl_A0_ESI(s);
+    gen_string_movl_A0_ESI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T0, s->A0);
     gen_op_mov_reg_v(s, ot, R_EAX, s->T0);
     gen_op_add_reg(s, s->aflag, R_ESI, dshift);
@@ -1450,7 +1617,7 @@ static void gen_lods(DisasContext *s, MemOp ot, TCGv dshift)
 static void gen_scas(DisasContext *s, MemOp ot, TCGv dshift)
 {
     s->cc_srcT = tcg_temp_new();
-    gen_string_movl_A0_EDI(s);
+    gen_string_movl_A0_EDI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T1, s->A0);
     tcg_gen_mov_tl(cpu_cc_src, s->T1);
     tcg_gen_mov_tl(s->cc_srcT, s->T0);
@@ -1463,9 +1630,9 @@ static void gen_scas(DisasContext *s, MemOp ot, TCGv dshift)
 static void gen_cmps(DisasContext *s, MemOp ot, TCGv dshift)
 {
     s->cc_srcT = tcg_temp_new();
-    gen_string_movl_A0_EDI(s);
+    gen_string_movl_A0_EDI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T1, s->A0);
-    gen_string_movl_A0_ESI(s);
+    gen_string_movl_A0_ESI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T0, s->A0);
     tcg_gen_mov_tl(cpu_cc_src, s->T1);
     tcg_gen_mov_tl(s->cc_srcT, s->T0);
@@ -1494,7 +1661,7 @@ static void gen_ins(DisasContext *s, MemOp ot, TCGv dshift)
 {
     TCGv_i32 port = tcg_temp_new_i32();
 
-    gen_string_movl_A0_EDI(s);
+    gen_string_movl_A0_EDI(s, SEG_W(1 << ot));
     /* Note: we must do this dummy write first to be restartable in
        case of page fault. */
     tcg_gen_movi_tl(s->T0, 0);
@@ -1512,7 +1679,7 @@ static void gen_outs(DisasContext *s, MemOp ot, TCGv dshift)
     TCGv_i32 port = tcg_temp_new_i32();
     TCGv_i32 value = tcg_temp_new_i32();
 
-    gen_string_movl_A0_ESI(s);
+    gen_string_movl_A0_ESI(s, SEG_R(1 << ot));
     gen_op_ld_v(s, ot, s->T0, s->A0);
 
     tcg_gen_trunc_tl_i32(port, cpu_regs[R_EDX]);
@@ -1780,6 +1947,7 @@ static void gen_pmu_fault(DisasContext *s)
 
 static void gen_exception(DisasContext *s, int trapno)
 {
+    gen_fetch_check(s);
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
 #ifndef CONFIG_USER_ONLY
@@ -1955,7 +2123,7 @@ static void gen_ld_modrm(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
     if (mod == 3) {
         gen_op_mov_v_reg(s, ot, s->T0, rm);
     } else {
-        gen_lea_modrm(s, decode);
+        gen_lea_modrm_acc(s, decode, SEG_R(1 << ot));
         gen_op_ld_v(s, ot, s->T0, s->A0);
     }
 }
@@ -1971,7 +2139,7 @@ static void gen_st_modrm(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
     if (mod == 3) {
         gen_op_mov_reg_v(s, ot, rm, s->T0);
     } else {
-        gen_lea_modrm(s, decode);
+        gen_lea_modrm_acc(s, decode, SEG_W(1 << ot));
         gen_op_st_v(s, ot, s->T0, s->A0);
     }
 }
@@ -1985,6 +2153,7 @@ static void gen_conditional_jump_labels(DisasContext *s, target_long diff,
     gen_jmp_rel_csize(s, 0, 1);
 
     gen_set_label(taken);
+    gen_rel_target_check(s, s->dflag, diff);
     gen_branch_rel(s, s->dflag, diff);
     gen_jmp_rel(s, s->dflag, diff, 0);
 }
@@ -2017,10 +2186,15 @@ static void gen_movl_seg(DisasContext *s, X86Seg seg_reg, TCGv src, bool inhibit
 
         /*
          * For moves to SS, the SS32 flag may change. For CODE32 only, changes
-         * to SS, DS and ES may change the ADDSEG flags.
+         * to SS, DS and ES may change the ADDSEG flags.  Outside 64-bit mode,
+         * the segment's limit checks may change too.
          */
         if (seg_reg == R_SS || (CODE32(s) && seg_reg < R_FS)) {
             s->base.is_jmp = DISAS_EOB_NEXT;
+#ifndef CONFIG_USER_ONLY
+        } else if (!CODE64(s)) {
+            s->base.is_jmp = DISAS_EOB_LOOKUP;
+#endif
         }
     } else {
         gen_op_movl_seg_real(s, seg_reg, src);
@@ -2101,13 +2275,14 @@ static inline void gen_stack_update(DisasContext *s, int addend)
     gen_op_add_reg_im(s, mo_stacksize(s), R_ESP, addend);
 }
 
-static void gen_lea_ss_ofs(DisasContext *s, TCGv dest, TCGv src, target_ulong offset)
+static void gen_lea_ss_ofs(DisasContext *s, TCGv dest, TCGv src,
+                           target_ulong offset, int acc)
 {
     if (offset) {
         tcg_gen_addi_tl(dest, src, offset);
         src = dest;
     }
-    gen_lea_v_seg_dest(s, mo_stacksize(s), dest, src, R_SS, -1);
+    gen_lea_v_seg_dest(s, mo_stacksize(s), dest, src, R_SS, -1, acc);
 }
 
 /* Generate a push. It depends on ss32, addseg and dflag.  */
@@ -2121,7 +2296,7 @@ static void gen_push_v(DisasContext *s, TCGv val)
     tcg_gen_subi_tl(new_esp, cpu_regs[R_ESP], size);
 
     /* Now reduce the value to the address size and apply SS base.  */
-    gen_lea_ss_ofs(s, s->A0, new_esp, 0);
+    gen_lea_ss_ofs(s, s->A0, new_esp, 0, SEG_W(size));
     gen_op_st_v(s, d_ot, val, s->A0);
     gen_op_mov_reg_v(s, a_ot, R_ESP, new_esp);
 }
@@ -2131,7 +2306,7 @@ static MemOp gen_pop_T0(DisasContext *s)
 {
     MemOp d_ot = mo_pushpop(s, s->dflag);
 
-    gen_lea_ss_ofs(s, s->T0, cpu_regs[R_ESP], 0);
+    gen_lea_ss_ofs(s, s->T0, cpu_regs[R_ESP], 0, SEG_R(1 << d_ot));
     gen_op_ld_v(s, d_ot, s->T0, s->T0);
 
     return d_ot;
@@ -2149,7 +2324,8 @@ static void gen_pusha(DisasContext *s)
     int i;
 
     for (i = 0; i < 8; i++) {
-        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], (i - 8) * size);
+        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], (i - 8) * size,
+                       SEG_W(size));
         gen_op_st_v(s, d_ot, cpu_regs[7 - i], s->A0);
     }
 
@@ -2167,7 +2343,7 @@ static void gen_popa(DisasContext *s)
         if (7 - i == R_ESP) {
             continue;
         }
-        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], i * size);
+        gen_lea_ss_ofs(s, s->A0, cpu_regs[R_ESP], i * size, SEG_R(size));
         gen_op_ld_v(s, d_ot, s->T0, s->A0);
         gen_op_mov_reg_v(s, d_ot, 7 - i, s->T0);
     }
@@ -2183,7 +2359,7 @@ static void gen_enter(DisasContext *s, int esp_addend, int level)
 
     /* Push BP; compute FrameTemp into T1.  */
     tcg_gen_subi_tl(s->T1, cpu_regs[R_ESP], size);
-    gen_lea_ss_ofs(s, s->A0, s->T1, 0);
+    gen_lea_ss_ofs(s, s->A0, s->T1, 0, SEG_W(size));
     gen_op_st_v(s, d_ot, cpu_regs[R_EBP], s->A0);
 
     level &= 31;
@@ -2194,18 +2370,26 @@ static void gen_enter(DisasContext *s, int esp_addend, int level)
 
             /* Copy level-1 pointers from the previous frame.  */
             for (i = 1; i < level; ++i) {
-                gen_lea_ss_ofs(s, s->A0, cpu_regs[R_EBP], -size * i);
+                gen_lea_ss_ofs(s, s->A0, cpu_regs[R_EBP], -size * i,
+                               SEG_R(size));
                 gen_op_ld_v(s, d_ot, fp, s->A0);
 
-                gen_lea_ss_ofs(s, s->A0, s->T1, -size * i);
+                gen_lea_ss_ofs(s, s->A0, s->T1, -size * i, SEG_W(size));
                 gen_op_st_v(s, d_ot, fp, s->A0);
             }
         }
 
         /* Push the current FrameTemp as the last level.  */
-        gen_lea_ss_ofs(s, s->A0, s->T1, -size * level);
+        gen_lea_ss_ofs(s, s->A0, s->T1, -size * level, SEG_W(size));
         gen_op_st_v(s, d_ot, s->T1, s->A0);
     }
+
+    /*
+     * The new ESP must be within the stack's limit too (Intel SDM
+     * 325462-093 Vol. 2A, ENTER).
+     */
+    gen_lea_ss_ofs(s, s->A0, s->T1, -(esp_addend + size * level),
+                   SEG_W(1));
 
     /* Copy the FrameTemp value to EBP.  */
     gen_op_mov_reg_v(s, d_ot, R_EBP, s->T1);
@@ -2433,6 +2617,62 @@ static void gen_sty_env_A0(DisasContext *s, int offset, bool align)
 
 #include "emit.c.inc"
 
+/*
+ * The access of an x87 instruction's memory operand, by OP, the low opcode
+ * bits and the ModRM reg field: the environment takes 14 bytes with a
+ * 16-bit operand size and 28 otherwise, and FSAVE's state 80 more (Intel
+ * SDM 325462-093 Vol. 1, 8.1.10 and Figures 8-9 to 8-12).
+ */
+static int x87_access(DisasContext *s, int op)
+{
+    int env = s->dflag == MO_16 ? 14 : 28;
+
+    switch (op) {
+    case 0x00 ... 0x07: /* fxxxs */
+    case 0x10 ... 0x17: /* fixxxl */
+    case 0x08: /* flds */
+    case 0x18: /* fildl */
+        return SEG_R(4);
+    case 0x20 ... 0x27: /* fxxxl */
+    case 0x28: /* fldl */
+    case 0x3d: /* fildll */
+        return SEG_R(8);
+    case 0x30 ... 0x37: /* fixxx */
+    case 0x38: /* filds */
+    case 0x0d: /* fldcw */
+        return SEG_R(2);
+    case 0x1d: /* fldt */
+    case 0x3c: /* fbld */
+        return SEG_R(10);
+    case 0x0c: /* fldenv */
+        return SEG_R(env);
+    case 0x2c: /* frstor */
+        return SEG_R(env + 80);
+    case 0x0a: case 0x0b: /* fsts, fstps */
+    case 0x19: /* fisttpl */
+    case 0x1a: case 0x1b: /* fistl, fistpl */
+        return SEG_W(4);
+    case 0x29: /* fisttpll */
+    case 0x2a: case 0x2b: /* fstl, fstpl */
+    case 0x3f: /* fistpll */
+        return SEG_W(8);
+    case 0x39: /* fisttps */
+    case 0x3a: case 0x3b: /* fists, fistps */
+    case 0x0f: /* fnstcw */
+    case 0x2f: /* fnstsw */
+        return SEG_W(2);
+    case 0x1f: /* fstpt */
+    case 0x3e: /* fbstp */
+        return SEG_W(10);
+    case 0x0e: /* fnstenv */
+        return SEG_W(env);
+    case 0x2e: /* fnsave */
+        return SEG_W(env + 80);
+    default:
+        return SEG_NONE;
+    }
+}
+
 static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
 {
     bool update_fip = true;
@@ -2458,7 +2698,8 @@ static void gen_x87(DisasContext *s, X86DecodedInsn *decode)
         TCGv_i64 t64;
 
         tcg_gen_mov_tl(last_addr, ea);
-        gen_lea_v_seg(s, ea, decode->mem.def_seg, s->override);
+        gen_lea_v_seg(s, ea, decode->mem.def_seg, s->override,
+                      x87_access(s, op));
 
         switch (op) {
         case 0x00 ... 0x07: /* fxxxs */
@@ -3113,7 +3354,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_GDTR_READ);
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_W(CODE64(s) ? 10 : 6));
             tcg_gen_ld32u_tl(s->T0,
                              tcg_env, offsetof(CPUX86State, gdt.limit));
             gen_op_st_v(s, MO_16, s->T0, s->A0);
@@ -3194,7 +3435,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
-            gen_lea_v_seg(s, cpu_regs[R_EAX], R_DS, s->override);
+            gen_lea_v_seg(s, cpu_regs[R_EAX], R_DS, s->override, SEG_R(1));
             gen_helper_monitor(tcg_env, s->A0);
             break;
 
@@ -3231,7 +3472,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_IDTR_READ);
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_W(CODE64(s) ? 10 : 6));
             tcg_gen_ld32u_tl(s->T0, tcg_env, offsetof(CPUX86State, idt.limit));
             gen_op_st_v(s, MO_16, s->T0, s->A0);
             gen_add_A0_im(s, 2);
@@ -3401,7 +3642,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_GDTR_WRITE);
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_R(CODE64(s) ? 10 : 6));
             gen_op_ld_v(s, MO_16, s->T1, s->A0);
             gen_add_A0_im(s, 2);
             gen_op_ld_v(s, CODE64(s) + MO_32, s->T0, s->A0);
@@ -3420,7 +3661,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 break;
             }
             gen_svm_check_intercept(s, SVM_EXIT_IDTR_WRITE);
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_R(CODE64(s) ? 10 : 6));
             gen_op_ld_v(s, MO_16, s->T1, s->A0);
             gen_add_A0_im(s, 2);
             gen_op_ld_v(s, CODE64(s) + MO_32, s->T0, s->A0);
@@ -3479,7 +3720,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 !(s->cpuid_7_0_ecx_features & CPUID_7_0_ECX_CET_SHSTK)) {
                 goto illegal_op;
             }
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_R(8));
             gen_helper_rstorssp(cpu_cc_src, tcg_env, s->A0);
             set_cc_op(s, CC_OP_EFLAGS);
             break;
@@ -3540,7 +3781,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
             /* LAM does not apply (Intel SDM 325462-093 Vol. 3A, 4.4.3). */
             s->no_lam = true;
-            gen_lea_modrm(s, decode);
+            gen_lea_modrm_acc(s, decode, SEG_NONE);
             s->no_lam = false;
             if (GUEST(s)) {
                 TCGv_i32 type = tcg_constant_i32(SVM_EXIT_INVLPG);
@@ -3624,7 +3865,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                         tcg_gen_mov_i64(cpu_bndu[reg], cpu_bndu[reg2]);
                     }
                 } else {
-                    gen_lea_modrm(s, decode);
+                    gen_lea_modrm_acc(s, decode, SEG_R(CODE64(s) ? 16 : 8));
                     if (CODE64(s)) {
                         tcg_gen_qemu_ld_i64(cpu_bndl[reg], s->A0,
                                             s->mem_index, MO_LEUQ);
@@ -3654,7 +3895,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 } else {
                     tcg_gen_movi_tl(s->A0, 0);
                 }
-                gen_lea_v_seg(s, s->A0, a.def_seg, s->override);
+                gen_lea_v_seg(s, s->A0, a.def_seg, s->override, SEG_NONE);
                 if (a.index >= 0) {
                     tcg_gen_mov_tl(s->T0, cpu_regs[a.index]);
                 } else {
@@ -3726,7 +3967,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                         tcg_gen_mov_i64(cpu_bndu[reg2], cpu_bndu[reg]);
                     }
                 } else {
-                    gen_lea_modrm(s, decode);
+                    gen_lea_modrm_acc(s, decode, SEG_W(CODE64(s) ? 16 : 8));
                     if (CODE64(s)) {
                         tcg_gen_qemu_st_i64(cpu_bndl[reg], s->A0,
                                             s->mem_index, MO_LEUQ);
@@ -3754,7 +3995,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 } else {
                     tcg_gen_movi_tl(s->A0, 0);
                 }
-                gen_lea_v_seg(s, s->A0, a.def_seg, s->override);
+                gen_lea_v_seg(s, s->A0, a.def_seg, s->override, SEG_NONE);
                 if (a.index >= 0) {
                     tcg_gen_mov_tl(s->T0, cpu_regs[a.index]);
                 } else {
@@ -3906,6 +4147,12 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->iopl = iopl;
     dc->pmu = x86_pmu_enabled(env);
     dc->pmu_far_misses = !IS_INTEL_CPU(env);
+    for (int i = R_ES; i <= R_GS; i++) {
+        dc->seg_class[i] = (dc->base.tb->cs_base >> (TB_SEG_SHIFT + i * 2)) &
+                           3;
+    }
+    dc->fetch_class = (dc->base.tb->cs_base >> TB_FETCH_SHIFT) & 3;
+    dc->fetch_end = (dc->base.tb->cs_base >> TB_FETCH_END_SHIFT) & 0xfff;
 #endif
 
     /* We make some simplifying assumptions; validate they're correct. */
@@ -4004,6 +4251,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     dc->no_lam = false;
 #ifndef CONFIG_USER_ONLY
     dc->pmu_counted = 0;
+    dc->fetch_checked = false;
 #endif
 #ifdef TARGET_VSYSCALL_PAGE
     /*
@@ -4113,6 +4361,11 @@ static void i386_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
     case DISAS_EOB_RECHECK_TF:
     case DISAS_JUMP:
         gen_eob(dc, dc->base.is_jmp);
+        break;
+    case DISAS_EOB_LOOKUP:
+        assert(dc->base.pc_next == dc->pc);
+        gen_update_eip_cur(dc);
+        gen_eob(dc, DISAS_JUMP);
         break;
     default:
         g_assert_not_reached();

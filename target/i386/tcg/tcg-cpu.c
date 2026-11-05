@@ -50,6 +50,52 @@ static void x86_cpu_exec_exit(CPUState *cs)
     cpu->eflags_in_tcg = false;
 }
 
+#ifndef CONFIG_USER_ONLY
+/*
+ * The checks data accesses through a segment need outside 64-bit mode.  In
+ * real-address and virtual-8086 mode only its limit counts; in protected
+ * mode, writable expand-up data segments only need their limit checked.
+ */
+static uint64_t x86_seg_class(const SegmentCache *sc, bool pm)
+{
+    const uint32_t type = DESC_P_MASK | DESC_S_MASK | DESC_CS_MASK |
+                          DESC_E_MASK | DESC_W_MASK;
+
+    if (pm &&
+        (sc->flags & type) != (DESC_P_MASK | DESC_S_MASK | DESC_W_MASK)) {
+        return TB_SEG_SLOW;
+    }
+    if (sc->limit == 0xffffffff) {
+        return TB_SEG_FLAT;
+    }
+    return sc->limit == 0xffff ? TB_SEG_64K : TB_SEG_LIMIT;
+}
+
+/*
+ * The TB flags of segment limit and type checks (Intel SDM 325462-093
+ * Vol. 3A, 6.3 and 6.4).
+ */
+static uint64_t x86_seg_tb_flags(CPUX86State *env)
+{
+    bool pm = (env->cr[0] & CR0_PE_MASK) && !(env->eflags & VM_MASK);
+    uint32_t limit = env->segs[R_CS].limit;
+    uint64_t flags = 0;
+    int i;
+
+    for (i = R_ES; i <= R_GS; i++) {
+        flags |= x86_seg_class(&env->segs[i], pm) <<
+                 (TB_SEG_SHIFT + i * 2);
+    }
+    if (limit == 0xffff) {
+        flags |= (uint64_t)TB_SEG_64K << TB_FETCH_SHIFT;
+    } else if (limit != 0xffffffff) {
+        flags |= (uint64_t)TB_SEG_LIMIT << TB_FETCH_SHIFT |
+                 (uint64_t)((limit + 1) & 0xfff) << TB_FETCH_END_SHIFT;
+    }
+    return flags;
+}
+#endif
+
 static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
 {
     CPUX86State *env = cpu_env(cs);
@@ -97,6 +143,9 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     } else {
         cs_base = env->segs[R_CS].base;
         pc = (uint32_t)(cs_base + env->eip);
+#ifndef CONFIG_USER_ONLY
+        more_flags |= x86_seg_tb_flags(env);
+#endif
     }
 
     return (TCGTBCPUState){

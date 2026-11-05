@@ -3782,6 +3782,8 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     if (!decode_ops(s, env, decode_func, &decode)) {
         goto illegal_op;
     }
+    /* Faults of fetching the instruction come before decoding's. */
+    gen_fetch_check(s);
     if (!validate_cr0_exceptions(s, &decode)) {
         return;
     }

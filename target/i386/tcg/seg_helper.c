@@ -62,6 +62,24 @@ typedef struct StackAccess
     int mmu_index;
 } StackAccess;
 
+/*
+ * Whether SIZE bytes at offset OFS fit a segment of LIMIT and FLAGS: above
+ * the limit and at or below FFFFH or, with the B flag, FFFFFFFFH for an
+ * expand-down data segment, else at or below the limit.
+ */
+static bool seg_range_ok(uint32_t limit, uint32_t flags, target_ulong ofs,
+                         uint32_t size)
+{
+    uint64_t end = (uint64_t)ofs + size - 1;
+
+    if ((flags & (DESC_S_MASK | DESC_CS_MASK | DESC_E_MASK)) ==
+        (DESC_S_MASK | DESC_E_MASK)) {
+        return ofs > limit &&
+               end <= (flags & DESC_B_MASK ? 0xffffffff : 0xffff);
+    }
+    return end <= limit;
+}
+
 static void pushw(StackAccess *sa, uint16_t val)
 {
     sa->sp -= 2;
@@ -1690,6 +1708,35 @@ void HELPER(ltr)(CPUX86State *env, int selector)
         cpu_stl_kernel_ra(env, ptr + 4, e2, GETPC());
     }
     env->tr.selector = selector;
+}
+
+/*
+ * Whether a data access of SIZE bytes at offset OFS, truncated to its
+ * address size, may go through SEG outside 64-bit mode.  In protected mode
+ * the segment must be present and its type must allow the access, and an
+ * expand-down segment takes offsets above its limit; else the access must
+ * end at or below the limit (Intel SDM 325462-093 Vol. 3A, 6.3 and 6.4).
+ */
+bool x86_seg_access_ok(CPUX86State *env, int seg, target_ulong ofs,
+                       uint32_t size, int access)
+{
+    SegmentCache *sc = &env->segs[seg];
+
+    if (!(env->cr[0] & CR0_PE_MASK) || (env->eflags & VM_MASK)) {
+        return seg_range_ok(sc->limit, 0, ofs, size);
+    }
+    if (!(sc->flags & DESC_P_MASK)) {
+        return false;
+    }
+    if (sc->flags & DESC_CS_MASK) {
+        if (access == X86_SEG_WRITE ||
+            (access == X86_SEG_READ && !(sc->flags & DESC_R_MASK))) {
+            return false;
+        }
+    } else if (access == X86_SEG_WRITE && !(sc->flags & DESC_W_MASK)) {
+        return false;
+    }
+    return seg_range_ok(sc->limit, sc->flags, ofs, size);
 }
 
 /* only works if protected mode and not VM86. seg_reg must be != R_CS */

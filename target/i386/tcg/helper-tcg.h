@@ -101,6 +101,14 @@ static inline unsigned int compute_pf(uint8_t x)
 void cpu_load_eflags(CPUX86State *env, int eflags, int update_mask);
 uint64_t x86_tsc_read(CPUX86State *env);
 
+/* seg_helper.c */
+/* What a data access does with its segment, for x86_seg_access_ok(). */
+#define X86_SEG_READ         1
+#define X86_SEG_WRITE        2 /* writes, and may read */
+#define X86_SEG_ANY          3 /* any type, as CLFLUSH */
+bool x86_seg_access_ok(CPUX86State *env, int seg, target_ulong ofs,
+                       uint32_t size, int access);
+
 /* system/svm_helper.c */
 #ifndef CONFIG_USER_ONLY
 G_NORETURN void cpu_vmexit(CPUX86State *nenv, uint64_t exit_code,
