@@ -55,7 +55,7 @@
 #include "qemu/throttle.h"
 #include "block/throttle-groups.h"
 
-#define QEMU_IMG_VERSION "qemu-img version " QEMU_FULL_VERSION \
+#define QEMU_IMG_VERSION "nephrite-img version " QEMU_FULL_VERSION \
                           "\n" QEMU_COPYRIGHT "\n"
 
 typedef struct img_cmd_t {
@@ -138,7 +138,7 @@ void cmd_help(const img_cmd_t *ccmd,
 "  -h, --help\n"
 "     print this help and exit\n"
 "%s\n",
-           "qemu-img", ccmd->name, syntax, ccmd->description, arguments);
+           g_get_prgname(), ccmd->name, syntax, ccmd->description, arguments);
     exit(EXIT_SUCCESS);
 }
 
@@ -474,7 +474,7 @@ static int img_create(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file to create (will be overritten if already exists)\n"
 "  SIZE[bKMGTPE]\n"
@@ -715,7 +715,7 @@ static int img_check(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or an option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -960,7 +960,7 @@ static int img_commit(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or an option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -1401,7 +1401,7 @@ static int img_compare(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE1, FILE2\n"
 "     names of the image files, or option strings (key=value,..)\n"
 "     with --image-opts, to compare\n"
@@ -2169,7 +2169,8 @@ static int convert_check_bitmaps(BlockDriverState *src, bool skip_broken)
             error_report("Cannot copy inconsistent bitmap '%s'",
                          bdrv_dirty_bitmap_name(bm));
             error_printf("Try --skip-broken-bitmaps, or "
-                         "use 'qemu-img bitmap --remove' to delete it\n");
+                         "use '%s bitmap --remove' to delete it\n",
+                         g_get_prgname());
             return -1;
         }
     }
@@ -2363,7 +2364,7 @@ static int img_convert(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  SRC_FILE...\n"
 "     one or more source image file names,\n"
 "     or option strings (key=value,..) with --source-image-opts\n"
@@ -3149,7 +3150,7 @@ static int img_info(const img_cmd_t *ccmd, int argc, char **argv)
 "  --output human|json\n"
 "     specify output format (default: human)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -3393,7 +3394,7 @@ static int img_map(const img_cmd_t *ccmd, int argc, char **argv)
 "  -U, --force-share\n"
 "     open image in shared mode for concurrent access\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     the image file name, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -3555,7 +3556,7 @@ static int img_snapshot(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts) to operate on\n"
@@ -3751,7 +3752,7 @@ static int img_rebase(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -4263,7 +4264,7 @@ static int img_resize(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -4505,7 +4506,7 @@ static int img_amend(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -4836,7 +4837,7 @@ static int img_bench(const img_cmd_t *ccmd, int argc, char **argv)
 "  -q, --quiet\n"
 "     quiet mode (produce only error messages if any)\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -5108,7 +5109,7 @@ static int img_bitmap(const img_cmd_t *ccmd, int argc, char **argv)
 "  -F, --source-format SRC_FMT\n"
 "     specify format for SRC_FILE explicitly\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  FILE\n"
 "     name of the image file, or option string (key=value,..)\n"
 "     with --image-opts, to operate on\n"
@@ -5475,7 +5476,7 @@ static int img_dd(const img_cmd_t *ccmd, int argc, char **argv)
 "  -U, --force-share\n"
 "     open images in shared mode for concurrent access\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  bs=BLOCK_SIZE[bKMGTP]\n"
 "     size of the I/O block, with optional multiplier suffix (powers of 1024)\n"
 "     (default: 512)\n"
@@ -5757,7 +5758,7 @@ static int img_measure(const img_cmd_t *ccmd, int argc, char **argv)
 "  -U, --force-share\n"
 "     open images in shared mode for concurrent access\n"
 "  --object OBJDEF\n"
-"     defines QEMU user-creatable object\n"
+"     defines a user-creatable object\n"
 "  -s, --size SIZE[bKMGTPE]\n"
 "     measure file size for given image size,\n"
 "     with optional multiplier suffix (powers of 1024)\n"
@@ -5989,9 +5990,9 @@ int main(int argc, char **argv)
         case 'h':
             printf(
 QEMU_IMG_VERSION
-"QEMU disk image utility.  Usage:\n"
+"Nephrite disk image utility.  Usage:\n"
 "\n"
-"  qemu-img [standard options] COMMAND [--help | command options]\n"
+"  %s [standard options] COMMAND [--help | command options]\n"
 "\n"
 "Standard options:\n"
 "  -h, --help\n"
@@ -6002,7 +6003,8 @@ QEMU_IMG_VERSION
 "     specify tracing options:\n"
 "        [[enable=]<pattern>][,events=<file>][,file=<file>]\n"
 "\n"
-"Recognized commands (run qemu-img COMMAND --help for command-specific help):\n\n");
+"Recognized commands (run %s COMMAND --help for command-specific help):\n\n",
+                   g_get_prgname(), g_get_prgname());
             for (cmd = img_cmds; cmd->name != NULL; cmd++) {
                 printf("  %s - %s\n", cmd->name, cmd->description);
             }

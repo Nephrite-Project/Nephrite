@@ -23,7 +23,7 @@ static void usage(FILE *out)
             "Typically you'll pipe the output into edid-decode\n"
             "to check if the generator works correctly.\n"
             "\n"
-            "usage: qemu-edid <options>\n"
+            "usage: nephrite-edid <options>\n"
             "options:\n"
             "    -h             print this text\n"
             "    -o <file>      set output file (stdout by default)\n"

@@ -877,7 +877,7 @@ static MachineClass *find_default_machine(GSList *machines)
 
 static void version(void)
 {
-    printf("QEMU emulator version " QEMU_FULL_VERSION "\n"
+    printf("Nephrite emulator version " QEMU_FULL_VERSION "\n"
            QEMU_COPYRIGHT "\n");
 }
 

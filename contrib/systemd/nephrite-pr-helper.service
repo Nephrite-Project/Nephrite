@@ -1,5 +1,5 @@
 [Unit]
-Description=Persistent Reservation Daemon for QEMU
+Description=Persistent Reservation Daemon for Nephrite
 
 [Service]
 WorkingDirectory=/tmp

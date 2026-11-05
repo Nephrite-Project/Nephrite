@@ -3,11 +3,13 @@
 
 /* Copyright string for -version arguments, About dialogs, etc */
 #define QEMU_COPYRIGHT "Copyright (c) 2003-2026 " \
-    "Fabrice Bellard and the QEMU Project developers"
+    "Fabrice Bellard, the QEMU Project developers, " \
+    "and the Nephrite Project developers"
 
 /* Bug reporting information for --help arguments, About dialogs, etc */
 #define QEMU_HELP_BOTTOM \
-    "See <https://qemu.org/contribute/report-a-bug> for how to report bugs.\n" \
-    "More information on the QEMU project at <https://qemu.org>."
+    "Report bugs at <https://github.com/Nephrite-Project/Nephrite/issues>.\n" \
+    "More information on Nephrite, a fork of QEMU, at\n" \
+    "<https://github.com/Nephrite-Project/Nephrite>."
 
 #endif

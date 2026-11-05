@@ -850,7 +850,7 @@ DEF("audiodev", HAS_ARG, QEMU_OPTION_audiodev,
     "                Use ``-audiodev help`` to list the available drivers\n"
     "                id= identifier of the backend\n"
     "                timer-period= timer period in microseconds\n"
-    "                in|out.mixing-engine= use mixing engine to mix streams inside QEMU\n"
+    "                in|out.mixing-engine= use mixing engine to mix streams inside Nephrite\n"
     "                in|out.fixed-settings= use fixed settings for host audio\n"
     "                in|out.frequency= frequency to use with fixed settings\n"
     "                in|out.channels= number of channels to use with fixed settings\n"
@@ -5080,7 +5080,7 @@ SRST
 ERST
 
 DEF("preconfig", 0, QEMU_OPTION_preconfig, \
-    "--preconfig     pause QEMU before machine is initialized (experimental)\n",
+    "--preconfig     pause Nephrite before machine is initialized (experimental)\n",
     QEMU_ARCH_ALL)
 SRST
 ``--preconfig``
@@ -5130,7 +5130,7 @@ SRST
 ERST
 
 DEF("gdb", HAS_ARG, QEMU_OPTION_gdb, \
-    "-gdb dev        accept gdb connection on 'dev'. (QEMU defaults to starting\n"
+    "-gdb dev        accept gdb connection on 'dev'. (Nephrite defaults to starting\n"
     "                the guest without waiting for gdb to connect; use -S too\n"
     "                if you want it to not start execution.)\n",
     QEMU_ARCH_ALL)
@@ -5236,7 +5236,7 @@ DEF("xen-domid", HAS_ARG, QEMU_OPTION_xen_domid,
     QEMU_ARCH_ARM | QEMU_ARCH_I386)
 DEF("xen-attach", 0, QEMU_OPTION_xen_attach,
     "-xen-attach     attach to existing xen domain\n"
-    "                libxl will use this when starting QEMU\n",
+    "                libxl will use this when starting Nephrite\n",
     QEMU_ARCH_ARM | QEMU_ARCH_I386)
 DEF("xen-domid-restrict", 0, QEMU_OPTION_xen_domid_restrict,
     "-xen-domid-restrict     restrict set of available xen operations\n"
@@ -5305,7 +5305,7 @@ ERST
 
 #if !defined(_WIN32) && !defined(EMSCRIPTEN)
 DEF("daemonize", 0, QEMU_OPTION_daemonize, \
-    "-daemonize      daemonize QEMU after initializing\n", QEMU_ARCH_ALL)
+    "-daemonize      daemonize Nephrite after initializing\n", QEMU_ARCH_ALL)
 #endif
 SRST
 ``-daemonize``
@@ -5609,11 +5609,11 @@ DEF("sandbox", HAS_ARG, QEMU_OPTION_sandbox, \
     "                use 'obsolete' to allow obsolete system calls that are provided\n" \
     "                    by the kernel, but typically no longer used by modern\n" \
     "                    C library implementations.\n" \
-    "                use 'elevateprivileges' to allow or deny the QEMU process ability\n" \
+    "                use 'elevateprivileges' to allow or deny the Nephrite process ability\n" \
     "                    to elevate privileges using set*uid|gid system calls.\n" \
     "                    The value 'children' will deny set*uid|gid system calls for\n" \
-    "                    main QEMU process but will allow forks and execves to run unprivileged\n" \
-    "                use 'spawn' to avoid QEMU to spawn new threads or processes by\n" \
+    "                    main Nephrite process but will allow forks and execves to run unprivileged\n" \
+    "                use 'spawn' to avoid Nephrite to spawn new threads or processes by\n" \
     "                     blocking *fork and execve\n" \
     "                use 'resourcecontrol' to disable process affinity and scheduler priority\n",
     QEMU_ARCH_ALL)
@@ -5687,10 +5687,10 @@ DEF("qtest-log", HAS_ARG, QEMU_OPTION_qtest_log, "", QEMU_ARCH_ALL)
 DEF("run-with", HAS_ARG, QEMU_OPTION_run_with,
     "-run-with [async-teardown=on|off][,chroot=dir]\n" \
     "          [,exit-with-parent=on|off][,user=username|uid:gid]\n"
-    "                Set miscellaneous QEMU process lifecycle options:\n"
+    "                Set miscellaneous Nephrite process lifecycle options:\n"
     "                async-teardown=on enables asynchronous teardown (Linux only)\n"
-    "                exit-with-parent=on causes QEMU to exit if the parent\n"
-    "                  process of QEMU exits (Linux, FreeBSD, macOS only)\n"
+    "                exit-with-parent=on causes Nephrite to exit if the parent\n"
+    "                  process of Nephrite exits (Linux, FreeBSD, macOS only)\n"
     "                chroot=dir chroot to dir just before starting the VM\n"
     "                user=username switch to the specified user before starting the VM\n"
     "                user=uid:gid ditto, but use specified user-ID and group-ID instead\n",

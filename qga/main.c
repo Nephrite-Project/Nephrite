@@ -258,7 +258,7 @@ static void usage(const char *cmd)
 
     printf(
 "Usage: %s [-m <method> -p <path>] [<options>]\n"
-"QEMU Guest Agent " QEMU_FULL_VERSION "\n"
+"Nephrite Guest Agent " QEMU_FULL_VERSION "\n"
 QEMU_COPYRIGHT "\n"
 "\n"
 "  -c, --config=PATH configuration file path (default is\n"
@@ -1317,7 +1317,7 @@ static void config_parse(GAConfig *config, int argc, char **argv)
             config->log_level = G_LOG_LEVEL_MASK;
             break;
         case 'V':
-            printf("QEMU Guest Agent %s\n", QEMU_VERSION);
+            printf("Nephrite Guest Agent %s\n", QEMU_VERSION);
             exit(EXIT_SUCCESS);
         case 'd':
             config->daemonize = 1;

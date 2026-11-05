@@ -429,7 +429,7 @@ static void handle_arg_strace(const char *arg)
 
 static void handle_arg_version(const char *arg)
 {
-    printf("qemu-" TARGET_NAME " version " QEMU_FULL_VERSION
+    printf("nephrite-" TARGET_NAME " version " QEMU_FULL_VERSION
            "\n" QEMU_COPYRIGHT "\n");
     exit(EXIT_SUCCESS);
 }
@@ -543,7 +543,7 @@ static void usage(int exitcode)
     int maxarglen;
     int maxenvlen;
 
-    printf("usage: qemu-" TARGET_NAME " [options] program [arguments...]\n"
+    printf("usage: nephrite-" TARGET_NAME " [options] program [arguments...]\n"
            "Linux CPU emulator (compiled for " TARGET_NAME " emulation)\n"
            "\n"
            "Options and associated environment variables:\n"

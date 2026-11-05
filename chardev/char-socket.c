@@ -990,7 +990,7 @@ static void tcp_chr_accept_server_sync(Chardev *chr)
     SocketChardev *s = SOCKET_CHARDEV(chr);
     QIOChannelSocket *sioc;
     g_autofree char *filename = qemu_chr_get_filename(chr);
-    info_report("QEMU waiting for connection on: %s", filename);
+    info_report("Nephrite waiting for connection on: %s", filename);
     tcp_chr_change_state(s, TCP_CHARDEV_STATE_CONNECTING);
     sioc = qio_net_listener_wait_client(s->listener);
     tcp_chr_set_client_ioc_name(chr, sioc);

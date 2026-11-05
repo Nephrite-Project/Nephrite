@@ -456,7 +456,7 @@ const char *audio_application_name(void)
     const char *vm_name;
 
     vm_name = qemu_get_vm_name();
-    return vm_name ? vm_name : "qemu";
+    return vm_name ? vm_name : "nephrite";
 }
 
 AudiodevList *qmp_query_audiodevs(Error **errp)

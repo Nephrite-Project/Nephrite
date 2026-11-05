@@ -1,5 +1,5 @@
 [Unit]
-Description=Virtual RAPL MSR Daemon for QEMU
+Description=Virtual RAPL MSR Daemon for Nephrite
 
 [Service]
 WorkingDirectory=/tmp

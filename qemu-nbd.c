@@ -90,7 +90,7 @@ static void usage(const char *name)
     (printf) (
 "Usage: %s [OPTIONS] FILE\n"
 "  or:  %s -L [OPTIONS]\n"
-"QEMU Disk Network Block Device Utility\n"
+"Nephrite Disk Network Block Device Utility\n"
 "\n"
 "  -h, --help                display this help and exit\n"
 "  -V, --version             output version information and exit\n"

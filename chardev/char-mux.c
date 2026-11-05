@@ -158,7 +158,7 @@ static int mux_proc_byte(Chardev *chr, MuxChardev *d, int ch)
             break;
         case 'x':
             {
-                 const char *term =  "QEMU: Terminated\n\r";
+                 const char *term =  "Nephrite: Terminated\n\r";
                  qemu_chr_write_all(chr, (uint8_t *)term, strlen(term));
                  qmp_quit(NULL);
                  break;

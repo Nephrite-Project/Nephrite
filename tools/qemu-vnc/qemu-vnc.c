@@ -440,7 +440,7 @@ main(int argc, char *argv[])
           "ID of a QAuthZ object for TLS client certificate "
           "authorization", "ID" },
         { "object", 'O', 0, G_OPTION_ARG_STRING_ARRAY, &object_strs,
-          "QEMU user-creatable object "
+          "User-creatable object "
           "(e.g. authz-list-file,id=auth0,filename=acl.json)", "OBJDEF" },
         { "vt-chardev", 'C', 0, G_OPTION_ARG_STRING_ARRAY, &chardev_names,
           "Chardev type names to expose as text console (repeatable, "
@@ -488,7 +488,7 @@ main(int argc, char *argv[])
     }
 
     if (show_version) {
-        printf("qemu-vnc " QEMU_FULL_VERSION "\n");
+        printf("nephrite-vnc " QEMU_FULL_VERSION "\n");
         return 0;
     }
 

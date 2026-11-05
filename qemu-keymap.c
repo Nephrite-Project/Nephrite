@@ -124,7 +124,7 @@ static void usage(FILE *out)
             "This tool generates qemu reverse keymaps from xkb keymaps,\n"
             "which can be used with the qemu \"-k\" command line switch.\n"
             "\n"
-            "usage: qemu-keymap <options>\n"
+            "usage: nephrite-keymap <options>\n"
             "options:\n"
             "    -h             print this text\n"
             "    -f <file>      set output file          (default: stdout)\n"

@@ -150,9 +150,9 @@ void cpu_loop(CPUArchState *env)
 
 static void usage(void)
 {
-    printf("qemu-" TARGET_NAME " version " QEMU_FULL_VERSION
+    printf("nephrite-" TARGET_NAME " version " QEMU_FULL_VERSION
            "\n" QEMU_COPYRIGHT "\n"
-           "usage: qemu-" TARGET_NAME " [options] program [arguments...]\n"
+           "usage: nephrite-" TARGET_NAME " [options] program [arguments...]\n"
            "BSD CPU emulator (compiled for %s emulation)\n"
            "\n"
            "Standard options:\n"

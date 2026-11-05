@@ -1,5 +1,5 @@
 [Unit]
-Description=Virtual RAPL MSR helper for QEMU
+Description=Virtual RAPL MSR helper for Nephrite
 
 [Socket]
 ListenStream=/run/qemu-vmsr-helper.sock

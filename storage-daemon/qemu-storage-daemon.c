@@ -79,7 +79,7 @@ static void help(void)
 {
     printf(
 "Usage: %s [options]\n"
-"QEMU storage daemon\n"
+"Nephrite storage daemon\n"
 "\n"
 "  -h, --help             display this help and exit\n"
 "  -T, --trace [[enable=]<pattern>][,events=<file>][,file=<file>]\n"
@@ -262,7 +262,7 @@ static void process_options(int argc, char *argv[], bool pre_init_pass)
             trace_init_file();
             break;
         case 'V':
-            printf("qemu-storage-daemon version "
+            printf("nephrite-storage-daemon version "
                    QEMU_FULL_VERSION "\n" QEMU_COPYRIGHT "\n");
             exit(EXIT_SUCCESS);
         case OPTION_BLOCKDEV:

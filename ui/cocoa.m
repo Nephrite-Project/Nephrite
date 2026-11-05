@@ -1058,9 +1058,9 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
     COCOA_DEBUG("QemuCocoaView: grabMouse\n");
 
     if (qemu_name)
-        [[self window] setTitle:[NSString stringWithFormat:@"QEMU %s - (Press  " UC_CTRL_KEY " " UC_ALT_KEY " G  to release Mouse)", qemu_name]];
+        [[self window] setTitle:[NSString stringWithFormat:@"Nephrite %s - (Press  " UC_CTRL_KEY " " UC_ALT_KEY " G  to release Mouse)", qemu_name]];
     else
-        [[self window] setTitle:@"QEMU - (Press  " UC_CTRL_KEY " " UC_ALT_KEY " G  to release Mouse)"];
+        [[self window] setTitle:@"Nephrite - (Press  " UC_CTRL_KEY " " UC_ALT_KEY " G  to release Mouse)"];
     [self hideCursor];
     CGAssociateMouseAndMouseCursorPosition(isAbsoluteEnabled);
     isMouseGrabbed = TRUE; // while isMouseGrabbed = TRUE, QemuCocoaApp sends all events to [cocoaView handleEvent:]
@@ -1071,9 +1071,9 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
     COCOA_DEBUG("QemuCocoaView: ungrabMouse\n");
 
     if (qemu_name)
-        [[self window] setTitle:[NSString stringWithFormat:@"QEMU %s", qemu_name]];
+        [[self window] setTitle:[NSString stringWithFormat:@"Nephrite %s", qemu_name]];
     else
-        [[self window] setTitle:@"QEMU"];
+        [[self window] setTitle:@"Nephrite"];
     [self unhideCursor];
     CGAssociateMouseAndMouseCursorPosition(TRUE);
     isMouseGrabbed = FALSE;
@@ -1180,7 +1180,7 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
         }
         [window setAcceptsMouseMovedEvents:YES];
         [window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
-        [window setTitle:qemu_name ? [NSString stringWithFormat:@"QEMU %s", qemu_name] : @"QEMU"];
+        [window setTitle:qemu_name ? [NSString stringWithFormat:@"Nephrite %s", qemu_name] : @"Nephrite"];
         [window setContentView:cocoaView];
         [window makeKeyAndOrderFront:self];
         [window center];
@@ -1506,7 +1506,7 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
 {
     NSAlert *alert = [NSAlert new];
     [alert autorelease];
-    [alert setMessageText: @"Are you sure you want to quit QEMU?"];
+    [alert setMessageText: @"Are you sure you want to quit Nephrite?"];
     [alert addButtonWithTitle: @"Cancel"];
     [alert addButtonWithTitle: @"Quit"];
     if([alert runModal] == NSAlertSecondButtonReturn) {
@@ -1524,7 +1524,7 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
     NSString *icon_path = [NSString stringWithUTF8String:icon_path_c];
     g_free(icon_path_c);
     NSImage *icon = [[NSImage alloc] initWithContentsOfFile:icon_path];
-    NSString *version = @"QEMU emulator version " QEMU_FULL_VERSION;
+    NSString *version = @"Nephrite emulator version " QEMU_FULL_VERSION;
     NSString *copyright = @QEMU_COPYRIGHT;
     NSDictionary *options;
     if (icon) {
@@ -1600,17 +1600,17 @@ static void create_initial_menus(void)
 
     // Application menu
     menu = [[NSMenu alloc] initWithTitle:@""];
-    [menu addItemWithTitle:@"About QEMU" action:@selector(do_about_menu_item:) keyEquivalent:@""]; // About QEMU
+    [menu addItemWithTitle:@"About Nephrite" action:@selector(do_about_menu_item:) keyEquivalent:@""]; // About Nephrite
     [menu addItem:[NSMenuItem separatorItem]]; //Separator
     menuItem = [menu addItemWithTitle:@"Services" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:[NSApp servicesMenu]];
     [menu addItem:[NSMenuItem separatorItem]];
-    [menu addItemWithTitle:@"Hide QEMU" action:@selector(hide:) keyEquivalent:@"h"]; //Hide QEMU
+    [menu addItemWithTitle:@"Hide Nephrite" action:@selector(hide:) keyEquivalent:@"h"]; //Hide Nephrite
     menuItem = (NSMenuItem *)[menu addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"]; // Hide Others
     [menuItem setKeyEquivalentModifierMask:(NSEventModifierFlagOption|NSEventModifierFlagCommand)];
     [menu addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""]; // Show All
     [menu addItem:[NSMenuItem separatorItem]]; //Separator
-    [menu addItemWithTitle:@"Quit QEMU" action:@selector(terminate:) keyEquivalent:@"q"];
+    [menu addItemWithTitle:@"Quit Nephrite" action:@selector(terminate:) keyEquivalent:@"q"];
     menuItem = [[NSMenuItem alloc] initWithTitle:@"Apple" action:nil keyEquivalent:@""];
     [menuItem setSubmenu:menu];
     [[NSApp mainMenu] addItem:menuItem];
@@ -1679,7 +1679,7 @@ static void create_initial_menus(void)
 
     // Help menu
     menu = [[NSMenu alloc] initWithTitle:@"Help"];
-    [menu addItem: [[[NSMenuItem alloc] initWithTitle:@"QEMU Documentation" action:@selector(showQEMUDoc:) keyEquivalent:@"?"] autorelease]]; // QEMU Help
+    [menu addItem: [[[NSMenuItem alloc] initWithTitle:@"Nephrite Documentation" action:@selector(showQEMUDoc:) keyEquivalent:@"?"] autorelease]]; // QEMU Help
     menuItem = [[[NSMenuItem alloc] initWithTitle:@"Window" action:nil keyEquivalent:@""] autorelease];
     [menuItem setSubmenu:menu];
     [[NSApp mainMenu] addItem:menuItem];

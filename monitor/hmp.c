@@ -1570,7 +1570,7 @@ static void monitor_event(void *opaque, QEMUChrEvent event)
         break;
 
     case CHR_EVENT_OPENED:
-        monitor_hmp_printf(hmp, "QEMU %s monitor - type 'help' for more "
+        monitor_hmp_printf(hmp, "Nephrite %s monitor - type 'help' for more "
                            "information\n", QEMU_VERSION);
         qemu_mutex_lock(&mon->mon_lock);
         hmp->reset_seen = 1;

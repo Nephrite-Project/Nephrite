@@ -288,7 +288,7 @@ static void usage(const char *name)
 {
     printf(
 "Usage: %s [OPTIONS]... [-c STRING]... [file]\n"
-"QEMU Disk exerciser\n"
+"Nephrite Disk exerciser\n"
 "\n"
 "  --object OBJECTDEF   define an object such as 'secret' for\n"
 "                       passwords and/or encryption keys\n"
