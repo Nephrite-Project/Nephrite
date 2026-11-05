@@ -161,6 +161,8 @@ typedef struct DisasContext {
     /* The add whose operand becomes the TB's instruction count. */
     TCGOp *pmu_insns;
 
+    /* In 64-bit mode, TB_LA57. */
+    bool la57;
     /* The instruction makes data accesses through SS, and through others. */
     bool insn_ss;
     bool insn_other;
@@ -823,7 +825,18 @@ static void gen_target_check(DisasContext *s, MemOp ot, TCGv target)
 #ifndef CONFIG_USER_ONLY
     TCGv eip;
 
-    if (CODE64(s) || s->fetch_class == TB_SEG_FLAT ||
+    if (CODE64(s)) {
+        /* In 64-bit mode, #GP(0) where the target is not canonical. */
+        TCGLabel *ok = gen_new_label();
+
+        eip = tcg_temp_new();
+        tcg_gen_sextract_tl(eip, target, 0, s->la57 ? 57 : 48);
+        tcg_gen_brcond_tl(TCG_COND_EQ, eip, target, ok);
+        gen_helper_seg_fault(tcg_env, tcg_constant_i32(R_CS));
+        gen_set_label(ok);
+        return;
+    }
+    if (s->fetch_class == TB_SEG_FLAT ||
         (s->fetch_class == TB_SEG_64K && ot == MO_16)) {
         return;
     }
@@ -833,13 +846,17 @@ static void gen_target_check(DisasContext *s, MemOp ot, TCGv target)
 #endif
 }
 
-/* The same for a relative branch by DIFF. */
+/*
+ * The same for a relative branch by DIFF, which in 64-bit mode can only
+ * reach a non-canonical address in another page.
+ */
 static void gen_rel_target_check(DisasContext *s, MemOp ot, int diff)
 {
 #ifndef CONFIG_USER_ONLY
     TCGv target;
 
-    if (CODE64(s) || s->fetch_class == TB_SEG_FLAT ||
+    if (CODE64(s) ? translator_is_same_page(&s->base, s->pc + diff) :
+        s->fetch_class == TB_SEG_FLAT ||
         (s->fetch_class == TB_SEG_64K && ot == MO_16)) {
         return;
     }
@@ -4157,12 +4174,16 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->iopl = iopl;
     dc->pmu = x86_pmu_enabled(env);
     dc->pmu_far_misses = !IS_INTEL_CPU(env);
-    for (int i = R_ES; i <= R_GS; i++) {
-        dc->seg_class[i] = (dc->base.tb->cs_base >> (TB_SEG_SHIFT + i * 2)) &
-                           3;
+    if (flags & HF_CS64_MASK) {
+        dc->la57 = dc->base.tb->cs_base & TB_LA57;
+    } else {
+        for (int i = R_ES; i <= R_GS; i++) {
+            dc->seg_class[i] = (dc->base.tb->cs_base >>
+                                (TB_SEG_SHIFT + i * 2)) & 3;
+        }
+        dc->fetch_class = (dc->base.tb->cs_base >> TB_FETCH_SHIFT) & 3;
+        dc->fetch_end = (dc->base.tb->cs_base >> TB_FETCH_END_SHIFT) & 0xfff;
     }
-    dc->fetch_class = (dc->base.tb->cs_base >> TB_FETCH_SHIFT) & 3;
-    dc->fetch_end = (dc->base.tb->cs_base >> TB_FETCH_END_SHIFT) & 0xfff;
 #endif
 
     /* We make some simplifying assumptions; validate they're correct. */

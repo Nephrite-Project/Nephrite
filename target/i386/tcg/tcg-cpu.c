@@ -148,6 +148,9 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     if (env->hflags & HF_CS64_MASK) {
         cs_base = 0;
         pc = env->eip;
+        if (env->cr[4] & CR4_LA57_MASK) {
+            more_flags |= TB_LA57;
+        }
     } else {
         cs_base = env->segs[R_CS].base;
         pc = (uint32_t)(cs_base + env->eip);

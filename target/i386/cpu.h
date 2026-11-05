@@ -251,6 +251,8 @@ typedef enum X86Seg {
  * TB_SEG_SLOW whatever a helper finds.
  */
 #define TB_SEG_SHIFT         37
+/* In 64-bit mode, which needs no segment checks: CR4.LA57. */
+#define TB_LA57              (1ULL << 37)
 #define TB_SEG_FLAT          0
 #define TB_SEG_64K           1
 #define TB_SEG_LIMIT         2
