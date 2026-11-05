@@ -122,7 +122,7 @@ if host_os == 'windows'
   qga_objs = [msgobj]
 endif
 
-qga = executable('qemu-ga', qga_ss.sources() + qga_objs,
+qga = executable('nephrite-ga', qga_ss.sources() + qga_objs,
                  link_args: qga_libs,
                  dependencies: [qemuutil, libudev],
                  install: true)
@@ -157,7 +157,7 @@ if host_os == 'windows'
       : get_option('qemu_ga_version')
     qga_msi = custom_target('QGA MSI',
                             input: files('installer/qemu-ga.wxs'),
-                            output: 'qemu-ga-@0@.msi'.format(host_arch),
+                            output: 'nephrite-ga-@0@.msi'.format(host_arch),
                             depends: deps,
                             command: [
                               wixl, '-o', '@OUTPUT0@', '@INPUT0@',
@@ -180,7 +180,7 @@ else
   install_emptydir(get_option('localstatedir') / 'run')
 endif
 
-alias_target('qemu-ga', all_qga)
+alias_target('nephrite-ga', all_qga)
 
 test_env = environment()
 test_env.set('G_TEST_SRCDIR', meson.current_source_dir())

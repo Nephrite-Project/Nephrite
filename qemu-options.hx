@@ -3570,7 +3570,7 @@ SRST
     If running QEMU as an unprivileged user, use the network helper
     to configure the TAP interface and attach it to the bridge.
     The default network helper executable is
-    ``/path/to/qemu-bridge-helper`` and the default bridge device is
+    ``/path/to/nephrite-bridge-helper`` and the default bridge device is
     ``br0``.
 
     ``fd``\ =h can be used to specify the handle of an already opened
@@ -3596,14 +3596,14 @@ SRST
         #launch a QEMU instance with the default network helper to
         #connect a TAP device to bridge br0
         |qemu_system| linux.img -device virtio-net-pci,netdev=n1 \\
-                -netdev tap,id=n1,"helper=/path/to/qemu-bridge-helper"
+                -netdev tap,id=n1,"helper=/path/to/nephrite-bridge-helper"
 
 ``-netdev bridge,id=id[,br=bridge][,helper=helper]``
     Connect a host TAP network interface to a host bridge device.
 
     Use the network helper helper to configure the TAP interface and
     attach it to the bridge. The default network helper executable is
-    ``/path/to/qemu-bridge-helper`` and the default bridge device is
+    ``/path/to/nephrite-bridge-helper`` and the default bridge device is
     ``br0``.
 
     Examples:

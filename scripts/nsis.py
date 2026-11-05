@@ -63,10 +63,10 @@ def main():
             os.path.join(destdir + prefix, "system-mui-text.nsh"), "w"
         ) as muinsh:
             for exe in sorted(glob.glob(
-                os.path.join(destdir + prefix, "qemu-system-*.exe")
+                os.path.join(destdir + prefix, "nephrite-system-*.exe")
             )):
                 exe = os.path.basename(exe)
-                arch = exe[12:-4]
+                arch = exe[len("nephrite-system-"):-4]
                 nsh.write(
                     """
                 Section "{0}" Section_{0}

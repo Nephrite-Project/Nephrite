@@ -483,7 +483,7 @@ foreach dir : target_dirs
   endif
 
   target_base = dir.split('-')[0]
-  qtest_emulator = emulators['qemu-system-' + target_base]
+  qtest_emulator = emulators['nephrite-system-' + target_base]
   target_qtests = get_variable('qtests_' + target_base, []) + qtests_generic
   has_kvm = ('CONFIG_KVM' in config_all_accel and host_os == 'linux'
              and cpu == target_base and fs.exists('/dev/kvm'))
@@ -491,13 +491,13 @@ foreach dir : target_dirs
   test_deps = roms
   qtest_env = environment()
   if have_tools
-    qtest_env.set('QTEST_QEMU_IMG', './qemu-img')
+    qtest_env.set('QTEST_QEMU_IMG', './nephrite-img')
     test_deps += [qemu_img]
   endif
   qtest_env.set('G_TEST_DBUS_DAEMON', meson.project_source_root() / 'tests/dbus-daemon.sh')
-  qtest_env.set('QTEST_QEMU_BINARY', './qemu-system-' + target_base)
+  qtest_env.set('QTEST_QEMU_BINARY', './nephrite-system-' + target_base)
   if have_tools and have_vhost_user_blk_server
-    qtest_env.set('QTEST_QEMU_STORAGE_DAEMON_BINARY', './storage-daemon/qemu-storage-daemon')
+    qtest_env.set('QTEST_QEMU_STORAGE_DAEMON_BINARY', './storage-daemon/nephrite-storage-daemon')
     test_deps += [qsd]
   endif
   if have_qemu_vnc

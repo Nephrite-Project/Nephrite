@@ -7,7 +7,7 @@ qsd_ss.add(blockdev, chardev, qmp, qom, qemuutil)
 subdir('qapi')
 
 qsd_ss = qsd_ss.apply({})
-qsd = executable('qemu-storage-daemon',
+qsd = executable('nephrite-storage-daemon',
                  qsd_ss.sources(),
                  link_args: tools_link_args, link_depends: block_syms,
                  dependencies: qsd_ss.dependencies(),

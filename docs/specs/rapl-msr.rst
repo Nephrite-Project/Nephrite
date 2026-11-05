@@ -133,9 +133,9 @@ CVE-2020-8694 which remove user access to the rapl msr attributes.
 
 A socket communication is established between QEMU processes that has the RAPL
 MSR support activated and the qemu-vmsr-helper. A systemd service and socket
-activation is provided in contrib/systemd/qemu-vmsr-helper.(service/socket).
+activation is provided in contrib/systemd/nephrite-vmsr-helper.(service/socket).
 
-The systemd socket uses 600, like contrib/systemd/qemu-pr-helper.socket. The
+The systemd socket uses 600, like contrib/systemd/nephrite-pr-helper.socket. The
 socket can be passed via SCM_RIGHTS by libvirt, or its permissions can be
 changed (e.g. 660 and root:kvm for a Debian system for example). Libvirt could
 also start a separate helper if needed. All in all, the policy is left to the

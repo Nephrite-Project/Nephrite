@@ -47,13 +47,13 @@ foreach speed : ['quick', 'thorough']
 
     if dir.endswith('-softmmu')
       sysmode = 'system'
-      test_emulator = emulators['qemu-system-' + target_base]
+      test_emulator = emulators['nephrite-system-' + target_base]
     elif dir.endswith('-linux-user')
       sysmode = 'linuxuser'
-      test_emulator = emulators['qemu-' + target_base]
+      test_emulator = emulators['nephrite-' + target_base]
     elif dir.endswith('-bsd-user')
       sysmode = 'bsduser'
-      test_emulator = emulators['qemu-' + target_base]
+      test_emulator = emulators['nephrite-' + target_base]
     else
       continue
     endif
@@ -72,7 +72,7 @@ foreach speed : ['quick', 'thorough']
 
     test_env = environment()
     if have_tools
-      test_env.set('QEMU_TEST_QEMU_IMG', meson.global_build_root() / 'qemu-img')
+      test_env.set('QEMU_TEST_QEMU_IMG', meson.global_build_root() / 'nephrite-img')
       test_deps += [qemu_img]
     endif
     test_env.set('QEMU_TEST_QEMU_BINARY', test_emulator.full_path())

@@ -266,7 +266,7 @@ class BaseVM(object):
         raise NotImplementedError
 
     def exec_qemu_img(self, *args):
-        cmd = [os.environ.get("QEMU_IMG", "qemu-img")]
+        cmd = [os.environ.get("QEMU_IMG", "nephrite-img")]
         cmd.extend(list(args))
         subprocess.check_call(cmd)
 
@@ -523,10 +523,10 @@ def get_qemu_path(arch, build_path=None):
     if "QEMU" in os.environ:
         qemu_path = os.environ["QEMU"]
     elif build_path:
-        qemu_path = os.path.join(build_path, "qemu-system-" + arch)
+        qemu_path = os.path.join(build_path, "nephrite-system-" + arch)
     else:
         # Default is to use system path for qemu.
-        qemu_path = "qemu-system-" + arch
+        qemu_path = "nephrite-system-" + arch
     return qemu_path
 
 def get_qemu_version(qemu_path):

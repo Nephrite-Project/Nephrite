@@ -10,7 +10,7 @@ qemu_vnc1 = custom_target('qemu-vnc1 gdbus-codegen',
                                      '--c-namespace', 'Qemu',
                                      '--generate-c-code', '@BASENAME@'])
 
-qemu_vnc = executable('qemu-vnc',
+qemu_vnc = executable('nephrite-vnc',
   sources: ['qemu-vnc.c', 'display.c', 'input.c',
             'audio.c', 'chardev.c', 'clipboard.c', 'console.c',
             'dbus.c', 'stubs.c', 'utils.c',

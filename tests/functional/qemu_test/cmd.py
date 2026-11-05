@@ -232,12 +232,13 @@ def exec_command_and_wait_for_pattern(test, command,
 def get_qemu_img(test):
     test.log.debug('Looking for and selecting a qemu-img binary')
 
-    # If qemu-img has been built, use it, otherwise the system wide one
-    # will be used.
-    qemu_img = test.build_file('qemu-img')
+    # If nephrite-img has been built, use it, otherwise the system wide one
+    # or QEMU's will be used.
+    qemu_img = test.build_file('nephrite-img')
     if os.path.exists(qemu_img):
         return qemu_img
-    qemu_img = which('qemu-img')
-    if qemu_img is not None:
-        return qemu_img
-    test.skipTest(f"qemu-img not found in build dir or '$PATH'")
+    for name in ('nephrite-img', 'qemu-img'):
+        qemu_img = which(name)
+        if qemu_img is not None:
+            return qemu_img
+    test.skipTest(f"nephrite-img not found in build dir or '$PATH'")

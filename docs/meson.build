@@ -33,19 +33,19 @@ if build_docs
   SPHINX_ARGS += ['-Dversion=' + meson.project_version(), '-Drelease=' + get_option('pkgversion')]
 
   man_pages = {
-        'qemu-ga.8': (have_ga ? 'man8' : ''),
-        'qemu-ga-ref.7': (have_ga ? 'man7' : ''),
-        'qemu-qmp-ref.7': 'man7',
-        'qemu-storage-daemon-qmp-ref.7': (have_tools ? 'man7' : ''),
-        'qemu-img.1': (have_tools ? 'man1' : ''),
-        'qemu-nbd.8': (have_tools ? 'man8' : ''),
-        'qemu-pr-helper.8': (have_tools ? 'man8' : ''),
-        'qemu-storage-daemon.1': (have_tools ? 'man1' : ''),
-        'qemu-trace-stap.1': (stap.found() ? 'man1' : ''),
-        'qemu-vnc.1': (have_qemu_vnc ? 'man1' : ''),
-        'qemu.1': 'man1',
-        'qemu-block-drivers.7': 'man7',
-        'qemu-cpu-models.7': 'man7'
+        'nephrite-ga.8': (have_ga ? 'man8' : ''),
+        'nephrite-ga-ref.7': (have_ga ? 'man7' : ''),
+        'nephrite-qmp-ref.7': 'man7',
+        'nephrite-storage-daemon-qmp-ref.7': (have_tools ? 'man7' : ''),
+        'nephrite-img.1': (have_tools ? 'man1' : ''),
+        'nephrite-nbd.8': (have_tools ? 'man8' : ''),
+        'nephrite-pr-helper.8': (have_tools ? 'man8' : ''),
+        'nephrite-storage-daemon.1': (have_tools ? 'man1' : ''),
+        'nephrite-trace-stap.1': (stap.found() ? 'man1' : ''),
+        'nephrite-vnc.1': (have_qemu_vnc ? 'man1' : ''),
+        'nephrite.1': 'man1',
+        'nephrite-block-drivers.7': 'man7',
+        'nephrite-cpu-models.7': 'man7'
   }
 
   sphinxdocs = []

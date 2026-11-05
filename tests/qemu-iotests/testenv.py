@@ -172,9 +172,9 @@ class TestEnv(contextlib.AbstractContextManager['TestEnv']):
         if 'ppc64' in arch:
             arch = 'ppc64'
 
-        self.qemu_prog = os.getenv('QEMU_PROG', root(f'qemu-system-{arch}'))
+        self.qemu_prog = os.getenv('QEMU_PROG', root(f'nephrite-system-{arch}'))
         if not os.path.exists(self.qemu_prog):
-            pattern = root('qemu-system-*')
+            pattern = root('nephrite-system-*')
             try:
                 progs = sorted(glob.iglob(pattern))
                 self.qemu_prog = next(p for p in progs if isxfile(p))
@@ -182,11 +182,11 @@ class TestEnv(contextlib.AbstractContextManager['TestEnv']):
                 sys.exit("Not found any Qemu executable binary by pattern "
                          f"'{pattern}'")
 
-        self.qemu_img_prog = os.getenv('QEMU_IMG_PROG', root('qemu-img'))
-        self.qemu_io_prog = os.getenv('QEMU_IO_PROG', root('qemu-io'))
-        self.qemu_nbd_prog = os.getenv('QEMU_NBD_PROG', root('qemu-nbd'))
+        self.qemu_img_prog = os.getenv('QEMU_IMG_PROG', root('nephrite-img'))
+        self.qemu_io_prog = os.getenv('QEMU_IO_PROG', root('nephrite-io'))
+        self.qemu_nbd_prog = os.getenv('QEMU_NBD_PROG', root('nephrite-nbd'))
         self.qsd_prog = os.getenv('QSD_PROG', root('storage-daemon',
-                                                   'qemu-storage-daemon'))
+                                                   'nephrite-storage-daemon'))
 
         for b in [self.qemu_img_prog, self.qemu_io_prog, self.qemu_nbd_prog,
                   self.qemu_prog, self.qsd_prog]:
@@ -194,6 +194,26 @@ class TestEnv(contextlib.AbstractContextManager['TestEnv']):
                 sys.exit('No such file: ' + b)
             if not isxfile(b):
                 sys.exit('Not executable: ' + b)
+
+        # Nephrite's programs print their own names, as nephrite-img, where
+        # the reference outputs have QEMU's: run them through links that
+        # have QEMU's names.
+        self.prog_link_dir = tempfile.mkdtemp(prefix="nephrite-iotests-")
+
+        def upstream_named(prog: str) -> str:
+            name = os.path.basename(prog)
+            if not name.startswith('nephrite-'):
+                return prog
+            link = os.path.join(self.prog_link_dir,
+                                'qemu-' + name[len('nephrite-'):])
+            os.symlink(os.path.abspath(prog), link)
+            return link
+
+        self.qemu_img_prog = upstream_named(self.qemu_img_prog)
+        self.qemu_io_prog = upstream_named(self.qemu_io_prog)
+        self.qemu_nbd_prog = upstream_named(self.qemu_nbd_prog)
+        self.qemu_prog = upstream_named(self.qemu_prog)
+        self.qsd_prog = upstream_named(self.qsd_prog)
 
     def __init__(self, source_dir: str, build_dir: str,
                  imgfmt: str, imgproto: str, aiomode: str,
@@ -270,7 +290,7 @@ class TestEnv(contextlib.AbstractContextManager['TestEnv']):
             ('tricore', 'tricore_testboard')
         )
         for suffix, machine in machine_map:
-            if self.qemu_prog.endswith(f'qemu-system-{suffix}'):
+            if self.qemu_prog.endswith(f'nephrite-system-{suffix}'):
                 self.qemu_options += f' -machine {machine}'
 
         # QEMU_DEFAULT_MACHINE
@@ -308,6 +328,8 @@ class TestEnv(contextlib.AbstractContextManager['TestEnv']):
     def close(self) -> None:
         if self.tmp_sock_dir:
             shutil.rmtree(self.sock_dir)
+        if hasattr(self, 'prog_link_dir'):
+            shutil.rmtree(self.prog_link_dir)
 
     def __enter__(self) -> 'TestEnv':
         return self

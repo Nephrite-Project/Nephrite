@@ -41,7 +41,7 @@ except ModuleNotFoundError as exc:
 
 
 default_qemu_args = '-enable-kvm -machine none'
-default_qemu_binary = 'build/qemu-system-x86_64'
+default_qemu_binary = 'build/nephrite-system-x86_64'
 
 
 # Methods for gettig the right values of drivers properties

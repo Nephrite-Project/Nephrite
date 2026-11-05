@@ -4486,14 +4486,14 @@ foreach target : target_dirs
       multi_target_crates += main_rs
     endif
     execs = [{
-      'name': 'qemu-system-' + target_name,
+      'name': 'nephrite-system-' + target_name,
       'win_subsystem': 'console',
       'sources': [main_rs, files('system/main.c')],
       'dependencies': [sdl, target_stubs],
     }]
     if host_os == 'windows' and (sdl.found() or gtk.found())
       execs += [{
-        'name': 'qemu-system-' + target_name + 'w',
+        'name': 'nephrite-system-' + target_name + 'w',
         'win_subsystem': 'windows',
         'sources': [main_rs, files('system/main.c')],
         'dependencies': [sdl, target_stubs],
@@ -4502,7 +4502,7 @@ foreach target : target_dirs
     if get_option('fuzzing')
       specific_fuzz = specific_fuzz_ss.apply(config_target, strict: false)
       execs += [{
-        'name': 'qemu-fuzz-' + target_name,
+        'name': 'nephrite-fuzz-' + target_name,
         'win_subsystem': 'console',
         'sources': [main_rs, specific_fuzz.sources()],
         'dependencies': specific_fuzz.dependencies(),
@@ -4510,7 +4510,7 @@ foreach target : target_dirs
     endif
   else
     execs = [{
-      'name': 'qemu-' + target_name,
+      'name': 'nephrite-' + target_name,
       'win_subsystem': 'console',
       'sources': [],
       'dependencies': [target_stubs]
@@ -4560,7 +4560,7 @@ foreach target : target_dirs
 
     traceable += [{
       'exe': exe['name'],
-      'probe-prefix': 'qemu.' + target_type + '.' + target_name,
+      'probe-prefix': 'nephrite.' + target_type + '.' + target_name,
     }]
 
   endforeach
@@ -4577,7 +4577,7 @@ multi_target_link_args = emulator_link_args
 multi_target_link_args += enable_modules ? ['@block.syms', '@qemu.syms'] : []
 
 if get_option('plugins')
-  install_headers('include/plugins/qemu-plugin.h')
+  install_headers('include/plugins/qemu-plugin.h', subdir: 'nephrite')
   if host_os == 'windows'
     # On windows, we want to deliver the qemu_plugin_api.lib file in the qemu installer,
     # so that plugin authors can compile against it.
@@ -4591,35 +4591,35 @@ subdir('qga')
 # when we don't build tools or system
 if xkbcommon.found()
   # used for the update-keymaps target, so include rules even if !have_tools
-  qemu_keymap = executable('qemu-keymap', files('qemu-keymap.c', 'ui/input-keymap.c') + genh,
+  qemu_keymap = executable('nephrite-keymap', files('qemu-keymap.c', 'ui/input-keymap.c') + genh,
                            dependencies: [qemuutil, xkbcommon], install: have_tools)
 endif
 
 if have_tools
   tools_link_args = enable_modules ? ['@block.syms'] : []
-  qemu_img = executable('qemu-img', [files('qemu-img.c'), hxdep],
+  qemu_img = executable('nephrite-img', [files('qemu-img.c'), hxdep],
              link_args: tools_link_args, link_depends: block_syms,
              dependencies: [authz, block, crypto, io, qom, qemuutil], install: true)
-  qemu_io = executable('qemu-io', files('qemu-io.c'),
+  qemu_io = executable('nephrite-io', files('qemu-io.c'),
              link_args: tools_link_args, link_depends: block_syms,
              dependencies: [block, qemuutil], install: true)
-  qemu_nbd = executable('qemu-nbd', files('qemu-nbd.c'),
+  qemu_nbd = executable('nephrite-nbd', files('qemu-nbd.c'),
                link_args: tools_link_args, link_depends: block_syms,
                dependencies: [blockdev, qemuutil, selinux],
                install: true)
 
   subdir('storage-daemon')
 
-  foreach exe: [ 'qemu-img', 'qemu-io', 'qemu-nbd', 'qemu-storage-daemon']
+  foreach exe: [ 'nephrite-img', 'nephrite-io', 'nephrite-nbd', 'nephrite-storage-daemon']
     traceable += [{
       'exe': exe,
-      'probe-prefix': 'qemu.' + exe.substring(5).replace('-', '_')
+      'probe-prefix': 'nephrite.' + exe.substring(9).replace('-', '_')
     }]
   endforeach
 
   subdir('contrib/elf2dmp')
 
-  executable('qemu-edid', files('qemu-edid.c', 'hw/display/edid-generate.c'),
+  executable('nephrite-edid', files('qemu-edid.c', 'hw/display/edid-generate.c'),
              dependencies: [qemuutil, rt],
              install: true)
 
@@ -4632,18 +4632,18 @@ if have_tools
   endif
 
   if host_os == 'linux'
-    executable('qemu-bridge-helper', files('qemu-bridge-helper.c'),
+    executable('nephrite-bridge-helper', files('qemu-bridge-helper.c'),
                dependencies: [qemuutil, libcap_ng],
                install: true,
                install_dir: get_option('libexecdir'))
 
-    executable('qemu-pr-helper', files('scsi/qemu-pr-helper.c', 'scsi/utils.c'),
+    executable('nephrite-pr-helper', files('scsi/qemu-pr-helper.c', 'scsi/utils.c'),
                dependencies: [authz, crypto, io, qom, qemuutil,
                               libcap_ng, mpathpersist],
                install: true)
 
     if cpu == 'x86_64'
-      executable('qemu-vmsr-helper', files('tools/i386/qemu-vmsr-helper.c'),
+      executable('nephrite-vmsr-helper', files('tools/i386/qemu-vmsr-helper.c'),
                dependencies: [authz, crypto, io, qom, qemuutil,
                               libcap_ng, mpathpersist],
                install: true)
@@ -4720,7 +4720,7 @@ if host_machine.system() == 'windows'
   endif
 
   nsis = custom_target('nsis',
-                       output: 'qemu-setup-' + meson.project_version() + '.exe',
+                       output: 'nephrite-setup-' + meson.project_version() + '.exe',
                        input: files('qemu.nsi'),
                        build_always_stale: true,
                        command: nsis_cmd + ['@INPUT@'])

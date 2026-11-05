@@ -34,7 +34,7 @@ keymaps = {
 }
 
 if meson.is_cross_build() or not xkbcommon.found()
-  native_qemu_keymap = find_program('qemu-keymap', required: false, disabler: true)
+  native_qemu_keymap = find_program('nephrite-keymap', 'qemu-keymap', required: false, disabler: true)
 else
   native_qemu_keymap = qemu_keymap
 endif

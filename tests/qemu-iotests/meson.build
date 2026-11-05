@@ -26,7 +26,7 @@ qemu_iotests_drivers = {
 }
 
 foreach k, v : emulators
-  if k.startswith('qemu-system-')
+  if k.startswith('nephrite-system-')
     qemu_iotests_binaries += v
   endif
 endforeach

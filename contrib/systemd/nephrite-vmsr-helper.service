@@ -1,10 +1,10 @@
 [Unit]
-Description=Persistent Reservation Daemon for QEMU
+Description=Virtual RAPL MSR Daemon for QEMU
 
 [Service]
 WorkingDirectory=/tmp
 Type=simple
-ExecStart=/usr/bin/qemu-pr-helper
+ExecStart=/usr/bin/nephrite-vmsr-helper
 PrivateTmp=yes
 ProtectSystem=strict
 ReadWritePaths=/var/run

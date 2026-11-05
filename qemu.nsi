@@ -1,6 +1,6 @@
 ;!/usr/bin/makensis
 
-; This NSIS script creates an installer for QEMU on Windows.
+; This NSIS script creates an installer for Nephrite on Windows.
 
 ; Copyright (C) 2006-2012 Stefan Weil
 ;
@@ -21,10 +21,10 @@
 
 ; NSIS_WIN32_MAKENSIS
 
-!define PRODUCT "QEMU"
-!define URL     "https://www.qemu.org/"
+!define PRODUCT "Nephrite"
+!define URL     "https://github.com/Nephrite-Project/Nephrite"
 
-!define UNINST_EXE "$INSTDIR\qemu-uninstall.exe"
+!define UNINST_EXE "$INSTDIR\nephrite-uninstall.exe"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT}"
 
 !ifndef BINDIR
@@ -34,7 +34,7 @@
 !define SRCDIR .
 !endif
 !ifndef OUTFILE
-!define OUTFILE "qemu-setup.exe"
+!define OUTFILE "nephrite-setup.exe"
 !endif
 
 ; Build a unicode installer
@@ -46,16 +46,16 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 
 ; The name of the installer.
-Name "QEMU"
+Name "Nephrite"
 
 ; The file to write
 OutFile "${OUTFILE}"
 
 ; The default installation directory.
 !ifdef W64
-InstallDir $PROGRAMFILES64\qemu
+InstallDir $PROGRAMFILES64\nephrite
 !else
-InstallDir $PROGRAMFILES\qemu
+InstallDir $PROGRAMFILES\nephrite
 !endif
 
 ; Registry key to check for directory (so if you install again, it will
@@ -89,7 +89,7 @@ RequestExecutionLevel admin
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_LINK "Visit the QEMU Wiki online!"
+!define MUI_FINISHPAGE_LINK "Visit Nephrite online!"
 !define MUI_FINISHPAGE_LINK_LOCATION "${URL}"
 !insertmacro MUI_PAGE_FINISH
 
@@ -132,20 +132,20 @@ Section "${PRODUCT} (required)"
     WriteRegStr HKLM SOFTWARE\${PRODUCT} "Install_Dir" "$INSTDIR"
 
     ; Write the uninstall keys for Windows
-    WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "QEMU"
+    WriteRegStr HKLM "${UNINST_KEY}" "DisplayName" "Nephrite"
 !ifdef DISPLAYVERSION
     WriteRegStr HKLM "${UNINST_KEY}" "DisplayVersion" "${DISPLAYVERSION}"
 !endif
     WriteRegStr HKLM "${UNINST_KEY}" "UninstallString" '"${UNINST_EXE}"'
     WriteRegDWORD HKLM "${UNINST_KEY}" "NoModify" 1
     WriteRegDWORD HKLM "${UNINST_KEY}" "NoRepair" 1
-    WriteUninstaller "qemu-uninstall.exe"
+    WriteUninstaller "nephrite-uninstall.exe"
 SectionEnd
 
 Section "Tools" SectionTools
     SetOutPath "$INSTDIR"
-    File "${BINDIR}\qemu-img.exe"
-    File "${BINDIR}\qemu-io.exe"
+    File "${BINDIR}\nephrite-img.exe"
+    File "${BINDIR}\nephrite-io.exe"
 SectionEnd
 
 SectionGroup "System Emulations" SectionSystem
@@ -210,10 +210,10 @@ Section "Uninstall"
     Delete "$INSTDIR\*.ndrv"
     Delete "$INSTDIR\*.rom"
     Delete "$INSTDIR\openbios-*"
-    Delete "$INSTDIR\qemu-img.exe"
-    Delete "$INSTDIR\qemu-io.exe"
+    Delete "$INSTDIR\nephrite-img.exe"
+    Delete "$INSTDIR\nephrite-io.exe"
     Delete "$INSTDIR\qemu.exe"
-    Delete "$INSTDIR\qemu-system-*.exe"
+    Delete "$INSTDIR\nephrite-system-*.exe"
     RMDir /r "$INSTDIR\dtb"
     RMDir /r "$INSTDIR\doc"
     RMDir /r "$INSTDIR\share"
