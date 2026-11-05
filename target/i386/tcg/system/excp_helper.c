@@ -189,6 +189,31 @@ static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
     return true;
 }
 
+/*
+ * Page-modification logging: a nested walk that sets a dirty flag logs the
+ * 4-KByte page of the guest-physical address at the PML index, which then
+ * counts down, and with the index past 1FFh sets nothing and exits instead
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+ * 15.25.15). The index lives in the VMCB, where #VMEXIT would store it.
+ */
+static bool svm_pml_room(CPUX86State *env)
+{
+    return x86_lduw_phys(env_cpu(env), env->vm_vmcb +
+                         offsetof(struct vmcb, control.pml_index)) <= 0x1ff;
+}
+
+static void svm_pml_log(CPUX86State *env, hwaddr gpa)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr index_addr = env->vm_vmcb + offsetof(struct vmcb, control.pml_index);
+    uint16_t index = x86_lduw_phys(cs, index_addr);
+    uint64_t base = x86_ldq_phys(cs, env->vm_vmcb +
+                                 offsetof(struct vmcb, control.pml_base));
+
+    x86_stq_phys(cs, base + 8 * index, gpa & ~0xfffULL);
+    x86_stw_phys(cs, index_addr, index - 1);
+}
+
 static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                           TranslateResult *out, TranslateFault *err,
                           uint64_t ra)
@@ -515,6 +540,8 @@ do_check_protect_pse36:
     /* yes, it can! */
     {
         uint32_t set = PG_ACCESSED_MASK;
+        bool pml;
+
         if (access_type == MMU_DATA_STORE) {
             set |= PG_DIRTY_MASK;
         } else if (!(pte & PG_DIRTY_MASK)) {
@@ -523,6 +550,12 @@ do_check_protect_pse36:
              * otherwise wait for dirty access.
              */
             prot &= ~PAGE_WRITE;
+        }
+        pml = (pg_mode & PG_MODE_PML) && (set & ~pte & PG_DIRTY_MASK);
+        if (pml && !svm_pml_room(env)) {
+            env->svm_pml_full = true;
+            *err = (TranslateFault){ .stage2 = S2_GPA, .cr2 = addr };
+            return false;
         }
         if (!ptw_setl(&pte_trans, pte, set)) {
             if (pte_trans.fault) {
@@ -533,6 +566,9 @@ do_check_protect_pse36:
              * The only safe thing is to restart the entire lookup.
              */
             goto restart_all;
+        }
+        if (pml) {
+            svm_pml_log(env, addr);
         }
     }
 
@@ -661,6 +697,9 @@ static G_NORETURN void raise_stage2(CPUX86State *env, TranslateFault *err,
         x86_vmx_ept_exit(env, err->cr2, linear, err->stage2 == S2_GPA,
                          retaddr);
     }
+    if (env->svm_pml_full) {
+        cpu_vmexit(env, SVM_EXIT_PML_FULL, 0, retaddr);
+    }
 
     switch (err->stage2) {
     case S2_GPT:
@@ -738,6 +777,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         if (likely(use_stage2)) {
             bool lma = env->nested_pg_mode & PG_MODE_LMA;
 
+            env->svm_pml_full = false;
             in.cr3 = env->nested_cr3;
             in.pdptes = NULL;
             in.pg_mode = env->nested_pg_mode;

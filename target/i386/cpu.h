@@ -437,6 +437,12 @@ typedef enum X86Seg {
  * Manual Volume 2, 24593 rev. 3.45, 15.25.5).
  */
 #define PG_MODE_ROGPT    (1 << 7)
+/*
+ * And page-modification logging, with which a nested walk that sets a dirty
+ * flag logs the guest-physical page (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.45, 15.25.15).
+ */
+#define PG_MODE_PML      (1 << 8)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */
@@ -887,6 +893,7 @@ typedef enum FeatureWord {
     FEAT_1E_1_EAX,      /* CPUID[EAX=0x1E,ECX=1].EAX */
     FEAT_24_1_ECX,      /* CPUID[EAX=0x24,ECX=0].ECX */
     FEAT_VMX_TERTIARY_CTLS,
+    FEAT_8000_000A_ECX, /* CPUID[8000_000A].ECX */
     FEATURE_WORDS,
 } FeatureWord;
 
@@ -1050,6 +1057,9 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
+
+/* CPUID[8000_000A].ECX */
+#define CPUID_SVM_ECX_PML         (1U << 4)
 
 /* Support RDFSBASE/RDGSBASE/WRFSBASE/WRGSBASE */
 #define CPUID_7_0_EBX_FSGSBASE          (1U << 0)
@@ -2741,6 +2751,8 @@ typedef struct CPUArchState {
     bool svm_loading_crs;
     /* SVM guest mode may run INVLPGB and TLBSYNC. */
     bool svm_tlbi_enabled;
+    /* The last nested walk had a dirty flag to set with the PML full. */
+    bool svm_pml_full;
     /*
      * The PAUSE filter: VMRUN's count and threshold, the count left, and the
      * TSC at the guest's last PAUSE.

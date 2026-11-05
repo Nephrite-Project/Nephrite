@@ -1051,6 +1051,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define CPUID_SVM_KERNEL_FEATURES 0
 #endif
+#define TCG_8000_000A_ECX_FEATURES CPUID_SVM_ECX_PML
 #define TCG_SVM_FEATURES (CPUID_SVM_NPT | CPUID_SVM_LBRV | \
           CPUID_SVM_NRIPSAVE | CPUID_SVM_TSCSCALE | CPUID_SVM_VMCBCLEAN | \
           CPUID_SVM_FLUSHASID | \
@@ -1340,6 +1341,21 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         },
         .cpuid = { .eax = 0x8000000A, .reg = R_EDX, },
         .tcg_features = TCG_SVM_FEATURES,
+    },
+    [FEAT_8000_000A_ECX] = {
+        .type = CPUID_FEATURE_WORD,
+        .feat_names = {
+            NULL, NULL, NULL, NULL,
+            "pml", NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+        },
+        .cpuid = { .eax = 0x8000000A, .reg = R_ECX, },
+        .tcg_features = TCG_8000_000A_ECX_FEATURES,
     },
     [FEAT_7_0_EBX] = {
         .type = CPUID_FEATURE_WORD,
@@ -2180,6 +2196,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },
         .to = { FEAT_SVM,                   ~0ull },
+    },
+    {
+        .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },
+        .to = { FEAT_8000_000A_ECX,         ~0ull },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_WAITPKG },
@@ -9463,7 +9483,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
             *eax = 0x00000001; /* SVM Revision */
             *ebx = SVM_NR_ASIDS;
-            *ecx = 0;
+            *ecx = env->features[FEAT_8000_000A_ECX];
             *edx = env->features[FEAT_SVM]; /* optional features */
         } else {
             *eax = 0;

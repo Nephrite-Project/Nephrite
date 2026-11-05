@@ -165,6 +165,7 @@
 #define SVM_EXIT_NPF            0x400
 #define SVM_EXIT_AVIC_INCOMPLETE_IPI 0x401
 #define SVM_EXIT_AVIC_NOACCEL   0x402
+#define SVM_EXIT_PML_FULL       0x407
 
 #define SVM_EXIT_ERR            -1
 
@@ -174,6 +175,7 @@
 #define SVM_NPT_GMET        (1 << 3)
 #define SVM_NPT_ROGPT       (1 << 6)
 #define SVM_NPT_TLBI        (1 << 7)
+#define SVM_NPT_PML         (1 << 11)
 
 /* VMCB Clean field bits */
 #define SVM_CLEAN_I         (1 << 0)
@@ -240,8 +242,14 @@ struct QEMU_PACKED vmcb_control_area {
     uint8_t reserved_6[8];
     uint64_t avic_logical_id;
     uint64_t avic_physical_id;
-    uint8_t reserved_7[768];
+    uint8_t reserved_7[200];
+    uint64_t pml_base;
+    uint16_t pml_index;
+    uint8_t reserved_8[558];
 };
+
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, pml_base) != 0x1c8);
+QEMU_BUILD_BUG_ON(sizeof(struct vmcb_control_area) != 0x400);
 
 struct QEMU_PACKED vmcb_seg {
     uint16_t selector;

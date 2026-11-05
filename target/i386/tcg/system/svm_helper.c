@@ -615,6 +615,10 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             (env->features[FEAT_SVM] & CPUID_SVM_ROGPT)) {
             env->nested_pg_mode |= PG_MODE_ROGPT;
         }
+        if ((nested_ctl & SVM_NPT_PML) &&
+            (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_PML)) {
+            env->nested_pg_mode |= PG_MODE_PML;
+        }
     }
     /*
      * Without TlbiCtl, guests may always run INVLPGB and TLBSYNC (AMD64
