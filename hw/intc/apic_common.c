@@ -202,6 +202,11 @@ void apic_init_reset(APICCommonState *s)
         s->lvt[i] = APIC_LVT_MASKED;
     }
     s->esr = 0;
+    s->ext_ctrl = 0;
+    memset(s->ier, 0xff, sizeof(s->ier));
+    for (i = 0; i < APIC_EILVT_NB; i++) {
+        s->eilvt[i] = APIC_LVT_MASKED;
+    }
     memset(s->icr, 0, sizeof(s->icr));
     s->divide_conf = 0;
     s->count_shift = 0;
@@ -374,6 +379,26 @@ static const VMStateDescription vmstate_apic_common_sipi = {
     }
 };
 
+static bool apic_common_ext_needed(void *opaque)
+{
+    APICCommonState *s = APIC_COMMON(opaque);
+
+    return s->cpu->env.features[FEAT_8000_0001_ECX] & CPUID_EXT3_EXTAPIC;
+}
+
+static const VMStateDescription vmstate_apic_common_ext = {
+    .name = "apic_ext",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = apic_common_ext_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT32(ext_ctrl, APICCommonState),
+        VMSTATE_UINT32_ARRAY(ier, APICCommonState, 8),
+        VMSTATE_UINT32_ARRAY(eilvt, APICCommonState, APIC_EILVT_NB),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static const VMStateDescription vmstate_apic_common = {
     .name = "apic",
     .version_id = 3,
@@ -407,6 +432,7 @@ static const VMStateDescription vmstate_apic_common = {
     },
     .subsections = (const VMStateDescription * const []) {
         &vmstate_apic_common_sipi,
+        &vmstate_apic_common_ext,
         NULL
     }
 };

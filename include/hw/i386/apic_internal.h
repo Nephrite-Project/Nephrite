@@ -36,6 +36,17 @@
 #define APIC_LVT_LINT1                  4
 #define APIC_LVT_ERROR                  5
 #define APIC_LVT_NB                     6
+/*
+ * The extended LVT entries that AMD's extended APIC space has room for
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+ * 16.4.5); the CPU's extapic-lvts property says how many it has.
+ */
+#define APIC_EILVT_NB                   8
+/* AMD's extended APIC feature and control registers. */
+#define APIC_EXT_FEATURE_IER            (1 << 0)
+#define APIC_EXT_FEATURE_SEOI           (1 << 1)
+#define APIC_EXT_CTRL_IER               (1 << 0)
+#define APIC_EXT_CTRL_SEOI              (1 << 1)
 
 /* APIC delivery modes */
 #define APIC_DM_FIXED                   0
@@ -172,6 +183,15 @@ struct APICCommonState {
     uint32_t irr[8]; /* interrupt request register */
     uint32_t lvt[APIC_LVT_NB];
     uint32_t esr; /* error register */
+    /*
+     * AMD's extended APIC space (AMD64 Architecture Programmer's Manual
+     * Volume 2, 24593 rev. 3.45, 16.3.5, 16.3.6, 16.4.5, and 16.7): the
+     * extended control register, the interrupt enable registers, and the
+     * extended LVT entries.
+     */
+    uint32_t ext_ctrl;
+    uint32_t ier[8];
+    uint32_t eilvt[APIC_EILVT_NB];
     uint32_t icr[2];
 
     uint32_t divide_conf;
@@ -210,6 +230,7 @@ void vapic_report_tpr_access(DeviceState *dev, CPUState *cpu, target_ulong ip,
 
 int apic_get_ppr(APICCommonState *s);
 uint32_t apic_get_current_count(APICCommonState *s);
+uint32_t apic_get_ext_feature(APICCommonState *s);
 
 static inline void apic_set_bit(uint32_t *tab, int index)
 {

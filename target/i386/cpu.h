@@ -3009,6 +3009,9 @@ struct ArchCPU {
      */
     bool x2apic_locked;
 
+    /* The number of extended LVT entries in AMD's extended APIC space. */
+    uint8_t extapic_lvts;
+
     /* LMCE support can be enabled/disabled via cpu option 'lmce=on/off'. It is
      * disabled by default to avoid breaking migration between QEMU with
      * different LMCE configurations.

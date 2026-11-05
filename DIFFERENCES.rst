@@ -128,6 +128,10 @@ Processor features:
   IA32_UMWAIT_CONTROL), CPUID faulting, WRMSRNS, the speculation control
   MSRs, IA32_ARCH_CAPABILITIES, AMD's CPUID override MSRs, and AMD's
   breakpoint address masks.
+* AMD's extended APIC space: the extended LVT entries, four or as many as
+  the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
+  eight), specific EOIs, and the interrupt enable registers, in xAPIC and
+  x2APIC modes, which ``info lapic`` shows.
 * The ``x2apic-locked`` CPU property emulates firmware that locked the
   local APIC in x2APIC mode, as recent Intel platforms do: the APIC comes
   out of reset in x2APIC mode and cannot leave it, as
@@ -279,8 +283,8 @@ Known deviations and limits
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
-  RDPRU, AMD's extended interrupt LVTs and IBS, VT-d posted interrupts,
-  AMD-Vi's guest virtual APIC mode, and FRED.
+  RDPRU, AMD's IBS, VT-d posted interrupts, AMD-Vi's guest virtual APIC
+  mode, and FRED.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.

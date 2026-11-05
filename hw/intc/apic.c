@@ -99,6 +99,51 @@ static int get_highest_priority_int(uint32_t *tab)
     return -1;
 }
 
+/*
+ * AMD's extended APIC space: its feature register, which reports the
+ * extended LVT entries, specific EOIs, and the interrupt enable registers
+ * (no switch to 4-bit APIC IDs: they stay 8-bit), and its control register
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 16.3.5
+ * and 16.3.6). APIC version bit 31 reports the space.
+ */
+#define APIC_VERSION_EXT_SPACE  (1U << 31)
+
+static bool apic_ext_space(APICCommonState *s)
+{
+    return s->cpu->env.features[FEAT_8000_0001_ECX] & CPUID_EXT3_EXTAPIC;
+}
+
+uint32_t apic_get_ext_feature(APICCommonState *s)
+{
+    return s->cpu->extapic_lvts << 16 | APIC_EXT_FEATURE_SEOI |
+           APIC_EXT_FEATURE_IER;
+}
+
+/* Whether index is one of the extended LVT entries that the CPU has. */
+static bool apic_eilvt_valid(APICCommonState *s, int index)
+{
+    return apic_ext_space(s) && index - 0x50 < s->cpu->extapic_lvts;
+}
+
+/*
+ * The requests that take part in prioritization: with the interrupt enable
+ * registers on, those they enable (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.45, 16.7.2).
+ */
+static int apic_highest_irr(APICCommonState *s)
+{
+    uint32_t irr[8];
+    int i;
+
+    if (!(s->ext_ctrl & APIC_EXT_CTRL_IER)) {
+        return get_highest_priority_int(s->irr);
+    }
+    for (i = 0; i < 8; i++) {
+        irr[i] = s->irr[i] & s->ier[i];
+    }
+    return get_highest_priority_int(irr);
+}
+
 static void apic_sync_vapic(APICCommonState *s, int sync_type)
 {
     VAPICState vapic_state;
@@ -502,7 +547,7 @@ static int apic_irq_pending(APICCommonState *s)
         return 0;
     }
 
-    irrv = get_highest_priority_int(s->irr);
+    irrv = apic_highest_irr(s);
     if (irrv < 0) {
         return 0;
     }
@@ -566,6 +611,25 @@ static void apic_eoi(APICCommonState *s)
     apic_reset_bit(s->isr, isrv);
     if (!(s->spurious_vec & APIC_SV_DIRECTED_IO) && apic_get_bit(s->tmr, isrv)) {
         ioapic_eoi_broadcast(isrv);
+    }
+    apic_sync_vapic(s, SYNC_FROM_VAPIC | SYNC_TO_VAPIC);
+    apic_update_irq(s);
+}
+
+/*
+ * A specific EOI ends the interrupt of the vector written, in service or
+ * not, as an EOI does the highest one (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, 16.7.1).
+ */
+static void apic_specific_eoi(APICCommonState *s, int vector)
+{
+    if (!apic_get_bit(s->isr, vector)) {
+        return;
+    }
+    apic_reset_bit(s->isr, vector);
+    if (!(s->spurious_vec & APIC_SV_DIRECTED_IO) &&
+        apic_get_bit(s->tmr, vector)) {
+        ioapic_eoi_broadcast(vector);
     }
     apic_sync_vapic(s, SYNC_FROM_VAPIC | SYNC_TO_VAPIC);
     apic_update_irq(s);
@@ -957,7 +1021,8 @@ static int apic_register_read(APICCommonState *s, int index, uint64_t *value)
         }
         break;
     case 0x03: /* version */
-        val = s->version | ((APIC_LVT_NB - 1) << 16);
+        val = s->version | ((APIC_LVT_NB - 1) << 16) |
+              (apic_ext_space(s) ? APIC_VERSION_EXT_SPACE : 0);
         break;
     case 0x08:
         apic_sync_vapic(s, SYNC_FROM_VAPIC);
@@ -1022,7 +1087,38 @@ static int apic_register_read(APICCommonState *s, int index, uint64_t *value)
     case 0x3e:
         val = s->divide_conf;
         break;
+    case 0x40:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        val = apic_get_ext_feature(s);
+        break;
+    case 0x41:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        val = s->ext_ctrl;
+        break;
+    case 0x42:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        val = 0;
+        break;
+    case 0x48 ... 0x4f:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        val = s->ier[index & 7];
+        break;
+    case 0x50 ... 0x50 + APIC_EILVT_NB - 1:
+        if (!apic_eilvt_valid(s, index)) {
+            goto illegal;
+        }
+        val = s->eilvt[index - 0x50];
+        break;
     default:
+    illegal:
         s->esr |= APIC_ESR_ILLEGAL_ADDRESS;
         val = 0;
         ret = -1;
@@ -1069,7 +1165,7 @@ static uint64_t apic_mem_read(void *opaque, hwaddr addr, unsigned size)
  * which this local APIC lacks: accesses to the others, reads of the
  * write-only ones, and writes of the read-only ones raise #GP.
  */
-static bool x2apic_register_exists(int index)
+static bool x2apic_register_exists(APICCommonState *s, int index)
 {
     switch (index) {
     case 0x02 ... 0x03:
@@ -1081,6 +1177,15 @@ static bool x2apic_register_exists(int index)
     case 0x32 ... 0x39:
     case 0x3e ... 0x3f:
         return true;
+    /*
+     * AMD's extended space (AMD64 Architecture Programmer's Manual Volume
+     * 2, 24593 rev. 3.45, Table 16-6).
+     */
+    case 0x40 ... 0x42:
+    case 0x48 ... 0x4f:
+        return apic_ext_space(s);
+    case 0x50 ... 0x50 + APIC_EILVT_NB - 1:
+        return apic_eilvt_valid(s, index);
     }
     return false;
 }
@@ -1093,6 +1198,7 @@ static bool x2apic_register_read_only(int index)
     case 0x0d:
     case 0x10 ... 0x27:
     case 0x39:
+    case 0x40:
         return true;
     }
     return false;
@@ -1109,7 +1215,7 @@ int apic_msr_read(APICCommonState *s, int index, uint64_t *val)
     }
 
     /* EOI and SELF IPI are write-only. */
-    if (!x2apic_register_exists(index) || index == 0x0b || index == 0x3f) {
+    if (!x2apic_register_exists(s, index) || index == 0x0b || index == 0x3f) {
         return -1;
     }
 
@@ -1289,7 +1395,45 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
 
         break;
     }
+    case 0x40:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        break;
+    case 0x41:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        s->ext_ctrl = val & (APIC_EXT_CTRL_IER | APIC_EXT_CTRL_SEOI);
+        apic_update_irq(s);
+        break;
+    case 0x42:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        if (s->ext_ctrl & APIC_EXT_CTRL_SEOI) {
+            apic_specific_eoi(s, val & 0xff);
+        }
+        break;
+    case 0x48 ... 0x4f:
+        if (!apic_ext_space(s)) {
+            goto illegal;
+        }
+        /* The control register enables writes (bits 15:0 are reserved). */
+        if (s->ext_ctrl & APIC_EXT_CTRL_IER) {
+            s->ier[index & 7] = index == 0x48 ? val | 0xffff : val;
+            apic_update_irq(s);
+        }
+        break;
+    case 0x50 ... 0x50 + APIC_EILVT_NB - 1:
+        if (!apic_eilvt_valid(s, index)) {
+            goto illegal;
+        }
+        /* The vector, message type, and mask. */
+        s->eilvt[index - 0x50] = val & (APIC_LVT_MASKED | 0x7ff);
+        break;
     default:
+    illegal:
         s->esr |= APIC_ESR_ILLEGAL_ADDRESS;
         return -1;
     }
@@ -1337,7 +1481,8 @@ int apic_msr_write(APICCommonState *s, int index, uint64_t val)
         return -1;
     }
 
-    if (!x2apic_register_exists(index) || x2apic_register_read_only(index)) {
+    if (!x2apic_register_exists(s, index) ||
+        x2apic_register_read_only(index)) {
         return -1;
     }
     /*
@@ -1382,6 +1527,10 @@ static void apic_realize(DeviceState *dev, Error **errp)
 {
     APICCommonState *s = APIC(dev);
 
+    if (s->cpu->extapic_lvts > APIC_EILVT_NB) {
+        error_setg(errp, "extapic-lvts must be at most %d", APIC_EILVT_NB);
+        return;
+    }
     if (kvm_enabled()) {
         warn_report("Userspace local APIC is deprecated for KVM.");
         warn_report("Do not use kernel-irqchip except for the -M isapc machine type.");

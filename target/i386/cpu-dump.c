@@ -299,6 +299,43 @@ static void dump_apic_base(APICCommonState *s)
                 s->cpu->x2apic_locked ? ", locked" : "");
 }
 
+/*
+ * AMD's extended APIC space: its feature and control registers, the vectors
+ * that the interrupt enable registers disable, when they are on, and the
+ * extended LVT entries.
+ */
+static void dump_apic_ext(APICCommonState *s)
+{
+    bool disabled = false;
+    int i;
+
+    if (!(s->cpu->env.features[FEAT_8000_0001_ECX] & CPUID_EXT3_EXTAPIC)) {
+        return;
+    }
+    qemu_printf("EFR\t 0x%08x ECTRL 0x%08x\n", apic_get_ext_feature(s),
+                s->ext_ctrl);
+    if (s->ext_ctrl & APIC_EXT_CTRL_IER) {
+        qemu_printf("IER\t ");
+        for (i = 0; i < 256; i++) {
+            if (!apic_get_bit(s->ier, i)) {
+                qemu_printf("%u ", i);
+                disabled = true;
+            }
+        }
+        qemu_printf("%s\n", disabled ? "disabled" : "(none disabled)");
+    }
+    for (i = 0; i < s->cpu->extapic_lvts; i++) {
+        uint32_t lvt = s->eilvt[i];
+
+        qemu_printf("EILVT%d\t 0x%08x %-6s %-7s %-6s (vec %u)\n", i, lvt,
+                    lvt & APIC_LVT_MASKED ? "masked" : "",
+                    lvt & APIC_LVT_DELIV_STS ? "pending" : "",
+                    dm2str((lvt & APIC_LVT_DELIV_MOD) >>
+                           APIC_LVT_DELIV_MOD_SHIFT),
+                    lvt & APIC_VECTOR_MASK);
+    }
+}
+
 void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
 {
     X86CPU *cpu = X86_CPU(cs);
@@ -334,6 +371,7 @@ void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
     dump_apic_icr(s, &cpu->env);
 
     qemu_printf("ESR\t 0x%08x\n", s->esr);
+    dump_apic_ext(s);
 
     dump_apic_interrupt("ISR", s->isr, s->tmr);
     dump_apic_interrupt("IRR", s->irr, s->tmr);

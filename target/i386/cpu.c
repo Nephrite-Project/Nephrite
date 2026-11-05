@@ -1042,6 +1042,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT3_CR8LEG | CPUID_EXT3_ABM | CPUID_EXT3_SSE4A | \
           CPUID_EXT3_3DNOWPREFETCH | CPUID_EXT3_KERNEL_FEATURES | \
           CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT | \
+          CPUID_EXT3_EXTAPIC | \
           TCG_EXT3_PMU)
 
 #define TCG_EXT4_FEATURES 0
@@ -7626,6 +7627,9 @@ static void max_x86_cpu_initfn(Object *obj)
                                 "QEMU TCG CPU version " QEMU_HW_VERSION,
                                 &error_abort);
     }
+#ifndef CONFIG_USER_ONLY
+    object_property_set_uint(OBJECT(cpu), "extapic-lvts", 8, &error_abort);
+#endif
 }
 
 static const TypeInfo max_x86_cpu_type_info = {
@@ -11112,6 +11116,7 @@ static const Property x86_cpu_properties[] = {
     DEFINE_PROP_BOOL("pmu", X86CPU, enable_pmu, false),
 #ifndef CONFIG_USER_ONLY
     DEFINE_PROP_BOOL("x2apic-locked", X86CPU, x2apic_locked, false),
+    DEFINE_PROP_UINT8("extapic-lvts", X86CPU, extapic_lvts, 4),
 #endif
     DEFINE_PROP_UINT64_CHECKMASK("lbr-fmt", X86CPU, lbr_fmt, PERF_CAP_LBR_FMT),
 
