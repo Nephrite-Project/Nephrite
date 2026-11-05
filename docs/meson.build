@@ -55,7 +55,7 @@ if build_docs
   output_dir = meson.current_build_dir() / 'manual'
   input_dir = meson.current_source_dir()
 
-  this_manual = custom_target('QEMU manual',
+  this_manual = custom_target('Nephrite manual',
                 build_by_default: build_docs,
                 output: 'docs.stamp',
                 input: files('conf.py'),
@@ -74,7 +74,7 @@ if build_docs
     install_dirs += section == '' ? false : get_option('mandir') / section
   endforeach
 
-  sphinxmans += custom_target('QEMU man pages',
+  sphinxmans += custom_target('Nephrite man pages',
                               build_by_default: build_docs,
                               output: these_man_pages,
                               input: this_manual,

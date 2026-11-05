@@ -86,8 +86,8 @@ master_doc = 'index'
 default_role = 'any'
 
 # General information about the project.
-project = u'QEMU'
-copyright = u'2026, The QEMU Project Developers'
+project = u'Nephrite'
+copyright = u'2026, The QEMU Project Developers and the Nephrite Project Developers'
 author = u'The QEMU Project Developers'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -163,7 +163,7 @@ suppress_warnings = ["ref.option"]
 # can then be used in the documentation. The fallback if the
 # environment variable is not set is for the benefit of readthedocs
 # style document building; our Makefile always sets the variable.
-confdir = os.getenv('CONFDIR', "/etc/qemu")
+confdir = os.getenv('CONFDIR', "/etc/nephrite")
 
 vars = {
     "CONFDIR": confdir,
@@ -293,43 +293,43 @@ latex_documents = [
 # Individual manual/conf.py can override this to create man pages
 man_pages = [
     ('interop/qemu-ga', 'nephrite-ga',
-     'QEMU Guest Agent',
+     'Nephrite Guest Agent',
      ['Michael Roth <mdroth@linux.vnet.ibm.com>'], 8),
     ('interop/qemu-ga-ref', 'nephrite-ga-ref',
-     'QEMU Guest Agent Protocol Reference',
+     'Nephrite Guest Agent Protocol Reference',
      [], 7),
     ('interop/qemu-qmp-ref', 'nephrite-qmp-ref',
-     'QEMU QMP Reference Manual',
+     'Nephrite QMP Reference Manual',
      [], 7),
     ('interop/qemu-storage-daemon-qmp-ref', 'nephrite-storage-daemon-qmp-ref',
-     'QEMU Storage Daemon QMP Reference Manual',
+     'Nephrite Storage Daemon QMP Reference Manual',
      [], 7),
     ('system/qemu-manpage', 'nephrite',
-     'QEMU User Documentation',
+     'Nephrite User Documentation',
      ['Fabrice Bellard'], 1),
     ('system/qemu-block-drivers', 'nephrite-block-drivers',
-     'QEMU block drivers reference',
+     'Nephrite block drivers reference',
      ['Fabrice Bellard and the QEMU Project developers'], 7),
     ('system/qemu-cpu-models', 'nephrite-cpu-models',
-     'QEMU CPU Models',
+     'Nephrite CPU Models',
      ['The QEMU Project developers'], 7),
     ('tools/qemu-img', 'nephrite-img',
-     'QEMU disk image utility',
+     'Nephrite disk image utility',
      ['Fabrice Bellard'], 1),
     ('tools/qemu-nbd', 'nephrite-nbd',
-     'QEMU Disk Network Block Device Server',
+     'Nephrite Disk Network Block Device Server',
      ['Anthony Liguori <anthony@codemonkey.ws>'], 8),
     ('tools/qemu-pr-helper', 'nephrite-pr-helper',
-     'QEMU persistent reservation helper',
+     'Nephrite persistent reservation helper',
      [], 8),
     ('tools/qemu-storage-daemon', 'nephrite-storage-daemon',
-     'QEMU storage daemon',
+     'Nephrite storage daemon',
      [], 1),
     ('tools/qemu-trace-stap', 'nephrite-trace-stap',
-     'QEMU SystemTap trace tool',
+     'Nephrite SystemTap trace tool',
      [], 1),
     ('tools/qemu-vnc', 'nephrite-vnc',
-     'QEMU standalone VNC server',
+     'Nephrite standalone VNC server',
      [], 1),
 ]
 man_make_section_directory = False

@@ -5,9 +5,16 @@
 
 .. _documentation-root:
 
-================================
-Welcome to QEMU's documentation!
-================================
+====================================
+Welcome to Nephrite's documentation!
+====================================
+
+Nephrite is a fork of QEMU: see ``README.rst`` and ``DIFFERENCES.rst`` in
+its source tree for why it exists and how it differs. This documentation is
+QEMU's, kept up to date with Nephrite's changes. Where it names QEMU's
+programs, Nephrite's have the same names with ``nephrite`` in place of
+``qemu``: ``nephrite-system-x86_64``, ``nephrite-img``, ``nephrite-nbd``, and
+so on.
 
 .. toctree::
    :maxdepth: 2
