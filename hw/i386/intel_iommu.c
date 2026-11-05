@@ -4208,6 +4208,21 @@ static const Property vtd_properties[] = {
 };
 
 /* Read IRTE entry with specific index */
+/*
+ * An IRTE with IM set is in posted format (VT-d D51397-019 rev. 5.20, 9.10):
+ * its urgent flag, the vector it posts in bits 23:16, and its 64-byte
+ * posted-interrupt descriptor's address, bits 31:6 in bits 63:38 and bits
+ * 63:32 in bits 127:96.
+ */
+#define VTD_IRTE_POSTED_URG         (1ULL << 14)
+#define VTD_IRTE_POSTED_RSVD_LO     0x0000003fff0030fcULL
+#define VTD_IRTE_POSTED_RSVD_HI     0x00000000fff00000ULL
+
+static bool vtd_irte_posted(const VTD_IR_TableEntry *entry)
+{
+    return entry->irte.irte_mode;
+}
+
 static bool vtd_irte_get(IntelIOMMUState *iommu, uint16_t index,
                          VTD_IR_TableEntry *entry, uint16_t sid,
                          bool do_fault)
@@ -4263,8 +4278,12 @@ static bool vtd_irte_get(IntelIOMMUState *iommu, uint16_t index,
         return false;
     }
 
-    if (entry->irte.__reserved_0 || entry->irte.__reserved_1 ||
-        entry->irte.__reserved_2) {
+    if (vtd_irte_posted(entry) ?
+        (entry->data[0] & VTD_IRTE_POSTED_RSVD_LO) ||
+        (entry->data[1] & (VTD_IRTE_POSTED_RSVD_HI |
+                           ~0ULL << iommu->aw_bits)) :
+        (entry->irte.__reserved_0 || entry->irte.__reserved_1 ||
+         entry->irte.__reserved_2)) {
         error_report_once("%s: detected non-zero reserved IRTE "
                           "(index=%u, high=0x%" PRIx64 ", low=0x%" PRIx64 ")",
                           __func__, index, entry->data[1], entry->data[0]);
@@ -4324,15 +4343,20 @@ static bool vtd_irte_get(IntelIOMMUState *iommu, uint16_t index,
     return true;
 }
 
-/* Fetch IRQ information of specific IR index */
+/* Fetch IRQ information of specific IR index, of a remapped IRTE */
 static bool vtd_remap_irq_get(IntelIOMMUState *iommu, uint16_t index,
-                              X86IOMMUIrq *irq, uint16_t sid, bool do_fault)
+                              X86IOMMUIrq *irq, VTD_IR_TableEntry *entry,
+                              uint16_t sid, bool do_fault)
 {
-    VTD_IR_TableEntry irte = {};
+    VTD_IR_TableEntry irte;
 
-    if (!vtd_irte_get(iommu, index, &irte, sid, do_fault)) {
+    if (!vtd_irte_get(iommu, index, entry, sid, do_fault)) {
         return false;
     }
+    if (vtd_irte_posted(entry)) {
+        return true;
+    }
+    irte = *entry;
 
     irq->trigger_mode = irte.irte.trigger_mode;
     irq->vector = irte.irte.vector;
@@ -4353,15 +4377,96 @@ static bool vtd_remap_irq_get(IntelIOMMUState *iommu, uint16_t index,
     return true;
 }
 
-/* Interrupt remapping for MSI/MSI-X entry */
+/*
+ * The posted-interrupt descriptor (VT-d D51397-019 rev. 5.20, 9.11): PIR in
+ * bits 255:0, then ON, SN, the notification vector, and its destination,
+ * whose bits 15:8 alone hold the APIC ID in xAPIC mode.
+ */
+#define VTD_PID_SIZE                64
+#define VTD_PID_ON                  (1ULL << 0)
+#define VTD_PID_SN                  (1ULL << 1)
+#define VTD_PID_RSVD                0x00000000ff00fffcULL
+#define VTD_PID_XAPIC_RSVD          0xffff00ff00000000ULL
+
+/* The request was posted, with no notification to send. */
+#define VTD_IR_POSTED               1
+
+/*
+ * Interrupt posting (VT-d D51397-019 rev. 5.20, 5.2.3): one atomic update of
+ * the descriptor sets the vector's PIR bit and, where ON is clear and the
+ * request urgent or SN clear, sets ON, for a notification: fixed, edge, and
+ * physical, to NDST with NV. A descriptor out of memory or with reserved
+ * fields set blocks the request.
+ */
+static int vtd_post_interrupt(IntelIOMMUState *iommu,
+                              const VTD_IR_TableEntry *irte, uint16_t index,
+                              uint16_t sid, bool do_fault,
+                              MSIMessage *notification)
+{
+    hwaddr pda = (irte->data[1] & 0xffffffff00000000ULL) |
+                 extract64(irte->data[0], 38, 26) << 6;
+    uint8_t vector = extract64(irte->data[0], 16, 8);
+    bool urgent = irte->data[0] & VTD_IRTE_POSTED_URG;
+    hwaddr len = VTD_PID_SIZE;
+    X86IOMMUIrq irq = {};
+    uint64_t *pid, ctl, old;
+
+    if (irte->irte.fault_disable) {
+        do_fault = false;
+    }
+    pid = address_space_map(&address_space_memory, pda, &len, true,
+                            MEMTXATTRS_UNSPECIFIED);
+    if (!pid || len < VTD_PID_SIZE) {
+        if (pid) {
+            address_space_unmap(&address_space_memory, pid, len, true, 0);
+        }
+        if (do_fault) {
+            vtd_report_ir_fault(iommu, sid, VTD_FR_IR_PID_ADDR, index);
+        }
+        return -EINVAL;
+    }
+    ctl = le64_to_cpu(qatomic_read(&pid[4]));
+    if ((ctl & VTD_PID_RSVD) ||
+        (!iommu->intr_eime && (ctl & VTD_PID_XAPIC_RSVD)) ||
+        pid[5] || pid[6] || pid[7]) {
+        address_space_unmap(&address_space_memory, pid, len, true, 0);
+        if (do_fault) {
+            vtd_report_ir_fault(iommu, sid, VTD_FR_IR_PID_RSVD, index);
+        }
+        return -EINVAL;
+    }
+
+    qatomic_or(&pid[vector / 64], cpu_to_le64(1ULL << (vector % 64)));
+    do {
+        old = qatomic_read(&pid[4]);
+        ctl = le64_to_cpu(old);
+        if ((ctl & VTD_PID_ON) || (!urgent && (ctl & VTD_PID_SN))) {
+            address_space_unmap(&address_space_memory, pid, len, true, len);
+            return VTD_IR_POSTED;
+        }
+    } while (qatomic_cmpxchg(&pid[4], old, cpu_to_le64(ctl | VTD_PID_ON)) !=
+             old);
+    address_space_unmap(&address_space_memory, pid, len, true, len);
+
+    irq.vector = extract64(ctl, 16, 8);
+    irq.dest = iommu->intr_eime ? ctl >> 32 : extract64(ctl, 40, 8);
+    x86_iommu_irq_to_msi_message(&irq, notification);
+    return 0;
+}
+
+/*
+ * Interrupt remapping for MSI/MSI-X entry; DELIVER is false where nothing
+ * is sent, which no posted IRTE may serve.
+ */
 static int vtd_interrupt_remap_msi(IntelIOMMUState *iommu,
                                    MSIMessage *origin,
                                    MSIMessage *translated,
-                                   uint16_t sid, bool do_fault)
+                                   uint16_t sid, bool do_fault, bool deliver)
 {
     VTD_IR_MSIAddress addr;
     uint16_t index;
     X86IOMMUIrq irq = {};
+    VTD_IR_TableEntry irte = {};
 
     assert(origin && translated);
 
@@ -4407,7 +4512,7 @@ static int vtd_interrupt_remap_msi(IntelIOMMUState *iommu,
         index += origin->data & VTD_IR_MSI_DATA_SUBHANDLE;
     }
 
-    if (!vtd_remap_irq_get(iommu, index, &irq, sid, do_fault)) {
+    if (!vtd_remap_irq_get(iommu, index, &irq, &irte, sid, do_fault)) {
         return -EINVAL;
     }
 
@@ -4423,7 +4528,7 @@ static int vtd_interrupt_remap_msi(IntelIOMMUState *iommu,
             }
             return -EINVAL;
         }
-    } else {
+    } else if (!vtd_irte_posted(&irte)) {
         uint8_t vector = origin->data & 0xff;
         uint8_t trigger_mode = (origin->data >> MSI_DATA_TRIGGER_SHIFT) & 0x1;
 
@@ -4440,6 +4545,11 @@ static int vtd_interrupt_remap_msi(IntelIOMMUState *iommu,
             trace_vtd_warn_ir_trigger(sid, index, trigger_mode,
                                       irq.trigger_mode);
         }
+    }
+
+    if (vtd_irte_posted(&irte)) {
+        return deliver ? vtd_post_interrupt(iommu, &irte, index, sid,
+                                            do_fault, translated) : -EINVAL;
     }
 
     /*
@@ -4461,7 +4571,7 @@ static int vtd_int_remap(X86IOMMUState *iommu, MSIMessage *src,
                          MSIMessage *dst, uint16_t sid)
 {
     return vtd_interrupt_remap_msi(INTEL_IOMMU_DEVICE(iommu),
-                                   src, dst, sid, false);
+                                   src, dst, sid, false, false);
 }
 
 static void vtd_report_sid_ir_illegal_access(IntelIOMMUState *s, uint16_t sid,
@@ -4526,10 +4636,13 @@ static MemTxResult vtd_mem_ir_write(void *opaque, hwaddr addr,
         }
     }
 
-    ret = vtd_interrupt_remap_msi(s, &from, &to, sid, true);
-    if (ret) {
+    ret = vtd_interrupt_remap_msi(s, &from, &to, sid, true, true);
+    if (ret < 0) {
         /* Drop this interrupt */
         return MEMTX_ERROR;
+    }
+    if (ret == VTD_IR_POSTED) {
+        return MEMTX_OK;
     }
 
     apic_get_class(NULL)->send_msi(&to);
@@ -5029,6 +5142,7 @@ static void vtd_cap_init(IntelIOMMUState *s)
 
     if (x86_iommu_ir_supported(x86_iommu)) {
         s->ecap |= VTD_ECAP_IR | VTD_ECAP_MHMV;
+        s->cap |= VTD_CAP_PI;
         if (s->intr_eim == ON_OFF_AUTO_ON) {
             s->ecap |= VTD_ECAP_EIM;
         }

@@ -220,6 +220,7 @@
 #define VTD_CAP_DRAIN_WRITE         (1ULL << 54)
 #define VTD_CAP_DRAIN_READ          (1ULL << 55)
 #define VTD_CAP_FS1GP               (1ULL << 56)
+#define VTD_CAP_PI                  (1ULL << 59)
 #define VTD_CAP_ESRTPS              (1ULL << 63)
 #define VTD_CAP_DRAIN               (VTD_CAP_DRAIN_READ | VTD_CAP_DRAIN_WRITE)
 #define VTD_CAP_CM                  (1ULL << 7)
@@ -321,6 +322,8 @@ typedef enum VTDFaultReason {
     VTD_FR_IR_REQ_COMPAT = 0x25, /* Encountered compatible IR
                                   * request while disabled */
     VTD_FR_IR_SID_ERR = 0x26,   /* Invalid Source-ID */
+    VTD_FR_IR_PID_ADDR = 0x27,  /* Posted descriptor unreachable */
+    VTD_FR_IR_PID_RSVD = 0x28,  /* Posted descriptor Rsvd non-zero */
 
     VTD_FR_RTADDR_INV_TTM = 0x31,  /* Invalid TTM in RTADDR */
 
