@@ -2657,6 +2657,12 @@ typedef struct CPUArchState {
      */
     uint64_t pdpte[4];
     bool pdpte_loaded;
+    /*
+     * TCG: where apic_moved, the page of the local APIC's registers, which
+     * software moved away from APIC_DEFAULT_ADDRESS in xAPIC mode.
+     */
+    bool apic_moved;
+    hwaddr apic_moved_base;
     /* The interrupt shadow (HF_INHIBIT_IRQ_MASK) is MOV SS's, not STI's. */
     bool shadow_movss;
     int old_exception;  /* exception in flight */
@@ -3058,7 +3064,7 @@ struct ArchCPU {
     APICCommonState *apic_state;
     struct MemoryRegion *cpu_as_root, *cpu_as_mem, *smram;
     /* TCG: the address space of SVM AVIC's guest vAPIC page. */
-    struct MemoryRegion *avic_page;
+    struct MemoryRegion *own_pages, *avic_page, *apic_moved_page;
     /* TCG: the VMX-preemption timer's expiry. */
     QEMUTimer *vmx_timer;
     /* TCG: the end of an UMWAIT's or TPAUSE's wait. */
@@ -3311,10 +3317,16 @@ void x86_cpu_set_a20(X86CPU *cpu, int a20_state);
 void cpu_sync_avx_hflag(CPUX86State *env);
 void cpu_sync_apx_hflag(CPUX86State *env);
 
+#define X86_OWN_APIC 0x1000
+
 typedef enum X86ASIdx {
     X86ASIdx_MEM = 0,
     X86ASIdx_SMM = 1,
-    /* TCG: SVM AVIC's guest vAPIC page, whose accesses it filters. */
+    /*
+     * TCG: pages of the CPU's own: at 0 the vAPIC page whose accesses SVM's
+     * AVIC or VMX's APIC-access page filter, at X86_OWN_APIC the local
+     * APIC's registers, where software moved them.
+     */
     X86ASIdx_AVIC = 2,
     X86ASIdx_MAX = X86ASIdx_AVIC
 } X86ASIdx;

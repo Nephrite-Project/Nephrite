@@ -899,6 +899,20 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
             out.page_size = TARGET_PAGE_SIZE;
             out.avic = true;
         }
+        /*
+         * Where software moved the local APIC's registers (Intel SDM
+         * 325462-093 Vol. 3A, 13.4.5), this CPU's data accesses to their
+         * page go to its own pages' copy of them.
+         */
+        if (unlikely(env->apic_moved) && !out.avic &&
+            access_type != MMU_INST_FETCH &&
+            ((1 << mmu_idx) & (MMU_HOST_IDX_MAP | MMU_GUEST_IDX_MAP)) &&
+            (out.paddr & TARGET_PAGE_MASK) == env->apic_moved_base) {
+            out.paddr = X86_OWN_APIC | (out.paddr & ~TARGET_PAGE_MASK);
+            out.prot &= ~PAGE_EXEC;
+            out.page_size = TARGET_PAGE_SIZE;
+            out.avic = true;
+        }
         attrs.avic = out.avic;
         /*
          * Even if 4MB pages, we map only one 4KB page in the cache to

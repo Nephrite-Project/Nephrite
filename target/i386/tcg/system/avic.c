@@ -620,9 +620,15 @@ static const MemoryRegionOps avic_mmio_ops = {
     },
 };
 
-/* The address space of the guest vAPIC page, whose accesses AVIC filters. */
+/*
+ * The address space of the CPU's own pages: the guest vAPIC page, whose
+ * accesses AVIC filters, and room for the local APIC's registers.
+ */
 void svm_avic_init(X86CPU *cpu)
 {
+    cpu->own_pages = g_new(MemoryRegion, 1);
+    memory_region_init(cpu->own_pages, OBJECT(cpu), "cpu-own-pages",
+                       X86_OWN_APIC + TARGET_PAGE_SIZE);
     cpu->avic_page = g_new(MemoryRegion, 1);
     memory_region_init_io(cpu->avic_page, OBJECT(cpu), &avic_mmio_ops, cpu,
                           "avic-vapic", TARGET_PAGE_SIZE);
@@ -631,6 +637,7 @@ void svm_avic_init(X86CPU *cpu)
      * longjmp, which would leave the guard engaged.
      */
     cpu->avic_page->disable_reentrancy_guard = true;
+    memory_region_add_subregion(cpu->own_pages, 0, cpu->avic_page);
     cpu_address_space_init(CPU(cpu), X86ASIdx_AVIC, "cpu-avic",
-                           cpu->avic_page);
+                           cpu->own_pages);
 }

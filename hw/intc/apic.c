@@ -27,6 +27,8 @@
 #include "hw/pci/msi.h"
 #include "qemu/host-utils.h"
 #include "system/kvm.h"
+#include "system/tcg.h"
+#include "exec/cputlb.h"
 #include "system/mshv.h"
 #include "system/physmem.h"
 #include "trace.h"
@@ -374,6 +376,27 @@ static int apic_set_base_check(APICCommonState *s, uint64_t val)
     return 0;
 }
 
+/*
+ * TCG: the CPU sees its registers wherever software moved them (Intel SDM
+ * 325462-093 Vol. 3A, 13.4.5), other CPUs theirs; the page is in the TLB.
+ */
+static void apic_moved_update(APICCommonState *s)
+{
+    CPUX86State *env = &s->cpu->env;
+    hwaddr base = s->apicbase & MSR_IA32_APICBASE_BASE;
+    bool moved = (s->apicbase & MSR_IA32_APICBASE_ENABLE) &&
+                 !(s->apicbase & MSR_IA32_APICBASE_EXTD) &&
+                 base != APIC_DEFAULT_ADDRESS;
+
+    if (!tcg_enabled() ||
+        (moved == env->apic_moved && base == env->apic_moved_base)) {
+        return;
+    }
+    env->apic_moved = moved;
+    env->apic_moved_base = base;
+    tlb_flush(CPU(s->cpu));
+}
+
 static int apic_set_base(APICCommonState *s, uint64_t val)
 {
     if (apic_set_base_check(s, val) < 0) {
@@ -405,6 +428,7 @@ static int apic_set_base(APICCommonState *s, uint64_t val)
                       (1 << (s->initial_apic_id & 0xf));
     }
 
+    apic_moved_update(s);
     return 0;
 }
 
@@ -1331,6 +1355,7 @@ static void apic_post_load(APICCommonState *s)
     } else {
         timer_del(s->timer);
     }
+    apic_moved_update(s);
 }
 
 static const MemoryRegionOps apic_io_ops = {

@@ -57,7 +57,7 @@ typedef struct MemTxAttrs {
     /* PCI - IOMMU operations, see PCIAddressType */
     unsigned int address_type:1;
 
-    /* x86: an access an SVM guest makes to its AVIC vAPIC page */
+    /* x86: an access to a page of the CPU's own: a vAPIC page or its APIC */
     unsigned int avic:1;
 
     /*

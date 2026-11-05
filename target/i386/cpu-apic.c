@@ -13,6 +13,7 @@
 #include "monitor/hmp.h"
 #include "system/hw_accel.h"
 #include "system/kvm.h"
+#include "system/tcg.h"
 #include "system/xen.h"
 #include "system/mshv.h"
 #include "system/address-spaces.h"
@@ -71,6 +72,16 @@ void x86_cpu_apic_realize(X86CPU *cpu, Error **errp)
         return;
     }
     qdev_realize(DEVICE(cpu->apic_state), NULL, errp);
+
+    /* TCG: the registers for this CPU's accesses wherever it moves them. */
+    if (tcg_enabled() && cpu->own_pages) {
+        cpu->apic_moved_page = g_new(MemoryRegion, 1);
+        memory_region_init_alias(cpu->apic_moved_page, OBJECT(cpu),
+                                 "apic-moved", &cpu->apic_state->io_memory,
+                                 0, 0x1000);
+        memory_region_add_subregion(cpu->own_pages, X86_OWN_APIC,
+                                    cpu->apic_moved_page);
+    }
 
     /* Map APIC MMIO area */
     if (!apic_mmio_map_once) {
