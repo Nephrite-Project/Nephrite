@@ -2140,9 +2140,10 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                 pushw(&sa, next_eip);
             }
 
+            /* #GP(0) (Intel SDM 325462-093 Vol. 2A, CALL). */
             limit = get_seg_limit(e1, e2);
             if (new_eip > limit) {
-                raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
             }
 #if !defined(CONFIG_USER_ONLY)
             if (x86_shstk_enabled(env, cpl)) {
