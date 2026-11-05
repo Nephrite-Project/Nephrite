@@ -38,7 +38,7 @@ attaches it to a SCSI passthrough device::
 
       $ qemu-system-x86_64
           -device virtio-scsi \
-          -object pr-manager-helper,id=helper0,path=/var/run/qemu-pr-helper.sock
+          -object pr-manager-helper,id=helper0,path=/var/run/nephrite-pr-helper.sock
           -drive if=none,id=hd,driver=raw,file.filename=/dev/sdb,file.pr-manager=helper0
           -device scsi-block,drive=hd
 
@@ -46,7 +46,7 @@ Alternatively, using ``-blockdev``::
 
       $ qemu-system-x86_64
           -device virtio-scsi \
-          -object pr-manager-helper,id=helper0,path=/var/run/qemu-pr-helper.sock
+          -object pr-manager-helper,id=helper0,path=/var/run/nephrite-pr-helper.sock
           -blockdev node-name=hd,driver=raw,file.driver=host_device,file.filename=/dev/sdb,file.pr-manager=helper0
           -device scsi-block,drive=hd
 

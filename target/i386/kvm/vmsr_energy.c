@@ -24,7 +24,7 @@ char *vmsr_compute_default_paths(void)
 {
     g_autofree char *state = qemu_get_local_state_dir();
 
-    return g_build_filename(state, "run", "qemu-vmsr-helper.sock", NULL);
+    return g_build_filename(state, "run", "nephrite-vmsr-helper.sock", NULL);
 }
 
 int is_rapl_enabled(void)

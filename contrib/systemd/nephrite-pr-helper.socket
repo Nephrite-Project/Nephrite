@@ -2,7 +2,7 @@
 Description=Persistent Reservation Daemon for Nephrite
 
 [Socket]
-ListenStream=/run/qemu-pr-helper.sock
+ListenStream=/run/nephrite-pr-helper.sock
 SocketMode=0600
 
 [Install]

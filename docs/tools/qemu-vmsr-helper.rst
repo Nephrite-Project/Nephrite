@@ -37,7 +37,7 @@ protocol.  In this case, the systemd socket unit should specify a
 Unix stream socket, like this::
 
     [Socket]
-    ListenStream=/var/run/qemu-vmsr-helper.sock
+    ListenStream=/var/run/nephrite-vmsr-helper.sock
 
 Options
 -------
@@ -60,13 +60,13 @@ Options
 
   PID file when running as a daemon. By default the PID file
   is created in the system runtime state directory, for example
-  :file:`/var/run/qemu-vmsr-helper.pid`.
+  :file:`/var/run/nephrite-vmsr-helper.pid`.
 
 .. option:: -k, --socket=PATH
 
   path to the socket. By default the socket is created in
   the system runtime state directory, for example
-  :file:`/var/run/qemu-vmsr-helper.sock`.
+  :file:`/var/run/nephrite-vmsr-helper.sock`.
 
 .. option:: -T, --trace [[enable=]PATTERN][,events=FILE][,file=FILE]
 

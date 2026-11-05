@@ -78,8 +78,9 @@ static void compute_default_paths(void)
 {
     g_autofree char *state = qemu_get_local_state_dir();
 
-    socket_path = g_build_filename(state, "run", "qemu-pr-helper.sock", NULL);
-    pidfile = g_build_filename(state, "run", "qemu-pr-helper.pid", NULL);
+    socket_path = g_build_filename(state, "run", "nephrite-pr-helper.sock",
+                                   NULL);
+    pidfile = g_build_filename(state, "run", "nephrite-pr-helper.pid", NULL);
 }
 
 static void usage(const char *name)

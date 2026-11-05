@@ -2,7 +2,7 @@
 Description=Virtual RAPL MSR helper for Nephrite
 
 [Socket]
-ListenStream=/run/qemu-vmsr-helper.sock
+ListenStream=/run/nephrite-vmsr-helper.sock
 SocketMode=0600
 
 [Install]
