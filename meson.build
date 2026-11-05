@@ -28,6 +28,10 @@ rust = import('rust')
 ss = import('sourceset')
 fs = import('fs')
 
+# Nephrite's own version; meson.project_version() is the version of QEMU
+# that Nephrite is based on.
+nephrite_version = fs.read('NEPHRITE_VERSION').strip()
+
 host_os = host_machine.system()
 config_host = keyval.load(meson.current_build_dir() / 'config-host.mak')
 
@@ -2405,7 +2409,8 @@ config_host_data.set_quoted('CONFIG_SYSCONFDIR', get_option('prefix') / get_opti
 if enable_modules
   config_host_data.set('CONFIG_STAMP', run_command(
       meson.current_source_dir() / 'scripts/qemu-stamp.py',
-      meson.project_version(), get_option('pkgversion'), '--',
+      meson.project_version(), nephrite_version, get_option('pkgversion'),
+      '--',
       meson.current_source_dir() / 'configure',
       capture: true, check: true).stdout().strip())
 endif
@@ -2574,6 +2579,10 @@ config_host_data.set('QEMU_VERSION', '"@0@"'.format(meson.project_version()))
 config_host_data.set('QEMU_VERSION_MAJOR', meson.project_version().split('.')[0])
 config_host_data.set('QEMU_VERSION_MINOR', meson.project_version().split('.')[1])
 config_host_data.set('QEMU_VERSION_MICRO', meson.project_version().split('.')[2])
+config_host_data.set('NEPHRITE_VERSION', '"@0@"'.format(nephrite_version))
+config_host_data.set('NEPHRITE_VERSION_MAJOR', nephrite_version.split('.')[0])
+config_host_data.set('NEPHRITE_VERSION_MINOR', nephrite_version.split('.')[1])
+config_host_data.set('NEPHRITE_VERSION_MICRO', nephrite_version.split('.')[2])
 
 config_host_data.set_quoted('CONFIG_HOST_DSOSUF', host_dsosuf)
 config_host_data.set('HAVE_HOST_BLOCK_DEVICE', have_host_block_device)
@@ -3562,7 +3571,8 @@ tracetool_depends = files(
 )
 
 qemu_pkgversion = get_option('pkgversion')
-git_describe_version = [git, 'describe', '--match', 'v*', '--dirty']
+git_describe_version = [git, 'describe', '--match', 'v*', '--dirty',
+                        '--always']
 if qemu_pkgversion == '' and git.found() and fs.exists('.git') and \
     run_command(git_describe_version, check: false).returncode() == 0
   # Refresh the version at build time, so that "make" after a commit updates it.
@@ -4710,7 +4720,7 @@ if host_machine.system() == 'windows'
     glib_pc.get_variable('bindir'),
     host_machine.cpu(),
     '--',
-    '-DDISPLAYVERSION=' + meson.project_version(),
+    '-DDISPLAYVERSION=' + nephrite_version,
   ]
   if build_docs
     nsis_cmd += '-DCONFIG_DOCUMENTATION=y'
@@ -4720,7 +4730,7 @@ if host_machine.system() == 'windows'
   endif
 
   nsis = custom_target('nsis',
-                       output: 'nephrite-setup-' + meson.project_version() + '.exe',
+                       output: 'nephrite-setup-' + nephrite_version + '.exe',
                        input: files('qemu.nsi'),
                        build_always_stale: true,
                        command: nsis_cmd + ['@INPUT@'])

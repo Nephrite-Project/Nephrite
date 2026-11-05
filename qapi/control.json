@@ -76,10 +76,10 @@
 #     minor version.  A micro version of less than 50 signifies a
 #     stable release.
 #
-# @package: QEMU will always set this field to an empty string.
-#     Downstream versions of QEMU should set this to a non-empty
-#     string.  The exact format depends on the downstream however it
-#     highly recommended that a unique name is used.
+# @package: Nephrite's version and the version of QEMU that it is
+#     based on, for example "Nephrite 0.1.0 (v0.1.0), based on QEMU
+#     11.1.50".  Downstream versions of QEMU, such as Nephrite, set
+#     this to a string that names them.
 #
 # Since: 0.14
 ##

@@ -1317,7 +1317,7 @@ static void config_parse(GAConfig *config, int argc, char **argv)
             config->log_level = G_LOG_LEVEL_MASK;
             break;
         case 'V':
-            printf("Nephrite Guest Agent %s\n", QEMU_VERSION);
+            printf("Nephrite Guest Agent %s\n", NEPHRITE_VERSION);
             exit(EXIT_SUCCESS);
         case 'd':
             config->daemonize = 1;

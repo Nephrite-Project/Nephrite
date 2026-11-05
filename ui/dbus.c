@@ -308,7 +308,7 @@ dbus_display_complete(UserCreatable *uc, Error **errp)
     }
 
     g_object_set(dd->iface,
-                 "name", qemu_name ?: "Nephrite " QEMU_VERSION,
+                 "name", qemu_name ?: "Nephrite " NEPHRITE_VERSION,
                  "uuid", uuid,
                  NULL);
     dbus_update_console_ids(dd);

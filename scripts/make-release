@@ -46,7 +46,7 @@ SUBPROJECTS="libvfio-user keycodemapdb berkeley-softfloat-3
 
 src="$1"
 version="$2"
-destination=qemu-${version}
+destination=nephrite-${version}
 
 git clone --single-branch -b "v${version}" -c advice.detachedHead=false \
     "${src}" ${destination}

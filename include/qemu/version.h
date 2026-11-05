@@ -11,10 +11,11 @@
 #include "qemu-version.h"
 
 #ifdef QEMU_PKGVERSION
-#define QEMU_FULL_VERSION QEMU_VERSION " (" QEMU_PKGVERSION ")"
+#define QEMU_FULL_VERSION \
+    NEPHRITE_VERSION " (" QEMU_PKGVERSION "), based on QEMU " QEMU_VERSION
 #else
 #define QEMU_PKGVERSION ""
-#define QEMU_FULL_VERSION QEMU_VERSION
+#define QEMU_FULL_VERSION NEPHRITE_VERSION ", based on QEMU " QEMU_VERSION
 #endif
 
 #endif

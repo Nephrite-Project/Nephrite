@@ -530,11 +530,11 @@ def get_qemu_path(arch, build_path=None):
     return qemu_path
 
 def get_qemu_version(qemu_path):
-    """Get the version number from the current QEMU,
-       and return the major number."""
+    """Get the version number of QEMU that the current Nephrite
+       is based on, and return the major number."""
     output = subprocess.check_output([qemu_path, '--version'])
     version_line = output.decode("utf-8")
-    version_num = re.split(r' |\(', version_line)[3].split('.')[0]
+    version_num = re.search(r'based on QEMU (\d+)\.', version_line).group(1)
     return int(version_num)
 
 def parse_config(config, args):

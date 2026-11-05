@@ -94,23 +94,22 @@ author = u'The QEMU Project Developers'
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
-# Extract this information from the VERSION file, for the benefit of
-# standalone Sphinx runs as used by readthedocs.org. Builds run from
+# Extract this information from the NEPHRITE_VERSION file, for the benefit
+# of standalone Sphinx runs as used by readthedocs.org. Builds run from
 # the Makefile will pass version and release on the sphinx-build
-# command line, which override this.
-try:
-    extracted_version = None
-    with open(os.path.join(qemu_docdir, '../VERSION')) as f:
-        extracted_version = f.readline().strip()
-except:
-    pass
-finally:
-    if extracted_version:
-        version = release = extracted_version
-    else:
-        version = release = "unknown version"
+# command line, which override this. The VERSION file holds the version
+# of QEMU that Nephrite is based on, which the machine type versions
+# below follow.
+def extract_version(name):
+    try:
+        with open(os.path.join(qemu_docdir, '..', name)) as f:
+            return f.readline().strip() or "unknown version"
+    except OSError:
+        return "unknown version"
 
-bits = version.split(".")
+version = release = extract_version('NEPHRITE_VERSION')
+
+bits = extract_version('VERSION').split(".")
 
 major = int(bits[0])
 minor = int(bits[1])

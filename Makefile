@@ -207,12 +207,12 @@ clean: recurse-clean
 	rm -f TAGS cscope.* *~ */*~
 	@$(MAKE) -Ctests/qemu-iotests clean
 
-VERSION = $(shell cat $(SRC_PATH)/VERSION)
+NEPHRITE_VERSION = $(shell cat $(SRC_PATH)/NEPHRITE_VERSION)
 
-dist: qemu-$(VERSION).tar.xz
+dist: nephrite-$(NEPHRITE_VERSION).tar.xz
 
-qemu-%.tar.xz:
-	$(SRC_PATH)/scripts/make-release "$(SRC_PATH)" "$(patsubst qemu-%.tar.xz,%,$@)"
+nephrite-%.tar.xz:
+	$(SRC_PATH)/scripts/make-release "$(SRC_PATH)" "$(patsubst nephrite-%.tar.xz,%,$@)"
 
 distclean: clean recurse-distclean
 	-$(quiet-@)test -f build.ninja && $(NINJA) $(NINJAFLAGS) -t clean -g || :
