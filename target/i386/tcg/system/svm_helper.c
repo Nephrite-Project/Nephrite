@@ -616,6 +616,12 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             env->nested_pg_mode |= PG_MODE_ROGPT;
         }
     }
+    /*
+     * Without TlbiCtl, guests may always run INVLPGB and TLBSYNC (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, Table B-1).
+     */
+    env->svm_tlbi_enabled = !(env->features[FEAT_SVM] & CPUID_SVM_TLBICTL) ||
+                            (nested_ctl & SVM_NPT_TLBI);
 
     /* enable intercepts */
     env->hflags |= HF_GUEST_MASK;

@@ -1432,17 +1432,18 @@ void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
 #define INVLPGB_RESERVED        0xfc0
 
 /*
- * INVLPGB: its SVM intercept comes before all its checks but CPL's, and
- * that of illegal ones before their #GP (AMD64 Architecture Programmer's
- * Manual Volume 2, 24593 rev. 3.45, Table 15-7; Volume 3, 24594 rev. 3.38,
- * INVLPGB). Without the IOMMU's invalidations (EnhancedTlbi), rAX[6] is
- * reserved. It drops, on every processor, the translations of the address
- * range, PCID, and ASID it selects, a guest's of its own ASID, and the
- * nested ones with rAX[5]. QEMU's TLB holds the current PCID's
- * translations only, and guest mode's MMU indexes those of one ASID, so a
- * PCID drops the whole range and any ASID but the host's drops the range
- * from every processor's guest translations, as INVLPGB may. All of it is
- * done when INVLPGB ends, before the next instruction.
+ * INVLPGB: its SVM intercept comes before all its checks but CPL's, then
+ * #UD where the hypervisor has not enabled it in guest mode, and the
+ * intercept of illegal ones before their #GP (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.45, Tables 15-7 and B-1;
+ * Volume 3, 24594 rev. 3.38, INVLPGB). Without the IOMMU's invalidations
+ * (EnhancedTlbi), rAX[6] is reserved. It drops, on every processor, the
+ * translations of the address range, PCID, and ASID it selects, a guest's
+ * of its own ASID, and the nested ones with rAX[5]. QEMU's TLB holds the
+ * current PCID's translations only, and guest mode's MMU indexes those of
+ * one ASID, so a PCID drops the whole range and any ASID but the host's
+ * drops the range from every processor's guest translations, as INVLPGB
+ * may. All of it is done when INVLPGB ends, before the next instruction.
  */
 void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
 {
@@ -1456,6 +1457,9 @@ void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
 
     if (cpu_svm_has_intercept(env, SVM_EXIT_INVLPGB)) {
         cpu_vmexit(env, SVM_EXIT_INVLPGB, 0, ra);
+    }
+    if (guest && !env->svm_tlbi_enabled) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
     if ((rax & INVLPGB_RESERVED) ||
         ((rax & INVLPGB_NESTED) &&
@@ -1494,6 +1498,25 @@ void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
     if (rax & INVLPGB_NESTED) {
         tlb_flush_by_mmuidx_all_cpus_synced(cs, 1 << MMU_NESTED_IDX |
                                                 1 << MMU_NESTED_SUP_IDX);
+    }
+}
+
+/*
+ * TLBSYNC: #UD where the hypervisor has not enabled it in guest mode, then
+ * the SVM intercept that TlbiCtl brings (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.45, Tables 15-7 and B-1). It has nothing
+ * to wait for: each INVLPGB is done when it ends.
+ */
+void HELPER(tlbsync)(CPUX86State *env)
+{
+    uintptr_t ra = GETPC();
+
+    if ((env->hflags & HF_GUEST_MASK) && !env->svm_tlbi_enabled) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+    if ((env->features[FEAT_SVM] & CPUID_SVM_TLBICTL) &&
+        cpu_svm_has_intercept(env, SVM_EXIT_TLBSYNC)) {
+        cpu_vmexit(env, SVM_EXIT_TLBSYNC, 0, ra);
     }
 }
 

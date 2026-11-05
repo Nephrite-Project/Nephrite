@@ -294,6 +294,7 @@ STUB_HELPER(clgi, TCGv_env env)
 STUB_HELPER(flush_page, TCGv_env env, TCGv addr)
 STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
 STUB_HELPER(invlpgb, TCGv_env env, TCGv rax)
+STUB_HELPER(tlbsync, TCGv_env env)
 STUB_HELPER(inb, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inw, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inl, TCGv ret, TCGv_env env, TCGv_i32 port)
@@ -3878,8 +3879,10 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                   CPUID_8000_0008_EBX_INVLPGB) || !PE(s) || VM86(s)) {
                 goto illegal_op;
             }
-            /* Each INVLPGB is done when it ends: nothing to wait for. */
-            check_cpl0(s);
+            if (!check_cpl0(s)) {
+                break;
+            }
+            gen_helper_tlbsync(tcg_env);
             break;
 
         default:

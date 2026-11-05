@@ -1057,7 +1057,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_SVM_DECODEASSIST | CPUID_SVM_PAUSEFILTER | \
           CPUID_SVM_PFTHRESHOLD | CPUID_SVM_AVIC | CPUID_SVM_V_VMSAVE_VMLOAD | \
           CPUID_SVM_VGIF | CPUID_SVM_GMET | CPUID_SVM_X2AVIC | \
-          CPUID_SVM_ROGPT | CPUID_SVM_VNMI | \
+          CPUID_SVM_ROGPT | CPUID_SVM_TLBICTL | CPUID_SVM_VNMI | \
           CPUID_SVM_SVME_ADDR_CHK | CPUID_SVM_IDLE_HLT | \
           CPUID_SVM_KERNEL_FEATURES)
 
@@ -1335,7 +1335,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "pfthreshold", "avic", NULL, "v-vmsave-vmload",
             "vgif", "gmet", "x2avic", NULL,
             NULL, "rogpt", NULL, NULL,
-            NULL, "vnmi", NULL, NULL,
+            "tlbictl", "vnmi", NULL, NULL,
             "svme-addr-chk", NULL, "idle-hlt", NULL,
         },
         .cpuid = { .eax = 0x8000000A, .reg = R_EDX, },
@@ -2071,6 +2071,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB },
         .to = { FEAT_8000_0008_EBX, CPUID_8000_0008_EBX_INVLPGB_NESTED },
+    },
+    {
+        .from = { FEAT_8000_0008_EBX,       CPUID_8000_0008_EBX_INVLPGB },
+        .to = { FEAT_SVM,                   CPUID_SVM_TLBICTL },
     },
     {
         .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_ARCH_CAPABILITIES },

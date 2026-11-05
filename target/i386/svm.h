@@ -173,6 +173,7 @@
 #define SVM_NPT_ENABLED     (1 << 0)
 #define SVM_NPT_GMET        (1 << 3)
 #define SVM_NPT_ROGPT       (1 << 6)
+#define SVM_NPT_TLBI        (1 << 7)
 
 /* VMCB Clean field bits */
 #define SVM_CLEAN_I         (1 << 0)

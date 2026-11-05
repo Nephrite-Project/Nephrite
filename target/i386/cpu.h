@@ -1046,6 +1046,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_GMET            (1U << 17)
 #define CPUID_SVM_X2AVIC          (1U << 18)
 #define CPUID_SVM_ROGPT           (1U << 21)
+#define CPUID_SVM_TLBICTL         (1U << 24)
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
@@ -2738,6 +2739,8 @@ typedef struct CPUArchState {
     int svm_tlb_nested_pg_mode;
     /* VMRUN or #VMEXIT is loading CR0, CR3 and CR4, which flushes nothing. */
     bool svm_loading_crs;
+    /* SVM guest mode may run INVLPGB and TLBSYNC. */
+    bool svm_tlbi_enabled;
     /*
      * The PAUSE filter: VMRUN's count and threshold, the count left, and the
      * TSC at the guest's last PAUSE.
