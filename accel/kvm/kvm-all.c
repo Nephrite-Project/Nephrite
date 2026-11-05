@@ -793,10 +793,21 @@ void kvm_close(void)
  * dirty pages logging control
  */
 
-static int kvm_mem_flags(MemoryRegion *mr)
+static int kvm_mem_flags(MemoryRegionSection *section)
 {
+    MemoryRegion *mr = section->mr;
     bool readonly = mr->readonly || memory_region_is_romd(mr);
     int flags = 0;
+
+    /*
+     * RAM that an alias maps read-only, as write-protected PAM segments map
+     * it, is read-only for the vCPUs as well: their writes exit to the memory
+     * API, which drops them as TCG does.  Guest memfd slots cannot be
+     * read-only.
+     */
+    if (section->readonly && !memory_region_has_guest_memfd_private(mr)) {
+        readonly = true;
+    }
 
     if (memory_region_get_dirty_log_mask(mr) != 0) {
         flags |= KVM_MEM_LOG_DIRTY_PAGES;
@@ -813,9 +824,9 @@ static int kvm_mem_flags(MemoryRegion *mr)
 
 /* Called with KVMMemoryListener.slots_lock held */
 static int kvm_slot_update_flags(KVMMemoryListener *kml, KVMSlot *mem,
-                                 MemoryRegion *mr)
+                                 MemoryRegionSection *section)
 {
-    mem->flags = kvm_mem_flags(mr);
+    mem->flags = kvm_mem_flags(section);
 
     /* If nothing changed effectively, no need to issue ioctl */
     if (mem->flags == mem->old_flags) {
@@ -848,7 +859,7 @@ static int kvm_section_update_flags(KVMMemoryListener *kml,
             goto out;
         }
 
-        ret = kvm_slot_update_flags(kml, mem, section->mr);
+        ret = kvm_slot_update_flags(kml, mem, section);
         start_addr += slot_size;
         size -= slot_size;
     }
@@ -1740,7 +1751,7 @@ static void kvm_set_phys_mem(KVMMemoryListener *kml,
         mem->start_addr = start_addr;
         mem->ram_start_offset = ram_start_offset;
         mem->ram = ram;
-        mem->flags = kvm_mem_flags(mr);
+        mem->flags = kvm_mem_flags(section);
         mem->guest_memfd = mr->ram_block->guest_memfd_private;
         mem->guest_memfd_offset = mem->guest_memfd >= 0 ?
                                   (uint8_t*)ram - mr->ram_block->host : 0;
