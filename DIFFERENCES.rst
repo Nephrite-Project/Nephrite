@@ -141,8 +141,9 @@ Processor features:
   AMD's core counters.
 * CET: shadow stacks and indirect branch tracking.
 * User interrupts: their MSRs, delivery at CPL 3, user-interrupt
-  notifications, UIRET with UIRET_UIF, CLUI, STUI, TESTUI, and SENDUIPI;
-  register dumps show their state.
+  notifications, UIRET with UIRET_UIF, CLUI, STUI, TESTUI, SENDUIPI, and
+  the UINTR state component of XSAVES and XRSTORS; register dumps show
+  their state.
 * DebugCtl's branch recording (LBRs) and branch single-stepping.
 
 Devices:

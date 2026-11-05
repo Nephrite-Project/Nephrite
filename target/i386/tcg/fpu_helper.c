@@ -2849,6 +2849,15 @@ static void do_xsave_component(X86Access *ac, int i, target_ulong addr)
         access_stq(ac, addr + 8, env->pl1_ssp);
         access_stq(ac, addr + 16, env->pl2_ssp);
         break;
+    case XSTATE_UINTR_BIT:
+        access_stq(ac, addr, env->uintr_handler);
+        access_stq(ac, addr + 8, env->uintr_stackadjust);
+        access_stq(ac, addr + 16,
+                   env->uintr_misc | (uint64_t)env->uif << 63);
+        access_stq(ac, addr + 24, env->uintr_pd);
+        access_stq(ac, addr + 32, env->uintr_rr);
+        access_stq(ac, addr + 40, env->uintr_tt);
+        break;
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
         do_xsave_apx(ac, addr);
@@ -2979,6 +2988,15 @@ static void do_xsavec(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     access_prepare(&ac, env, ptr, xsave_extent(xcomp_bv, inuse),
                    MMU_DATA_STORE, ra);
     do_xsave_access(&ac, ptr, rfbm, inuse, inuse, xcomp_bv);
+#ifndef CONFIG_USER_ONLY
+    /*
+     * Saving the UINTR state clears UINV (Intel SDM 325462-093 Vol. 1,
+     * 13.5.11).
+     */
+    if (rfbm & XSTATE_UINTR_MASK) {
+        x86_uintr_set_uinv(env, 0);
+    }
+#endif
 }
 
 void HELPER(xsavec)(CPUX86State *env, target_ulong ptr, uint64_t rfbm)
@@ -3280,6 +3298,19 @@ static void do_xrstor_component(X86Access *ac, int i, target_ulong addr,
         env->pl1_ssp = load ? access_ldq(ac, addr + 8) : 0;
         env->pl2_ssp = load ? access_ldq(ac, addr + 16) : 0;
         break;
+#ifndef CONFIG_USER_ONLY
+    case XSTATE_UINTR_BIT:
+        env->uintr_handler = load ? access_ldq(ac, addr) : 0;
+        env->uintr_stackadjust = load ? access_ldq(ac, addr + 8) : 0;
+        env->uintr_misc = load ? access_ldq(ac, addr + 16) : 0;
+        env->uif = env->uintr_misc >> 63;
+        env->uintr_misc &= ~(1ULL << 63);
+        env->uintr_pd = load ? access_ldq(ac, addr + 24) : 0;
+        env->uintr_rr = load ? access_ldq(ac, addr + 32) : 0;
+        env->uintr_tt = load ? access_ldq(ac, addr + 40) : 0;
+        x86_uintr_recognize(env);
+        break;
+#endif
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
         if (load) {
@@ -3378,6 +3409,37 @@ static bool valid_xrstor_cet(X86Access *ac, target_ulong ptr, uint64_t mask,
     return true;
 }
 
+#ifndef CONFIG_USER_ONLY
+/*
+ * Whether XRSTORS can load the UINTR state component, where mask has it:
+ * UINV must be 0 first, and the values must fit the MSRs, bit 63 of the
+ * IA32_UINTR_MISC image being UIF (Intel SDM 325462-093 Vol. 1, 13.5.11).
+ */
+static bool valid_xrstor_uintr(X86Access *ac, target_ulong ptr,
+                               uint64_t mask, uint64_t xcomp_bv)
+{
+    CPUX86State *env = ac->env;
+    static const uint32_t msrs[] = {
+        MSR_IA32_UINTR_HANDLER, MSR_IA32_UINTR_STACKADJUST,
+        MSR_IA32_UINTR_MISC, MSR_IA32_UINTR_PD,
+        MSR_IA32_UINTR_RR, MSR_IA32_UINTR_TT,
+    };
+    target_ulong addr = ptr + xsave_offset(xcomp_bv, XSTATE_UINTR_BIT);
+    uint64_t val;
+
+    for (int i = 0; i < ARRAY_SIZE(msrs); i++) {
+        val = access_ldq(ac, addr + i * 8);
+        if (msrs[i] == MSR_IA32_UINTR_MISC) {
+            val &= ~(1ULL << 63);
+        }
+        if (!x86_uintr_msr_valid(env, msrs[i], val)) {
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 /* XRSTOR, and XRSTORS with supervisor set. */
 static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
                            bool supervisor, uintptr_t ra)
@@ -3412,6 +3474,14 @@ static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     if (!valid_xrstor_cet(&ac, ptr, rfbm & xstate_bv, xcomp_bv)) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
     }
+#ifndef CONFIG_USER_ONLY
+    if ((rfbm & XSTATE_UINTR_MASK) &&
+        (x86_uintr_uinv(env) ||
+         ((rfbm & xstate_bv & XSTATE_UINTR_MASK) &&
+          !valid_xrstor_uintr(&ac, ptr, rfbm & xstate_bv, xcomp_bv)))) {
+        raise_exception_ra(env, EXCP0D_GPF, ra);
+    }
+#endif
 
     do_xrstor(&ac, ptr, rfbm, xstate_bv, xcomp_bv);
 }

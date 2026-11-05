@@ -1699,9 +1699,10 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             .ecx = 1,
             .reg = R_ECX,
         },
-        .tcg_features = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK,
+        .tcg_features = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK |
+            XSTATE_UINTR_MASK,
         .migratable_flags = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK |
-            XSTATE_ARCH_LBR_MASK,
+            XSTATE_UINTR_MASK | XSTATE_ARCH_LBR_MASK,
     },
     [FEAT_XSAVE_XSS_HI] = {
         .type = CPUID_FEATURE_WORD,
@@ -2369,6 +2370,13 @@ ExtSaveArea x86_ext_save_areas[XSAVE_STATE_AREA_COUNT] = {
         .features = {
             { FEAT_7_0_ECX,         CPUID_7_0_ECX_CET_SHSTK },
             { FEAT_7_0_EDX,         CPUID_7_0_EDX_CET_IBT },
+        },
+    },
+    [XSTATE_UINTR_BIT] = {
+        .size = sizeof(XSaveUINTR),
+        .ecx = ESA_FEATURE_XSS_MASK,
+        .features = {
+            { FEAT_7_0_EDX,         CPUID_7_0_EDX_UINTR },
         },
     },
     [XSTATE_ARCH_LBR_BIT] = {

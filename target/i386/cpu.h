@@ -802,6 +802,7 @@ typedef enum X86Seg {
 #define XSTATE_PKRU_BIT                 9
 #define XSTATE_CET_U_BIT                11
 #define XSTATE_CET_S_BIT                12
+#define XSTATE_UINTR_BIT                14
 #define XSTATE_ARCH_LBR_BIT             15
 #define XSTATE_XTILE_CFG_BIT            17
 #define XSTATE_XTILE_DATA_BIT           18
@@ -819,6 +820,7 @@ typedef enum X86Seg {
 #define XSTATE_PKRU_MASK                (1ULL << XSTATE_PKRU_BIT)
 #define XSTATE_CET_U_MASK               (1ULL << XSTATE_CET_U_BIT)
 #define XSTATE_CET_S_MASK               (1ULL << XSTATE_CET_S_BIT)
+#define XSTATE_UINTR_MASK               (1ULL << XSTATE_UINTR_BIT)
 #define XSTATE_ARCH_LBR_MASK            (1ULL << XSTATE_ARCH_LBR_BIT)
 #define XSTATE_XTILE_CFG_MASK           (1ULL << XSTATE_XTILE_CFG_BIT)
 #define XSTATE_XTILE_DATA_MASK          (1ULL << XSTATE_XTILE_DATA_BIT)
@@ -846,7 +848,7 @@ typedef enum X86Seg {
 
 /* CPUID feature bits available in XSS */
 #define CPUID_XSTATE_XSS_MASK   (XSTATE_ARCH_LBR_MASK | XSTATE_CET_U_MASK | \
-                                 XSTATE_CET_S_MASK)
+                                 XSTATE_CET_S_MASK | XSTATE_UINTR_MASK)
 
 #define CPUID_XSTATE_MASK       (CPUID_XSTATE_XCR0_MASK | CPUID_XSTATE_XSS_MASK)
 
@@ -2129,6 +2131,19 @@ typedef struct XSaveCETS {
     uint64_t pl2_ssp;
 } XSaveCETS;
 
+/*
+ * Ext. save area 14: UINTR state, the user-interrupt MSRs, UIF in bit 63 of
+ * misc (Intel SDM 325462-093 Vol. 1, 13.5.11)
+ */
+typedef struct XSaveUINTR {
+    uint64_t handler;
+    uint64_t stackadjust;
+    uint64_t misc;
+    uint64_t pd;
+    uint64_t rr;
+    uint64_t tt;
+} XSaveUINTR;
+
 /* Ext. save area 15: Arch LBR state */
 typedef struct XSaveArchLBR {
     uint64_t lbr_ctl;
@@ -2163,6 +2178,7 @@ QEMU_BUILD_BUG_ON(sizeof(XSaveHi16_ZMM) != 0x400);
 QEMU_BUILD_BUG_ON(sizeof(XSavePKRU) != 0x8);
 QEMU_BUILD_BUG_ON(sizeof(XSaveCETU) != 0x10);
 QEMU_BUILD_BUG_ON(sizeof(XSaveCETS) != 0x18);
+QEMU_BUILD_BUG_ON(sizeof(XSaveUINTR) != 0x30);
 QEMU_BUILD_BUG_ON(sizeof(XSaveArchLBR) != 0x328);
 QEMU_BUILD_BUG_ON(sizeof(XSaveXTILECFG) != 0x40);
 QEMU_BUILD_BUG_ON(sizeof(XSaveXTILEDATA) != 0x2000);
