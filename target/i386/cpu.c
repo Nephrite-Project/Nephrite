@@ -10951,6 +10951,16 @@ static bool x86_cpu_has_work(CPUState *cs)
          (pending_interrupts & (CPU_INTERRUPT_HARD | CPU_INTERRUPT_INIT)))) {
         return true;
     }
+    /*
+     * INIT ends HLT (Intel SDM 325462-093 Vol. 2A, HLT) unless VMX root
+     * operation blocks it (Vol. 3C, 26.8) or a clear GIF holds it (AMD APM
+     * 24593 rev. 3.45, 15.17, Table 15-10).
+     */
+    if ((pending_interrupts & CPU_INTERRUPT_INIT) &&
+        !(env->vmx.on && !env->vmx.nonroot) &&
+        (env->hflags2 & HF2_GIF_MASK)) {
+        return true;
+    }
     return x86_cpu_pending_interrupt(cs, pending_interrupts) != 0;
 }
 #endif /* !CONFIG_USER_ONLY */
