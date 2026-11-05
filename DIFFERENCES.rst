@@ -125,8 +125,8 @@ Processor features:
 * PCID and INVPCID, IA32_TSC_ADJUST and writable IA32_TSC, the local
   APIC's TSC-deadline mode, XSAVEC, XSAVES, XRSTORS, and IA32_XSS, LAM,
   LASS, WAITPKG (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID
-  faulting, WRMSRNS, the speculation control MSRs, AMD's CPUID override
-  MSRs, and AMD's breakpoint address masks.
+  faulting, WRMSRNS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
+  AMD's CPUID override MSRs, and AMD's breakpoint address masks.
 * A PMU: Intel's architectural performance monitoring (version 2) and
   AMD's core counters.
 * CET: shadow stacks and indirect branch tracking.
@@ -237,6 +237,9 @@ Behaviour changes
 * ``EPYC-Genoa`` needs ``+sbpb,+ibpb-brtype`` for Linux's SRSO mitigation
   to come up without warnings, as under KVM.
 * The PMU has no reference-cycles event.
+* TCG's IA32_ARCH_CAPABILITIES has only the bits that hold for TCG,
+  which is free of the issues they report; CPU models' other bits are
+  dropped with a warning.
 
 
 Known deviations and limits

@@ -1130,7 +1130,23 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 #define TCG_7_0_EDX_FEATURES (CPUID_7_0_EDX_FSRM | \
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
-          TCG_7_0_EDX_CET_IBT)
+          TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES)
+
+#ifdef CONFIG_USER_ONLY
+/*
+ * IA32_ARCH_CAPABILITIES cannot be read from user mode, so that any bits
+ * do, without warnings.
+ */
+#define TCG_ARCH_CAPABILITIES (~0ULL)
+#else
+/* The issues that TCG, which does not execute speculatively, is free of. */
+#define TCG_ARCH_CAPABILITIES (MSR_ARCH_CAP_RDCL_NO | MSR_ARCH_CAP_SSB_NO | \
+          MSR_ARCH_CAP_MDS_NO | MSR_ARCH_CAP_PSCHANGE_MC_NO | \
+          MSR_ARCH_CAP_TAA_NO | MSR_ARCH_CAP_SBDR_SSDP_NO | \
+          MSR_ARCH_CAP_FBSDP_NO | MSR_ARCH_CAP_PSDP_NO | \
+          MSR_ARCH_CAP_BHI_NO | MSR_ARCH_CAP_PBRSB_NO | MSR_ARCH_CAP_GDS_NO | \
+          MSR_ARCH_CAP_RFDS_NO | MSR_ARCH_CAP_ITS_NO)
+#endif
 
 #ifdef CONFIG_USER_ONLY
 #define TCG_7_1_EAX_LASS 0
@@ -1734,13 +1750,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .msr = {
             .index = MSR_IA32_ARCH_CAPABILITIES,
         },
-        /*
-         * FEAT_ARCH_CAPABILITIES only affects a read-only MSR, which
-         * cannot be read from user mode.  Therefore, it has no impact
-         > on any user-mode operation, and warnings about unsupported
-         * features do not matter.
-         */
-        .tcg_features = ~0U,
+        .tcg_features = TCG_ARCH_CAPABILITIES,
     },
     [FEAT_CORE_CAPABILITY] = {
         .type = MSR_FEATURE_WORD,
