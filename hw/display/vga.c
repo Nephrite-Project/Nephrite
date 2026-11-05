@@ -338,11 +338,12 @@ uint32_t vga_ioport_read(void *opaque, uint32_t addr)
     } else {
         switch(addr) {
         case VGA_ATT_W:
-            if (s->ar_flip_flop == 0) {
-                val = s->ar_index;
-            } else {
-                val = 0;
-            }
+            /*
+             * The address register, whichever way the flip-flop is set:
+             * only writes toggle it, and the data reads at 03C1 (IBM
+             * 84F9735, VGA Function, page 2-89).
+             */
+            val = s->ar_index;
             break;
         case VGA_ATT_R:
             index = s->ar_index & 0x1f;

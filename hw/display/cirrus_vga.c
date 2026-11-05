@@ -2511,11 +2511,8 @@ static uint64_t cirrus_vga_ioport_read(void *opaque, hwaddr addr,
     } else {
         switch (addr) {
         case 0x3c0:
-            if (s->ar_flip_flop == 0) {
-                val = s->ar_index;
-            } else {
-                val = 0;
-            }
+            /* The address register, whichever way the flip-flop is set. */
+            val = s->ar_index;
             break;
         case 0x3c1:
             index = s->ar_index & 0x1f;

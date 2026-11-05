@@ -225,6 +225,10 @@ Devices:
 * ATAPI completes the commands that a pending unit attention refuses; on
   AHCI they never completed, stalling each read of a swapped CD for 32
   seconds.
+* The VGA and Cirrus VGA read the attribute controller's address register
+  at 03C0 with the flip-flop either way. They read 0 with it in the data
+  state, so Windows 3.1's standard mode, which saves the register on
+  switching away from a DOS session, blanked the screen on switching back.
 
 Memory and KVM:
 
