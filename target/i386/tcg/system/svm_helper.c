@@ -1168,6 +1168,33 @@ void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type,
     cpu_svm_check_intercept_param(env, type, info, GETPC());
 }
 
+/*
+ * MOV to a CR and MOV DR take SVM's intercept after their other exception
+ * checks (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
+ * Table 15-7), through x86_svm_late_intercept(), but VMX's MOV-DR exit
+ * before those and the privilege check (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3). The decode-assist information waits for either.
+ */
+void HELPER(mov_crdr_intercept)(CPUX86State *env, uint32_t type,
+                                uint64_t info)
+{
+    if (!(env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST) &&
+        !env->vmx.nonroot) {
+        info = 0;
+    }
+    env->svm_decode_info = info;
+    if (env->vmx.nonroot && type >= SVM_EXIT_READ_DR0) {
+        cpu_svm_check_intercept_param(env, type, info, GETPC());
+    }
+}
+
+void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra)
+{
+    if (!env->vmx.nonroot) {
+        cpu_svm_check_intercept_param(env, type, env->svm_decode_info, ra);
+    }
+}
+
 void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
                          uint32_t next_eip_addend)
 {

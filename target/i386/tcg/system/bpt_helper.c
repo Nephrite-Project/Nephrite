@@ -316,6 +316,8 @@ void breakpoint_handler(CPUState *cs)
 
 target_ulong HELPER(get_dr)(CPUX86State *env, int reg)
 {
+    int dr = reg;
+
     if (reg >= 4 && reg < 6) {
         if (env->cr[4] & CR4_DE_MASK) {
             raise_exception_ra(env, EXCP06_ILLOP, GETPC());
@@ -327,12 +329,15 @@ target_ulong HELPER(get_dr)(CPUX86State *env, int reg)
     if (env->dr[7] & DR7_GD) {
         raise_debug_exception(env, DR6_BD, GETPC());
     }
+    x86_svm_late_intercept(env, SVM_EXIT_READ_DR0 + dr, GETPC());
 
     return env->dr[reg];
 }
 
 void HELPER(set_dr)(CPUX86State *env, int reg, target_ulong t0)
 {
+    int dr = reg;
+
     if (reg >= 4 && reg < 6) {
         if (env->cr[4] & CR4_DE_MASK) {
             raise_exception_ra(env, EXCP06_ILLOP, GETPC());
@@ -344,6 +349,10 @@ void HELPER(set_dr)(CPUX86State *env, int reg, target_ulong t0)
     if (env->dr[7] & DR7_GD) {
         raise_debug_exception(env, DR6_BD, GETPC());
     }
+    if (reg >= 6 && (t0 & DR_RESERVED_MASK)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    x86_svm_late_intercept(env, SVM_EXIT_WRITE_DR0 + dr, GETPC());
 
     if (reg < 4) {
         if (hw_breakpoint_enabled(env->dr[7], reg)
@@ -354,15 +363,10 @@ void HELPER(set_dr)(CPUX86State *env, int reg, target_ulong t0)
         } else {
             env->dr[reg] = t0;
         }
+    } else if (reg == 6) {
+        env->dr[6] = t0 | DR6_FIXED_1;
     } else {
-        if (t0 & DR_RESERVED_MASK) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
-        }
-        if (reg == 6) {
-            env->dr[6] = t0 | DR6_FIXED_1;
-        } else {
-            cpu_x86_update_dr7(env, t0);
-        }
+        cpu_x86_update_dr7(env, t0);
     }
 }
 

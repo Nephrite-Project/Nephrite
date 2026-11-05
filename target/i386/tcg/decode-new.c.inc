@@ -3444,6 +3444,7 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
 {
     CPUX86State *env = cpu_env(cpu);
     X86DecodedInsn decode;
+    uint64_t intercept_info = 0;
     X86DecodeFunc decode_func = decode_root;
     bool accept_lock = false;
     uint8_t cc_live, b;
@@ -3853,11 +3854,6 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
      *
      * XSETBV will check for CPL0 in the gen_* function instead of using chk().
      */
-    if (decode.e.check & X86_CHECK_cpl0) {
-        if (CPL(s) != 0) {
-            goto gp_fault;
-        }
-    }
     if (decode.e.has_intercept && unlikely(GUEST(s))) {
         uint64_t info = 0;
 
@@ -3874,10 +3870,26 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
             if (decode.e.intercept < SVM_EXIT_READ_DR0) {
                 info |= 1ULL << 63;
             }
+            /* MOV to a CR and MOV DR check theirs in the helpers. */
+            if (decode.e.intercept >= SVM_EXIT_WRITE_CR0) {
+                TCGv_i32 type = tcg_constant_i32(decode.e.intercept);
+
+                gen_helper_mov_crdr_intercept(tcg_env, type,
+                                              tcg_constant_i64(info));
+                decode.e.has_intercept = false;
+            }
         }
+        intercept_info = info;
+    }
+    if (decode.e.check & X86_CHECK_cpl0) {
+        if (CPL(s) != 0) {
+            goto gp_fault;
+        }
+    }
+    if (decode.e.has_intercept && unlikely(GUEST(s))) {
         gen_helper_svm_check_intercept(tcg_env,
                                        tcg_constant_i32(decode.e.intercept),
-                                       tcg_constant_i64(info));
+                                       tcg_constant_i64(intercept_info));
     }
     if (decode.e.check) {
         if ((decode.e.check & X86_CHECK_smm) && !(s->flags & HF_SMM_MASK)) {

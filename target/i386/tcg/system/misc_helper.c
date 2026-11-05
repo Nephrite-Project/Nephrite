@@ -262,6 +262,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
         t0 &= CR0_DEFINED_MASK;
+        x86_svm_late_intercept(env, SVM_EXIT_WRITE_CR0, GETPC());
         /*
         * If we reach this point, the CR0 write intercept is disabled.
         * But we could still exit if the hypervisor has requested the selective
@@ -301,6 +302,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         } else {
             t0 &= 0xffffffffUL;
         }
+        x86_svm_late_intercept(env, SVM_EXIT_WRITE_CR0 + 3, GETPC());
         load = cr_loads_pdptes(env, 3, env->cr[0], env->cr[4]);
         if (load && !x86_read_pdptes(env, t0, pdpte, GETPC())) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
@@ -311,6 +313,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         if (!cr4_valid(env, t0)) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
+        x86_svm_late_intercept(env, SVM_EXIT_WRITE_CR0 + 4, GETPC());
         load = cr_loads_pdptes(env, 4, env->cr[0], t0);
         if (load && !x86_read_pdptes(env, env->cr[3], pdpte, GETPC())) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
@@ -321,6 +324,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         if (t0 & ~(target_ulong)0xf) {
             raise_exception_ra(env, EXCP0D_GPF, GETPC());
         }
+        x86_svm_late_intercept(env, SVM_EXIT_WRITE_CR0 + 8, GETPC());
         if (x86_vmx_tpr_shadow(env)) {
             x86_vmx_write_cr8(env, t0, GETPC());
             break;
@@ -350,6 +354,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
         }
         break;
     default:
+        x86_svm_late_intercept(env, SVM_EXIT_WRITE_CR0 + reg, GETPC());
         env->cr[reg] = t0;
         break;
     }

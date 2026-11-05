@@ -297,6 +297,8 @@ STUB_HELPER(inw, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(inl, TCGv ret, TCGv_env env, TCGv_i32 port)
 STUB_HELPER(lmsw, TCGv_env env, TCGv val, TCGv_i32 mem)
 STUB_HELPER(monitor, TCGv_env env, TCGv addr)
+STUB_HELPER(mov_crdr_intercept, TCGv_env env, TCGv_i32 type,
+            TCGv_i64 param)
 STUB_HELPER(mwait, TCGv_env env, TCGv_i32 pc_ofs)
 STUB_HELPER(outb, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outw, TCGv_env env, TCGv_i32 port, TCGv_i32 val)

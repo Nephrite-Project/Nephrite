@@ -205,6 +205,7 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  uintptr_t ra);
 G_NORETURN void x86_vmx_pdpte_exit(CPUX86State *env, hwaddr gpa,
                                    uintptr_t ra);
+void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra);
 #endif
 
 /* system/misc_helper.c */
