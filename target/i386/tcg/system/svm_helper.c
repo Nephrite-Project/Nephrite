@@ -29,6 +29,16 @@
 
 /* Secure Virtual Machine helpers */
 
+/* Sets GIF; an INIT that the clear GIF held is pending again. */
+static void svm_set_gif(CPUX86State *env)
+{
+    env->hflags2 |= HF2_GIF_MASK;
+    if (env->svm_init_held) {
+        env->svm_init_held = false;
+        cpu_set_interrupt(env_cpu(env), CPU_INTERRUPT_INIT);
+    }
+}
+
 static void svm_save_seg(CPUX86State *env, int mmu_idx, hwaddr addr,
                          const SegmentCache *sc)
 {
@@ -774,7 +784,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
 
     svm_vmrun_tlb(env, asid);
 
-    env->hflags2 |= HF2_GIF_MASK;
+    svm_set_gif(env);
 
     /* AVIC looks at the backing page upon entry into the guest. */
     if (env->svm_avic) {
@@ -1008,7 +1018,7 @@ void HELPER(stgi)(CPUX86State *env)
         env->int_ctl |= V_GIF_MASK;
         env->hflags2 |= HF2_VGIF_MASK;
     } else {
-        env->hflags2 |= HF2_GIF_MASK;
+        svm_set_gif(env);
     }
 }
 

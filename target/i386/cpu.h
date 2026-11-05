@@ -2703,6 +2703,8 @@ typedef struct CPUArchState {
     uint32_t nested_pg_mode;
     uint8_t v_tpr;
     uint32_t int_ctl;
+    /* An INIT that a clear GIF holds until STGI or VMRUN sets it. */
+    bool svm_init_held;
     /* The length of the instruction an SVM intercept reports. */
     uint32_t svm_insn_len;
     /* The guest's IOPM, MSRPM, and virtual interrupt vector, from VMRUN. */

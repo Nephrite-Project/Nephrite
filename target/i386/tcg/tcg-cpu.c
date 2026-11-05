@@ -254,6 +254,15 @@ static void x86_cpu_exec_reset(CPUState *cs)
         return;
     }
     cpu_svm_check_intercept_param(env, SVM_EXIT_INIT, 0, 0);
+    /*
+     * A clear GIF holds INIT pending until it is set (AMD APM 24593 rev.
+     * 3.45, 15.17, Table 15-10), as after the #VMEXIT that intercepts it.
+     */
+    if (!(env->hflags2 & HF2_GIF_MASK)) {
+        env->svm_init_held = true;
+        cpu_reset_interrupt(cs, CPU_INTERRUPT_INIT);
+        return;
+    }
     do_cpu_init(env_archcpu(env));
     cs->exception_index = EXCP_HALTED;
 }
