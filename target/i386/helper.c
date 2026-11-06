@@ -811,12 +811,9 @@ void do_cpu_sipi(X86CPU *cpu)
 void cpu_load_efer(CPUX86State *env, uint64_t val)
 {
     env->efer = val;
-    env->hflags &= ~(HF_LMA_MASK | HF_SVME_MASK);
+    env->hflags &= ~HF_LMA_MASK;
     if (env->efer & MSR_EFER_LMA) {
         env->hflags |= HF_LMA_MASK;
-    }
-    if (env->efer & MSR_EFER_SVME) {
-        env->hflags |= HF_SVME_MASK;
     }
 }
 

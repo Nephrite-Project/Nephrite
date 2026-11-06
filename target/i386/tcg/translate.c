@@ -230,13 +230,13 @@ typedef struct DisasContext {
 #define PE(S)     true
 #define CPL(S)    3
 #define IOPL(S)   0
-#define SVME(S)   false
+#define SVM(S)    false
 #define GUEST(S)  false
 #else
 #define PE(S)     (((S)->flags & HF_PE_MASK) != 0)
 #define CPL(S)    ((S)->cpl)
 #define IOPL(S)   ((S)->iopl)
-#define SVME(S)   (((S)->flags & HF_SVME_MASK) != 0)
+#define SVM(S)    true
 #define GUEST(S)  (((S)->flags & HF_GUEST_MASK) != 0)
 #endif
 #if defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
@@ -311,6 +311,7 @@ STUB_HELPER(outw, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(outl, TCGv_env env, TCGv_i32 port, TCGv_i32 val)
 STUB_HELPER(read_crN, TCGv ret, TCGv_env env, TCGv_i32 reg)
 STUB_HELPER(stgi, TCGv_env env)
+STUB_HELPER(svm_allowed, TCGv_env env, TCGv_i32 flags)
 STUB_HELPER(svm_check_intercept, TCGv_env env, TCGv_i32 type,
             TCGv_i64 param)
 STUB_HELPER(vmload, TCGv_env env, TCGv_i32 aflag)
@@ -2015,6 +2016,18 @@ static bool check_cpl0(DisasContext *s)
     return false;
 }
 
+/*
+ * EFER.SVME, which the TB's flags do not hold, checked when the SVM
+ * instruction runs: its #UD comes before the #GP outside CPL 0 that CPL0
+ * asks for, and SKINIT allows STGI and SKINIT without it (svm_helper.c).
+ */
+static void gen_svm_allowed(DisasContext *s, bool cpl0, bool skinit)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_svm_allowed(tcg_env, tcg_constant_i32(cpl0 | skinit << 1));
+}
+
 /* XXX: add faster immediate case */
 static TCGv gen_shiftd_rm_T1(DisasContext *s, MemOp ot,
                              bool is_right, TCGv count)
@@ -3660,12 +3673,10 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
 #endif
 
         case 0xd8: /* VMRUN */
-            if (!SVME(s) || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, false);
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             /*
@@ -3680,79 +3691,69 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             break;
 
         case 0xd9: /* VMMCALL */
-            if (!SVME(s)) {
+            if (!SVM(s)) {
                 goto illegal_op;
             }
+            gen_svm_allowed(s, false, false);
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_vmmcall(tcg_env);
             break;
 
         case 0xda: /* VMLOAD */
-            if (!SVME(s) || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, false);
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_vmload(tcg_env, tcg_constant_i32(s->aflag - 1));
             break;
 
         case 0xdb: /* VMSAVE */
-            if (!SVME(s) || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, false);
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_vmsave(tcg_env, tcg_constant_i32(s->aflag - 1));
             break;
 
         case 0xdc: /* STGI */
-            if ((!SVME(s) && !(s->cpuid_ext3_features & CPUID_EXT3_SKINIT))
-                || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, true);
             gen_update_cc_op(s);
             gen_helper_stgi(tcg_env);
             s->base.is_jmp = DISAS_EOB_NEXT;
             break;
 
         case 0xdd: /* CLGI */
-            if (!SVME(s) || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, false);
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_clgi(tcg_env);
             break;
 
         case 0xde: /* SKINIT */
-            if ((!SVME(s) && !(s->cpuid_ext3_features & CPUID_EXT3_SKINIT))
-                || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
+            gen_svm_allowed(s, false, true);
             gen_svm_check_intercept(s, SVM_EXIT_SKINIT);
             /* If not intercepted, not implemented -- raise #UD. */
             goto illegal_op;
 
         case 0xdf: /* INVLPGA */
-            if (!SVME(s) || !PE(s)) {
+            if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            if (!check_cpl0(s)) {
-                break;
-            }
+            gen_svm_allowed(s, true, false);
             gen_svm_check_intercept(s, SVM_EXIT_INVLPGA);
             if (s->aflag == MO_64) {
                 tcg_gen_mov_tl(s->A0, cpu_regs[R_EAX]);
@@ -4375,7 +4376,6 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     g_assert(SS32(dc) == ((flags & HF_SS32_MASK) != 0));
     g_assert(LMA(dc) == ((flags & HF_LMA_MASK) != 0));
     g_assert(ADDSEG(dc) == ((flags & HF_ADDSEG_MASK) != 0));
-    g_assert(SVME(dc) == ((flags & HF_SVME_MASK) != 0));
     g_assert(GUEST(dc) == ((flags & HF_GUEST_MASK) != 0));
 
     dc->cc_op = CC_OP_DYNAMIC;

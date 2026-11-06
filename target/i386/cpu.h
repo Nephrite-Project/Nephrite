@@ -182,7 +182,6 @@ typedef enum X86Seg {
 #define HF_VM_SHIFT         17 /* must be same as eflags */
 #define HF_AC_SHIFT         18 /* must be same as eflags */
 #define HF_SMM_SHIFT        19 /* CPU in SMM mode */
-#define HF_SVME_SHIFT       20 /* SVME enabled (copy of EFER.SVME) */
 #define HF_GUEST_SHIFT      21 /* SVM intercepts are active */
 #define HF_OSFXSR_SHIFT     22 /* CR4.OSFXSR */
 #define HF_SMAP_SHIFT       23 /* CR4.SMAP */
@@ -214,7 +213,6 @@ typedef enum X86Seg {
 #define HF_VM_MASK           (1 << HF_VM_SHIFT)
 #define HF_AC_MASK           (1 << HF_AC_SHIFT)
 #define HF_SMM_MASK          (1 << HF_SMM_SHIFT)
-#define HF_SVME_MASK         (1 << HF_SVME_SHIFT)
 #define HF_GUEST_MASK        (1 << HF_GUEST_SHIFT)
 #define HF_OSFXSR_MASK       (1 << HF_OSFXSR_SHIFT)
 #define HF_SMAP_MASK         (1 << HF_SMAP_SHIFT)
