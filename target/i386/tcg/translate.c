@@ -1679,18 +1679,18 @@ static void gen_cmps(DisasContext *s, MemOp ot, TCGv dshift)
     gen_op_add_reg(s, s->aflag, R_EDI, dshift);
 }
 
+/*
+ * I/O breakpoints, which the helper looks for only where one is enabled, as
+ * the TB's flags do not say whether one is.
+ */
 static void gen_bpt_io(DisasContext *s, TCGv_i32 t_port, int ot)
 {
-    if (s->flags & HF_IOBPT_MASK) {
-#ifdef CONFIG_USER_ONLY
-        /* user-mode cpu should not be in IOBPT mode */
-        g_assert_not_reached();
-#else
-        TCGv_i32 t_size = tcg_constant_i32(1 << ot);
-        TCGv t_next = eip_next_tl(s);
-        gen_helper_bpt_io(tcg_env, t_port, t_size, t_next);
-#endif /* CONFIG_USER_ONLY */
-    }
+#ifndef CONFIG_USER_ONLY
+    TCGv_i32 t_size = tcg_constant_i32(1 << ot);
+    TCGv t_next = eip_next_tl(s);
+
+    gen_helper_bpt_io(tcg_env, t_port, t_size, t_next);
+#endif
 }
 
 static void gen_ins(DisasContext *s, MemOp ot, TCGv dshift)

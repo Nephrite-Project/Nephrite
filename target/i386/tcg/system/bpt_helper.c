@@ -146,9 +146,9 @@ static int hw_breakpoint_insert(CPUX86State *env, int index)
         break;
 
     case DR7_TYPE_IO_RW:
-        /* Notice when we should enable calls to bpt_io.  */
+        /* Notice when bpt_io has breakpoints to look at.  */
         return hw_breakpoint_enabled(env->dr[7], index)
-               ? HF_IOBPT_MASK : 0;
+               ? HF2_IOBPT_MASK : 0;
 
     case DR7_TYPE_DATA_WR:
         if (hw_breakpoint_enabled(dr7, index)) {
@@ -189,7 +189,7 @@ static void hw_breakpoint_remove(CPUX86State *env, int index)
         break;
 
     case DR7_TYPE_IO_RW:
-        /* HF_IOBPT_MASK cleared elsewhere.  */
+        /* HF2_IOBPT_MASK cleared elsewhere.  */
         break;
     }
 }
@@ -233,7 +233,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
                 iobpt |= hw_breakpoint_insert(env, i);
             } else if (hw_breakpoint_type(new_dr7, i) == DR7_TYPE_IO_RW
                        && hw_breakpoint_enabled(new_dr7, i)) {
-                iobpt |= HF_IOBPT_MASK;
+                iobpt |= HF2_IOBPT_MASK;
             }
         }
     } else {
@@ -246,7 +246,7 @@ void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7)
         }
     }
 
-    env->hflags = (env->hflags & ~HF_IOBPT_MASK) | iobpt;
+    env->hflags2 = (env->hflags2 & ~HF2_IOBPT_MASK) | iobpt;
 }
 
 /*
@@ -403,6 +403,9 @@ void HELPER(bpt_io)(CPUX86State *env, uint32_t port,
     target_ulong dr7 = env->dr[7];
     int i, hit = 0;
 
+    if (!(env->hflags2 & HF2_IOBPT_MASK)) {
+        return;
+    }
     for (i = 0; i < DR7_MAX_BP; ++i) {
         if (hw_breakpoint_type(dr7, i) == DR7_TYPE_IO_RW
             && hw_breakpoint_enabled(dr7, i)) {

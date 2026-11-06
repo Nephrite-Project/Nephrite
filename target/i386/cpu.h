@@ -186,7 +186,6 @@ typedef enum X86Seg {
 #define HF_GUEST_SHIFT      21 /* SVM intercepts are active */
 #define HF_OSFXSR_SHIFT     22 /* CR4.OSFXSR */
 #define HF_SMAP_SHIFT       23 /* CR4.SMAP */
-#define HF_IOBPT_SHIFT      24 /* an io breakpoint enabled */
 #define HF_MPX_EN_SHIFT     25 /* MPX Enabled (CR4+XCR0+BNDCFGx) */
 #define HF_MPX_IU_SHIFT     26 /* BND registers in-use */
 #define HF_UMIP_SHIFT       27 /* CR4.UMIP */
@@ -218,7 +217,6 @@ typedef enum X86Seg {
 #define HF_GUEST_MASK        (1 << HF_GUEST_SHIFT)
 #define HF_OSFXSR_MASK       (1 << HF_OSFXSR_SHIFT)
 #define HF_SMAP_MASK         (1 << HF_SMAP_SHIFT)
-#define HF_IOBPT_MASK        (1 << HF_IOBPT_SHIFT)
 #define HF_MPX_EN_MASK       (1 << HF_MPX_EN_SHIFT)
 #define HF_MPX_IU_MASK       (1 << HF_MPX_IU_SHIFT)
 #define HF_UMIP_MASK         (1 << HF_UMIP_SHIFT)
@@ -280,6 +278,7 @@ typedef enum X86Seg {
 #define HF2_IGNNE_SHIFT          7 /* Ignore CR0.NE=0 */
 #define HF2_VGIF_SHIFT           8 /* Can take VIRQ*/
 #define HF2_HYPERV_HLT_SHIFT     9 /* Hyper-V HV_X64_MSR_GUEST_IDLE */
+#define HF2_IOBPT_SHIFT         10 /* an I/O breakpoint is enabled */
 
 #define HF2_GIF_MASK            (1 << HF2_GIF_SHIFT)
 #define HF2_HIF_MASK            (1 << HF2_HIF_SHIFT)
@@ -291,6 +290,7 @@ typedef enum X86Seg {
 #define HF2_IGNNE_MASK          (1 << HF2_IGNNE_SHIFT)
 #define HF2_VGIF_MASK           (1 << HF2_VGIF_SHIFT)
 #define HF2_HYPERV_HLT_MASK     (1 << HF2_HYPERV_HLT_SHIFT)
+#define HF2_IOBPT_MASK          (1 << HF2_IOBPT_SHIFT)
 
 #define CR0_PE_SHIFT 0
 #define CR0_MP_SHIFT 1
