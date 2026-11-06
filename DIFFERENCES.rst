@@ -261,6 +261,10 @@ Processor emulation (TCG):
 * SMI delivery and RSM load the debug registers as they are, without the
   checks and intercepts of MOV to DR, which had them raise #DB where
   DR7.GD was set, #GP, or SVM's DR-write #VMEXIT halfway through.
+* The 64-bit SMM state-save area holds RFLAGS, DR6, DR7, and CR0 in
+  quadwords and GDTR's and IDTR's limits in words, as AMD's table has
+  them, so RSM no longer takes a reserved word for those limits' upper
+  halves.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
   hflags2 for IGNNE# only from the first CPU's thread").
 * CPUID leaf 0DH marks the CET and Arch LBR state components as

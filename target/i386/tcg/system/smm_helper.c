@@ -46,7 +46,7 @@ static void sm_state_init_64(X86CPU *cpu)
     }
 
     x86_stq_phys(cs, sm_state + 0x7e68, env->gdt.base);
-    x86_stl_phys(cs, sm_state + 0x7e64, env->gdt.limit);
+    x86_stw_phys(cs, sm_state + 0x7e64, env->gdt.limit);
 
     x86_stw_phys(cs, sm_state + 0x7e70, env->ldt.selector);
     x86_stq_phys(cs, sm_state + 0x7e78, env->ldt.base);
@@ -54,7 +54,7 @@ static void sm_state_init_64(X86CPU *cpu)
     x86_stw_phys(cs, sm_state + 0x7e72, (env->ldt.flags >> 8) & 0xf0ff);
 
     x86_stq_phys(cs, sm_state + 0x7e88, env->idt.base);
-    x86_stl_phys(cs, sm_state + 0x7e84, env->idt.limit);
+    x86_stw_phys(cs, sm_state + 0x7e84, env->idt.limit);
 
     x86_stw_phys(cs, sm_state + 0x7e90, env->tr.selector);
     x86_stq_phys(cs, sm_state + 0x7e98, env->tr.base);
@@ -78,19 +78,19 @@ static void sm_state_init_64(X86CPU *cpu)
     for (i = 8; i < 16; i++) {
         x86_stq_phys(cs, sm_state + 0x7ff8 - i * 8, env->regs[i]);
     }
-    x86_stq_phys(cs, sm_state + 0x7f78, env->eip);
-    x86_stl_phys(cs, sm_state + 0x7f70, cpu_compute_eflags(env));
-    x86_stl_phys(cs, sm_state + 0x7f68, env->dr[6]);
-    x86_stl_phys(cs, sm_state + 0x7f60, env->dr[7]);
-
     /*
-     * CR4 takes a quadword, whose upper half holds CR4.FRED (AMD64
-     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, Table
-     * 10-1).
+     * RFLAGS, the debug registers, and the control registers take
+     * quadwords, CR4's upper half holding CR4.FRED, and GDTR's and IDTR's
+     * limits words (AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, Table 10-1).
      */
+    x86_stq_phys(cs, sm_state + 0x7f78, env->eip);
+    x86_stq_phys(cs, sm_state + 0x7f70, cpu_compute_eflags(env));
+    x86_stq_phys(cs, sm_state + 0x7f68, env->dr[6]);
+    x86_stq_phys(cs, sm_state + 0x7f60, env->dr[7]);
     x86_stq_phys(cs, sm_state + 0x7f48, env->cr[4]);
     x86_stq_phys(cs, sm_state + 0x7f50, env->cr[3]);
-    x86_stl_phys(cs, sm_state + 0x7f58, env->cr[0]);
+    x86_stq_phys(cs, sm_state + 0x7f58, env->cr[0]);
 
     x86_stl_phys(cs, sm_state + 0x7efc, 0x00020064);    /* SMM revision ID */
     x86_stl_phys(cs, sm_state + 0x7f00, env->smbase);
@@ -229,7 +229,7 @@ static void rsm_load_regs_64(CPUX86State *env)
     cpu_load_efer(env, x86_ldq_phys(cs, sm_state + 0x7ed0));
 
     env->gdt.base = x86_ldq_phys(cs, sm_state + 0x7e68);
-    env->gdt.limit = x86_ldl_phys(cs, sm_state + 0x7e64);
+    env->gdt.limit = x86_lduw_phys(cs, sm_state + 0x7e64);
 
     env->ldt.selector = x86_lduw_phys(cs, sm_state + 0x7e70);
     env->ldt.base = x86_ldq_phys(cs, sm_state + 0x7e78);
@@ -237,7 +237,7 @@ static void rsm_load_regs_64(CPUX86State *env)
     env->ldt.flags = (x86_lduw_phys(cs, sm_state + 0x7e72) & 0xf0ff) << 8;
 
     env->idt.base = x86_ldq_phys(cs, sm_state + 0x7e88);
-    env->idt.limit = x86_ldl_phys(cs, sm_state + 0x7e84);
+    env->idt.limit = x86_lduw_phys(cs, sm_state + 0x7e84);
 
     env->tr.selector = x86_lduw_phys(cs, sm_state + 0x7e90);
     env->tr.base = x86_ldq_phys(cs, sm_state + 0x7e98);
