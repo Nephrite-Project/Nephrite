@@ -111,9 +111,10 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
 /*
  * What #VMEXIT reports in EXITINTINFO if it comes during the delivery of the
  * event that begins: an NMI or an external interrupt, with no error code,
- * apart from exceptions (AMD64 Architecture Programmer's Manual Volume 2,
- * 24593 rev. 3.46, 15.7.2), or an event VMRUN injected, as EVENTINJ gave it.
- * An exception that the delivery of another raises replaces it.
+ * apart from exceptions, among which those of INT3 and INTO (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.7.2 and
+ * Table 15-1), or an event VMRUN injected, as EVENTINJ gave it. An exception
+ * that the delivery of another raises replaces it.
  */
 void handle_even_inj(CPUX86State *env, int intno, int is_int,
                      int error_code, int is_hw, int rm)
@@ -126,7 +127,7 @@ void handle_even_inj(CPUX86State *env, int intno, int is_int,
         env->svm_event_injected = false;
         return;
     }
-    if (is_int) {
+    if (is_int && env->vmx.soft_exception != X86_VMX_SOFT_EXCEPTION) {
         type = SVM_EVTINJ_TYPE_SOFT;
     } else if (is_hw) {
         type = intno == EXCP02_NMI ? SVM_EVTINJ_TYPE_NMI

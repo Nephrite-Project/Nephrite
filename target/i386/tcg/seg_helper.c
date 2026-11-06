@@ -1634,6 +1634,7 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
         } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 1);
         }
+        env->vmx.soft_exception = 0;
 #endif
         do_interrupt_real(env, intno, is_int, error_code, next_eip);
     }

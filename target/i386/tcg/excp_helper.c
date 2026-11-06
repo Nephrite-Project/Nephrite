@@ -214,10 +214,11 @@ G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
 #endif
     cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno, 0, 0);
 #if !defined(CONFIG_USER_ONLY)
-    /* FRED event delivery tells them from INT n by it too. */
-    if (env->cr[4] & CR4_FRED_MASK) {
-        env->vmx.soft_exception = X86_VMX_SOFT_EXCEPTION;
-    }
+    /*
+     * FRED event delivery and SVM's EXITINTINFO tell them from INT n by it
+     * too.
+     */
+    env->vmx.soft_exception = X86_VMX_SOFT_EXCEPTION;
 #endif
 
     cs->exception_index = intno;
