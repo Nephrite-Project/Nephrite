@@ -4421,6 +4421,41 @@ bool x86_vmx_ept_ad(CPUX86State *env)
     return VMCS(EPT_POINTER) & EPTP_AD;
 }
 
+/*
+ * A debugger's translation of guest-physical GPA through EPT, which sets no
+ * flag and exits for nothing: false where EPT does not map it; GPA itself
+ * without EPT.
+ */
+bool x86_vmx_ept_debug(CPUX86State *env, uint64_t gpa, uint64_t *hpa)
+{
+    uint64_t eptp = VMCS(EPT_POINTER), table = eptp & PG_ADDRESS_MASK;
+    uint64_t present = EPT_READ | EPT_WRITE | EPT_EXEC |
+                       (x86_vmx_ept_mbec(env) ? EPT_EXEC_USER : 0);
+    int level = ((eptp >> 3) & 7) + 1;
+
+    if (!x86_vmx_ept_active(env)) {
+        *hpa = gpa;
+        return true;
+    }
+    for (;;) {
+        int shift = 12 + 9 * (level - 1);
+        uint64_t entry = x86_ldq_phys(env_cpu(env), table +
+                                      ((gpa >> shift) & 0x1ff) * 8);
+
+        if (!(entry & present)) {
+            return false;
+        }
+        if (level == 1 || (level <= 3 && (entry & EPT_LARGE))) {
+            uint64_t offset = MAKE_64BIT_MASK(0, shift);
+
+            *hpa = (entry & PG_ADDRESS_MASK & ~offset) | (gpa & offset);
+            return true;
+        }
+        table = entry & PG_ADDRESS_MASK;
+        level--;
+    }
+}
+
 /* An EPTP a VM entry accepts (Intel SDM 325462-093 Vol. 3C, 29.2.1.1). */
 static bool vmx_eptp_valid(CPUX86State *env, uint64_t eptp)
 {

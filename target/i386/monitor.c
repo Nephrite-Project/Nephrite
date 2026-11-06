@@ -50,6 +50,33 @@ static hwaddr addr_canonical(CPUArchState *env, hwaddr addr)
     return addr;
 }
 
+/*
+ * A read of a paging-structure entry for these dumps, through the nested
+ * paging of the guest that TCG runs, whose structures are guest-physical:
+ * 0, not present, where it does not map them.
+ */
+static uint64_t mon_ldq(CPUArchState *env, AddressSpace *as, hwaddr pa,
+                        MemTxAttrs attrs)
+{
+    uint64_t hpa;
+
+    if (!x86_cpu_debug_gpa(env, pa, &hpa)) {
+        return 0;
+    }
+    return address_space_ldq_le(as, hpa, attrs, NULL);
+}
+
+static uint32_t mon_ldl(CPUArchState *env, AddressSpace *as, hwaddr pa,
+                        MemTxAttrs attrs)
+{
+    uint64_t hpa;
+
+    if (!x86_cpu_debug_gpa(env, pa, &hpa)) {
+        return 0;
+    }
+    return address_space_ldl_le(as, hpa, attrs, NULL);
+}
+
 static void print_pte(MonitorHMP *hmp, CPUArchState *env, hwaddr addr,
                       hwaddr pte, hwaddr mask)
 {
@@ -78,15 +105,15 @@ static void tlb_info_32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
     pgd = env->cr[3] & ~0xfff;
     for(l1 = 0; l1 < 1024; l1++) {
-        pde = address_space_ldl_le(as, pgd + l1 * 4, attrs, NULL);
+        pde = mon_ldl(env, as, pgd + l1 * 4, attrs);
         if (pde & PG_PRESENT_MASK) {
             if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
                 /* 4M pages */
                 print_pte(hmp, env, (l1 << 22), pde, ~((1 << 21) - 1));
             } else {
                 for(l2 = 0; l2 < 1024; l2++) {
-                    pte = address_space_ldl_le(as, (pde & ~0xfff) + l2 * 4,
-                                               attrs, NULL);
+                    pte = mon_ldl(env, as, (pde & ~0xfff) + l2 * 4,
+                                               attrs);
                     if (pte & PG_PRESENT_MASK) {
                         print_pte(hmp, env, (l1 << 22) + (l2 << 12),
                                   pte & ~PG_PSE_MASK,
@@ -107,11 +134,11 @@ static void tlb_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
     pdp_addr = env->cr[3] & ~0x1f;
     for (l1 = 0; l1 < 4; l1++) {
-        pdpe = address_space_ldq_le(as, pdp_addr + l1 * 8, attrs, NULL);
+        pdpe = mon_ldq(env, as, pdp_addr + l1 * 8, attrs);
         if (pdpe & PG_PRESENT_MASK) {
             pd_addr = pdpe & 0x3fffffffff000ULL;
             for (l2 = 0; l2 < 512; l2++) {
-                pde = address_space_ldq_le(as, pd_addr + l2 * 8, attrs, NULL);
+                pde = mon_ldq(env, as, pd_addr + l2 * 8, attrs);
                 if (pde & PG_PRESENT_MASK) {
                     if (pde & PG_PSE_MASK) {
                         /* 2M pages with PAE, CR4.PSE is ignored */
@@ -120,8 +147,8 @@ static void tlb_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
                     } else {
                         pt_addr = pde & 0x3fffffffff000ULL;
                         for (l3 = 0; l3 < 512; l3++) {
-                            pte = address_space_ldq_le(as, pt_addr + l3 * 8,
-                                                       attrs, NULL);
+                            pte = mon_ldq(env, as, pt_addr + l3 * 8,
+                                                       attrs);
                             if (pte & PG_PRESENT_MASK) {
                                 print_pte(hmp, env, (l1 << 30) + (l2 << 21)
                                           + (l3 << 12),
@@ -146,14 +173,14 @@ static void tlb_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as,
     uint64_t pdp_addr, pd_addr, pt_addr;
 
     for (l1 = 0; l1 < 512; l1++) {
-        pml4e = address_space_ldq_le(as, pml4_addr + l1 * 8, attrs, NULL);
+        pml4e = mon_ldq(env, as, pml4_addr + l1 * 8, attrs);
         if (!(pml4e & PG_PRESENT_MASK)) {
             continue;
         }
 
         pdp_addr = pml4e & 0x3fffffffff000ULL;
         for (l2 = 0; l2 < 512; l2++) {
-            pdpe = address_space_ldq_le(as, pdp_addr + l2 * 8, attrs, NULL);
+            pdpe = mon_ldq(env, as, pdp_addr + l2 * 8, attrs);
             if (!(pdpe & PG_PRESENT_MASK)) {
                 continue;
             }
@@ -167,7 +194,7 @@ static void tlb_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as,
 
             pd_addr = pdpe & 0x3fffffffff000ULL;
             for (l3 = 0; l3 < 512; l3++) {
-                pde = address_space_ldq_le(as, pd_addr + l3 * 8, attrs, NULL);
+                pde = mon_ldq(env, as, pd_addr + l3 * 8, attrs);
                 if (!(pde & PG_PRESENT_MASK)) {
                     continue;
                 }
@@ -181,8 +208,8 @@ static void tlb_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as,
 
                 pt_addr = pde & 0x3fffffffff000ULL;
                 for (l4 = 0; l4 < 512; l4++) {
-                    pte = address_space_ldq_le(as, pt_addr + l4 * 8,
-                                               attrs, NULL);
+                    pte = mon_ldq(env, as, pt_addr + l4 * 8,
+                                               attrs);
                     if (pte & PG_PRESENT_MASK) {
                         print_pte(hmp, env, (l0 << 48) + (l1 << 39) +
                                 (l2 << 30) + (l3 << 21) + (l4 << 12),
@@ -203,7 +230,7 @@ static void tlb_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
     pml5_addr = env->cr[3] & 0x3fffffffff000ULL;
     for (l0 = 0; l0 < 512; l0++) {
-        pml5e = address_space_ldq_le(as, pml5_addr + l0 * 8, attrs, NULL);
+        pml5e = mon_ldq(env, as, pml5_addr + l0 * 8, attrs);
         if (pml5e & PG_PRESENT_MASK) {
             tlb_info_la48(hmp, env, as, l0, pml5e & 0x3fffffffff000ULL);
         }
@@ -282,7 +309,7 @@ static void mem_info_32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     last_prot = 0;
     start = -1;
     for(l1 = 0; l1 < 1024; l1++) {
-        pde = address_space_ldl_le(as, pgd + l1 * 4, attrs, NULL);
+        pde = mon_ldl(env, as, pgd + l1 * 4, attrs);
         end = l1 << 22;
         if (pde & PG_PRESENT_MASK) {
             if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
@@ -290,8 +317,8 @@ static void mem_info_32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
                 mem_print(hmp, env, &start, &last_prot, end, prot);
             } else {
                 for(l2 = 0; l2 < 1024; l2++) {
-                    pte = address_space_ldl_le(as, (pde & ~0xfff) + l2 * 4,
-                                               attrs, NULL);
+                    pte = mon_ldl(env, as, (pde & ~0xfff) + l2 * 4,
+                                               attrs);
                     end = (l1 << 22) + (l2 << 12);
                     if (pte & PG_PRESENT_MASK) {
                         prot = pte & pde &
@@ -324,12 +351,12 @@ static void mem_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     last_prot = 0;
     start = -1;
     for (l1 = 0; l1 < 4; l1++) {
-        pdpe = address_space_ldq_le(as, pdp_addr + l1 * 8, attrs, NULL);
+        pdpe = mon_ldq(env, as, pdp_addr + l1 * 8, attrs);
         end = l1 << 30;
         if (pdpe & PG_PRESENT_MASK) {
             pd_addr = pdpe & 0x3fffffffff000ULL;
             for (l2 = 0; l2 < 512; l2++) {
-                pde = address_space_ldq_le(as, pd_addr + l2 * 8, attrs, NULL);
+                pde = mon_ldq(env, as, pd_addr + l2 * 8, attrs);
                 end = (l1 << 30) + (l2 << 21);
                 if (pde & PG_PRESENT_MASK) {
                     if (pde & PG_PSE_MASK) {
@@ -339,8 +366,8 @@ static void mem_info_pae32(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
                     } else {
                         pt_addr = pde & 0x3fffffffff000ULL;
                         for (l3 = 0; l3 < 512; l3++) {
-                            pte = address_space_ldq_le(as, pt_addr + l3 * 8,
-                                                       attrs, NULL);
+                            pte = mon_ldq(env, as, pt_addr + l3 * 8,
+                                                       attrs);
                             end = (l1 << 30) + (l2 << 21) + (l3 << 12);
                             if (pte & PG_PRESENT_MASK) {
                                 prot = pte & pde & (PG_USER_MASK | PG_RW_MASK |
@@ -379,12 +406,12 @@ static void mem_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     last_prot = 0;
     start = -1;
     for (l1 = 0; l1 < 512; l1++) {
-        pml4e = address_space_ldq_le(as, pml4_addr + l1 * 8, attrs, NULL);
+        pml4e = mon_ldq(env, as, pml4_addr + l1 * 8, attrs);
         end = l1 << 39;
         if (pml4e & PG_PRESENT_MASK) {
             pdp_addr = pml4e & 0x3fffffffff000ULL;
             for (l2 = 0; l2 < 512; l2++) {
-                pdpe = address_space_ldq_le(as, pdp_addr + l2 * 8, attrs, NULL);
+                pdpe = mon_ldq(env, as, pdp_addr + l2 * 8, attrs);
                 end = (l1 << 39) + (l2 << 30);
                 if (pdpe & PG_PRESENT_MASK) {
                     if (pdpe & PG_PSE_MASK) {
@@ -395,8 +422,8 @@ static void mem_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
                     } else {
                         pd_addr = pdpe & 0x3fffffffff000ULL;
                         for (l3 = 0; l3 < 512; l3++) {
-                            pde = address_space_ldq_le(as, pd_addr + l3 * 8,
-                                                       attrs, NULL);
+                            pde = mon_ldq(env, as, pd_addr + l3 * 8,
+                                                       attrs);
                             end = (l1 << 39) + (l2 << 30) + (l3 << 21);
                             if (pde & PG_PRESENT_MASK) {
                                 if (pde & PG_PSE_MASK) {
@@ -408,10 +435,9 @@ static void mem_info_la48(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
                                 } else {
                                     pt_addr = pde & 0x3fffffffff000ULL;
                                     for (l4 = 0; l4 < 512; l4++) {
-                                        pte = address_space_ldq_le(as,
-                                                                   pt_addr
-                                                                   + l4 * 8,
-                                                                   attrs, NULL);
+                                        pte = mon_ldq(env, as,
+                                                      pt_addr + l4 * 8,
+                                                      attrs);
                                         end = (l1 << 39) + (l2 << 30) +
                                             (l3 << 21) + (l4 << 12);
                                         if (pte & PG_PRESENT_MASK) {
@@ -458,7 +484,7 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
     last_prot = 0;
     start = -1;
     for (l0 = 0; l0 < 512; l0++) {
-        pml5e = address_space_ldq_le(as, pml5_addr + l0 * 8, attrs, NULL);
+        pml5e = mon_ldq(env, as, pml5_addr + l0 * 8, attrs);
         end = l0 << 48;
         if (!(pml5e & PG_PRESENT_MASK)) {
             prot = 0;
@@ -468,7 +494,7 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
         pml4_addr = pml5e & 0x3fffffffff000ULL;
         for (l1 = 0; l1 < 512; l1++) {
-            pml4e = address_space_ldq_le(as, pml4_addr + l1 * 8, attrs, NULL);
+            pml4e = mon_ldq(env, as, pml4_addr + l1 * 8, attrs);
             end = (l0 << 48) + (l1 << 39);
             if (!(pml4e & PG_PRESENT_MASK)) {
                 prot = 0;
@@ -478,7 +504,7 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
             pdp_addr = pml4e & 0x3fffffffff000ULL;
             for (l2 = 0; l2 < 512; l2++) {
-                pdpe = address_space_ldq_le(as, pdp_addr + l2 * 8, attrs, NULL);
+                pdpe = mon_ldq(env, as, pdp_addr + l2 * 8, attrs);
                 end = (l0 << 48) + (l1 << 39) + (l2 << 30);
                 if (pdpe & PG_PRESENT_MASK) {
                     prot = 0;
@@ -496,8 +522,8 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
                 pd_addr = pdpe & 0x3fffffffff000ULL;
                 for (l3 = 0; l3 < 512; l3++) {
-                    pde = address_space_ldq_le(as, pd_addr + l3 * 8,
-                                               attrs, NULL);
+                    pde = mon_ldq(env, as, pd_addr + l3 * 8,
+                                               attrs);
                     end = (l0 << 48) + (l1 << 39) + (l2 << 30) + (l3 << 21);
                     if (pde & PG_PRESENT_MASK) {
                         prot = 0;
@@ -515,8 +541,8 @@ static void mem_info_la57(MonitorHMP *hmp, CPUArchState *env, AddressSpace *as)
 
                     pt_addr = pde & 0x3fffffffff000ULL;
                     for (l4 = 0; l4 < 512; l4++) {
-                        pte = address_space_ldq_le(as, pt_addr + l4 * 8,
-                                                   attrs, NULL);
+                        pte = mon_ldq(env, as, pt_addr + l4 * 8,
+                                                   attrs);
                         end = (l0 << 48) + (l1 << 39) + (l2 << 30) +
                             (l3 << 21) + (l4 << 12);
                         if (pte & PG_PRESENT_MASK) {

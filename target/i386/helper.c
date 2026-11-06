@@ -325,30 +325,42 @@ void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4)
 }
 
 #if !defined(CONFIG_USER_ONLY)
-bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
-                                 TranslateForDebugResult *result)
-{
-    X86CPU *cpu = X86_CPU(cs);
-    CPUX86State *env = &cpu->env;
-    target_ulong pde_addr, pte_addr;
-    uint64_t pte;
-    int32_t a20_mask;
-    uint32_t page_offset;
-    int page_size;
+static bool x86_debug_nested(CPUX86State *env, uint64_t gpa, uint64_t *hpa);
 
-    a20_mask = x86_get_a20_mask(env);
-    if (!(env->cr[0] & CR0_PG_MASK)) {
-        pte = addr & a20_mask;
-        page_size = 4096;
-    } else if (env->cr[4] & CR4_PAE_MASK) {
-        target_ulong pdpe_addr;
+/*
+ * A debugger's read of the SIZE-byte paging-structure entry at PA, a
+ * guest-physical address where NESTED.
+ */
+static bool x86_debug_entry(CPUX86State *env, uint64_t pa, bool nested,
+                            int size, uint64_t *entry)
+{
+    if (nested && !x86_debug_nested(env, pa, &pa)) {
+        return false;
+    }
+    *entry = size == 8 ? x86_ldq_phys(env_cpu(env), pa)
+                       : x86_ldl_phys(env_cpu(env), pa);
+    return true;
+}
+
+/*
+ * A debugger's walk for ADDR of the paging structures at CR3, in the paging
+ * mode that MODE's PG_MODE_PAE, PG_MODE_LMA, PG_MODE_LA57, and PG_MODE_PSE
+ * give: the page's address and size, with the structures' addresses
+ * guest-physical where NESTED.
+ */
+static bool x86_debug_walk(CPUX86State *env, uint64_t cr3, int mode,
+                           int32_t a20_mask, uint64_t addr, bool nested,
+                           uint64_t *page, int *page_size)
+{
+    uint64_t pte;
+
+    if (mode & PG_MODE_PAE) {
         uint64_t pde, pdpe;
 
 #ifdef TARGET_X86_64
-        if (env->hflags & HF_LMA_MASK) {
-            bool la57 = env->cr[4] & CR4_LA57_MASK;
-            uint64_t pml5e_addr, pml5e;
-            uint64_t pml4e_addr, pml4e;
+        if (mode & PG_MODE_LMA) {
+            bool la57 = mode & PG_MODE_LA57;
+            uint64_t pml5e, pml4e;
             int32_t sext;
 
             /* test virtual address sign extension */
@@ -358,30 +370,30 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
             }
 
             if (la57) {
-                pml5e_addr = ((env->cr[3] & PG_ADDRESS_MASK) +
-                        (((addr >> 48) & 0x1ff) << 3)) & a20_mask;
-                pml5e = x86_ldq_phys(cs, pml5e_addr);
-                if (!(pml5e & PG_PRESENT_MASK)) {
+                if (!x86_debug_entry(env, ((cr3 & PG_ADDRESS_MASK) +
+                                           (((addr >> 48) & 0x1ff) << 3)) &
+                                          a20_mask, nested, 8, &pml5e) ||
+                    !(pml5e & PG_PRESENT_MASK)) {
                     return false;
                 }
             } else {
-                pml5e = env->cr[3];
+                pml5e = cr3;
             }
 
-            pml4e_addr = ((pml5e & PG_ADDRESS_MASK) +
-                    (((addr >> 39) & 0x1ff) << 3)) & a20_mask;
-            pml4e = x86_ldq_phys(cs, pml4e_addr);
-            if (!(pml4e & PG_PRESENT_MASK)) {
+            if (!x86_debug_entry(env, ((pml5e & PG_ADDRESS_MASK) +
+                                       (((addr >> 39) & 0x1ff) << 3)) &
+                                      a20_mask, nested, 8, &pml4e) ||
+                !(pml4e & PG_PRESENT_MASK)) {
                 return false;
             }
-            pdpe_addr = ((pml4e & PG_ADDRESS_MASK) +
-                         (((addr >> 30) & 0x1ff) << 3)) & a20_mask;
-            pdpe = x86_ldq_phys(cs, pdpe_addr);
-            if (!(pdpe & PG_PRESENT_MASK)) {
+            if (!x86_debug_entry(env, ((pml4e & PG_ADDRESS_MASK) +
+                                       (((addr >> 30) & 0x1ff) << 3)) &
+                                      a20_mask, nested, 8, &pdpe) ||
+                !(pdpe & PG_PRESENT_MASK)) {
                 return false;
             }
             if (pdpe & PG_PSE_MASK) {
-                page_size = 1024 * 1024 * 1024;
+                *page_size = 1024 * 1024 * 1024;
                 pte = pdpe;
                 goto out;
             }
@@ -389,52 +401,56 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
         } else
 #endif
         {
-            pdpe_addr = ((env->cr[3] & ~0x1f) + ((addr >> 27) & 0x18)) &
-                a20_mask;
-            pdpe = x86_ldq_phys(cs, pdpe_addr);
-            if (!(pdpe & PG_PRESENT_MASK))
+            if (!x86_debug_entry(env, ((cr3 & ~0x1f) + ((addr >> 27) & 0x18)) &
+                                      a20_mask, nested, 8, &pdpe) ||
+                !(pdpe & PG_PRESENT_MASK)) {
                 return false;
+            }
         }
 
-        pde_addr = ((pdpe & PG_ADDRESS_MASK) +
-                    (((addr >> 21) & 0x1ff) << 3)) & a20_mask;
-        pde = x86_ldq_phys(cs, pde_addr);
-        if (!(pde & PG_PRESENT_MASK)) {
+        if (!x86_debug_entry(env, ((pdpe & PG_ADDRESS_MASK) +
+                                   (((addr >> 21) & 0x1ff) << 3)) & a20_mask,
+                             nested, 8, &pde) ||
+            !(pde & PG_PRESENT_MASK)) {
             return false;
         }
         if (pde & PG_PSE_MASK) {
             /* 2 MB page */
-            page_size = 2048 * 1024;
+            *page_size = 2048 * 1024;
             pte = pde;
         } else {
             /* 4 KB page */
-            pte_addr = ((pde & PG_ADDRESS_MASK) +
-                        (((addr >> 12) & 0x1ff) << 3)) & a20_mask;
-            page_size = 4096;
-            pte = x86_ldq_phys(cs, pte_addr);
+            *page_size = 4096;
+            if (!x86_debug_entry(env, ((pde & PG_ADDRESS_MASK) +
+                                       (((addr >> 12) & 0x1ff) << 3)) &
+                                      a20_mask, nested, 8, &pte)) {
+                return false;
+            }
         }
         if (!(pte & PG_PRESENT_MASK)) {
             return false;
         }
     } else {
-        uint32_t pde;
+        uint64_t pde;
 
         /* page directory entry */
-        pde_addr = ((env->cr[3] & ~0xfff) + ((addr >> 20) & 0xffc)) & a20_mask;
-        pde = x86_ldl_phys(cs, pde_addr);
-        if (!(pde & PG_PRESENT_MASK))
+        if (!x86_debug_entry(env, ((cr3 & ~0xfff) + ((addr >> 20) & 0xffc)) &
+                                  a20_mask, nested, 4, &pde) ||
+            !(pde & PG_PRESENT_MASK)) {
             return false;
-        if ((pde & PG_PSE_MASK) && (env->cr[4] & CR4_PSE_MASK)) {
+        }
+        if ((pde & PG_PSE_MASK) && (mode & PG_MODE_PSE)) {
             pte = pde | ((pde & 0x1fe000LL) << (32 - 13));
-            page_size = 4096 * 1024;
+            *page_size = 4096 * 1024;
         } else {
             /* page directory entry */
-            pte_addr = ((pde & ~0xfff) + ((addr >> 10) & 0xffc)) & a20_mask;
-            pte = x86_ldl_phys(cs, pte_addr);
-            if (!(pte & PG_PRESENT_MASK)) {
+            if (!x86_debug_entry(env, ((pde & ~0xfff) +
+                                       ((addr >> 10) & 0xffc)) & a20_mask,
+                                 nested, 4, &pte) ||
+                !(pte & PG_PRESENT_MASK)) {
                 return false;
             }
-            page_size = 4096;
+            *page_size = 4096;
         }
         pte = pte & a20_mask;
     }
@@ -442,13 +458,82 @@ bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
 #ifdef TARGET_X86_64
 out:
 #endif
-    pte &= PG_ADDRESS_MASK & ~(page_size - 1);
-    page_offset = addr & (page_size - 1);
+    *page = pte & PG_ADDRESS_MASK & ~(uint64_t)(*page_size - 1);
+    return true;
+}
+
+/*
+ * A debugger's translation of guest-physical GPA, which sets no flag and
+ * exits for nothing, by TCG's SVM nested paging or VMX EPT in guest mode,
+ * where the processor's page tables, guest-physical, are the guest's; GPA
+ * itself otherwise.
+ */
+static bool x86_debug_nested(CPUX86State *env, uint64_t gpa, uint64_t *hpa)
+{
+#ifdef CONFIG_TCG
+    if (tcg_enabled() && env->vmx.nonroot) {
+        return x86_vmx_ept_debug(env, gpa, hpa);
+    }
+    if (tcg_enabled() && (env->hflags & HF_GUEST_MASK) &&
+        (env->hflags2 & HF2_NPT_MASK)) {
+        uint64_t page;
+        int page_size;
+
+        if (!x86_debug_walk(env, env->nested_cr3, env->nested_pg_mode, -1,
+                            gpa, false, &page, &page_size)) {
+            return false;
+        }
+        *hpa = page | (gpa & (page_size - 1));
+        return true;
+    }
+#endif
+    *hpa = gpa;
+    return true;
+}
+
+bool x86_cpu_debug_gpa(CPUX86State *env, uint64_t gpa, uint64_t *hpa)
+{
+    return x86_debug_nested(env, gpa, hpa);
+}
+
+/* Whether the processor's physical addresses are a guest's, for TCG. */
+static bool x86_debug_nested_active(CPUX86State *env)
+{
+    return tcg_enabled() &&
+           (env->vmx.nonroot || ((env->hflags & HF_GUEST_MASK) &&
+                                 (env->hflags2 & HF2_NPT_MASK)));
+}
+
+bool x86_cpu_translate_for_debug(CPUState *cs, vaddr addr,
+                                 TranslateForDebugResult *result)
+{
+    X86CPU *cpu = X86_CPU(cs);
+    CPUX86State *env = &cpu->env;
+    int32_t a20_mask = x86_get_a20_mask(env);
+    int mode = (env->cr[4] & CR4_PAE_MASK ? PG_MODE_PAE : 0) |
+               (env->hflags & HF_LMA_MASK ? PG_MODE_LMA : 0) |
+               (env->cr[4] & CR4_LA57_MASK ? PG_MODE_LA57 : 0) |
+               (env->cr[4] & CR4_PSE_MASK ? PG_MODE_PSE : 0);
+    bool nested = x86_debug_nested_active(env);
+    uint64_t page, pa;
+    int page_size;
+
+    if (!(env->cr[0] & CR0_PG_MASK)) {
+        page = addr & a20_mask & TARGET_PAGE_MASK;
+        page_size = 4096;
+    } else if (!x86_debug_walk(env, env->cr[3], mode, a20_mask, addr, nested,
+                               &page, &page_size)) {
+        return false;
+    }
+    pa = page | (addr & (page_size - 1));
+    if (nested && !x86_debug_nested(env, pa, &pa)) {
+        return false;
+    }
 
     result->attrs = cpu_get_mem_attrs(env);
     result->attrs.debug = 1;
-    result->physaddr = pte | page_offset;
-    result->lg_page_size = ctz64(page_size);
+    result->physaddr = pa;
+    result->lg_page_size = nested ? TARGET_PAGE_BITS : ctz64(page_size);
     return true;
 }
 

@@ -212,6 +212,10 @@ Processor emulation (TCG):
   changes.
 * INIT ends HLT and MWAIT, except where VMX root operation blocks it or a
   clear GIF holds it (SDM Vol. 2A, HLT; APM 15.17, Table 15-10).
+* The debugger's and the monitor's accesses to virtual memory (the
+  gdbstub, ``x``, ``info tlb``, and ``info mem``) go through the nested
+  paging of SVM guest mode and the EPT of VMX non-root operation, whose
+  guests' page tables hold guest-physical addresses.
 * TCG's processors can move their local APIC's registers to another base
   address.
 * SMM entry and exit flush the TLB; changes to CR4.PKE and CR4.PKS flush

@@ -3273,6 +3273,14 @@ int x86_cpu_pending_interrupt(const CPUState *cs, int interrupt_request);
 
 bool x86_cpu_translate_for_debug(CPUState *cpu, vaddr addr,
                                  TranslateForDebugResult *result);
+/*
+ * A debugger's translation of guest-physical GPA through the nested paging
+ * or the EPT of the guest that TCG runs; GPA itself outside guest mode.
+ */
+bool x86_cpu_debug_gpa(CPUX86State *env, uint64_t gpa, uint64_t *hpa);
+/* tcg/system/vmx_helper.c */
+bool x86_vmx_ept_debug(CPUX86State *env, uint64_t gpa, uint64_t *hpa);
+
 int cpu_get_pic_interrupt(CPUX86State *s);
 
 /* MS-DOS compatibility mode FPU exception support */
