@@ -302,6 +302,8 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
             cpu_reset_interrupt(cs, CPU_INTERRUPT_NMI);
         }
         env->hflags2 |= HF2_NMI_MASK;
+        /* Taken, the NMI-source bitmap is recorded and cleared (7.7.3). */
+        env->nmi_source_taken = qatomic_xchg(&env->nmi_source, 0);
         do_interrupt_x86_hardirq(env, EXCP02_NMI, 1);
         break;
     case CPU_INTERRUPT_VNMI:

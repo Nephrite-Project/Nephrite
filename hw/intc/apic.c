@@ -203,10 +203,11 @@ static void apic_vapic_base_update(APICCommonState *s)
  * two may be pending while NMIs are not blocked: one taken at once, the
  * other latched behind it.
  */
-static void apic_raise_nmi(X86CPU *cpu)
+static void apic_raise_nmi(X86CPU *cpu, int vector)
 {
     CPUState *cs = CPU(cpu);
 
+    x86_cpu_nmi_source(cpu, vector);
     if ((cs->interrupt_request & CPU_INTERRUPT_NMI) &&
         !(cpu->env.hflags2 & HF2_NMI_MASK)) {
         cpu->env.nmi_second = true;
@@ -230,7 +231,7 @@ static void apic_local_deliver(APICCommonState *s, int vector)
         break;
 
     case APIC_DM_NMI:
-        apic_raise_nmi(s->cpu);
+        apic_raise_nmi(s->cpu, lvt & 0xff);
         break;
 
     case APIC_DM_EXTINT:
@@ -342,7 +343,7 @@ static void apic_bus_deliver(const uint32_t *deliver_bitmask,
 
         case APIC_DM_NMI:
             foreach_apic(apic_iter, deliver_bitmask,
-                apic_raise_nmi(apic_iter->cpu)
+                apic_raise_nmi(apic_iter->cpu, vector_num)
             );
             return;
 

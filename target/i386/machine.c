@@ -1667,6 +1667,24 @@ static const VMStateDescription vmstate_osvw = {
     }
 };
 
+static bool nmi_source_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.nmi_source != 0;
+}
+
+static const VMStateDescription vmstate_nmi_source = {
+    .name = "cpu/nmi_source",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = nmi_source_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT32(env.nmi_source, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool eff_freq_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2019,6 +2037,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_hwcr,
         &vmstate_osvw,
         &vmstate_eff_freq,
+        &vmstate_nmi_source,
 #ifdef TARGET_X86_64
         &vmstate_msr_fred,
         &vmstate_amx_xtile,

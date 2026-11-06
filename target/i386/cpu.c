@@ -1171,7 +1171,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_1_EAX_FRED 0
 #else
 #define TCG_7_1_EAX_LKGS CPUID_7_1_EAX_LKGS
-#define TCG_7_1_EAX_FRED CPUID_7_1_EAX_FRED
+#define TCG_7_1_EAX_FRED (CPUID_7_1_EAX_FRED | CPUID_7_1_EAX_NMI_SRC)
 #endif
 #define TCG_7_1_EAX_FEATURES (CPUID_7_1_EAX_FZRM | CPUID_7_1_EAX_FSRS | \
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
@@ -1472,7 +1472,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, "fzrm", "fsrs",
             "fsrc", NULL, NULL, NULL,
             NULL, "fred", "lkgs", "wrmsrns",
-            NULL, "amx-fp16", NULL, "avx-ifma",
+            "nmi-src", "amx-fp16", NULL, "avx-ifma",
             NULL, NULL, "lam", NULL,
             NULL, NULL, NULL, "movrs",
         },
@@ -2344,6 +2344,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_1_EAX,             CPUID_7_1_EAX_FRED },
         .to = { FEAT_VMX_BASIC,             MSR_VMX_BASIC_NESTED_EXCEPTION },
+    },
+    {
+        .from = { FEAT_7_1_EAX,             CPUID_7_1_EAX_FRED },
+        .to = { FEAT_7_1_EAX,               CPUID_7_1_EAX_NMI_SRC },
     },
 };
 

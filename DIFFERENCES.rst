@@ -177,8 +177,9 @@ Processor features:
   their state.
 * FRED: FRED event delivery with its stack levels, nested exceptions, and
   supervisor shadow-stack frames, ERETS and ERETU, the FRED MSRs, which
-  register dumps show, SYSCALL and SYSENTER as FRED events, and the far
-  transfers and instructions that FRED transitions refuse.
+  register dumps show, SYSCALL and SYSENTER as FRED events, the far
+  transfers and instructions that FRED transitions refuse, and NMI-source
+  reporting, in FRED's event data and VMX's NMI exits.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
 * The EVEX forms of INVEPT, INVVPID, INVPCID, WRSS, and WRUSS, which
@@ -364,11 +365,11 @@ Known deviations and limits
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * FRED: SYSCALL under FRED does not need IA32_EFER.SCE, as the SDM's
-  operation of SYSCALL has it; there is no NMI-source reporting. SVM keeps
-  the FRED MSRs at the state-save area offsets of the APM's Table B-2,
-  where the KVM patches AMD posted ("KVM: SVM: Enable FRED support" v2,
-  April 2026) have them 400h lower, and leaves IA32_PL0_SSP, for which the
-  VMCB has no field, to the hypervisor.
+  operation of SYSCALL has it. SVM keeps the FRED MSRs at the state-save
+  area offsets of the APM's Table B-2, where the KVM patches AMD posted
+  ("KVM: SVM: Enable FRED support" v2, April 2026) have them 400h lower,
+  and leaves IA32_PL0_SSP, for which the VMCB has no field, to the
+  hypervisor.
 * Not implemented: the bus-lock threshold and AMD's IBS.
 * MPERF and APERF both count the TSC's ticks outside HLT, MWAIT, and the
   wait for SIPI, as the processor always runs at its nominal frequency.

@@ -397,6 +397,11 @@ static inline uint64_t x86_fred_event_data(CPUX86State *env, int type,
     if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
         return env->cr[2];
     }
+    /* The NMI-source bitmap of the NMI being taken (7.7.3). */
+    if (type == X86_EVENT_NMI) {
+        return env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_NMI_SRC ?
+               env->nmi_source_taken : 0;
+    }
     if (vector == EXCP01_DB && (type == X86_EVENT_HW_EXCEPTION ||
                                 type == X86_EVENT_PRIV_SW_EXCEPTION)) {
         return env->db_event;

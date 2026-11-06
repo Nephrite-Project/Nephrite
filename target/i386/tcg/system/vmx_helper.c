@@ -4114,7 +4114,9 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         cpu_reset_interrupt(cs, CPU_INTERRUPT_SIPI);
         x86_vmx_exit(env, VMX_EXIT_SIPI,
                      apic_get_sipi_vector(env_archcpu(env)->apic_state), 0);
-    case CPU_INTERRUPT_NMI:
+    case CPU_INTERRUPT_NMI: {
+        uint32_t source;
+
         if (!(pin & VMX_PIN_BASED_NMI_EXITING)) {
             return false;
         }
@@ -4124,9 +4126,17 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         } else {
             cpu_reset_interrupt(cs, CPU_INTERRUPT_NMI);
         }
-        x86_vmx_exit_full(env, VMX_EXIT_EXCEPTION_NMI, 0,
+        /*
+         * The exit takes the NMI, whose NMI-source bitmap it reports in the
+         * exit qualification (Intel SDM 325462-093 Vol. 3C, 30.2.1).
+         */
+        source = qatomic_xchg(&env->nmi_source, 0);
+        x86_vmx_exit_full(env, VMX_EXIT_EXCEPTION_NMI,
+                          env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_NMI_SRC ?
+                          source : 0,
                           EXCP02_NMI | VMX_INTR_VALID |
                           VMX_INTR_TYPE_NMI << VMX_INTR_TYPE_SHIFT, 0, 0);
+    }
     case CPU_INTERRUPT_HARD:
         if (!(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
             return false;

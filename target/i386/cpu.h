@@ -1259,6 +1259,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_7_1_EAX_FRED              (1U << 17)
 /* Load into IA32_KERNEL_GS_BASE (LKGS) */
 #define CPUID_7_1_EAX_LKGS              (1U << 18)
+/* NMI-source reporting: FRED's NMI event data */
+#define CPUID_7_1_EAX_NMI_SRC           (1U << 20)
 /* Non-Serializing Write to Model Specific Register (WRMSRNS) */
 #define CPUID_7_1_EAX_WRMSRNS           (1U << 19)
 /* Support Tile Computational Operations on FP16 Numbers */
@@ -2554,6 +2556,13 @@ typedef struct CPUArchState {
                         are known at translation time. */
     uint32_t hflags2; /* various other flags, see HF2_xxx constants. */
     bool nmi_second; /* another NMI came before the pending one was taken */
+    /*
+     * The NMI-source bitmap, which the senders of NMIs set atomically, and
+     * the bitmap of the NMI being taken (Intel SDM 325462-093 Vol. 3A,
+     * 7.7.3).
+     */
+    uint32_t nmi_source;
+    uint16_t nmi_source_taken;
     /* How far LAM shifts user and supervisor data addresses: 0, 7, or 16 */
     target_ulong lam_shift_user;
     target_ulong lam_shift_sup;
@@ -3561,6 +3570,17 @@ uint64_t cpu_get_tsc(CPUX86State *env);
 int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
 
 #define CPU_RESOLVING_TYPE TYPE_X86_CPU
+
+/*
+ * An NMI with VECTOR arrives: NMI-source reporting sets its bit, or bit 0
+ * for an NMI without a vector or past 15 (Intel SDM 325462-093 Vol. 3A,
+ * 7.7.3).
+ */
+static inline void x86_cpu_nmi_source(X86CPU *cpu, int vector)
+{
+    qatomic_or(&cpu->env.nmi_source,
+               vector > 0 && vector < 16 ? 1u << vector : 1u);
+}
 
 #ifdef TARGET_X86_64
 #define TARGET_DEFAULT_CPU_TYPE X86_CPU_TYPE_NAME("qemu64")
