@@ -1390,14 +1390,15 @@ void HELPER(rdmsr)(CPUX86State *env)
  * translations only, so type 0 drops the page and the others drop all,
  * the global ones too, as the processor may.
  */
-void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type)
+void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type,
+                     uint32_t vmx_info, target_ulong vmx_disp)
 {
     CPUState *cs = env_cpu(env);
     uintptr_t ra = GETPC();
     uint64_t desc, laddr;
 
     if (env->vmx.nonroot) {
-        x86_vmx_invpcid(env, ra);
+        x86_vmx_invpcid(env, vmx_info, vmx_disp, ra);
     }
 
     if (cpu_svm_has_intercept(env, SVM_EXIT_INVPCID)) {

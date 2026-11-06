@@ -3925,11 +3925,22 @@ static void gen_unreachable(DisasContext *s, X86DecodedInsn *decode)
 #endif
 
 #ifndef CONFIG_USER_ONLY
+static uint32_t vmx_mem_insn_info(DisasContext *s, X86DecodedInsn *decode);
+
+/*
+ * INVPCID, whose VM exit reports the type register and the descriptor's
+ * address in the instruction information and the displacement as the
+ * exit qualification (Intel SDM 325462-093 Vol. 3C, Table 30-9).
+ */
 static void gen_INVPCID(DisasContext *s, X86DecodedInsn *decode)
 {
+    uint32_t info = vmx_mem_insn_info(s, decode) |
+                    (decode->op[1].n & 0xf) << 28;
+
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
-    gen_helper_invpcid(tcg_env, s->A0, s->T0);
+    gen_helper_invpcid(tcg_env, s->A0, s->T0, tcg_constant_i32(info),
+                       tcg_constant_tl(decode->mem.disp));
     s->base.is_jmp = DISAS_EOB_NEXT;
 }
 #else

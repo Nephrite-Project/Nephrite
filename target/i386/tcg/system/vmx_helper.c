@@ -4333,15 +4333,19 @@ void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
 
 /*
  * INVPCID needs "enable INVPCID" in non-root operation, and exits with
- * "INVLPG exiting" (Intel SDM 325462-093 Vol. 3C, 28.1.3 and 28.3).
+ * "INVLPG exiting" (Intel SDM 325462-093 Vol. 3C, 28.1.3 and 28.3), with
+ * INFO, its instruction information, and DISP, its displacement, as the
+ * exit qualification (Intel SDM 325462-093 Vol. 3C, 30.2.1).
  */
-void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra)
+void x86_vmx_invpcid(CPUX86State *env, uint32_t info, target_ulong disp,
+                     uintptr_t ra)
 {
     if (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_INVPCID)) {
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
     if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_INVLPG_EXITING) {
-        x86_vmx_exit(env, VMX_EXIT_INVPCID, 0, ra);
+        VMCS_SET(EXIT_INSN_INFO, info);
+        x86_vmx_exit(env, VMX_EXIT_INVPCID, disp, ra);
     }
 }
 
