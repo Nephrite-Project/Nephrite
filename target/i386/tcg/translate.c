@@ -3694,7 +3694,10 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!SVM(s)) {
                 goto illegal_op;
             }
-            gen_svm_allowed(s, false, false);
+            /*
+             * Its intercept comes before its #UD without EFER.SVME, which
+             * the helper raises where nothing intercepts it.
+             */
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_vmmcall(tcg_env);

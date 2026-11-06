@@ -249,6 +249,8 @@ AMD SVM (TCG):
   code, intercepts save the next RIP, RDTSCP has its own intercept, and
   MOV to CR's and MOV DR's operands are checked before the intercepts.
 * SKINIT raises #GP outside CPL 0, before its intercept is checked.
+* VMMCALL takes its intercept in guests whose EFER.SVME is clear, where
+  QEMU raised #UD.
 * A failing VMRUN leaves the guest's state in the VMCB alone.
 * Nested page faults' error codes set the P bit for reserved-bit faults
   and I/D for fetches under the host's SMEP, and bit 8 of PML5Es and
