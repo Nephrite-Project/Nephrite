@@ -214,11 +214,12 @@
 
 /*
  * The debug exception bits of DR6 that #DB exit qualifications and the
- * pending debug exceptions field share: B0-B3, BD, BS, and RTM; the field
- * adds the enabled-breakpoint bit (Intel SDM 325462-093 Vol. 3C, Tables
- * 27-4 and 30-1).
+ * pending debug exceptions field share: B0-B3, BLD, BD, BS, and RTM, with
+ * BLD and RTM set where DR6 has them clear; the field adds the
+ * enabled-breakpoint bit (Intel SDM 325462-093 Vol. 3C, Tables 27-4 and
+ * 30-1).
  */
-#define VMX_DB_BITS 0x1600f
+#define VMX_DB_BITS 0x1680f
 #define VMX_PENDING_DBG_ENABLED_BP (1 << 12)
 #define VMX_PENDING_DBG_RTM (1 << 16)
 
@@ -2335,17 +2336,17 @@ void x86_vmx_event_end(CPUX86State *env)
 
 /*
  * The MTF VM exit after an instruction, ahead of the debug traps it
- * raised, which stay pending: those of single-stepping and I/O
- * breakpoints, in traps, and of data breakpoints, with the enabled-
- * breakpoint bit where DR7 enables one of them (Intel SDM 325462-093
- * Vol. 3C, 28.5.2 and 30.3.4).
+ * raised, which stay pending: those of single-stepping, I/O breakpoints,
+ * and bus locks, in traps, and of data breakpoints, with the enabled-
+ * breakpoint bit where DR7 enables one of them or for a bus lock (Intel
+ * SDM 325462-093 Vol. 3C, 28.5.2, 30.3.4, and Table 27-4).
  */
 G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps)
 {
     bool enabled;
     uint32_t pending = traps | hw_data_breakpoint_hits(env, &enabled);
 
-    if (enabled || (traps & 0xf)) {
+    if (enabled || (traps & (0xf | DR6_BLD))) {
         pending |= VMX_PENDING_DBG_ENABLED_BP;
     }
     env->vmx.mtf_pending = false;
@@ -2369,7 +2370,7 @@ static void vmx_save_pdptes(CPUX86State *env)
             pdpte = env->pdpte[i];
         } else if (x86_vmx_ept_translate(env, (env->cr[3] & ~0x1fULL) + 8 * i,
                                          MMU_DATA_LOAD, false, &hpa, &prot,
-                                         &size)) {
+                                         &size, NULL)) {
             pdpte = x86_ldq_phys(env_cpu(env), hpa);
         }
         x86_vmcs_write(env, VMCS_GUEST_PDPTE(i), pdpte);
@@ -3406,7 +3407,7 @@ static int vmx_guest_state_check(CPUX86State *env)
     }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS) &&
         ((VMCS(GUEST_DR7) >> 32) ||
-         (debugctl & ~(DEBUGCTL_LBR | DEBUGCTL_BTF)))) {
+         (debugctl & ~x86_debugctl_bits(env)))) {
         return 1;
     }
     if (!vmx_canonical(env, VMCS(GUEST_SYSENTER_ESP)) ||
@@ -3505,8 +3506,14 @@ static int vmx_guest_state_check(CPUX86State *env)
         (intr & VMX_BLOCKING_NMI)) {
         return 1;
     }
+    /*
+     * Of bits 11:4, Table 27-4 of the Intel SDM 325462-093 Vol. 3C
+     * reserves 10:4 since BLD took bit 11, which 29.3.1.5 still lists.
+     */
     if ((pending & ~(uint64_t)(VMX_DB_BITS | VMX_PENDING_DBG_ENABLED_BP)) ||
-        (pending & (DR6_BD | VMX_PENDING_DBG_RTM))) {
+        (pending & (DR6_BD | VMX_PENDING_DBG_RTM)) ||
+        ((pending & DR6_BLD) &&
+         !(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_BUS_LOCK_DETECT))) {
         return 1;
     }
     if (((intr & 3) || activity == VMX_ACTIVITY_HLT) &&
@@ -3569,6 +3576,9 @@ static void vmx_load_guest(CPUX86State *env)
     if (entry_ctl & VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS) {
         cpu_x86_update_dr7(env, VMCS(GUEST_DR7));
         env->debugctl = VMCS(GUEST_DEBUGCTL);
+        if (env->debugctl & DEBUGCTL_BLD) {
+            x86_bus_lock_watch(env);
+        }
     }
     env->sysenter_cs = (uint32_t)VMCS(GUEST_SYSENTER_CS);
     env->sysenter_esp = VMCS(GUEST_SYSENTER_ESP);
@@ -4619,7 +4629,8 @@ static void ept_pml_log(CPUX86State *env, hwaddr gpa)
  */
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
-                           hwaddr *hpa, int *prot, int *page_size)
+                           hwaddr *hpa, int *prot, int *page_size,
+                           int *memtype)
 {
     CPUState *cs = env_cpu(env);
     uint64_t eptp = VMCS(EPT_POINTER);
@@ -4694,7 +4705,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         }
         if (!ept_set_flags(env, entry_addr, entry, entry | EPT_DIRTY)) {
             return x86_vmx_ept_translate(env, gpa, access, supervisor, hpa,
-                                         prot, page_size);
+                                         prot, page_size, memtype);
         }
         entry |= EPT_DIRTY;
         if (pml) {
@@ -4709,6 +4720,10 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     /* Writes wait for the dirty flag where EPT keeps one. */
     if ((perms & EPT_WRITE) && (!ad || (entry & EPT_DIRTY))) {
         *prot |= PAGE_WRITE;
+    }
+    /* The memory type in bits 5:3 and IPAT, bit 6, of the last entry. */
+    if (memtype) {
+        *memtype = (entry >> 3) & 0xf;
     }
     return true;
 

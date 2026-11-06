@@ -179,6 +179,10 @@ typedef struct DisasContext {
     uint16_t fetch_end;
     /* The instruction's fetch is checked against CS's limit. */
     bool fetch_checked;
+    /* Locked instructions are checked for bus locks (system/bus_lock.c). */
+    bool bus_lock;
+    /* The instruction was, and its trap waits for its end. */
+    bool bus_locked;
 #endif
 } DisasContext;
 
@@ -647,6 +651,36 @@ static void gen_update_eip_next(DisasContext *s)
         tcg_gen_movi_tl(cpu_eip, (uint32_t)(s->pc - s->cs_base));
     }
     s->pc_save = s->pc;
+}
+
+/*
+ * Before a locked read-modify-write of OT at A0, once some processor
+ * watches for bus locks: whether it asserts one (system/bus_lock.c).
+ */
+static void gen_bus_lock(DisasContext *s, MemOp ot)
+{
+#ifndef CONFIG_USER_ONLY
+    if (s->bus_lock) {
+        gen_helper_bus_lock(tcg_env, s->A0, tcg_constant_i32(memop_size(ot)),
+                            tcg_constant_i32(s->mem_index));
+        s->bus_locked = true;
+    }
+#endif
+}
+
+/*
+ * At the end of the instruction, with its flags and the next RIP in place:
+ * the traps of its bus lock.
+ */
+static void gen_bus_lock_done(DisasContext *s)
+{
+#ifndef CONFIG_USER_ONLY
+    if (s->bus_locked) {
+        gen_update_cc_op(s);
+        gen_update_eip_next(s);
+        gen_helper_bus_lock_done(tcg_env);
+    }
+#endif
 }
 
 static void gen_update_eip_cur(DisasContext *s)
@@ -4504,6 +4538,9 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cc_op_dirty = false;
     /* select memory access functions */
     dc->mem_index = cpu_mmu_index(cpu, false);
+#ifndef CONFIG_USER_ONLY
+    dc->bus_lock = qatomic_read(&x86_bus_lock_checks);
+#endif
     dc->cpuid_features = env->features[FEAT_1_EDX];
     dc->cpuid_ext_features = env->features[FEAT_1_ECX];
     dc->cpuid_ext2_features = env->features[FEAT_8000_0001_EDX];
@@ -4589,6 +4626,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
 #ifndef CONFIG_USER_ONLY
     dc->pmu_counted = 0;
     dc->fetch_checked = false;
+    dc->bus_locked = false;
     dc->insn_ss = false;
     dc->insn_other = false;
 #endif

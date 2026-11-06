@@ -115,7 +115,7 @@ static void debug_payload_apply(CPUX86State *env, int intno)
     uint32_t payload = env->db_payload;
 
     if (intno == EXCP01_DB && payload) {
-        env->dr[6] = (env->dr[6] & ~0xf) | payload;
+        env->dr[6] = x86_dr6_apply(env->dr[6], payload);
         if (payload & DR6_BD) {
             env->dr[7] &= ~DR7_GD;
         }
@@ -144,7 +144,8 @@ void raise_interrupt2(CPUX86State *env, int intno,
          * 325462-093 Vol. 3A, 8.3.2.1).
          */
         if (intno == EXCP01_DB) {
-            env->db_event = env->db_payload & (0xf | DR6_BD | DR6_BS);
+            env->db_event = env->db_payload &
+                            (0xf | DR6_BLD | DR6_BD | DR6_BS);
         }
         /*
          * A #DB writes DR6 and DR7 before an SVM intercept (AMD64

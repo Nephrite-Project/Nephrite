@@ -182,6 +182,10 @@ Processor features:
   reporting, in FRED's event data and VMX's NMI exits.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
+* OS bus-lock detection (DebugCtl.BLD): a trap-like #DB that clears
+  DR6.BLD after an instruction at CPL > 0 whose locked access splits a
+  cache line or has a memory type other than WB, which TLB entries keep
+  as the PAT, EPT, nested paging, the MTRRs, and CR0.CD give it.
 * The EVEX forms of INVEPT, INVVPID, INVPCID, WRSS, and WRUSS, which
   QEMU's APX decoding lacks (Intel APX 355828-009, 3.1.5).
 
@@ -375,6 +379,12 @@ Known deviations and limits
   and leaves IA32_PL0_SSP, for which the VMCB has no field, to the
   hypervisor.
 * Not implemented: the bus-lock threshold and AMD's IBS.
+* Bus locks: OS bus-lock detection skips the implicit supervisor accesses
+  of descriptor and paging-structure updates, as AMD's APM says and
+  Intel's SDM does not; with CR0.CD set every locked access is a bus lock,
+  as AMD's CD memory type has it; and VM entries take BLD in the pending
+  debug exceptions, which the SDM's Table 27-4 defines and its 29.3.1.5
+  still lists as reserved.
 * MPERF and APERF both count the TSC's ticks outside HLT, MWAIT, and the
   wait for SIPI, as the processor always runs at its nominal frequency.
   RDPRU sets CF where ECX names a register and clears it otherwise; the APM

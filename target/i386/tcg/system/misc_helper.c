@@ -215,7 +215,7 @@ bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
         int prot, size;
 
         if (!x86_vmx_ept_translate(env, base, MMU_DATA_LOAD, false, &hpa,
-                                   &prot, &size)) {
+                                   &prot, &size, NULL)) {
             x86_vmx_pdpte_exit(env, base, ra);
         }
         base = hpa;
@@ -901,8 +901,11 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         env->msr_ia32_misc_enable = val;
         break;
     case MSR_IA32_DEBUGCTL:
-        if (val & ~(DEBUGCTL_LBR | DEBUGCTL_BTF)) {
+        if (val & ~x86_debugctl_bits(env)) {
             return false;
+        }
+        if (val & DEBUGCTL_BLD) {
+            x86_bus_lock_watch(env);
         }
         env->debugctl = val;
         break;

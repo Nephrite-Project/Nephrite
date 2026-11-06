@@ -369,6 +369,11 @@ typedef enum X86Seg {
 
 #define DR6_BD          (1 << 13)
 #define DR6_BS          (1 << 14)
+/*
+ * A bus lock's #DB: set in #DB payloads, as VMX and FRED report it, where
+ * the #DB clears it in DR6.
+ */
+#define DR6_BLD         (1 << 11)
 #define DR6_BT          (1 << 15)
 #define DR6_FIXED_1     0xffff0ff0
 
@@ -609,6 +614,7 @@ typedef enum X86Seg {
 
 #define DEBUGCTL_LBR                    (1ULL << 0)
 #define DEBUGCTL_BTF                    (1ULL << 1)
+#define DEBUGCTL_BLD                    (1ULL << 2)
 
 #define MSR_MTRRphysBase(reg)           (0x200 + 2 * (reg))
 #define MSR_MTRRphysMask(reg)           (0x200 + 2 * (reg) + 1)
@@ -2788,6 +2794,8 @@ typedef struct CPUArchState {
      * waits for the instruction boundary after the next instruction.
      */
     uint32_t db_movss;
+    /* The locked instruction under way asserts a bus lock (bus_lock.c). */
+    bool bus_lock_now;
     /*
      * The PDPTE registers of PAE paging, where pdpte_loaded: what a MOV to
      * CR, a VMX transition, VMRUN, or #VMEXIT loaded (Intel SDM 325462-093

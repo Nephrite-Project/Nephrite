@@ -4013,6 +4013,7 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
         assert(!!decode.cc_src == !!(cc_live & USES_CC_SRC));
         assert(!!decode.cc_src2 == !!(cc_live & USES_CC_SRC2));
     }
+    gen_bus_lock_done(s);
 
     return;
  gp_fault:

@@ -412,7 +412,15 @@ void HELPER(set_dr)(CPUX86State *env, int reg, target_ulong t0)
             env->dr[reg] = t0;
         }
     } else if (reg == 6) {
+        /*
+         * With OS bus-lock detection, BLD is software's to set again after
+         * a bus lock's #DB cleared it (Intel SDM 325462-093 Vol. 3B,
+         * 20.2.3).
+         */
         env->dr[6] = t0 | DR6_FIXED_1;
+        if (env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_BUS_LOCK_DETECT) {
+            env->dr[6] &= t0 | ~(target_ulong)DR6_BLD;
+        }
     } else {
         cpu_x86_update_dr7(env, t0);
     }

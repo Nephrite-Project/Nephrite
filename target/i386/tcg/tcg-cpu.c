@@ -39,6 +39,12 @@ static void x86_cpu_exec_enter(CPUState *cs)
     CC_OP = CC_OP_EFLAGS;
     env->eflags &= ~(DF_MASK | CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C);
     cpu->eflags_in_tcg = true;
+#ifndef CONFIG_USER_ONLY
+    /* State loaded from elsewhere, as by migration, may watch bus locks. */
+    if (unlikely(env->debugctl & DEBUGCTL_BLD)) {
+        x86_bus_lock_watch(env);
+    }
+#endif
 }
 
 static void x86_cpu_exec_exit(CPUState *cs)

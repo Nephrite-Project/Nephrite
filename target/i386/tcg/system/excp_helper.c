@@ -38,6 +38,8 @@ typedef struct TranslateParams {
     MMUAccessType access_type;
     /* The PDPTE registers PAE paging takes instead of memory, or NULL. */
     const uint64_t *pdptes;
+    /* The PAT whose entries the leaf's PAT, PCD, and PWT bits select. */
+    uint64_t pat;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -46,6 +48,10 @@ typedef struct TranslateResult {
     int page_size;
     /* paddr is an offset in the AVIC address space's vAPIC page. */
     bool avic;
+    /* As CPUTLBEntryFull's extra.x86. */
+    bool wb;
+    bool mtrr;
+    bool ipat;
 } TranslateResult;
 
 typedef enum TranslateFaultStage2 {
@@ -213,6 +219,81 @@ static void svm_pml_log(CPUX86State *env, hwaddr gpa)
     x86_stw_phys(cs, index_addr, index - 1);
 }
 
+/*
+ * Whether the PAT entry that an entry mapping a page of PAGE_SIZE selects
+ * with its PAT, PCD, and PWT bits holds WB (Intel SDM 325462-093 Vol. 3A,
+ * 14.12.3; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+ * 3.46, 7.8.2). Without the PAT, PCD and PWT pick from its power-up
+ * entries, as the Pentium Pro's effective memory types have it (Intel SDM
+ * 325462-093 Vol. 3A, Table 14-6).
+ */
+static bool pat_wb(CPUX86State *env, uint64_t pat, uint64_t pte,
+                   int page_size)
+{
+    int index = (pte & PG_PWT_MASK ? 1 : 0) | (pte & PG_PCD_MASK ? 2 : 0);
+
+    if (!(env->features[FEAT_1_EDX] & CPUID_PAT)) {
+        pat = 0x0007040600070406ULL;
+    } else if (pte & (page_size == TARGET_PAGE_SIZE ? PG_PSE_MASK
+                                                     : PG_PSE_PAT_MASK)) {
+        index |= 4;
+    }
+    return ((pat >> (index * 8)) & 0xff) == 6;
+}
+
+/*
+ * Whether the MTRRs make the physical address PA's memory type WB (Intel
+ * SDM 325462-093 Vol. 3A, 14.11.4.1; AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, 7.7.4): with the MTRRs disabled it is
+ * UC; in the first megabyte, with the fixed-range MTRRs enabled, theirs;
+ * else that of the variable ranges that match, all WB for WB (UC wins, WT
+ * wins over WB, and other mixtures are undefined), and the default type
+ * where none does. Without MTRRs, the page-level controls alone decide.
+ */
+bool x86_mtrr_wb(CPUX86State *env, hwaddr pa)
+{
+    uint64_t addr_mask = MAKE_64BIT_MASK(12, env_archcpu(env)->phys_bits - 12);
+    bool matched = false;
+    int type;
+
+    if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+        return true;
+    }
+    if (!(env->mtrr_deftype & (1 << 11))) {
+        return false;
+    }
+    if (pa < 0x100000 && (env->mtrr_deftype & (1 << 10))) {
+        int byte;
+        uint64_t fixed;
+
+        if (pa < 0x80000) {
+            fixed = env->mtrr_fixed[0];
+            byte = pa >> 16;
+        } else if (pa < 0xc0000) {
+            fixed = env->mtrr_fixed[1 + ((pa - 0x80000) >> 17)];
+            byte = ((pa - 0x80000) >> 14) & 7;
+        } else {
+            fixed = env->mtrr_fixed[3 + ((pa - 0xc0000) >> 15)];
+            byte = ((pa - 0xc0000) >> 12) & 7;
+        }
+        return ((fixed >> (byte * 8)) & 0xff) == 6;
+    }
+    for (int i = 0; i < MSR_MTRRcap_VCNT; i++) {
+        const MTRRVar *var = &env->mtrr_var[i];
+        uint64_t mask = var->mask & addr_mask;
+
+        if ((var->mask & (1 << 11)) &&
+            (pa & mask) == (var->base & mask)) {
+            if ((var->base & 0xff) != 6) {
+                return false;
+            }
+            matched = true;
+        }
+    }
+    type = env->mtrr_deftype & 0xff;
+    return matched || type == 6;
+}
+
 static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                           TranslateResult *out, TranslateFault *err,
                           uint64_t ra)
@@ -235,6 +316,8 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     int page_size;
     int error_code;
     int prot;
+    /* The page's memory type is WB before the MTRRs; without paging, it is. */
+    bool wb = true, mtrr = true;
 #ifdef TARGET_X86_64
     /*
      * PML5Es and PML4Es have no PS bit; AMD reserves their bit 8 too
@@ -573,6 +656,7 @@ do_check_protect_pse36:
 
     /* merge offset within page */
     paddr = (pte & PG_ADDRESS_MASK & ~(page_size - 1)) | (addr & (page_size - 1));
+    wb = pat_wb(env, in->pat, pte, page_size);
  stage2:
 
     /*
@@ -607,6 +691,22 @@ do_check_protect_pse36:
         /* Merge stage1 & stage2 protection bits. */
         prot &= full->prot;
 
+        /*
+         * Under EPT, the page's memory type is EPT's, combined with the PAT
+         * type unless the EPT entry ignores the PAT, and the MTRRs do not
+         * apply (Intel SDM 325462-093 Vol. 3C, 31.3.7.2); under nested
+         * paging, the guest's and the host's PAT types combine, and the
+         * MTRRs apply to the system physical address (AMD64 Architecture
+         * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.9). Either
+         * way, the page is WB only where every part is.
+         */
+        if (full->extra.x86.mtrr) {
+            wb &= full->extra.x86.wb;
+        } else {
+            wb = full->extra.x86.wb && (full->extra.x86.ipat || wb);
+            mtrr = false;
+        }
+
         /* Re-verify resulting protection. */
         if ((prot & (1 << access_type)) == 0) {
             goto do_fault_protect;
@@ -625,6 +725,9 @@ do_check_protect_pse36:
             out->prot = prot & ~PAGE_EXEC;
             out->page_size = TARGET_PAGE_SIZE;
             out->avic = true;
+            out->wb = wb && (!mtrr || x86_mtrr_wb(env, full->phys_addr));
+            out->mtrr = false;
+            out->ipat = false;
             return true;
         }
 
@@ -645,6 +748,9 @@ do_check_protect_pse36:
     out->paddr = paddr & x86_get_a20_mask(env);
     out->prot = prot;
     out->page_size = page_size;
+    out->wb = wb;
+    out->mtrr = mtrr;
+    out->ipat = false;
     return true;
 
  do_fault_rsvd:
@@ -762,14 +868,19 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
     case MMU_NESTED_IDX:
         if (x86_vmx_ept_active(env)) {
             hwaddr hpa;
+            int memtype;
 
             if (!x86_vmx_ept_translate(env, addr, access_type,
                                        is_mmu_index_nested_sup(mmu_idx), &hpa,
-                                       &out->prot, &out->page_size)) {
+                                       &out->prot, &out->page_size,
+                                       &memtype)) {
                 *err = (TranslateFault){ .stage2 = S2_GPA, .cr2 = addr };
                 return false;
             }
             out->paddr = hpa;
+            out->wb = (memtype & 7) == 6;
+            out->mtrr = false;
+            out->ipat = memtype & 8;
             return true;
         }
         if (likely(use_stage2)) {
@@ -778,6 +889,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             env->svm_pml_full = false;
             in.cr3 = env->nested_cr3;
             in.pdptes = NULL;
+            in.pat = env->pat;
             in.pg_mode = env->nested_pg_mode;
             in.mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
             /*
@@ -814,6 +926,9 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
         if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
             in.cr3 = env->cr[3];
             in.pdptes = env->pdpte_loaded ? env->pdpte : NULL;
+            /* Under nested paging, the guest's PAT is G_PAT. */
+            in.pat = use_stage2 && !env->vmx.nonroot ? env->svm_gpat
+                                                     : env->pat;
             in.mmu_idx = mmu_idx;
             in.ptw_idx = MMU_PHYS_IDX;
             if (use_stage2) {
@@ -854,6 +969,9 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
     out->paddr = addr & x86_get_a20_mask(env);
     out->prot = PAGE_READ | PAGE_WRITE | PAGE_EXEC;
     out->page_size = TARGET_PAGE_SIZE;
+    out->wb = true;
+    out->mtrr = true;
+    out->ipat = false;
     return true;
 }
 
@@ -974,6 +1092,8 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     if (get_physical_address(env, addr, access_type, mmu_idx, &out, &err,
                              retaddr)) {
         MemTxAttrs attrs = cpu_get_mem_attrs(env);
+        hwaddr pa = out.paddr;
+        CPUTLBEntryFull full;
 
         /*
          * Linear accesses to VMX's APIC-access page (Intel SDM 325462-093
@@ -1019,14 +1139,29 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
             out.avic = true;
         }
         attrs.avic = out.avic;
+        /* Redirected pages keep the memory type of the address they had. */
+        if (out.avic && out.mtrr) {
+            out.wb = out.wb && x86_mtrr_wb(env, pa);
+            out.mtrr = false;
+        }
         /*
          * Even if 4MB pages, we map only one 4KB page in the cache to
          * avoid filling it too fast.
          */
         assert(out.prot & (1 << access_type));
-        tlb_set_page_with_attrs(cs, addr & TARGET_PAGE_MASK,
-                                out.paddr & TARGET_PAGE_MASK, attrs,
-                                out.prot, mmu_idx, out.page_size);
+        assert(is_power_of_2(out.page_size));
+        full = (CPUTLBEntryFull){
+            .phys_addr = out.paddr & TARGET_PAGE_MASK,
+            .attrs = attrs,
+            .prot = out.prot,
+            .lg_page_size = ctz64(out.page_size),
+            .extra.x86 = {
+                .wb = out.wb,
+                .mtrr = out.mtrr,
+                .ipat = out.ipat,
+            },
+        };
+        tlb_set_page_full(cs, mmu_idx, addr & TARGET_PAGE_MASK, &full);
         return true;
     }
 

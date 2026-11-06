@@ -93,6 +93,7 @@ void x86_guest_tlb_enter(CPUX86State *env, const X86GuestTLBTag *tag,
                          bool flush);
 X86GuestTLBTag *x86_guest_tlb_current(CPUX86State *env);
 void x86_guest_tlb_forget(CPUX86State *env);
+bool x86_mtrr_wb(CPUX86State *env, hwaddr pa);
 bool x86_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                       MMUAccessType access_type, int mmu_idx,
                       bool probe, uintptr_t retaddr);
@@ -211,7 +212,8 @@ bool x86_vmx_ept_mbec(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
-                           hwaddr *hpa, int *prot, int *page_size);
+                           hwaddr *hpa, int *prot, int *page_size,
+                           int *memtype);
 void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
@@ -221,6 +223,13 @@ bool x86_vmx_senduipi(CPUX86State *env, uint32_t ndst, uint8_t nv,
 G_NORETURN void x86_vmx_pdpte_exit(CPUX86State *env, hwaddr gpa,
                                    uintptr_t ra);
 void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra);
+#endif
+
+/* system/bus_lock.c */
+#ifndef CONFIG_USER_ONLY
+/* The translator checks locked instructions for bus locks. */
+extern bool x86_bus_lock_checks;
+void x86_bus_lock_watch(CPUX86State *env);
 #endif
 
 /* system/misc_helper.c */
@@ -447,6 +456,18 @@ static inline void do_end_instruction(CPUX86State *env)
 }
 
 /*
+ * The DebugCtl bits that TCG's processors have: LBR, BTF, and with OS
+ * bus-lock detection BLD (Intel SDM 325462-093 Vol. 4, Table 2-2; AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 13.1.1.6).
+ */
+static inline uint64_t x86_debugctl_bits(CPUX86State *env)
+{
+    return DEBUGCTL_LBR | DEBUGCTL_BTF |
+           (env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_BUS_LOCK_DETECT ?
+            DEBUGCTL_BLD : 0);
+}
+
+/*
  * A PAT value with one of the memory types UC, WC, WT, WP, WB, and UC- in
  * every entry, which WRMSR takes; other encodings and reserved bits make it
  * raise #GP (Intel SDM 325462-093 Vol. 3A, 14.12.2 and 14.12.4; AMD64
@@ -462,6 +483,17 @@ static inline bool x86_pat_valid(uint64_t pat)
         }
     }
     return true;
+}
+
+/*
+ * DR6 after a #DB with the DR6 bits BITS: B0-B3 replaced, the others set,
+ * but DR6_BLD, a bus lock's, which the #DB clears (Intel SDM 325462-093
+ * Vol. 3B, 20.2.3).
+ */
+static inline target_ulong x86_dr6_apply(target_ulong dr6, uint32_t bits)
+{
+    return ((dr6 & ~0xf) | (bits & ~DR6_BLD)) &
+           ~(target_ulong)(bits & DR6_BLD);
 }
 
 /*

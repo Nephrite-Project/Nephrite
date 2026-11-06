@@ -302,7 +302,10 @@ static void svm_load_lbr(CPUX86State *env, hwaddr addr)
 
     env->debugctl = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
                                                      save.dbgctl)) &
-                    (DEBUGCTL_LBR | DEBUGCTL_BTF);
+                    x86_debugctl_bits(env);
+    if (env->debugctl & DEBUGCTL_BLD) {
+        x86_bus_lock_watch(env);
+    }
     env->lbr_from = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
                                                      save.br_from));
     env->lbr_to = x86_ldq_phys(cs, addr + offsetof(struct vmcb, save.br_to));
@@ -921,6 +924,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
          LBR_CTL_ENABLE_MASK)) {
         svm_store_lbr(env, env->vm_hsave);
         if ((clean & SVM_CLEAN_LBR) && c->lbr_virt) {
+            /* Watching for bus locks started when DebugCtl was loaded. */
             env->debugctl = c->dbgctl;
             env->lbr_from = c->br_from;
             env->lbr_to = c->br_to;

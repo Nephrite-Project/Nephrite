@@ -160,6 +160,8 @@ DEF_HELPER_1(fred_ud, void, env)
 DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
 DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)
 DEF_HELPER_FLAGS_1(db_pending, TCG_CALL_NO_WG, noreturn, env)
+DEF_HELPER_FLAGS_4(bus_lock, TCG_CALL_NO_WG, void, env, tl, i32, i32)
+DEF_HELPER_FLAGS_1(bus_lock_done, TCG_CALL_NO_WG, void, env)
 #endif /* !CONFIG_USER_ONLY */
 
 /* x86 FPU */

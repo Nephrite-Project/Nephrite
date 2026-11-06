@@ -280,6 +280,17 @@ struct CPUTLBEntryFull {
             uint8_t shareability;
             bool guarded;
         } arm;
+        /*
+         * Whether the page's memory type is WB before the MTRRs, as the
+         * PAT and EPT or nested paging give it, whether the MTRRs apply to
+         * phys_addr (they do not under EPT), and, for EPT's own entries,
+         * whether they ignore the PAT.
+         */
+        struct {
+            bool wb;
+            bool mtrr;
+            bool ipat;
+        } x86;
     } extra;
 };
 
