@@ -82,6 +82,7 @@ typedef struct PTETranslate {
     uint64_t ref;
     uint64_t pat;
     bool implicit_locks;
+    bool fetch;
     uintptr_t ra;
     /* The entry was probed for loads, so flag updates probe for a store. */
     bool load_only;
@@ -227,7 +228,7 @@ static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
          */
         if (unlikely(x86_bus_lock_implicit_watched(in->env)) &&
             in->implicit_locks) {
-            x86_bus_lock_implicit(in->env, ptw_wb(in), in->ra);
+            x86_bus_lock_implicit(in->env, ptw_wb(in), in->fetch, in->ra);
         }
         if (likely(in->haddr)) {
             old = cpu_to_le32(old);
@@ -357,6 +358,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         .ptw_idx = in->ptw_idx,
         .pat = in->pat,
         .implicit_locks = in->implicit_locks,
+        .fetch = in->access_type == MMU_INST_FETCH,
         .ra = ra,
     };
     hwaddr pte_addr, paddr;

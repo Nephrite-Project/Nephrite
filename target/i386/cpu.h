@@ -1667,6 +1667,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC      0x00400000
 #define VMX_SECONDARY_EXEC_TSC_SCALING              0x02000000
 #define VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE   0x04000000
+#define VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION       0x40000000
 
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
 
@@ -2376,6 +2377,9 @@ struct hv_vp_register_page;
 #define VMX_EXIT_XRSTORS 64
 #define VMX_EXIT_UMWAIT 67
 #define VMX_EXIT_TPAUSE 68
+#define VMX_EXIT_BUS_LOCK 74
+/* The exit came after a bus lock under "VMM bus-lock detection". */
+#define VMX_EXIT_AFTER_BUS_LOCK (1U << 26)
 #define VMX_EXIT_ENTRY_FAILURE (1U << 31)
 
 /* The VMCS fields TCG keeps (see vmx_helper.c), at most this many. */
@@ -2441,6 +2445,9 @@ typedef struct X86VMXState {
     /* The "monitor trap flag" control, and an MTF VM exit pending. */
     bool mtf;
     bool mtf_pending;
+    /* "VMM bus-lock detection", and its VM exit pending. */
+    bool bus_lock;
+    bool bus_lock_pending;
     /*
      * The VMX-preemption timer: running, the value VM entry loaded, and
      * the TSC shifted right by the timer's rate then.

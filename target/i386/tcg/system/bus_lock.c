@@ -10,7 +10,8 @@
  * 3.46, 13.1.3.6); split-lock disable and UC-lock disable make such
  * accesses fault instead (Intel SDM 325462-093 Vol. 3A, 11.1.2.3), also
  * the implicit locked updates of paging-structure entries and descriptors
- * (Intel SDM 325462-093 Vol. 3A, 11.1.2.1).
+ * (Intel SDM 325462-093 Vol. 3A, 11.1.2.1); VMX's "VMM bus-lock detection"
+ * exits after any (Intel SDM 325462-093 Vol. 3C, 28.2).
  *
  * The translator checks locked instructions only once some processor
  * watches for bus locks: x86_bus_lock_watch() then flushes all
@@ -24,6 +25,8 @@
 #include "exec/helper-proto.h"
 #include "exec/tb-flush.h"
 #include "exec/target_page.h"
+#include "exec/translation-block.h"
+#include "accel/tcg/cpu-loop.h"
 #include "accel/tcg/probe.h"
 #include "tcg/helper-tcg.h"
 #include "../seg_helper.h"
@@ -42,6 +45,12 @@ void x86_bus_lock_watch(CPUX86State *env)
 static bool os_bld(CPUX86State *env)
 {
     return (env->debugctl & DEBUGCTL_BLD) && (env->hflags & HF_CPL_MASK);
+}
+
+/* VMX's "VMM bus-lock detection" in non-root operation. */
+static bool vmx_bus_lock(CPUX86State *env)
+{
+    return env->vmx.nonroot && env->vmx.bus_lock;
 }
 
 /* UC-lock disable, which CR0.CD turns off. */
@@ -116,11 +125,12 @@ void HELPER(bus_lock)(CPUX86State *env, target_ulong addr, uint32_t size,
     bool split_ac = split &&
                     (env->memory_ctrl & MEMORY_CTRL_SPLIT_LOCK_DISABLE);
     bool bld = os_bld(env);
+    bool vmx = vmx_bus_lock(env);
     bool uc_ac = uc_lock_disabled(env);
     bool wb;
 
     env->bus_lock_now = false;
-    if (!split_ac && !bld && !uc_ac) {
+    if (!split_ac && !bld && !vmx && !uc_ac) {
         return;
     }
     wb = access_wb(env, addr, first, mmu_idx, ra);
@@ -133,17 +143,38 @@ void HELPER(bus_lock)(CPUX86State *env, target_ulong addr, uint32_t size,
     if (!wb && uc_ac) {
         uc_lock_fault(env, ra);
     }
-    env->bus_lock_now = bld && (split || !wb);
+    env->bus_lock_now = (bld || vmx) && (split || !wb);
 }
 
 /*
  * An implicit locked access to memory whose type is WB or not, before it:
- * implicit accesses are aligned and never split.
+ * implicit accesses are aligned and never split. VMX's bus-lock VM exit
+ * comes after the instruction, which the access belongs to, or which
+ * FETCH fetches: unless that runs alone, it runs again alone, no
+ * interrupt before it, finding the bus lock pending.
  */
-void x86_bus_lock_implicit(CPUX86State *env, bool wb, uintptr_t ra)
+void x86_bus_lock_implicit(CPUX86State *env, bool wb, bool fetch,
+                           uintptr_t ra)
 {
-    if (!wb && uc_lock_disabled(env)) {
+    CPUState *cs = env_cpu(env);
+
+    if (wb) {
+        return;
+    }
+    if (uc_lock_disabled(env)) {
         uc_lock_fault(env, ra);
+    }
+    if (vmx_bus_lock(env) && !env->vmx.bus_lock_pending) {
+        env->vmx.bus_lock_pending = true;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+        if (ra || fetch) {
+            if (ra) {
+                cpu_restore_state(cs, ra);
+            }
+            cs->cflags_next_tb = 1 | CF_NOIRQ | cs->tcg_cflags;
+            cpu_loop_exit_noexc(cs);
+        }
     }
 }
 
@@ -152,14 +183,15 @@ void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uintptr_t ra)
 {
     x86_bus_lock_implicit(env, access_wb(env, addr, 1,
                                          cpu_mmu_index_kernel(env), ra),
-                          ra);
+                          false, ra);
 }
 
 /*
  * At the end of the locked instruction, whose bus lock's #DB is a trap
  * that clears DR6.BLD as it is delivered: with TF's single-step trap and
- * the breakpoints it hit, after VMX's monitor trap flag VM exit, which
- * leaves them pending (Intel SDM 325462-093 Vol. 3C, 28.5.2).
+ * the breakpoints it hit, after VMX's bus-lock VM exit or monitor trap
+ * flag VM exit, which leave them pending (Intel SDM 325462-093 Vol. 3C,
+ * 28.2 and 28.5.2).
  */
 void HELPER(bus_lock_done)(CPUX86State *env)
 {
@@ -169,8 +201,11 @@ void HELPER(bus_lock_done)(CPUX86State *env)
         return;
     }
     env->bus_lock_now = false;
-    traps = DR6_BLD | x86_step_trap(env, false);
+    traps = (os_bld(env) ? DR6_BLD : 0) | x86_step_trap(env, false);
     do_end_instruction(env);
+    if (vmx_bus_lock(env)) {
+        x86_vmx_bus_lock_exit(env, traps);
+    }
     if (x86_vmx_mtf(env)) {
         x86_vmx_mtf_step(env, traps);
     }

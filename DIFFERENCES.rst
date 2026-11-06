@@ -125,6 +125,10 @@ Intel VMX, which QEMU's TCG does not have:
   numbers have five bits for R16 to R31, as the GPR fields of the exit
   qualifications of CR and DR accesses now have (Intel APX 355828-009,
   3.1.4.4.1).
+* VMM bus-lock detection: a trap-like VM exit after any bus lock, also
+  that of an implicit locked access, with the instruction's debug traps
+  pending, and bit 26 of the exit reasons of VM exits during such an
+  instruction.
 * Register dumps show VMX operation: root or non-root, the VMXON region,
   and the current VMCS.
 
@@ -387,9 +391,10 @@ Known deviations and limits
 * Bus locks: OS bus-lock detection skips the implicit supervisor accesses
   of descriptor and paging-structure updates, as AMD's APM says and
   Intel's SDM does not; with CR0.CD set every locked access is a bus lock,
-  as AMD's CD memory type has it; and VM entries take BLD in the pending
+  as AMD's CD memory type has it; VM entries take BLD in the pending
   debug exceptions, which the SDM's Table 27-4 defines and its 29.3.1.5
-  still lists as reserved.
+  still lists as reserved; and the flag updates in EPT's and nested
+  paging's own tables are no bus locks.
 * MPERF and APERF both count the TSC's ticks outside HLT, MWAIT, and the
   wait for SIPI, as the processor always runs at its nominal frequency.
   RDPRU sets CF where ECX names a register and clears it otherwise; the APM

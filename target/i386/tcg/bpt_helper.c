@@ -31,6 +31,9 @@
 static G_NORETURN void single_step(CPUX86State *env, bool branch)
 {
 #ifndef CONFIG_USER_ONLY
+    if (env->vmx.bus_lock_pending) {
+        x86_vmx_bus_lock_exit(env, x86_step_trap(env, branch));
+    }
     if (x86_vmx_mtf(env)) {
         x86_vmx_mtf_step(env, x86_step_trap(env, branch));
     }

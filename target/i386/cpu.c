@@ -963,6 +963,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_XSAVES | \
           VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC | \
           VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE | \
+          VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION | \
           VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST)
 #define TCG_VMX_EPT_VPID (MSR_VMX_EPT_EXECONLY | \
           MSR_VMX_EPT_PAGE_WALK_LENGTH_4 | MSR_VMX_EPT_2MB | MSR_VMX_EPT_1GB | \
@@ -1902,7 +1903,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vmx-rdseed-exit", "vmx-pml", NULL, NULL,
             "vmx-xsaves", NULL, "vmx-mbec", NULL,
             NULL, "vmx-tsc-scaling", "vmx-enable-user-wait-pause", NULL,
-            NULL, NULL, NULL, NULL,
+            NULL, NULL, "vmx-bus-lock-detection", NULL,
         },
         .msr = {
             .index = MSR_IA32_VMX_PROCBASED_CTLS2,

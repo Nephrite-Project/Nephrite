@@ -193,6 +193,7 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
 void x86_vmx_event_end(CPUX86State *env);
 void x86_vmx_do_vmexit(CPUX86State *env);
 G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps);
+G_NORETURN void x86_vmx_bus_lock_exit(CPUX86State *env, uint32_t traps);
 bool x86_vmx_take_interrupt(CPUX86State *env, int request, bool woke);
 bool x86_vmx_virtual_nmis(CPUX86State *env);
 bool x86_vmx_rdtscp_allowed(CPUX86State *env);
@@ -231,13 +232,15 @@ void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra);
 extern bool x86_bus_lock_checks;
 void x86_bus_lock_watch(CPUX86State *env);
 bool x86_bus_lock_wb(CPUX86State *env, bool wb, bool mtrr, hwaddr pa);
-void x86_bus_lock_implicit(CPUX86State *env, bool wb, uintptr_t ra);
+void x86_bus_lock_implicit(CPUX86State *env, bool wb, bool fetch,
+                           uintptr_t ra);
 void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uintptr_t ra);
 
 /* Whether implicit locked accesses need checking for bus locks. */
 static inline bool x86_bus_lock_implicit_watched(CPUX86State *env)
 {
-    return env->memory_ctrl & MEMORY_CTRL_UC_LOCK_DISABLE;
+    return (env->memory_ctrl & MEMORY_CTRL_UC_LOCK_DISABLE) ||
+           (env->vmx.nonroot && env->vmx.bus_lock);
 }
 #endif
 

@@ -1252,6 +1252,14 @@ G_NORETURN void x86_vmx_exit_full(CPUX86State *env, uint32_t reason,
     }
     qemu_log_mask(CPU_LOG_INT, "VMX exit %u qual 0x%" PRIx64 " rip "
                   TARGET_FMT_lx "\n", reason, qual, env->eip);
+    /*
+     * An exit during an instruction that asserted a bus lock under "VMM
+     * bus-lock detection" says so (Intel SDM 325462-093 Vol. 3C, 27.9.1).
+     */
+    if (env->vmx.bus_lock_pending) {
+        reason |= VMX_EXIT_AFTER_BUS_LOCK;
+        env->vmx.bus_lock_pending = false;
+    }
     VMCS_SET(EXIT_REASON, reason);
     VMCS_SET(EXIT_QUALIFICATION, qual);
     VMCS_SET(EXIT_INTR_INFO, intr_info);
@@ -2355,6 +2363,25 @@ G_NORETURN void x86_vmx_mtf_step(CPUX86State *env, uint32_t traps)
 }
 
 /*
+ * The trap-like VM exit of a bus lock under "VMM bus-lock detection",
+ * after the instruction, ahead of SMIs, INITs, and the debug traps it
+ * raised, which stay pending as for MTF VM exits (Intel SDM 325462-093
+ * Vol. 3C, 28.2 and 30.3.4).
+ */
+G_NORETURN void x86_vmx_bus_lock_exit(CPUX86State *env, uint32_t traps)
+{
+    bool enabled;
+    uint32_t pending = traps | hw_data_breakpoint_hits(env, &enabled);
+
+    if (enabled || (traps & (0xf | DR6_BLD))) {
+        pending |= VMX_PENDING_DBG_ENABLED_BP;
+    }
+    env->vmx.bus_lock_pending = false;
+    env->vmx.exit_pending_dbg = pending;
+    x86_vmx_exit(env, VMX_EXIT_BUS_LOCK | VMX_EXIT_AFTER_BUS_LOCK, 0, 0);
+}
+
+/*
  * The PDPTEs of a guest with PAE paging under EPT, which an exit saves
  * (Intel SDM 325462-093 Vol. 3C, 30.3.4): the PDPTE registers, else the
  * guest's own, at CR3 through EPT.
@@ -2675,6 +2702,7 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.nonroot = false;
     env->vmx.mtf = false;
     env->vmx.mtf_pending = false;
+    env->vmx.bus_lock = false;
     env->vmx.apic_access = ~0ULL;
     env->vmx.tpr_exit_pending = false;
     env->vmx.vintr_pending = false;
@@ -3934,6 +3962,11 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
     }
     vmx_load_guest(env);
     env->vmx.nonroot = true;
+    env->vmx.bus_lock = vmx_proc2(env) & VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION;
+    env->vmx.bus_lock_pending = false;
+    if (env->vmx.bus_lock) {
+        x86_bus_lock_watch(env);
+    }
     env->monitor_armed = false;
     env->umonitor_armed = false;
     env->hflags |= HF_GUEST_MASK;
@@ -4023,6 +4056,10 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
      */
     if (env->vmx.inactive == VMX_ACTIVITY_WAIT_SIPI) {
         return request & CPU_INTERRUPT_SIPI;
+    }
+    /* Bus locks' VM exits come before INITs and SMIs. */
+    if ((request & CPU_INTERRUPT_VMX) && env->vmx.bus_lock_pending) {
+        return CPU_INTERRUPT_VMX;
     }
     if (request & CPU_INTERRUPT_INIT) {
         return CPU_INTERRUPT_INIT;
@@ -4188,6 +4225,9 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
         }
         x86_vmx_exit(env, VMX_EXIT_EXTERNAL_INTERRUPT, 0, 0);
     case CPU_INTERRUPT_VMX:
+        if (env->vmx.bus_lock_pending) {
+            x86_vmx_bus_lock_exit(env, 0);
+        }
         /*
          * Right after the entry, the debug exceptions it left pending stay
          * so through the exits ahead of them (Intel SDM 325462-093 Vol. 3C,

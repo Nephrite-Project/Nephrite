@@ -339,6 +339,10 @@ void breakpoint_handler(CPUState *cs)
             uint32_t hits;
 
             cs->watchpoint_hit = NULL;
+            /* A bus lock's VM exit leaves the data breakpoints pending. */
+            if (env->vmx.bus_lock_pending) {
+                x86_vmx_bus_lock_exit(env, 0);
+            }
             hits = hw_breakpoint_hits(env, &enabled);
             if (!enabled) {
                 cpu_loop_exit_noexc(cs);
