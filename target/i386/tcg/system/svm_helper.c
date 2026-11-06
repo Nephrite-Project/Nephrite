@@ -399,12 +399,14 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
     CPUState *cs = env_cpu(env);
     uint8_t tlb_ctl = x86_ldub_phys(cs, env->vm_vmcb +
                                     offsetof(struct vmcb, control.tlb_ctl));
-    hwaddr avic_bar = env->svm_avic && !env->svm_x2avic ?
-                      env->svm_avic_bar : (hwaddr)-1;
-    bool flush_guest = asid != env->svm_tlb_asid ||
-                       ((env->cr[4] ^ env->svm_tlb_cr4) & SVM_TLB_CR4_BITS) ||
-                       env->nested_pg_mode != env->svm_tlb_nested_pg_mode ||
-                       avic_bar != env->svm_tlb_avic_bar;
+    X86GuestTLBTag tag = {
+        .id = asid,
+        .apic = env->svm_avic && !env->svm_x2avic ? env->svm_avic_bar
+                                                  : (hwaddr)-1,
+        .cr4 = env->cr[4] & SVM_TLB_CR4_BITS,
+        .pg_mode = env->nested_pg_mode,
+    };
+    bool flush = false;
 
     switch (tlb_ctl) {
     case TLB_CONTROL_DO_NOTHING:
@@ -412,7 +414,7 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
     case TLB_CONTROL_FLUSH_ASID:
     case TLB_CONTROL_FLUSH_ASID_LOCAL:
         if (env->features[FEAT_SVM] & CPUID_SVM_FLUSHASID) {
-            flush_guest = true;
+            flush = true;
             break;
         }
         /* fall through */
@@ -422,17 +424,10 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
         /* fall through */
     case TLB_CONTROL_FLUSH_ALL_ASID:
         tlb_flush(cs);
-        flush_guest = false;
+        x86_guest_tlb_forget(env);
         break;
     }
-    if (flush_guest) {
-        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
-                                1 << MMU_NESTED_SUP_IDX);
-    }
-    env->svm_tlb_asid = asid;
-    env->svm_tlb_cr4 = env->cr[4];
-    env->svm_tlb_nested_pg_mode = env->nested_pg_mode;
-    env->svm_tlb_avic_bar = avic_bar;
+    x86_guest_tlb_enter(env, &tag, flush);
 }
 
 static inline bool is_efer_invalid_state (CPUX86State *env)
@@ -1095,7 +1090,7 @@ void HELPER(vmload)(CPUX86State *env, int aflag)
     cpu_svm_check_intercept_param(env, SVM_EXIT_VMLOAD, 0, GETPC());
 
     if (virtual_vm_load_save_enabled(env, SVM_EXIT_VMLOAD, GETPC())) {
-        mmu_idx = MMU_NESTED_IDX;
+        mmu_idx = mmu_index_nested(x86_guest_set(env), false);
     }
 
     svm_load_seg_cache(env, mmu_idx,
@@ -1159,7 +1154,7 @@ void HELPER(vmsave)(CPUX86State *env, int aflag)
     cpu_svm_check_intercept_param(env, SVM_EXIT_VMSAVE, 0, GETPC());
 
     if (virtual_vm_load_save_enabled(env, SVM_EXIT_VMSAVE, GETPC())) {
-        mmu_idx = MMU_NESTED_IDX;
+        mmu_idx = mmu_index_nested(x86_guest_set(env), false);
     }
 
     svm_save_seg(env, mmu_idx, addr + offsetof(struct vmcb, save.fs),
@@ -1680,12 +1675,12 @@ void do_vmexit(CPUX86State *env)
     }
 
     /* The guest's last CR4 is what its translations were made under. */
-    env->svm_tlb_cr4 = env->cr[4];
+    x86_guest_tlb_current(env)->cr4 = env->cr[4] & SVM_TLB_CR4_BITS;
 
 load_host:
     /* Reload the host state from vm_hsave */
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
-    env->hflags &= ~HF_GUEST_MASK;
+    env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK);
     env->intercept = 0;
     env->intercept_vec5 = 0;
     env->intercept_exceptions = 0;

@@ -182,6 +182,7 @@ typedef enum X86Seg {
 #define HF_VM_SHIFT         17 /* must be same as eflags */
 #define HF_AC_SHIFT         18 /* must be same as eflags */
 #define HF_SMM_SHIFT        19 /* CPU in SMM mode */
+#define HF_TLB_SET_SHIFT    20 /* guest mode uses the second MMU index set */
 #define HF_GUEST_SHIFT      21 /* SVM intercepts are active */
 #define HF_OSFXSR_SHIFT     22 /* CR4.OSFXSR */
 #define HF_SMAP_SHIFT       23 /* CR4.SMAP */
@@ -213,6 +214,7 @@ typedef enum X86Seg {
 #define HF_VM_MASK           (1 << HF_VM_SHIFT)
 #define HF_AC_MASK           (1 << HF_AC_SHIFT)
 #define HF_SMM_MASK          (1 << HF_SMM_SHIFT)
+#define HF_TLB_SET_MASK      (1 << HF_TLB_SET_SHIFT)
 #define HF_GUEST_MASK        (1 << HF_GUEST_SHIFT)
 #define HF_OSFXSR_MASK       (1 << HF_OSFXSR_SHIFT)
 #define HF_SMAP_MASK         (1 << HF_SMAP_SHIFT)
@@ -2424,18 +2426,26 @@ typedef struct X86VMXState {
     uint64_t ept_qual;
     bool ept_misconfig;
     bool pml_full;
-    /*
-     * The VPID, EPTP, and APIC-access address the guest's translations
-     * are of, a VPID of ~0 for none.
-     */
-    uint64_t tlb_vpid;
-    uint64_t tlb_eptp;
-    uint64_t tlb_apic_access;
-    uint64_t tlb_cr0;
-    uint64_t tlb_cr3;
-    uint64_t tlb_cr4;
-    uint64_t tlb_efer;
 } X86VMXState;
+
+/* The guest contexts whose translations guest mode's MMU indexes hold. */
+#define MMU_GUEST_SETS 2
+
+/*
+ * What made the translations of a guest context that a set of guest mode's
+ * MMU indexes holds: its ASID or VPID, the EPTP, the address of the APIC
+ * page AVIC or the APIC-access page maps, and the paging state.
+ */
+typedef struct X86GuestTLBTag {
+    uint64_t id;
+    uint64_t pointer;
+    uint64_t apic;
+    uint64_t cr0;
+    uint64_t cr3;
+    uint64_t cr4;
+    uint64_t efer;
+    uint64_t pg_mode;
+} X86GuestTLBTag;
 
 /*
  * The guest state of the VMCB last run that VMRUN takes from the processor
@@ -2813,12 +2823,13 @@ typedef struct CPUArchState {
     uint32_t svm_int_vector;
     SVMStateCache svm_cache;
     /*
-     * The ASID whose translations SVM guest mode's MMU indexes hold, 0 for
-     * none, and the guest CR4 and nested paging mode they were made under.
+     * The guest contexts whose translations the sets of guest mode's MMU
+     * indexes hold, whether each holds any, and when each was last entered.
      */
-    uint32_t svm_tlb_asid;
-    uint64_t svm_tlb_cr4;
-    int svm_tlb_nested_pg_mode;
+    X86GuestTLBTag guest_tlb[MMU_GUEST_SETS];
+    bool guest_tlb_valid[MMU_GUEST_SETS];
+    uint64_t guest_tlb_used[MMU_GUEST_SETS];
+    uint64_t guest_tlb_clock;
     /* VMRUN or #VMEXIT is loading CR0, CR3 and CR4, which flushes nothing. */
     bool svm_loading_crs;
     /* SVM guest mode may run INVLPGB and TLBSYNC. */
@@ -2859,7 +2870,6 @@ typedef struct CPUArchState {
     hwaddr svm_avic_logical;
     hwaddr svm_avic_physical;
     uint32_t svm_avic_max_index;
-    hwaddr svm_tlb_avic_bar;
 
     X86VMXState vmx;
 
@@ -3522,12 +3532,17 @@ int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
 #define MMU_NESTED_IDX     7
 
 /*
- * SVM guest mode has indexes of its own for those below MMU_PHYS_IDX, each
- * MMU_GUEST_IDX past the host's, so that a guest's translations and the
- * host's stay apart, as the processor keeps those of different ASIDs apart
- * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16).
+ * SVM guest mode and VMX non-root operation have indexes of their own for
+ * those below MMU_PHYS_IDX, each MMU_GUEST_IDX past the host's, so that a
+ * guest's translations and the host's stay apart, as the processor keeps
+ * those of different ASIDs apart (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.46, 15.16). They hold those of two guest contexts,
+ * as a processor's TLB holds those of several ASIDs or VPIDs: the second
+ * set's indexes are MMU_SET_STRIDE past the first's, nested ones included,
+ * and HF_TLB_SET picks the set guest mode uses.
  */
 #define MMU_GUEST_IDX      8
+#define MMU_SET_STRIDE     12
 
 /*
  * With GMET, the nested translations of guest supervisor accesses, whose
@@ -3537,18 +3552,27 @@ int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
 
 /*
  * Shadow-stack accesses, which reach only shadow-stack pages (Intel SDM
- * 325462-093 Vol. 3A, 5.6.1), user and supervisor ones, the host's and then
- * guest mode's.
+ * 325462-093 Vol. 3A, 5.6.1), user and supervisor ones, the host's, then
+ * the first guest set's MMU_SS_GUEST past them, and the second set's
+ * MMU_SS_SET_STRIDE past those.
  */
 #define MMU_SS_USER_IDX    15
 #define MMU_SS_SUP_IDX     16
 #define MMU_SS_GUEST       2
+#define MMU_SS_SET_STRIDE  10
 
 #define MMU_HOST_IDX_MAP   (((1 << MMU_PHYS_IDX) - 1) | \
                             1 << MMU_SS_USER_IDX | 1 << MMU_SS_SUP_IDX)
-#define MMU_GUEST_IDX_MAP  ((((1 << MMU_PHYS_IDX) - 1) << MMU_GUEST_IDX) | \
-                            1 << (MMU_SS_USER_IDX + MMU_SS_GUEST) | \
-                            1 << (MMU_SS_SUP_IDX + MMU_SS_GUEST))
+/* The MMU indexes of guest set N but its nested ones, and those. */
+#define MMU_GUEST_SET_MAP(n) \
+    ((((1 << MMU_PHYS_IDX) - 1) << (MMU_GUEST_IDX + (n) * MMU_SET_STRIDE)) | \
+     3 << (MMU_SS_USER_IDX + MMU_SS_GUEST + (n) * MMU_SS_SET_STRIDE))
+#define MMU_NESTED_SET_MAP(n) \
+    (1 << (MMU_NESTED_IDX + (n) * MMU_SET_STRIDE) | \
+     1 << (MMU_NESTED_SUP_IDX + (n) * MMU_SET_STRIDE))
+/* Those of both sets. */
+#define MMU_GUEST_IDX_MAP  (MMU_GUEST_SET_MAP(0) | MMU_GUEST_SET_MAP(1))
+#define MMU_NESTED_IDX_MAP (MMU_NESTED_SET_MAP(0) | MMU_NESTED_SET_MAP(1))
 
 #ifdef CONFIG_USER_ONLY
 #ifdef TARGET_X86_64
@@ -3558,15 +3582,42 @@ int64_t cpu_tsc_ticks_ns(CPUX86State *env, uint64_t ticks);
 #endif
 #endif
 
-/* The host's index that one of SVM guest mode stands for, or the index. */
+/* The guest set of an index of guest mode's, nested ones included. */
+static inline int mmu_index_set(int mmu_index)
+{
+    return mmu_index >= MMU_NESTED_IDX + MMU_SET_STRIDE;
+}
+
+/* The host's index that one of guest mode stands for, or the index. */
 static inline int mmu_index_host(int mmu_index)
 {
-    return mmu_index >= MMU_GUEST_IDX ? mmu_index - MMU_GUEST_IDX : mmu_index;
+    int guest = MMU_GUEST_IDX + mmu_index_set(mmu_index) * MMU_SET_STRIDE;
+
+    return mmu_index >= guest && mmu_index < guest + MMU_PHYS_IDX ?
+           mmu_index - guest : mmu_index;
+}
+
+/* The nested index of guest set SET, the supervisor one with SUP. */
+static inline int mmu_index_nested(int set, bool sup)
+{
+    return (sup ? MMU_NESTED_SUP_IDX : MMU_NESTED_IDX) + set * MMU_SET_STRIDE;
+}
+
+static inline bool is_mmu_index_nested(int mmu_index)
+{
+    return ((1 << mmu_index) & MMU_NESTED_IDX_MAP) != 0;
+}
+
+static inline bool is_mmu_index_nested_sup(int mmu_index)
+{
+    return mmu_index == mmu_index_nested(mmu_index_set(mmu_index), true);
 }
 
 static inline bool is_mmu_index_ss(int mmu_index)
 {
-    return mmu_index >= MMU_SS_USER_IDX;
+    return (mmu_index >= MMU_SS_USER_IDX &&
+            mmu_index <= MMU_SS_SUP_IDX + MMU_SS_GUEST) ||
+           mmu_index >= MMU_SS_USER_IDX + MMU_SS_GUEST + MMU_SS_SET_STRIDE;
 }
 
 static inline bool is_mmu_index_smap(int mmu_index)
@@ -3589,10 +3640,31 @@ static inline bool is_mmu_index_32(int mmu_index)
     return mmu_index & 1;
 }
 
-/* The MMU indexes of the current context: SVM guest mode's or the host's. */
+/* The guest set guest mode uses. */
+static inline int x86_guest_set(const CPUX86State *env)
+{
+    return (env->hflags & HF_TLB_SET_MASK) != 0;
+}
+
+/* How far past the host's the indexes of the context are, 0 for the host. */
+static inline int x86_mmu_offset(const CPUX86State *env)
+{
+    return env->hflags & HF_GUEST_MASK ?
+           MMU_GUEST_IDX + x86_guest_set(env) * MMU_SET_STRIDE : 0;
+}
+
+/* Likewise for the shadow-stack indexes. */
+static inline int x86_mmu_ss_offset(const CPUX86State *env)
+{
+    return env->hflags & HF_GUEST_MASK ?
+           MMU_SS_GUEST + x86_guest_set(env) * MMU_SS_SET_STRIDE : 0;
+}
+
+/* The MMU indexes of the current context: guest mode's set or the host's. */
 static inline uint32_t x86_mmu_context_map(const CPUX86State *env)
 {
-    return env->hflags & HF_GUEST_MASK ? MMU_GUEST_IDX_MAP : MMU_HOST_IDX_MAP;
+    return env->hflags & HF_GUEST_MASK ? MMU_GUEST_SET_MAP(x86_guest_set(env))
+                                       : MMU_HOST_IDX_MAP;
 }
 
 #define CC_DST  (env->cc_dst)

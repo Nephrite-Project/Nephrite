@@ -25,8 +25,7 @@
 
 static int shstk_mmu_index(CPUX86State *env, bool user)
 {
-    return (user ? MMU_SS_USER_IDX : MMU_SS_SUP_IDX) +
-           (env->hflags & HF_GUEST_MASK ? MMU_SS_GUEST : 0);
+    return (user ? MMU_SS_USER_IDX : MMU_SS_SUP_IDX) + x86_mmu_ss_offset(env);
 }
 
 static uint64_t shstk_ldq(CPUX86State *env, target_ulong addr, bool user,

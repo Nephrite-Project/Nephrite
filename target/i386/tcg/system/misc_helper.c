@@ -1432,9 +1432,10 @@ void HELPER(flush_page)(CPUX86State *env, target_ulong addr)
 
 /*
  * INVLPGA drops the page from the translations of the ASID that ECX gives,
- * the host's or the guest's ones kept, but no nested translation (AMD64
- * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.16.2). A
- * guest that runs it itself drops the page from all of them.
+ * the host's or those of a guest that a set of guest mode's MMU indexes
+ * holds, but no nested translation (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.46, 15.16.2). A guest that runs it itself drops
+ * the page from all of them.
  */
 void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
 {
@@ -1442,10 +1443,16 @@ void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
 
     if (env->hflags & HF_GUEST_MASK) {
         tlb_flush_page(cs, addr);
-    } else if (asid == 0) {
+        return;
+    }
+    if (asid == 0) {
         tlb_flush_page_by_mmuidx(cs, addr, MMU_HOST_IDX_MAP);
-    } else if (asid == env->svm_tlb_asid) {
-        tlb_flush_page_by_mmuidx(cs, addr, MMU_GUEST_IDX_MAP);
+        return;
+    }
+    for (int set = 0; set < MMU_GUEST_SETS; set++) {
+        if (env->guest_tlb_valid[set] && env->guest_tlb[set].id == asid) {
+            tlb_flush_page_by_mmuidx(cs, addr, MMU_GUEST_SET_MAP(set));
+        }
     }
 }
 
@@ -1464,10 +1471,11 @@ void HELPER(invlpga)(CPUX86State *env, target_ulong addr, uint32_t asid)
  * (EnhancedTlbi), rAX[6] is reserved. It drops, on every processor, the
  * translations of the address range, PCID, and ASID it selects, a guest's
  * of its own ASID, and the nested ones with rAX[5]. QEMU's TLB holds the
- * current PCID's translations only, and guest mode's MMU indexes those of
- * one ASID, so a PCID drops the whole range and any ASID but the host's
- * drops the range from every processor's guest translations, as INVLPGB
- * may. All of it is done when INVLPGB ends, before the next instruction.
+ * current PCID's translations only, and each processor keeps an ASID's in
+ * a set of guest mode's MMU indexes it chose, so a PCID drops the whole
+ * range and any ASID but the host's drops the range from both sets on
+ * every processor, as INVLPGB may. All of it is done when INVLPGB ends,
+ * before the next instruction.
  */
 void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
 {
@@ -1520,8 +1528,7 @@ void HELPER(invlpgb)(CPUX86State *env, target_ulong rax)
         tlb_flush_by_mmuidx_all_cpus_synced(cs, idxmap);
     }
     if (rax & INVLPGB_NESTED) {
-        tlb_flush_by_mmuidx_all_cpus_synced(cs, 1 << MMU_NESTED_IDX |
-                                                1 << MMU_NESTED_SUP_IDX);
+        tlb_flush_by_mmuidx_all_cpus_synced(cs, MMU_NESTED_IDX_MAP);
     }
 }
 

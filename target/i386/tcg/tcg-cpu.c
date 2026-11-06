@@ -224,9 +224,7 @@ int x86_mmu_index_pl(CPUX86State *env, unsigned pl)
         pl == 3 ? MMU_USER64_IDX :
         !(env->hflags & HF_SMAP_MASK) ? MMU_KNOSMAP64_IDX :
         (env->eflags & AC_MASK) ? MMU_KNOSMAP64_IDX : MMU_KSMAP64_IDX;
-    int mmu_index_guest = (env->hflags & HF_GUEST_MASK) ? MMU_GUEST_IDX : 0;
-
-    return mmu_index_base + mmu_index_32 + mmu_index_guest;
+    return mmu_index_base + mmu_index_32 + x86_mmu_offset(env);
 }
 
 static int x86_cpu_mmu_index(CPUState *cs, bool ifetch)

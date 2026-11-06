@@ -83,6 +83,15 @@ void x86_cpu_record_sigsegv(CPUState *cs, vaddr addr,
 void x86_cpu_record_sigbus(CPUState *cs, vaddr addr,
                            MMUAccessType access_type, uintptr_t ra);
 #else
+/*
+ * Guest mode's sets of MMU indexes: entering the guest context TAG gives,
+ * with the set that holds its translations, emptied too with FLUSH; the
+ * context of the set guest mode uses; and none held, after a flush of all.
+ */
+void x86_guest_tlb_enter(CPUX86State *env, const X86GuestTLBTag *tag,
+                         bool flush);
+X86GuestTLBTag *x86_guest_tlb_current(CPUX86State *env);
+void x86_guest_tlb_forget(CPUX86State *env);
 bool x86_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                       MMUAccessType access_type, int mmu_idx,
                       bool probe, uintptr_t retaddr);

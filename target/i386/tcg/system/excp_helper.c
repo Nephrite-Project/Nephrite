@@ -97,8 +97,7 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr)
     if (unlikely(flags & TLB_INVALID_MASK)) {
         TranslateFault *err = inout->err;
 
-        assert(inout->ptw_idx == MMU_NESTED_IDX ||
-               inout->ptw_idx == MMU_NESTED_SUP_IDX);
+        assert(is_mmu_index_nested(inout->ptw_idx));
         *err = (TranslateFault){
             .error_code = inout->env->error_code,
             .cr2 = addr,
@@ -591,7 +590,7 @@ do_check_protect_pse36:
          * 31.3.3.2).
          */
         if (x86_vmx_ept_mbec(env) && !(ptep & PG_USER_MASK)) {
-            idx = MMU_NESTED_SUP_IDX;
+            idx = mmu_index_nested(mmu_index_set(idx), true);
         }
         flags = probe_access_full_mmu(env, paddr, 0, access_type,
                                       idx, &pte_trans.haddr, &full);
@@ -756,17 +755,16 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
     in.addr = addr;
     in.access_type = access_type;
 
-    switch (mmu_idx) {
+    switch (is_mmu_index_nested(mmu_idx) ? MMU_NESTED_IDX : mmu_idx) {
     case MMU_PHYS_IDX:
         break;
 
     case MMU_NESTED_IDX:
-    case MMU_NESTED_SUP_IDX:
         if (x86_vmx_ept_active(env)) {
             hwaddr hpa;
 
             if (!x86_vmx_ept_translate(env, addr, access_type,
-                                       mmu_idx == MMU_NESTED_SUP_IDX, &hpa,
+                                       is_mmu_index_nested_sup(mmu_idx), &hpa,
                                        &out->prot, &out->page_size)) {
                 *err = (TranslateFault){ .stage2 = S2_GPA, .cr2 = addr };
                 return false;
@@ -792,7 +790,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             if (env->nested_pg_mode & PG_MODE_GMET) {
                 in.mmu_idx = lma ? MMU_KNOSMAP64_IDX : MMU_KNOSMAP32_IDX;
                 in.pg_mode |= PG_MODE_WP;
-                if (mmu_idx == MMU_NESTED_SUP_IDX) {
+                if (is_mmu_index_nested_sup(mmu_idx)) {
                     in.pg_mode |= PG_MODE_SMEP;
                 }
             }
@@ -819,9 +817,10 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             in.mmu_idx = mmu_idx;
             in.ptw_idx = MMU_PHYS_IDX;
             if (use_stage2) {
-                in.ptw_idx = (env->nested_pg_mode & PG_MODE_GMET) &&
-                             !is_mmu_index_user(mmu_idx) ?
-                             MMU_NESTED_SUP_IDX : MMU_NESTED_IDX;
+                in.ptw_idx = mmu_index_nested(mmu_index_set(mmu_idx),
+                                              (env->nested_pg_mode &
+                                               PG_MODE_GMET) &&
+                                              !is_mmu_index_user(mmu_idx));
             }
             in.pg_mode = get_pg_mode(env);
 
@@ -912,6 +911,56 @@ static void svm_fetch_insn_bytes(CPUX86State *env, MMUAccessType access_type,
                                                (addr & ~TARGET_PAGE_MASK));
     }
     env->svm_insn_fetched = n;
+}
+
+/*
+ * A guest context entered keeps the set of MMU indexes that holds its
+ * translations, emptied where FLUSH asks for it or what they were made
+ * under changed, else takes the set least recently entered, emptied: a
+ * processor keeps the translations of several ASIDs or VPIDs (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.16; Intel
+ * SDM 325462-093 Vol. 3C, 31.1).
+ */
+void x86_guest_tlb_enter(CPUX86State *env, const X86GuestTLBTag *tag,
+                         bool flush)
+{
+    int set = -1;
+
+    for (int i = 0; i < MMU_GUEST_SETS; i++) {
+        if (env->guest_tlb_valid[i] && env->guest_tlb[i].id == tag->id) {
+            set = i;
+        }
+    }
+    if (set < 0) {
+        set = 0;
+        for (int i = 1; i < MMU_GUEST_SETS; i++) {
+            if (env->guest_tlb_used[i] < env->guest_tlb_used[set]) {
+                set = i;
+            }
+        }
+        flush = true;
+    } else if (memcmp(&env->guest_tlb[set], tag, sizeof(*tag))) {
+        flush = true;
+    }
+    if (flush) {
+        tlb_flush_by_mmuidx(env_cpu(env), MMU_GUEST_SET_MAP(set) |
+                                          MMU_NESTED_SET_MAP(set));
+    }
+    env->guest_tlb[set] = *tag;
+    env->guest_tlb_valid[set] = true;
+    env->guest_tlb_used[set] = ++env->guest_tlb_clock;
+    env->hflags = (env->hflags & ~HF_TLB_SET_MASK) |
+                  (set ? HF_TLB_SET_MASK : 0);
+}
+
+X86GuestTLBTag *x86_guest_tlb_current(CPUX86State *env)
+{
+    return &env->guest_tlb[x86_guest_set(env)];
+}
+
+void x86_guest_tlb_forget(CPUX86State *env)
+{
+    memset(env->guest_tlb_valid, 0, sizeof(env->guest_tlb_valid));
 }
 
 bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,

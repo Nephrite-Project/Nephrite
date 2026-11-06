@@ -2441,6 +2441,7 @@ static void vmx_save_guest(CPUX86State *env)
     CPUState *cs = env_cpu(env);
     uint32_t exit_ctl = VMCS(EXIT_CONTROLS);
     uint32_t intr = 0;
+    X86GuestTLBTag *tlb;
 
     VMCS_SET(GUEST_CR0, env->cr[0]);
     VMCS_SET(GUEST_CR3, env->cr[3]);
@@ -2532,10 +2533,11 @@ static void vmx_save_guest(CPUX86State *env)
     VMCS_SET(GUEST_PENDING_DBG, env->vmx.exit_pending_dbg);
     env->vmx.exit_pending_dbg = 0;
     env->vmx.db_held = 0;
-    env->vmx.tlb_cr0 = env->cr[0];
-    env->vmx.tlb_cr3 = env->cr[3];
-    env->vmx.tlb_cr4 = env->cr[4];
-    env->vmx.tlb_efer = env->efer;
+    tlb = x86_guest_tlb_current(env);
+    tlb->cr0 = env->cr[0];
+    tlb->cr3 = env->cr[3];
+    tlb->cr4 = env->cr[4];
+    tlb->efer = env->efer;
     /* IA32_VMX_MISC bit 5: exits store EFER.LMA as "IA-32e mode guest". */
     VMCS_SET(ENTRY_CONTROLS, (VMCS(ENTRY_CONTROLS) & ~VMX_VM_ENTRY_IA32E_MODE) |
                              (env->efer & MSR_EFER_LMA ?
@@ -2646,7 +2648,7 @@ static void vmx_load_host(CPUX86State *env)
         }
     }
 
-    env->hflags &= ~(HF_GUEST_MASK | HF_INHIBIT_IRQ_MASK);
+    env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK | HF_INHIBIT_IRQ_MASK);
     env->vmx.nonroot = false;
     env->vmx.mtf = false;
     env->vmx.mtf_pending = false;
@@ -3771,35 +3773,34 @@ static void vmx_entry_failure(CPUX86State *env, uint32_t reason,
  * The guest's translations at a VM entry: without VPIDs, none survive, nor the
  * host's (Intel SDM 325462-093 Vol. 3C, 29.3.2.5); with them, those TCG keeps
  * of a guest of the same VPID, EPTP, APIC-access address, and paging state
- * stay, all others go.
+ * stay, in a set of guest mode's MMU indexes. A VPID of ~0, which none has,
+ * stands for none.
  */
 static void vmx_entry_tlb(CPUX86State *env)
 {
-    CPUState *cs = env_cpu(env);
-    uint64_t vpid = VMCS(VPID);
-    uint64_t eptp = vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT ?
-                    x86_vmcs_read(env, 0x201a) : 0;
+    bool vpid = vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_VPID;
+    X86GuestTLBTag tag = {
+        .id = vpid ? VMCS(VPID) : ~0ULL,
+        .pointer = vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT ?
+                   x86_vmcs_read(env, 0x201a) : 0,
+        .apic = env->vmx.apic_access,
+        .cr0 = env->cr[0],
+        .cr3 = env->cr[3],
+        .cr4 = env->cr[4],
+        .efer = env->efer,
+    };
 
-    if (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_VPID)) {
-        env->vmx.tlb_vpid = ~0ULL;
-        tlb_flush(cs);
-        return;
+    if (!vpid) {
+        tlb_flush(env_cpu(env));
+        x86_guest_tlb_forget(env);
     }
-    if (vpid != env->vmx.tlb_vpid || eptp != env->vmx.tlb_eptp ||
-        env->vmx.apic_access != env->vmx.tlb_apic_access ||
-        env->cr[0] != env->vmx.tlb_cr0 || env->cr[3] != env->vmx.tlb_cr3 ||
-        env->cr[4] != env->vmx.tlb_cr4 || env->efer != env->vmx.tlb_efer) {
-        tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
-                                1 << MMU_NESTED_SUP_IDX);
-        env->vmx.tlb_vpid = vpid;
-        env->vmx.tlb_eptp = eptp;
-        env->vmx.tlb_apic_access = env->vmx.apic_access;
-    }
+    x86_guest_tlb_enter(env, &tag, false);
 }
 
 /*
  * INVEPT and INVVPID (Intel SDM 325462-093 Vol. 3C, Chapter 33): TCG keeps
- * the translations of one guest context, which both drop.
+ * the translations of two guest contexts, which INVEPT drops with the
+ * rest, and INVVPID from both sets of guest mode's MMU indexes.
  */
 static bool vmx_inv_check(CPUX86State *env, uintptr_t ra)
 {
@@ -3833,7 +3834,7 @@ void HELPER(invept)(CPUX86State *env, target_ulong ptr, target_ulong type,
         return;
     }
     tlb_flush(env_cpu(env));
-    env->vmx.tlb_vpid = ~0ULL;
+    x86_guest_tlb_forget(env);
     vmx_succeed(env);
 }
 
@@ -3928,7 +3929,7 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
                                VMCS(ENTRY_MSR_LOAD_COUNT));
     if (failed) {
         env->vmx.nonroot = false;
-        env->hflags &= ~HF_GUEST_MASK;
+        env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK);
         vmx_entry_failure(env, VMX_EXIT_MSR_LOADING, failed);
         return;
     }
@@ -4424,8 +4425,8 @@ bool x86_vmx_ept_active(CPUX86State *env)
 /*
  * Under the mode-based execute control, EPT allows fetches from user-mode and
  * from supervisor-mode linear addresses apart (Intel SDM 325462-093 Vol. 3C,
- * 31.3.3.2): the translations of supervisor-mode ones go through
- * MMU_NESTED_SUP_IDX.
+ * 31.3.3.2): the translations of supervisor-mode ones go through the
+ * supervisor nested index of the guest set (mmu_index_nested()).
  */
 bool x86_vmx_ept_mbec(CPUX86State *env)
 {
@@ -4522,7 +4523,7 @@ static bool vmx_eptp_valid(CPUX86State *env, uint64_t eptp)
  * loads the EPTP-list entry ECX selects, exiting for an index past the
  * list, an EPTP a VM entry would refuse, or one of another page-walk
  * length; the PDPTEs stay as they are (Intel SDM 325462-093 Vol. 3C,
- * 28.5.7). The TLB, which holds one guest context, drops it.
+ * 28.5.7). The set of guest mode's MMU indexes the guest uses is emptied.
  */
 void HELPER(vmfunc)(CPUX86State *env)
 {
@@ -4545,9 +4546,9 @@ void HELPER(vmfunc)(CPUX86State *env)
         x86_vmx_exit(env, VMX_EXIT_VMFUNC, 0, GETPC());
     }
     VMCS_SET(EPT_POINTER, eptp);
-    env->vmx.tlb_eptp = eptp;
-    tlb_flush_by_mmuidx(cs, MMU_GUEST_IDX_MAP | 1 << MMU_NESTED_IDX |
-                            1 << MMU_NESTED_SUP_IDX);
+    x86_guest_tlb_current(env)->pointer = eptp;
+    tlb_flush_by_mmuidx(cs, x86_mmu_context_map(env) |
+                            MMU_NESTED_SET_MAP(x86_guest_set(env)));
 }
 
 static bool ept_set_flags(CPUX86State *env, hwaddr addr, uint64_t old,
