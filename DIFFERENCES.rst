@@ -153,7 +153,8 @@ Processor features:
   lapic`` report (TCG and Intel CPU models only).
 * A PMU: Intel's architectural performance monitoring (version 2) and
   AMD's core counters.
-* CET: shadow stacks and indirect branch tracking.
+* CET: shadow stacks and indirect branch tracking, whose state register
+  dumps show.
 * User interrupts: their MSRs, delivery at CPL 3, user-interrupt
   notifications, UIRET with UIRET_UIF, CLUI, STUI, TESTUI, SENDUIPI, and
   the UINTR state component of XSAVES and XRSTORS; register dumps show

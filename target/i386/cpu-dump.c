@@ -402,6 +402,25 @@ static bool dump_feature(int flags, bool has, bool enabled)
     return has && ((flags & CPU_DUMP_FPU) || enabled);
 }
 
+/* CET's MSRs and SSP. */
+static void dump_cet(CPUX86State *env, FILE *f, int flags)
+{
+    bool has = (env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_CET_SHSTK) ||
+               (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_CET_IBT);
+
+    if (!dump_feature(flags, has, env->cr[4] & CR4_CET_MASK)) {
+        return;
+    }
+    qemu_fprintf(f, "S_CET=%016" PRIx64 " U_CET=%016" PRIx64 " SSP=%016"
+                 PRIx64, env->s_cet, env->u_cet, env->guest_ssp);
+#ifdef TARGET_X86_64
+    qemu_fprintf(f, " ISST=%016" PRIx64, env->int_ssp_table);
+#endif
+    qemu_fprintf(f, "\nPL0_SSP=%016" PRIx64 " PL1_SSP=%016" PRIx64
+                 " PL2_SSP=%016" PRIx64 " PL3_SSP=%016" PRIx64 "\n",
+                 env->pl0_ssp, env->pl1_ssp, env->pl2_ssp, env->pl3_ssp);
+}
+
 /* User interrupts' MSRs and UIF (Intel SDM 325462-093 Vol. 3A, 9.3). */
 static void dump_uintr(CPUX86State *env, FILE *f, int flags)
 {
@@ -601,6 +620,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     }
     qemu_fprintf(f, "EFER=%016" PRIx64 "\n", env->efer);
 #if !defined(CONFIG_USER_ONLY)
+    dump_cet(env, f, flags);
     dump_uintr(env, f, flags);
     dump_fred(env, f, flags);
 #endif
