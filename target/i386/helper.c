@@ -556,6 +556,25 @@ static void emit_guest_memory_failure(MemoryFailureAction action, bool ar,
                                    &mff);
 }
 
+/*
+ * Under TCG, the #VMEXIT that SVM guest mode takes for the shutdown of a
+ * machine check, or 0: that of its shutdown intercept (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.12.18 and 15.14.3).
+ * VMX non-root operation shuts down as the processor does (Intel SDM
+ * 325462-093 Vol. 3C, 29.9).
+ */
+static uint32_t mce_shutdown_exit(CPUX86State *env)
+{
+#ifdef CONFIG_TCG
+    if (tcg_enabled() && !env->vmx.nonroot &&
+        (env->hflags & HF_GUEST_MASK) &&
+        (env->intercept & (1ULL << (SVM_EXIT_SHUTDOWN - SVM_EXIT_INTR)))) {
+        return SVM_EXIT_SHUTDOWN;
+    }
+#endif
+    return 0;
+}
+
 static void do_inject_x86_mce(CPUState *cs, run_on_cpu_data data)
 {
     MCEInjectionParams *params = data.host_ptr;
@@ -612,6 +631,10 @@ static void do_inject_x86_mce(CPUState *cs, run_on_cpu_data data)
                                   "raising triple fault", cs->cpu_index);
         }
 
+        if (need_reset) {
+            cenv->mce_svm_exit = mce_shutdown_exit(cenv);
+            need_reset = !cenv->mce_svm_exit;
+        }
         if (need_reset) {
             emit_guest_memory_failure(MEMORY_FAILURE_ACTION_RESET, ar,
                                       recursive);

@@ -2653,6 +2653,8 @@ typedef struct CPUArchState {
     uint64_t xcr0;
 
     uint64_t mcg_status;
+    /* The #VMEXIT that a pending machine check takes in SVM guest mode. */
+    uint32_t mce_svm_exit;
     uint64_t msr_ia32_misc_enable;
     uint64_t msr_misc_features_enables;
     uint64_t msr_ia32_feature_control;

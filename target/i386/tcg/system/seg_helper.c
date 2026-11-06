@@ -179,6 +179,25 @@ void x86_cpu_do_interrupt(CPUState *cs)
     }
 }
 
+/*
+ * A machine check, whose bank registers are written: the #VMEXIT that its
+ * shutdown takes in SVM guest mode, else #MC, which SVM's exception
+ * intercepts and VMX's exception bitmap take (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.12.18; Intel SDM
+ * 325462-093 Vol. 3C, 29.9).
+ */
+static void x86_machine_check(CPUX86State *env)
+{
+    uint32_t exit = env->mce_svm_exit;
+
+    if (exit) {
+        env->mce_svm_exit = 0;
+        cpu_vmexit(env, exit, 0, 0);
+    }
+    cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + EXCP12_MCHK, 0, 0);
+    do_interrupt_x86_hardirq(env, EXCP12_MCHK, 0);
+}
+
 void x86_cpu_poll_during_halt(CPUState *cpu)
 {
     X86CPU *x86_cpu = X86_CPU(cpu);
@@ -298,7 +317,7 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         break;
     case CPU_INTERRUPT_MCE:
         cpu_reset_interrupt(cs, CPU_INTERRUPT_MCE);
-        do_interrupt_x86_hardirq(env, EXCP12_MCHK, 0);
+        x86_machine_check(env);
         break;
     case CPU_INTERRUPT_HARD:
         cpu_svm_check_intercept_param(env, SVM_EXIT_INTR, 0, 0);

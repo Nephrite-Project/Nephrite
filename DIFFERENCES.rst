@@ -266,6 +266,9 @@ AMD SVM (TCG):
 * INIT is held while GIF is clear.
 * A guest's shutdown takes #VMEXIT only where the shutdown intercept is
   set; without it, the processor shuts down.
+* Machine checks take the #MC intercept, and in guests with CR4.MCE clear
+  the shutdown intercept, where QEMU delivered #MC to the guest or reset
+  the machine.
 
 Devices:
 
