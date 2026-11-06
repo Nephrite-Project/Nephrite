@@ -265,6 +265,9 @@ Processor emulation (TCG):
   quadwords and GDTR's and IDTR's limits in words, as AMD's table has
   them, so RSM no longer takes a reserved word for those limits' upper
   halves.
+* RSM shuts the processor down where the state-save area holds state
+  that the processor refuses there, with Intel's list on Intel's
+  processors and AMD's on the others, before it restores anything.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
   hflags2 for IGNNE# only from the first CPU's thread").
 * CPUID leaf 0DH marks the CET and Arch LBR state components as

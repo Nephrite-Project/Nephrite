@@ -27,6 +27,13 @@
 #include "system/runstate.h"
 #include "tcg/helper-tcg.h"
 
+/*
+ * The SMM revision identifiers of the 64-bit and 32-bit state-save area
+ * formats, with SMBASE relocation (bit 17).
+ */
+#define SMM_REVISION_64 0x00020064
+#define SMM_REVISION_32 0x00020000
+
 static void sm_state_init_64(X86CPU *cpu)
 {
 #ifdef TARGET_X86_64
@@ -92,7 +99,7 @@ static void sm_state_init_64(X86CPU *cpu)
     x86_stq_phys(cs, sm_state + 0x7f50, env->cr[3]);
     x86_stq_phys(cs, sm_state + 0x7f58, env->cr[0]);
 
-    x86_stl_phys(cs, sm_state + 0x7efc, 0x00020064);    /* SMM revision ID */
+    x86_stl_phys(cs, sm_state + 0x7efc, SMM_REVISION_64);
     x86_stl_phys(cs, sm_state + 0x7f00, env->smbase);
 #else
     g_assert_not_reached();
@@ -152,7 +159,7 @@ static void sm_state_init_32(X86CPU *cpu)
     }
     x86_stl_phys(cs, sm_state + 0x7f14, env->cr[4]);
 
-    x86_stl_phys(cs, sm_state + 0x7efc, 0x00020000);   /* SMM revision ID */
+    x86_stl_phys(cs, sm_state + 0x7efc, SMM_REVISION_32);
     x86_stl_phys(cs, sm_state + 0x7ef8, env->smbase);
 }
 
@@ -179,6 +186,7 @@ void do_smm_enter(X86CPU *cpu)
 
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         sm_state_init_64(cpu);
+        env->smm_svme = env->efer & MSR_EFER_SVME;
         cpu_load_efer(env, 0);
     } else {
         sm_state_init_32(cpu);
@@ -364,10 +372,120 @@ static G_NORETURN void rsm_shutdown(CPUX86State *env, const char *reason)
     cpu_loop_exit(cs);
 }
 
+/* What decides whether RSM restores the state in the state-save area. */
+typedef struct RsmChecked {
+    uint64_t cr0, cr3, cr4, efer, dr6, dr7, rflags;
+    uint32_t cs_flags, ss_flags, revision;
+} RsmChecked;
+
+static void rsm_read_checked(CPUX86State *env, RsmChecked *c)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr sm_state = env->smbase + 0x8000;
+
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
+        c->cr0 = x86_ldq_phys(cs, sm_state + 0x7f58);
+        c->cr3 = x86_ldq_phys(cs, sm_state + 0x7f50);
+        c->cr4 = x86_ldq_phys(cs, sm_state + 0x7f48);
+        c->efer = x86_ldq_phys(cs, sm_state + 0x7ed0);
+        c->dr6 = x86_ldq_phys(cs, sm_state + 0x7f68);
+        c->dr7 = x86_ldq_phys(cs, sm_state + 0x7f60);
+        c->rflags = x86_ldq_phys(cs, sm_state + 0x7f70);
+        c->cs_flags = (x86_lduw_phys(cs, sm_state + 0x7e02 + R_CS * 16) &
+                       0xf0ff) << 8;
+        c->ss_flags = (x86_lduw_phys(cs, sm_state + 0x7e02 + R_SS * 16) &
+                       0xf0ff) << 8;
+    } else {
+        c->cr0 = x86_ldl_phys(cs, sm_state + 0x7ffc);
+        c->cr3 = x86_ldl_phys(cs, sm_state + 0x7ff8);
+        c->cr4 = x86_ldl_phys(cs, sm_state + 0x7f14);
+        c->efer = env->efer;
+        c->dr6 = x86_ldl_phys(cs, sm_state + 0x7fcc);
+        c->dr7 = x86_ldl_phys(cs, sm_state + 0x7fc8);
+        c->rflags = x86_ldl_phys(cs, sm_state + 0x7ff4);
+        c->cs_flags = (x86_ldl_phys(cs, sm_state + 0x7f84 + R_CS * 12) &
+                       0xf0ff) << 8;
+        c->ss_flags = (x86_ldl_phys(cs, sm_state + 0x7f84 + R_SS * 12) &
+                       0xf0ff) << 8;
+    }
+    c->revision = x86_ldl_phys(cs, sm_state + 0x7efc);
+}
+
+/*
+ * Why RSM shuts the processor down instead of restoring the state that C
+ * describes, or NULL. Intel's processors shut down for the state of Intel
+ * SDM 325462-093 Vol. 3C, 34.3.2 only, the others for that of AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 10.4, where
+ * EFER.SVME, as it was at the SMI, lets RSM return to paged real mode
+ * (AMD64 Architecture Programmer's Manual Volume 3, 24594 rev. 3.39, RSM).
+ */
+static const char *rsm_invalid(CPUX86State *env, const RsmChecked *c)
+{
+    bool lm = env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM;
+    bool lma = (c->efer & MSR_EFER_LME) && (c->cr0 & CR0_PG_MASK) &&
+               (c->cr4 & CR4_PAE_MASK);
+    int cpl = (c->ss_flags & DESC_DPL_MASK) >> DESC_DPL_SHIFT;
+    uint64_t cr3_reserved = ~0ULL << env_archcpu(env)->phys_bits;
+
+    if (c->cr4 & cr4_reserved_bits(env)) {
+        return "reserved CR4 bits";
+    }
+    if ((c->cr0 & CR0_PG_MASK) && !(c->cr0 & CR0_PE_MASK) &&
+        (IS_INTEL_CPU(env) || !env->smm_svme)) {
+        return "CR0.PG without CR0.PE";
+    }
+    if ((c->cr0 & CR0_NW_MASK) && !(c->cr0 & CR0_CD_MASK)) {
+        return "CR0.NW without CR0.CD";
+    }
+    if ((c->cr4 & CR4_CET_MASK) && !(c->cr0 & CR0_WP_MASK)) {
+        return "CR4.CET without CR0.WP";
+    }
+    if ((c->cr4 & CR4_PCIDE_MASK) && !lma) {
+        return "CR4.PCIDE outside long mode";
+    }
+    if (IS_INTEL_CPU(env)) {
+        if ((c->cr4 & CR4_FRED_MASK) &&
+            (!lma || cpl == 1 || cpl == 2 ||
+             (cpl == 0 && !(c->cs_flags & DESC_L_MASK)) ||
+             (cpl == 3 && (c->rflags & IOPL_MASK)))) {
+            return "CR4.FRED outside 64-bit mode at CPL 0 or IOPL 0 at CPL 3";
+        }
+        return NULL;
+    }
+    if (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM) {
+        cr3_reserved &= ~(CR3_LAM_U57_MASK | CR3_LAM_U48_MASK);
+    }
+    if ((c->cr0 >> 32) || (c->cr3 & cr3_reserved) ||
+        ((c->dr6 | c->dr7) >> 32) ||
+        (c->efer & ~(x86_efer_writable(env) | MSR_EFER_LMA))) {
+        return "reserved bits";
+    }
+    if ((c->efer & MSR_EFER_LME) && (c->cr0 & CR0_PG_MASK) &&
+        (!(c->cr4 & CR4_PAE_MASK) ||
+         ((c->cs_flags & DESC_L_MASK) && (c->cs_flags & DESC_B_MASK)))) {
+        return "an invalid return to long mode";
+    }
+    if ((c->rflags & VM_MASK) && (c->cr4 & CR4_CET_MASK) &&
+        (env->u_cet & CET_SH_STK_EN)) {
+        return "virtual-8086 mode with user shadow stacks";
+    }
+    if (c->revision != (lm ? SMM_REVISION_64 : SMM_REVISION_32)) {
+        return "a changed SMM revision identifier";
+    }
+    return NULL;
+}
+
 void HELPER(rsm)(CPUX86State *env)
 {
     X86CPU *cpu = env_archcpu(env);
+    RsmChecked checked;
+    const char *invalid;
 
+    rsm_read_checked(env, &checked);
+    invalid = rsm_invalid(env, &checked);
+    if (invalid) {
+        rsm_shutdown(env, invalid);
+    }
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         rsm_load_regs_64(env);
     } else {

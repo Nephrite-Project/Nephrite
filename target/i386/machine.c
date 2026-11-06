@@ -1570,6 +1570,25 @@ static const VMStateDescription vmstate_svm_guest = {
     }
 };
 
+/* What SMI delivery put aside for RSM, while TCG's processor is in SMM. */
+static bool smm_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return tcg_enabled() && (cpu->env.hflags & HF_SMM_MASK);
+}
+
+static const VMStateDescription vmstate_smm = {
+    .name = "cpu/smm",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = smm_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_BOOL(env.smm_svme, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 #ifndef TARGET_X86_64
 static bool intel_efer32_needed(void *opaque)
 {
@@ -2075,6 +2094,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_memory_ctrl,
         &vmstate_svm_bus_lock,
         &vmstate_svm_guest,
+        &vmstate_smm,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif

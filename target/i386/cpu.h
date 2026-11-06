@@ -2711,6 +2711,12 @@ typedef struct CPUArchState {
     uint64_t pat;
     uint32_t smbase;
     uint64_t msr_smi_count;
+    /*
+     * TCG: EFER.SVME at the SMI, which RSM restores whatever the
+     * state-save area holds (AMD64 Architecture Programmer's Manual Volume
+     * 3, 24594 rev. 3.39, RSM).
+     */
+    bool smm_svme;
 
     uint32_t pkru;
     uint32_t pkrs;
