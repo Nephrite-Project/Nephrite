@@ -2237,7 +2237,38 @@ static void decode_EVEX4_MOVBE(DisasContext *s, CPUX86State *env,
 
 static void decode_EVEX4_66(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
 {
-    entry->gen = (s->prefix & PREFIX_DATA) ? gen_ADCX : gen_ADOX;
+    static const X86OpEntry wrss =
+        X86_OP_ENTRYrr(WRSS, M,y, G,y, evex_apx cpuid(CET_SS) chk(nf0) p_00);
+
+    if (!(s->prefix & (PREFIX_DATA | PREFIX_REPZ | PREFIX_REPNZ))) {
+        *entry = wrss;
+    } else {
+        entry->gen = (s->prefix & PREFIX_DATA) ? gen_ADCX : gen_ADOX;
+    }
+}
+
+/*
+ * EVEX map 4's F0 and F1 are CRC32, or with an F3 prefix INVEPT and INVVPID,
+ * like INVPCID at F2 (Intel APX 355828-009, 3.1.5).
+ */
+static void decode_EVEX4_F0(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry crc32 =
+        X86_OP_ENTRY2(CRC32, G,d, E,b, evex_apx cpuid(SSE42) chk(nf0) p_00);
+    static const X86OpEntry invept =
+        X86_OP_ENTRYrr(INVEPT, G,y_d64, M,dq, evex_apx chk2(nf0, prot) p_f3);
+
+    *entry = (s->prefix & PREFIX_REPZ) ? invept : crc32;
+}
+
+static void decode_EVEX4_F1(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry crc32 =
+        X86_OP_ENTRY2(CRC32, G,d, E,v, evex_apx cpuid(SSE42) chk(nf0) p_00_66);
+    static const X86OpEntry invvpid =
+        X86_OP_ENTRYrr(INVVPID, G,y_d64, M,dq, evex_apx chk2(nf0, prot) p_f3);
+
+    *entry = (s->prefix & PREFIX_REPZ) ? invvpid : crc32;
 }
 
 static void decode_EVEX4_8F(DisasContext *s, CPUX86State *env, X86OpEntry *entry, uint8_t *b)
@@ -2264,10 +2295,9 @@ static void decode_EVEX4_FF(DisasContext *s, CPUX86State *env, X86OpEntry *entry
 }
 
 /*
- * Missing: ENQCMD, ENQCMDS, INVEPT, INVPCID, INVVPID,
- * KMOVD, KMOVW, KMOVD, KMOVQ, MOVDIR64B, MOVDIRI, URDMSR,
- * UWRMSR, WRSSD, WRSSQ, WRUSSD, WRUSSQ, LDTILECFG, STTILECFG,
- * TILELOADD, TILELOADDDT1, TILESTORED.
+ * Missing: ENQCMD, ENQCMDS, KMOVD, KMOVW, KMOVD, KMOVQ, MOVDIR64B,
+ * MOVDIRI, URDMSR, UWRMSR, LDTILECFG, STTILECFG, TILELOADD,
+ * TILELOADDDT1, TILESTORED.
  */
 static const X86OpEntry opcodes_EVEX_map4[256] = {
     [0x00] = X86_OP_ENTRY3(ADD, B,b, E,b, G,b, evex_apx p_00 lock),
@@ -2327,7 +2357,8 @@ static const X86OpEntry opcodes_EVEX_map4[256] = {
 
     [0x60] = X86_OP_GROUPwr(EVEX4_MOVBE,  G,v, E,v,     evex_apx cpuid(MOVBE) chk(nf0) p_00_66),
     [0x61] = X86_OP_GROUPwr(EVEX4_MOVBE,  E,v, G,v,     evex_apx cpuid(MOVBE) chk(nf0) p_00_66),
-    [0x66] = X86_OP_GROUP3(EVEX4_66, B,y, G,y, E,y,     evex_apx cpuid(ADX) chk(nf0) p_66_f3),
+    [0x65] = X86_OP_ENTRYrr(WRUSS, M,y, G,y,            evex_apx cpuid(CET_SS) chk(nf0) p_66),
+    [0x66] = X86_OP_GROUP3(EVEX4_66, B,y, G,y, E,y,     evex_apx cpuid(ADX) chk(nf0) p_00_66_f3),
     [0x69] = X86_OP_ENTRY3(IMUL3, G,v, E,v, I,z,        evex_apx_zu sextT0 p_00_66),
     [0x6B] = X86_OP_ENTRY3(IMUL3, G,v, E,v, I,b,        evex_apx_zu sextT0 p_00_66),
 
@@ -2357,8 +2388,9 @@ static const X86OpEntry opcodes_EVEX_map4[256] = {
     [0xD2] = X86_OP_GROUP3(group2,   B,b, E,b, 1,b,     evex_apx p_00), /* CL */
     [0xD3] = X86_OP_GROUP3(group2,   B,v, E,v, 1,b,     evex_apx p_00_66), /* CL */
 
-    [0xF0] = X86_OP_ENTRY2(CRC32,    G,d, E,b,          evex_apx cpuid(SSE42) chk(nf0) p_00),
-    [0xF1] = X86_OP_ENTRY2(CRC32,    G,d, E,v,          evex_apx cpuid(SSE42) chk(nf0) p_00_66),
+    [0xF0] = X86_OP_GROUP0(EVEX4_F0),
+    [0xF1] = X86_OP_GROUP0(EVEX4_F1),
+    [0xF2] = X86_OP_ENTRYrr(INVPCID, G,y_d64, M,dq,     evex_apx chk2(nf0, cpl0) cpuid(INVPCID) p_f3),
     [0xF4] = X86_OP_ENTRYwr(TZCNT,   G,v, E,v,          evex_apx zextT0 p_00_66),
     [0xF5] = X86_OP_ENTRYwr(LZCNT,   G,v, E,v,          evex_apx zextT0 p_00_66),
     [0xF6] = X86_OP_GROUP1(group3,   E,b),

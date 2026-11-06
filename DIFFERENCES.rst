@@ -173,6 +173,8 @@ Processor features:
   transfers and instructions that FRED transitions refuse.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
+* The EVEX forms of INVEPT, INVVPID, INVPCID, WRSS, and WRUSS, which
+  QEMU's APX decoding lacks (Intel APX 355828-009, 3.1.5).
 
 Devices:
 
