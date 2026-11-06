@@ -217,9 +217,9 @@ Processor emulation (TCG):
   with the AVX state and refuses reserved bits, and unaligned accesses
   raise #AC with alignment checking.
 * MSR accesses that the processor refuses fault, as do EFER writes that
-  set reserved bits or change LME while paging is on, and on AMD's
-  processors those that change LMA; the Pentium's machine check MSRs read
-  as 0.
+  set reserved bits or change LME while paging is on, on AMD's processors
+  those that change LMA, and IA32_PAT writes of reserved memory types; the
+  Pentium's machine check MSRs read as 0.
 * A #DB's DR6 bits are written as the exception is delivered, MOV SS's
   data breakpoints are held past the next instruction, whose instruction
   breakpoints Intel processors suppress, instruction breakpoints match

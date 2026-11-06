@@ -3099,19 +3099,6 @@ static uint64_t vmx_cr3_reserved(CPUX86State *env)
     return mask;
 }
 
-/* A PAT value of memory types WRMSR takes in every byte. */
-static bool vmx_pat_valid(uint64_t pat)
-{
-    for (int i = 0; i < 8; i++) {
-        uint8_t type = pat >> (8 * i);
-
-        if (type == 2 || type == 3 || type > 7) {
-            return false;
-        }
-    }
-    return true;
-}
-
 /*
  * The host-state area (Intel SDM 325462-093 Vol. 3C, 29.2.2 to 29.2.4),
  * on a processor with Intel 64 architecture.
@@ -3156,7 +3143,7 @@ static bool vmx_host_state_valid(CPUX86State *env)
         return false;
     }
     if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_PAT) &&
-        !vmx_pat_valid(VMCS(HOST_PAT))) {
+        !x86_pat_valid(VMCS(HOST_PAT))) {
         return false;
     }
     if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL) &&
@@ -3427,7 +3414,7 @@ static int vmx_guest_state_check(CPUX86State *env)
         return 1;
     }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PAT) &&
-        !vmx_pat_valid(VMCS(GUEST_PAT))) {
+        !x86_pat_valid(VMCS(GUEST_PAT))) {
         return 1;
     }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL) &&

@@ -707,6 +707,9 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         env->star = val;
         break;
     case MSR_PAT:
+        if (!x86_pat_valid(val)) {
+            return false;
+        }
         env->pat = val;
         break;
     case MSR_IA32_PKRS:

@@ -447,6 +447,24 @@ static inline void do_end_instruction(CPUX86State *env)
 }
 
 /*
+ * A PAT value with one of the memory types UC, WC, WT, WP, WB, and UC- in
+ * every entry, which WRMSR takes; other encodings and reserved bits make it
+ * raise #GP (Intel SDM 325462-093 Vol. 3A, 14.12.2 and 14.12.4; AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 7.8.1).
+ */
+static inline bool x86_pat_valid(uint64_t pat)
+{
+    for (int i = 0; i < 8; i++) {
+        uint8_t type = pat >> (8 * i);
+
+        if (type == 2 || type == 3 || type > 7) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
  * The single-step trap TF leaves pending after an instruction, as DR6
  * bits: after any with DebugCtl.BTF clear, after a branch with it set.
  */
