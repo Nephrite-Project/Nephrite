@@ -216,7 +216,8 @@ AMD SVM (TCG):
 
 * Injected interrupts are delivered once, not twice; virtual interrupts
   are taken only above V_TPR, and CR8 writes raise them without the BQL.
-* EXITINTINFO reports interrupted NMIs and interrupts as such.
+* EXITINTINFO reports interrupted NMIs and interrupts as such, and the
+  exception delivered in place of an event whose delivery raised it.
 * INT3 and INTO check the exception intercepts, LMSW always takes the
   selective CR0 write intercept, CR read intercepts give their register's
   code, intercepts save the next RIP, RDTSCP has its own intercept, and

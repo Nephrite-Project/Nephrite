@@ -2838,6 +2838,8 @@ typedef struct CPUArchState {
     bool svm_insn_bytes_valid;
     /* LBR virtualization has swapped DebugCtl and the last branch MSRs. */
     bool svm_lbr_virt;
+    /* VMRUN injected the event whose delivery begins next. */
+    bool svm_event_injected;
     /*
      * AVIC, in xAVIC or x2AVIC mode, with the guest's vAPIC base, its backing
      * page, and the VM's logical and physical APIC ID tables; and the vAPIC

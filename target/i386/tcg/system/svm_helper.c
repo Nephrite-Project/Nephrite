@@ -836,6 +836,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             next_eip = x86_ldq_phys(cs, env->vm_vmcb +
                                     offsetof(struct vmcb, control.next_rip));
         }
+        env->svm_event_injected = true;
 
         qemu_log_mask(CPU_LOG_TB_IN_ASM, "Injecting(%#hx): ", valid_err);
         /* FIXME: need to implement valid_err */
@@ -1349,6 +1350,7 @@ void do_vmexit(CPUX86State *env)
 
     /* MOV SS's held #DB stays with the side the switch leaves. */
     env->db_movss = 0;
+    env->svm_event_injected = false;
     env->hflags2 &= ~HF2_NPT_MASK;
     if (vmrun_failed) {
         env->svm_cache.valid = false;
