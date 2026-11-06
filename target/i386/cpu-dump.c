@@ -22,6 +22,7 @@
 #include "qemu/qemu-print.h"
 #ifndef CONFIG_USER_ONLY
 #include "hw/i386/apic_internal.h"
+#include "system/tcg.h"
 #endif
 
 /***********************************************************/
@@ -402,6 +403,34 @@ static bool dump_feature(int flags, bool has, bool enabled)
     return has && ((flags & CPU_DUMP_FPU) || enabled);
 }
 
+/*
+ * TCG's VMX operation and SVM: root or non-root operation, with the VMXON
+ * region and the current VMCS, and host or guest mode, with the host save
+ * area, the last VMCB, GIF, and the nested page tables.
+ */
+static void dump_virt(CPUX86State *env, FILE *f)
+{
+    if (!tcg_enabled()) {
+        return;
+    }
+    if (env->vmx.on) {
+        qemu_fprintf(f, "VMX: %s VMXON=%016" PRIx64 " VMCS=%016" PRIx64
+                     "%s\n", env->vmx.nonroot ? "non-root" : "root",
+                     env->vmx.vmxon_ptr, env->vmx.vmcs_ptr,
+                     env->vmx.vmcs_launched ? " launched" : "");
+    }
+    if (env->efer & MSR_EFER_SVME) {
+        qemu_fprintf(f, "SVM: %s HSAVE=%016" PRIx64 " VMCB=%016" PRIx64
+                     " GIF=%d", env->hflags & HF_GUEST_MASK ? "guest" : "host",
+                     env->vm_hsave, env->vm_vmcb,
+                     !!(env->hflags2 & HF2_GIF_MASK));
+        if ((env->hflags & HF_GUEST_MASK) && (env->hflags2 & HF2_NPT_MASK)) {
+            qemu_fprintf(f, " N_CR3=%016" PRIx64, env->nested_cr3);
+        }
+        qemu_fprintf(f, "\n");
+    }
+}
+
 /* CET's MSRs and SSP. */
 static void dump_cet(CPUX86State *env, FILE *f, int flags)
 {
@@ -620,6 +649,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     }
     qemu_fprintf(f, "EFER=%016" PRIx64 "\n", env->efer);
 #if !defined(CONFIG_USER_ONLY)
+    dump_virt(env, f);
     dump_cet(env, f, flags);
     dump_uintr(env, f, flags);
     dump_fred(env, f, flags);

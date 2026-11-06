@@ -118,6 +118,8 @@ Intel VMX, which QEMU's TCG does not have:
   FRED event delivery of injected events with their event data, the
   nested-exception bit, and injected SYSCALL and SYSENTER, and the
   original-event data of VM exits during FRED event delivery.
+* Register dumps show VMX operation: root or non-root, the VMXON region,
+  and the current VMCS.
 
 AMD SVM, completing what QEMU's TCG has:
 
@@ -133,6 +135,8 @@ AMD SVM, completing what QEMU's TCG has:
   take their event data, the nested-exception bit, and the INT1 and
   SYSCALL types; EXITINTINFO has its FRED form, with EXITINTDATA; and
   intercepted #DBs give their event data in EXITINFO2.
+* Register dumps show host or guest mode, the host save area, the last
+  VMCB, GIF, and the nested page tables.
 
 Processor features:
 
