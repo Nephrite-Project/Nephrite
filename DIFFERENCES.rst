@@ -167,7 +167,8 @@ Processor features:
   supervisor shadow-stack frames, ERETS and ERETU, the FRED MSRs, which
   register dumps show, SYSCALL and SYSENTER as FRED events, and the far
   transfers and instructions that FRED transitions refuse.
-* DebugCtl's branch recording (LBRs) and branch single-stepping.
+* DebugCtl's branch recording (LBRs) and branch single-stepping, which
+  register dumps show.
 
 Devices:
 

@@ -466,6 +466,21 @@ static void dump_uintr(CPUX86State *env, FILE *f, int flags)
                  env->uintr_rr, env->uif);
 }
 
+/* TCG's DebugCtl and its last branch and last exception records. */
+static void dump_lbr(CPUX86State *env, FILE *f, int flags)
+{
+    if (!tcg_enabled() ||
+        !dump_feature(flags, true,
+                      env->debugctl & (DEBUGCTL_LBR | DEBUGCTL_BTF))) {
+        return;
+    }
+    qemu_fprintf(f, "DEBUGCTL=%016" PRIx64 " LBR_FROM=%016" PRIx64
+                 " LBR_TO=%016" PRIx64 "\nLER_FROM=%016" PRIx64
+                 " LER_TO=%016" PRIx64 "\n", env->debugctl,
+                 (uint64_t)env->lbr_from, (uint64_t)env->lbr_to,
+                 (uint64_t)env->lbr_int_from, (uint64_t)env->lbr_int_to);
+}
+
 /* The FRED MSRs (Intel SDM 325462-093 Vol. 3A, 8.2.3). */
 static void dump_fred(CPUX86State *env, FILE *f, int flags)
 {
@@ -653,6 +668,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     dump_cet(env, f, flags);
     dump_uintr(env, f, flags);
     dump_fred(env, f, flags);
+    dump_lbr(env, f, flags);
 #endif
     if (flags & CPU_DUMP_FPU) {
         int fptag;
