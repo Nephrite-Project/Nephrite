@@ -2334,7 +2334,9 @@ static void vmx_save_guest(CPUX86State *env)
      */
     if (vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_CET) {
         VMCS_SET(GUEST_S_CET, env->s_cet);
+#ifdef TARGET_X86_64
         VMCS_SET(GUEST_ISST, env->int_ssp_table);
+#endif
         VMCS_SET(GUEST_SSP, env->guest_ssp);
     }
     for (int i = 0; i < 8; i++) {
@@ -2539,7 +2541,9 @@ static void vmx_load_host(CPUX86State *env)
     }
     if (exit_ctl & VMX_VM_EXIT_LOAD_CET) {
         env->s_cet = VMCS(HOST_S_CET);
+#ifdef TARGET_X86_64
         env->int_ssp_table = VMCS(HOST_ISST);
+#endif
         env->guest_ssp = VMCS(HOST_SSP);
     }
 
@@ -3327,7 +3331,9 @@ static void vmx_load_guest(CPUX86State *env)
     }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_CET) {
         env->s_cet = VMCS(GUEST_S_CET);
+#ifdef TARGET_X86_64
         env->int_ssp_table = VMCS(GUEST_ISST);
+#endif
         env->guest_ssp = VMCS(GUEST_SSP);
     }
 

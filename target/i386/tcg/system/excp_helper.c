@@ -207,6 +207,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     int page_size;
     int error_code;
     int prot;
+#ifdef TARGET_X86_64
     /*
      * PML5Es and PML4Es have no PS bit; AMD reserves their bit 8 too
      * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
@@ -214,6 +215,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
      */
     const uint64_t top_rsvd = PG_PSE_MASK |
         (IS_AMD_CPU(env) ? PG_GLOBAL_MASK : 0);
+#endif
 
  restart_all:
     ptep_upper = -1;
