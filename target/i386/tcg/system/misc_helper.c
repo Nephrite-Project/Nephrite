@@ -87,12 +87,12 @@ target_ulong HELPER(read_cr8)(CPUX86State *env)
 /*
  * The CR0 writes MOV to CR0 refuses with #GP: reserved bits 63:32, PG
  * without PE, NW without CD, clearing PG in 64-bit mode or with CR4.PCIDE
- * set, and turning on IA-32e mode without PAE, from code with CS.L, or with
- * a 16-bit TSS in TR, and in VMX root operation what IA32_VMX_CR0_FIXED0 and
- * FIXED1 do not allow
- * (Intel SDM 325462-093 Vol. 2B, MOV, Move to/from Control Registers; AMD64
- * Architecture Programmer's Manual Volume 3, 24594 rev. 3.38, MOV CRn).
- * The reserved bits of CR0[31:0] are ignored.
+ * set, turning on IA-32e mode without PAE or from code with CS.L, and on
+ * Intel's processors also with a 16-bit TSS in TR, and in VMX root operation
+ * what IA32_VMX_CR0_FIXED0 and FIXED1 do not allow (Intel SDM 325462-093
+ * Vol. 2B, MOV, Move to/from Control Registers; AMD64 Architecture
+ * Programmer's Manual Volume 3, 24594 rev. 3.39, MOV CRn, and Volume 2,
+ * 24593 rev. 3.46, 14.6.2). The reserved bits of CR0[31:0] are ignored.
  */
 static bool cr0_valid(CPUX86State *env, uint64_t cr0)
 {
@@ -118,7 +118,7 @@ static bool cr0_valid(CPUX86State *env, uint64_t cr0)
         (env->efer & MSR_EFER_LME) &&
         (!(env->cr[4] & CR4_PAE_MASK) ||
          (env->segs[R_CS].flags & DESC_L_MASK) ||
-         !(env->tr.flags & (8 << DESC_TYPE_SHIFT)))) {
+         (IS_INTEL_CPU(env) && !(env->tr.flags & (8 << DESC_TYPE_SHIFT))))) {
         return false;
     }
 #endif
