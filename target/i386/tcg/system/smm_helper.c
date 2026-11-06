@@ -493,6 +493,10 @@ static const char *rsm_invalid(CPUX86State *env, const RsmChecked *c)
     if (c->cr4 & cr4_reserved_bits(env)) {
         return "reserved CR4 bits";
     }
+    /* SMI put CR4.VMXE aside (Intel SDM 325462-093 Vol. 3C, 34.14.2). */
+    if (c->cr4 & CR4_VMXE_MASK) {
+        return "CR4.VMXE";
+    }
     if ((c->cr0 & CR0_PG_MASK) && !(c->cr0 & CR0_PE_MASK) &&
         (IS_INTEL_CPU(env) || !env->smm_svme)) {
         return "CR0.PG without CR0.PE";

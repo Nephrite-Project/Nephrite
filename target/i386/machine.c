@@ -1585,6 +1585,9 @@ static const VMStateDescription vmstate_smm = {
     .needed = smm_needed,
     .fields = (const VMStateField[]){
         VMSTATE_BOOL(env.smm_svme, X86CPU),
+        VMSTATE_BOOL(env.vmx.smm_on, X86CPU),
+        VMSTATE_BOOL(env.vmx.smm_nonroot, X86CPU),
+        VMSTATE_BOOL(env.vmx.smm_vmxe, X86CPU),
         VMSTATE_END_OF_LIST()
     }
 };

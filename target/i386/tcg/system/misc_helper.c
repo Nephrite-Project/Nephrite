@@ -139,6 +139,13 @@ static bool cr4_valid(CPUX86State *env, uint64_t cr4)
         ((cr4 & CR4_CET_MASK) && !(env->cr[0] & CR0_WP_MASK))) {
         return false;
     }
+    /*
+     * SMM takes CR4.VMXE as a reserved bit (Intel SDM 325462-093 Vol. 3C,
+     * 34.14.3).
+     */
+    if ((cr4 & CR4_VMXE_MASK) && (env->hflags & HF_SMM_MASK)) {
+        return false;
+    }
     if (env->vmx.on && !x86_vmx_cr_valid(env, 4, cr4)) {
         return false;
     }

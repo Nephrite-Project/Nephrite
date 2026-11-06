@@ -268,6 +268,10 @@ Processor emulation (TCG):
 * RSM shuts the processor down where the state-save area holds state
   that the processor refuses there, with Intel's list on Intel's
   processors and AMD's on the others, before it restores anything.
+* SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
+  shutting down where the state-save area sets it, and sets the CR0 and
+  CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
+  and RSM has it.
 * RSM takes EFER.LMA from EFER.LME, CR0.PG, and CR4.PAE, and on AMD's
   processors keeps EFER.SVME, takes CPL 0 in real mode and 3 in
   virtual-8086 mode, clears RFLAGS.VM outside protected mode and in long

@@ -1142,23 +1142,52 @@ bool x86_vmx_holds_init(CPUX86State *env)
 }
 
 /*
- * SMM is outside VMX operation; RSM returns to it (Intel SDM 325462-093
- * Vol. 3C, 34.14.1 and 34.14.2).
+ * SMM is outside VMX operation, with CR4.VMXE put aside and clear before
+ * the state-save area takes CR4. RSM returns to VMX operation and restores
+ * CR4.VMXE, sets the CR0 and CR4 bits that VMX operation fixes, and gives
+ * CS and SS the RPL of SS's DPL where VMX operation needs them equal (Intel
+ * SDM 325462-093 Vol. 3C, 34.14.1 and 34.14.2).
  */
 void x86_vmx_smm_enter(CPUX86State *env)
 {
     env->vmx.smm_on = env->vmx.on;
     env->vmx.smm_nonroot = env->vmx.nonroot;
+    env->vmx.smm_vmxe = env->cr[4] & CR4_VMXE_MASK;
     env->vmx.on = false;
     env->vmx.nonroot = false;
+    cpu_x86_update_cr4(env, env->cr[4] & ~(uint64_t)CR4_VMXE_MASK);
 }
 
 void x86_vmx_smm_leave(CPUX86State *env)
 {
+    uint64_t fixed0 = vmx_cr_fixed0(0);
+    bool unrestricted;
+    int dpl;
+
     env->vmx.on = env->vmx.smm_on;
     env->vmx.nonroot = env->vmx.smm_nonroot;
     env->vmx.smm_on = false;
     env->vmx.smm_nonroot = false;
+    if (env->vmx.smm_vmxe) {
+        cpu_x86_update_cr4(env, env->cr[4] | CR4_VMXE_MASK);
+        env->vmx.smm_vmxe = false;
+    }
+    if (!env->vmx.on) {
+        return;
+    }
+    unrestricted = env->vmx.nonroot &&
+                   (vmx_proc2(env) & VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST);
+    if (unrestricted) {
+        fixed0 &= ~(CR0_PE_MASK | CR0_PG_MASK);
+    }
+    cpu_x86_update_cr0(env, (env->cr[0] | fixed0) & vmx_cr_fixed1(env, 0));
+    cpu_x86_update_cr4(env, (env->cr[4] | vmx_cr_fixed0(4)) &
+                            vmx_cr_fixed1(env, 4));
+    if (!(env->eflags & VM_MASK) && !unrestricted) {
+        dpl = (env->segs[R_SS].flags & DESC_DPL_MASK) >> DESC_DPL_SHIFT;
+        env->segs[R_CS].selector = (env->segs[R_CS].selector & ~3) | dpl;
+        env->segs[R_SS].selector = (env->segs[R_SS].selector & ~3) | dpl;
+    }
 }
 
 /*

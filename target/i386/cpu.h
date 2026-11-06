@@ -2398,6 +2398,7 @@ typedef struct X86VMXState {
     bool init_pending;
     bool smm_on;
     bool smm_nonroot;
+    bool smm_vmxe;
     uint64_t vmxon_ptr;
     uint64_t vmcs_ptr;
     uint32_t vmcs_launched;
