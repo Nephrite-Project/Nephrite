@@ -146,6 +146,9 @@ DEF_HELPER_1(stui, void, env)
 DEF_HELPER_1(testui, tl, env)
 DEF_HELPER_1(uiret, void, env)
 DEF_HELPER_2(senduipi, void, env, tl)
+#ifdef TARGET_X86_64
+DEF_HELPER_2(lkgs, void, env, int)
+#endif
 DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
 DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)
 DEF_HELPER_FLAGS_1(db_pending, TCG_CALL_NO_WG, noreturn, env)

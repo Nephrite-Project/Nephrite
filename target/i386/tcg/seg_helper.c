@@ -1787,7 +1787,9 @@ bool x86_seg_access_ok(CPUX86State *env, int seg, target_ulong ofs,
 }
 
 /* only works if protected mode and not VM86. seg_reg must be != R_CS */
-void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
+/* MOV, POP, and LxS to a segment register, at the instruction of RA. */
+static void load_seg_ra(CPUX86State *env, int seg_reg, int selector,
+                        uintptr_t ra)
 {
     uint32_t e1, e2;
     int cpl, dpl, rpl;
@@ -1805,7 +1807,7 @@ void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
             && (!(env->hflags & HF_CS64_MASK) || cpl == 3 || cpl != rpl)
 #endif
             ) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
         }
         cpu_x86_load_seg_cache(env, seg_reg, selector, 0, 0, 0);
     } else {
@@ -1817,47 +1819,50 @@ void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
         }
         index = selector & ~7;
         if ((index + 7) > dt->limit) {
-            raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+            raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, ra);
         }
         ptr = dt->base + index;
-        e1 = cpu_ldl_kernel_ra(env, ptr, GETPC());
-        e2 = cpu_ldl_kernel_ra(env, ptr + 4, GETPC());
+        e1 = cpu_ldl_kernel_ra(env, ptr, ra);
+        e2 = cpu_ldl_kernel_ra(env, ptr + 4, ra);
 
         if (!(e2 & DESC_S_MASK)) {
-            raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+            raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, ra);
         }
         dpl = (e2 >> DESC_DPL_SHIFT) & 3;
         if (seg_reg == R_SS) {
             /* must be writable segment */
             if ((e2 & DESC_CS_MASK) || !(e2 & DESC_W_MASK)) {
-                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, ra);
             }
             if (rpl != cpl || dpl != cpl) {
-                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, ra);
             }
         } else {
             /* must be readable segment */
             if ((e2 & (DESC_CS_MASK | DESC_R_MASK)) == DESC_CS_MASK) {
-                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, ra);
             }
 
             if (!(e2 & DESC_CS_MASK) || !(e2 & DESC_C_MASK)) {
                 /* if not conforming code, test rights */
                 if (dpl < cpl || dpl < rpl) {
-                    raise_exception_err_ra(env, EXCP0D_GPF, selector & 0xfffc, GETPC());
+                    raise_exception_err_ra(env, EXCP0D_GPF,
+                                           selector & 0xfffc, ra);
                 }
             }
         }
 
         if (!(e2 & DESC_P_MASK)) {
             if (seg_reg == R_SS) {
-                raise_exception_err_ra(env, EXCP0C_STACK, selector & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0C_STACK,
+                                       selector & 0xfffc, ra);
             } else {
-                raise_exception_err_ra(env, EXCP0B_NOSEG, selector & 0xfffc, GETPC());
+                raise_exception_err_ra(env, EXCP0B_NOSEG,
+                                       selector & 0xfffc, ra);
             }
         }
 
-        e2 = set_accessed_ra(env, selector, e2, GETPC());
+        e2 = set_accessed_ra(env, selector, e2, ra);
 
         cpu_x86_load_seg_cache(env, seg_reg, selector,
                        get_seg_base(e1, e2),
@@ -1868,6 +1873,11 @@ void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
                 selector, (unsigned long)sc->base, sc->limit, sc->flags);
 #endif
     }
+}
+
+void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
+{
+    load_seg_ra(env, seg_reg, selector, GETPC());
 }
 
 /* protected mode jump */
@@ -3083,3 +3093,20 @@ void HELPER(verw)(CPUX86State *env, target_ulong selector1)
     CC_SRC = eflags;
     CC_OP = CC_OP_EFLAGS;
 }
+
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+/*
+ * LKGS (Intel SDM 325462-093 Vol. 2A, LKGS): MOV to GS, but for the base,
+ * which goes to IA32_KERNEL_GS_BASE, bits 63:32 clear, GS's staying.
+ */
+void HELPER(lkgs)(CPUX86State *env, int selector)
+{
+    uint64_t base = env->segs[R_GS].base;
+    SegmentCache *gs = &env->segs[R_GS];
+
+    load_seg_ra(env, R_GS, selector, GETPC());
+    env->kernelgsbase = (uint32_t)gs->base;
+    cpu_x86_load_seg_cache(env, R_GS, gs->selector, base, gs->limit,
+                           gs->flags);
+}
+#endif

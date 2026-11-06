@@ -3390,6 +3390,19 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
             assume_cc_op(s, CC_OP_EFLAGS);
             break;
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+        case 6: /* lkgs with f2, in 64-bit mode at CPL 0 */
+            if ((prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) != PREFIX_REPNZ ||
+                (prefixes & PREFIX_LOCK) || !CODE64(s) || CPL(s) != 0 ||
+                !(s->cpuid_7_1_eax_features & CPUID_7_1_EAX_LKGS)) {
+                goto illegal_op;
+            }
+            gen_ld_modrm(s, decode, MO_16);
+            t32 = tcg_temp_new_i32();
+            tcg_gen_trunc_tl_i32(t32, s->T0);
+            gen_helper_lkgs(tcg_env, t32);
+            break;
+#endif
         default:
             goto illegal_op;
         }

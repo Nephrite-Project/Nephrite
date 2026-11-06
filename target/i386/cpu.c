@@ -1161,9 +1161,14 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define TCG_7_1_EAX_LASS CPUID_7_1_EAX_LASS
 #endif
+#if defined(CONFIG_USER_ONLY) || !defined(TARGET_X86_64)
+#define TCG_7_1_EAX_LKGS 0
+#else
+#define TCG_7_1_EAX_LKGS CPUID_7_1_EAX_LKGS
+#endif
 #define TCG_7_1_EAX_FEATURES (CPUID_7_1_EAX_FZRM | CPUID_7_1_EAX_FSRS | \
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
-          CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS)
+          CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS | TCG_7_1_EAX_LKGS)
 #define TCG_7_1_ECX_FEATURES 0
 #define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
 #define TCG_7_2_EDX_FEATURES TCG_7_2_EDX_SPEC_CTRL
