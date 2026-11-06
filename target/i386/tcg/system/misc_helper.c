@@ -242,8 +242,8 @@ bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
 /* Loads the PDPTE registers with the PDPTEs that x86_read_pdptes() read. */
 void x86_set_pdptes(CPUX86State *env, const uint64_t *pdpte)
 {
-    memcpy(env->pdpte, pdpte, sizeof(env->pdpte));
-    env->pdpte_loaded = true;
+    memcpy(env->pdptrs, pdpte, sizeof(env->pdptrs));
+    env->pdptrs_valid = true;
 }
 
 /*

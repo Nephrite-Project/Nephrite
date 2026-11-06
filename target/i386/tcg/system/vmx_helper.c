@@ -2393,8 +2393,8 @@ static void vmx_save_pdptes(CPUX86State *env)
         hwaddr hpa;
         int prot, size;
 
-        if (env->pdpte_loaded) {
-            pdpte = env->pdpte[i];
+        if (env->pdptrs_valid) {
+            pdpte = env->pdptrs[i];
         } else if (x86_vmx_ept_translate(env, (env->cr[3] & ~0x1fULL) + 8 * i,
                                          MMU_DATA_LOAD, false, &hpa, &prot,
                                          &size, NULL)) {
@@ -3673,9 +3673,9 @@ static void vmx_load_guest(CPUX86State *env)
     if (x86_pae_paging(env->cr[0], env->cr[4], env->efer)) {
         if (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_EPT) {
             for (int i = 0; i < 4; i++) {
-                env->pdpte[i] = x86_vmcs_read(env, VMCS_GUEST_PDPTE(i));
+                env->pdptrs[i] = x86_vmcs_read(env, VMCS_GUEST_PDPTE(i));
             }
-            env->pdpte_loaded = true;
+            env->pdptrs_valid = true;
         } else {
             x86_load_pdptes(env);
         }

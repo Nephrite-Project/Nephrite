@@ -226,9 +226,9 @@ Processor emulation (TCG):
   non-canonical addresses fault, and non-canonical or LASS-violating
   stack accesses raise #SS(0).
 * PAE paging's PDPTE registers are loaded and checked at MOV to CR, at
-  task switches that change CR3, and at RSM, but for guests under SVM's
-  nested paging, whose walks read the PDPEs on demand as on AMD's
-  processors; PDPTEs no longer get accessed flags.
+  task switches that change CR3, and at RSM, and snapshots and migration
+  keep them; guests under SVM's nested paging read the PDPEs on demand
+  instead, as on AMD's processors. PDPTEs no longer get accessed flags.
 * CR4.OSXSAVE is allowed wherever CPUID.01H:ECX.XSAVE is set, the XSAVE
   instructions raise #NM while CR0.TS is set, MXCSR is saved and loaded
   with the AVX state and refuses reserved bits, and unaligned accesses

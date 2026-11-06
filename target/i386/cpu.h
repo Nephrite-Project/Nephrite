@@ -2598,6 +2598,13 @@ typedef struct CPUArchState {
 
     target_ulong cr[5]; /* NOTE: cr1 is unused */
 
+    /*
+     * The PDPTE registers of PAE paging, where pdptrs_valid: what KVM gave,
+     * or under TCG what a MOV to CR, a task switch, RSM, a VMX transition,
+     * VMRUN, or #VMEXIT loaded (Intel SDM 325462-093 Vol. 3A, 5.4.1), else
+     * walks read the PDPTEs at CR3, as those under nested paging do (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.11).
+     */
     bool pdptrs_valid;
     uint64_t pdptrs[4];
     int32_t a20_mask;
@@ -2809,15 +2816,6 @@ typedef struct CPUArchState {
     uint32_t db_movss;
     /* The locked instruction under way asserts a bus lock (bus_lock.c). */
     bool bus_lock_now;
-    /*
-     * The PDPTE registers of PAE paging, where pdpte_loaded: what a MOV to
-     * CR, a task switch, RSM, a VMX transition, VMRUN, or #VMEXIT loaded
-     * (Intel SDM 325462-093 Vol. 3A, 5.4.1); else walks read the PDPTEs at
-     * CR3, as those under nested paging do (AMD64 Architecture Programmer's
-     * Manual Volume 2, 24593 rev. 3.46, 15.25.11).
-     */
-    uint64_t pdpte[4];
-    bool pdpte_loaded;
     /*
      * TCG: where apic_moved, the page of the local APIC's registers, which
      * software moved away from APIC_DEFAULT_ADDRESS in xAPIC mode.

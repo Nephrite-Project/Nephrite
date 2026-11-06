@@ -987,7 +987,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
 
         if (likely(env->cr[0] & CR0_PG_MASK || use_stage2)) {
             in.cr3 = env->cr[3];
-            in.pdptes = env->pdpte_loaded ? env->pdpte : NULL;
+            in.pdptes = env->pdptrs_valid ? env->pdptrs : NULL;
             /* Under nested paging, the guest's PAT is G_PAT. */
             in.pat = use_stage2 && !env->vmx.nonroot ? env->svm_gpat
                                                      : env->pat;

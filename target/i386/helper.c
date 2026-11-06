@@ -168,7 +168,7 @@ void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0)
      * update, else walks read the PDPTEs.
      */
     if ((new_cr0 ^ env->cr[0]) & (CR0_PG_MASK | CR0_CD_MASK | CR0_NW_MASK)) {
-        env->pdpte_loaded = false;
+        env->pdptrs_valid = false;
     }
     if ((new_cr0 & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK)) !=
         (env->cr[0] & (CR0_PG_MASK | CR0_WP_MASK | CR0_PE_MASK))) {
@@ -234,7 +234,7 @@ void x86_update_lam(CPUX86State *env)
 
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
 {
-    env->pdpte_loaded = false;
+    env->pdptrs_valid = false;
     env->cr[3] = new_cr3;
     x86_update_lam(env);
     if (env->cr[0] & CR0_PG_MASK) {
@@ -254,7 +254,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4)
 #endif
     if ((new_cr4 ^ env->cr[4]) &
         (CR4_PAE_MASK | CR4_PGE_MASK | CR4_PSE_MASK | CR4_SMEP_MASK)) {
-        env->pdpte_loaded = false;
+        env->pdptrs_valid = false;
     }
     /*
      * TLB entries hold the protection key rights of their fill, which
