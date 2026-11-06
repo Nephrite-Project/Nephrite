@@ -358,10 +358,14 @@ void x86_cpu_dump_local_apic_state(CPUState *cs, int flags)
     dump_apic_lvt("LVTT", lvt[APIC_LVT_TIMER], true);
 
     qemu_printf("Timer\t DCR=0x%x (divide by %u) initial_count = %u"
-                " current_count = %u\n",
+                " current_count = %u",
                 s->divide_conf & APIC_DCR_MASK,
                 divider_conf(s->divide_conf),
                 s->initial_count, apic_get_current_count(s));
+    if (lvt[APIC_LVT_TIMER] & APIC_LVT_TIMER_TSCDEADLINE) {
+        qemu_printf(" tsc_deadline = 0x%" PRIx64, cpu->env.tsc_deadline);
+    }
+    qemu_printf("\n");
 
     qemu_printf("SPIV\t 0x%08x APIC %s, focus=%s, spurious vec %u\n",
                 s->spurious_vec,

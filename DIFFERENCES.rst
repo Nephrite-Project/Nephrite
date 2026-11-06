@@ -141,11 +141,11 @@ AMD SVM, completing what QEMU's TCG has:
 Processor features:
 
 * PCID and INVPCID, INVLPGB and TLBSYNC, IA32_TSC_ADJUST and writable
-  IA32_TSC, the local APIC's TSC-deadline mode, XSAVEC, XSAVES, XRSTORS,
-  and IA32_XSS, LAM, LASS, WAITPKG (UMONITOR, UMWAIT, TPAUSE,
-  IA32_UMWAIT_CONTROL), CPUID faulting, WRMSRNS, LKGS, the speculation
-  control MSRs, IA32_ARCH_CAPABILITIES, AMD's CPUID override MSRs, and
-  AMD's breakpoint address masks.
+  IA32_TSC, the local APIC's TSC-deadline mode, whose deadline ``info
+  lapic`` shows, XSAVEC, XSAVES, XRSTORS, and IA32_XSS, LAM, LASS, WAITPKG
+  (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID faulting,
+  WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
+  AMD's CPUID override MSRs, and AMD's breakpoint address masks.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
