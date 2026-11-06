@@ -153,7 +153,7 @@ Processor features:
   (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID faulting,
   WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
-  FXSAVE and FXRSTOR, and AMD's OS-visible workaround MSRs.
+  FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, and CLZERO.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
@@ -326,7 +326,8 @@ Known deviations and limits
   faults; a fetch past the limit on a page that is not present raises #PF;
   CMPS checks ES before DS; instructions that mix SS and other segments,
   and helpers' 64-bit stack accesses, raise #GP; VM switches drop a held
-  MOV SS #DB.
+  MOV SS #DB; CLZERO checks the segment at the byte that rAX gives, not
+  over its cache line.
 * PDPTEs are read at walk time after task switches and RSM; under SVM's
   nested paging, guests see PDPEs read on demand, as on AMD processors.
 * A processor still reaches its local APIC at FEE00000h after moving it.

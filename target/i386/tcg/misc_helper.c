@@ -25,6 +25,7 @@
 #include "exec/helper-proto.h"
 #include "exec/cputlb.h"
 #include "helper-tcg.h"
+#include "access.h"
 
 /*
  * NOTE: the translator must set DisasContext.cc_op to CC_OP_EFLAGS
@@ -190,6 +191,23 @@ void HELPER(wrpkru)(CPUX86State *env, uint32_t ecx, uint64_t val)
 
     env->pkru = val;
     tlb_flush(cs);
+}
+
+/*
+ * CLZERO zeroes the cache line that holds ADDR, a linear address, with the
+ * paging checks of a store of the line (AMD64 Architecture Programmer's
+ * Manual Volume 3, 24594 rev. 3.39, CLZERO); lines are CPUID's CLFLUSH size,
+ * eight quadwords.
+ */
+void HELPER(clzero)(CPUX86State *env, target_ulong addr)
+{
+    X86Access ac;
+    vaddr line = addr & ~(target_ulong)63;
+
+    access_prepare(&ac, env, line, 64, MMU_DATA_STORE, GETPC());
+    for (int i = 0; i < 64; i += 8) {
+        access_stq(&ac, line + i, 0);
+    }
 }
 
 target_ulong HELPER(rdpid)(CPUX86State *env)

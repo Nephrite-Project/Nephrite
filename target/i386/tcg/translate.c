@@ -4030,6 +4030,17 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             }
             break;
 
+        case 0xfc: /* CLZERO */
+            if (!(s->cpuid_8000_0008_ebx_features &
+                  CPUID_8000_0008_EBX_CLZERO)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_lea_v_seg(s, cpu_regs[R_EAX], R_DS, s->override, SEG_W(1));
+            gen_helper_clzero(tcg_env, s->A0);
+            break;
+
         case 0xfe: /* INVLPGB */
             if (!(s->cpuid_8000_0008_ebx_features &
                   CPUID_8000_0008_EBX_INVLPGB) || !PE(s) || VM86(s)) {
