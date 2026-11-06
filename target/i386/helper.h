@@ -51,7 +51,7 @@ DEF_HELPER_FLAGS_3(set_dr, TCG_CALL_NO_WG, void, env, int, tl)
 DEF_HELPER_FLAGS_2(get_dr, TCG_CALL_NO_WG, tl, env, int)
 #endif /* !CONFIG_USER_ONLY */
 
-DEF_HELPER_1(sysenter, void, env)
+DEF_HELPER_2(sysenter, void, env, int)
 DEF_HELPER_2(sysexit, void, env, int)
 DEF_HELPER_2(syscall, void, env, int)
 DEF_HELPER_2(sysret, void, env, int)
@@ -147,7 +147,10 @@ DEF_HELPER_1(testui, tl, env)
 DEF_HELPER_1(uiret, void, env)
 DEF_HELPER_2(senduipi, void, env, tl)
 #ifdef TARGET_X86_64
+DEF_HELPER_1(erets, void, env)
+DEF_HELPER_1(eretu, void, env)
 DEF_HELPER_2(lkgs, void, env, int)
+DEF_HELPER_1(fred_ud, void, env)
 #endif
 DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
 DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)

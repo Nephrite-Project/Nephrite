@@ -545,6 +545,12 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     if (uintr >= 0) {
         return uintr;
     }
+#ifdef TARGET_X86_64
+    uintr = x86_fred_wrmsr(env, msr, val);
+    if (uintr >= 0) {
+        return uintr;
+    }
+#endif
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         env->sysenter_cs = val & 0xffff;
@@ -797,7 +803,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_IA32_PL1_SSP:
     case MSR_IA32_PL2_SSP:
     case MSR_IA32_PL3_SSP:
-        if (!x86_has_shstk(env) || !x86_cet_msr_valid(env, msr, val)) {
+        if (!x86_has_pl_ssp(env, msr) || !x86_cet_msr_valid(env, msr, val)) {
             return false;
         }
         *x86_pl_ssp(env, msr - MSR_IA32_PL0_SSP) = val;
@@ -1001,6 +1007,12 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     if (uintr >= 0) {
         return uintr;
     }
+#ifdef TARGET_X86_64
+    uintr = x86_fred_rdmsr(env, msr, valp);
+    if (uintr >= 0) {
+        return uintr;
+    }
+#endif
     switch (msr) {
     case MSR_IA32_SYSENTER_CS:
         val = env->sysenter_cs;
@@ -1190,7 +1202,7 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_IA32_PL1_SSP:
     case MSR_IA32_PL2_SSP:
     case MSR_IA32_PL3_SSP:
-        if (!x86_has_shstk(env)) {
+        if (!x86_has_pl_ssp(env, msr)) {
             return false;
         }
         val = *x86_pl_ssp(env, msr - MSR_IA32_PL0_SSP);

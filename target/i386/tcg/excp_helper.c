@@ -140,6 +140,13 @@ void raise_interrupt2(CPUX86State *env, int intno,
 
     if (!is_int) {
         /*
+         * The DR6 bits of a #DB are its event data under FRED (Intel SDM
+         * 325462-093 Vol. 3A, 8.3.2.1).
+         */
+        if (intno == EXCP01_DB) {
+            env->db_event = env->db_payload & (0xf | DR6_BD | DR6_BS);
+        }
+        /*
          * A #DB writes DR6 and DR7 before an SVM intercept (AMD64
          * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
          * 15.12.2), but not before a VMX exit, which takes the bits as its
@@ -206,6 +213,12 @@ G_NORETURN void raise_trap_instruction(CPUX86State *env, int intno,
     }
 #endif
     cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno, 0, 0);
+#if !defined(CONFIG_USER_ONLY)
+    /* FRED event delivery tells them from INT n by it too. */
+    if (env->cr[4] & CR4_FRED_MASK) {
+        env->vmx.soft_exception = X86_VMX_SOFT_EXCEPTION;
+    }
+#endif
 
     cs->exception_index = intno;
     env->error_code = 0;
@@ -270,10 +283,15 @@ G_NORETURN void HELPER(icebp)(CPUX86State *env, uint32_t len)
         }
         env->vmx.soft_exception = X86_VMX_PRIV_SOFT_EXCEPTION;
     }
+    /* So does FRED event delivery. */
+    if (env->cr[4] & CR4_FRED_MASK) {
+        env->vmx.soft_exception = X86_VMX_PRIV_SOFT_EXCEPTION;
+    }
 #endif
     do_end_instruction(env);
 
     /* The data breakpoints MOV SS or POP SS held join ICEBP's #DB. */
+    env->db_event = env->db_movss & 0xf;
     if (env->db_movss) {
         env->dr[6] = (env->dr[6] & ~0xf) | env->db_movss;
         env->db_movss = 0;

@@ -32,6 +32,17 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
 {
     int selector;
 
+#ifdef TARGET_X86_64
+    /*
+     * FRED transitions make SYSCALL an event of type 7 and vector 1, with
+     * no use of IA32_EFER.SCE (Intel SDM 325462-093 Vol. 2B, SYSCALL).
+     */
+    if (env->cr[4] & CR4_FRED_MASK) {
+        x86_fred_deliver(env, X86_EVENT_OTHER, 1, 0, false, next_eip_addend,
+                         env->eip + next_eip_addend);
+        return;
+    }
+#endif
     if (!(env->efer & MSR_EFER_SCE)) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
@@ -191,6 +202,7 @@ void x86_cpu_leaving_halt(CPUState *cpu)
     /* Complete HLT, UMWAIT, or TPAUSE instruction.  */
     if (env->eflags & TF_MASK) {
         env->dr[6] |= DR6_BS;
+        env->db_event = DR6_BS;
         /*
          * do_interrupt_all() is the normal TCG exception-delivery path
          * and runs in the same vCPU thread context, so #DB delivery does

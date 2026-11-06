@@ -1336,6 +1336,7 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
 
     /* remove any pending exception */
     env->old_exception = -1;
+    env->fred_nested = false;
     cpu_loop_exit(cs);
 }
 
@@ -1590,6 +1591,7 @@ load_host:
      */
     if ((env->eflags & TF_MASK) != 0) {
         env->dr[6] |= DR6_BS;
+        env->db_event = DR6_BS;
         do_interrupt_all(X86_CPU(cs), EXCP01_DB, 0, 0, env->eip, 0);
     }
 }

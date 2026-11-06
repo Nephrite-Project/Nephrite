@@ -372,6 +372,33 @@ void x86_shstk_pop_check(CPUX86State *env, uint64_t val, int code,
     env->guest_ssp = ssp + 8;
 }
 
+#ifdef TARGET_X86_64
+/*
+ * FRED event delivery's frame on the supervisor shadow stack at *ssp (Intel
+ * SDM 325462-093 Vol. 3A, 8.3.2.2): 4 bytes of zeros below *ssp, then, from
+ * its 8-byte boundary down, the augmented CS, the LIP, and the old SSP.
+ */
+void x86_shstk_fred_push(CPUX86State *env, uint64_t *ssp, uint64_t cs,
+                         uint64_t lip, uint64_t old_ssp)
+{
+    uint64_t new_ssp = *ssp & ~7ULL;
+
+    shstk_stl(env, *ssp - 4, 0, false, 0);
+    shstk_push_frame(env, &new_ssp, cs, lip, old_ssp, false, 0);
+    *ssp = new_ssp;
+}
+
+/* ERETS's pops of that frame (Intel SDM 325462-093 Vol. 2A, ERETS). */
+void x86_shstk_fred_pop(CPUX86State *env, uint64_t *ssp, uint64_t *old_ssp,
+                        uint64_t *lip, uint64_t *cs, uintptr_t ra)
+{
+    *old_ssp = shstk_ldq(env, *ssp, false, ra);
+    *lip = shstk_ldq(env, *ssp + 8, false, ra);
+    *cs = shstk_ldq(env, *ssp + 16, false, ra);
+    *ssp += 24;
+}
+#endif
+
 void x86_ibt_far(CPUX86State *env, int cpl)
 {
     uint64_t *cet = cpl == 3 ? &env->u_cet : &env->s_cet;
@@ -430,7 +457,8 @@ void HELPER(ibt_missing)(CPUX86State *env)
 /*
  * The shadow-stack management instructions (Intel SDM 325462-093 Vol. 2A
  * to 2D): #UD unless shadow stacks are enabled at the CPL, or for those
- * of supervisor shadow-stack tokens at CPL 0, then #GP(0) at other CPLs.
+ * of supervisor shadow-stack tokens at CPL 0, which FRED transitions
+ * disable, then #GP(0) at other CPLs.
  */
 static void shstk_check(CPUX86State *env, uintptr_t ra)
 {
@@ -442,7 +470,8 @@ static void shstk_check(CPUX86State *env, uintptr_t ra)
 static void shstk_check_token_insn(CPUX86State *env, uintptr_t ra)
 {
     if (!(env->cr[4] & CR4_CET_MASK) || !(env->cr[0] & CR0_PE_MASK) ||
-        (env->eflags & VM_MASK) || !(env->s_cet & CET_SH_STK_EN)) {
+        (env->eflags & VM_MASK) || !(env->s_cet & CET_SH_STK_EN) ||
+        (env->cr[4] & CR4_FRED_MASK)) {
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
     if (shstk_cpl(env)) {

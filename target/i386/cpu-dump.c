@@ -417,6 +417,25 @@ static void dump_uintr(CPUX86State *env, FILE *f, int flags)
                  env->uintr_misc, env->uintr_pd, env->uintr_tt,
                  env->uintr_rr, env->uif);
 }
+
+/* The FRED MSRs (Intel SDM 325462-093 Vol. 3A, 8.2.3). */
+static void dump_fred(CPUX86State *env, FILE *f, int flags)
+{
+#ifdef TARGET_X86_64
+    if (!dump_feature(flags, env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED,
+                      env->cr[4] & CR4_FRED_MASK)) {
+        return;
+    }
+    qemu_fprintf(f, "FRED_CONFIG=%016" PRIx64 " FRED_STKLVLS=%016" PRIx64
+                 "\nFRED_RSP0=%016" PRIx64 " FRED_RSP1=%016" PRIx64
+                 " FRED_RSP2=%016" PRIx64 " FRED_RSP3=%016" PRIx64
+                 "\nFRED_SSP1=%016" PRIx64 " FRED_SSP2=%016" PRIx64
+                 " FRED_SSP3=%016" PRIx64 "\n", env->fred_config,
+                 env->fred_stklvls, env->fred_rsp0, env->fred_rsp1,
+                 env->fred_rsp2, env->fred_rsp3, env->fred_ssp1,
+                 env->fred_ssp2, env->fred_ssp3);
+#endif
+}
 #endif
 
 void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
@@ -583,6 +602,7 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
     qemu_fprintf(f, "EFER=%016" PRIx64 "\n", env->efer);
 #if !defined(CONFIG_USER_ONLY)
     dump_uintr(env, f, flags);
+    dump_fred(env, f, flags);
 #endif
     if (flags & CPU_DUMP_FPU) {
         int fptag;

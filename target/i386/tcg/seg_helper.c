@@ -1365,7 +1365,8 @@ void HELPER(sysret)(CPUX86State *env, int dflag)
      * another CPL (Intel SDM 325462-093 Vol. 2B, UMWAIT).
      */
     env->umonitor_armed = false;
-    if (!(env->efer & MSR_EFER_SCE)) {
+    /* FRED transitions disable SYSRET (Intel SDM 325462-093 Vol. 2B). */
+    if (!(env->efer & MSR_EFER_SCE) || (env->cr[4] & CR4_FRED_MASK)) {
         raise_exception_err_ra(env, EXCP06_ILLOP, 0, GETPC());
     }
     cpl = env->hflags & HF_CPL_MASK;
@@ -1508,12 +1509,42 @@ static void x86_lbr_interrupt(CPUX86State *env, int intno, int is_int,
     }
 }
 
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+/*
+ * FRED event delivery of an interrupt or exception of TYPE, an X86_EVENT_*:
+ * INT n, INT1, INT3, and INTO save their lengths, and all but INT1 the
+ * return address past themselves, at which INT1 already is.
+ */
+static void do_interrupt_fred(CPUX86State *env, int type, int intno,
+                              int is_int, int error_code,
+                              target_ulong next_eip, bool has_error_code)
+{
+    int len = 0;
+    target_ulong rip = env->eip;
+
+    if (is_int) {
+        len = next_eip - env->eip;
+        rip = next_eip;
+    } else if (type == X86_EVENT_PRIV_SW_EXCEPTION) {
+        len = env->svm_insn_len;
+    }
+    x86_fred_deliver(env, type, intno, error_code, has_error_code, len, rip);
+}
+#endif
+
 void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
                       int error_code, target_ulong next_eip, int is_hw)
 {
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
     target_ulong from = env->eip;
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+    /* The event's type, which FRED event delivery saves as VMX has it. */
+    int type = is_hw ? (intno == EXCP02_NMI ? X86_EVENT_NMI
+                                            : X86_EVENT_EXT_INTR)
+               : env->vmx.soft_exception ? env->vmx.soft_exception
+               : is_int ? X86_EVENT_SW_INTR : X86_EVENT_HW_EXCEPTION;
+#endif
     /*
      * Outside real mode, an exception pushes an error code by its vector,
      * and one VM entry injects as the injected-event identification field
@@ -1578,8 +1609,15 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
         } else if (env->hflags & HF_GUEST_MASK) {
             handle_even_inj(env, intno, is_int, error_code, is_hw, 0);
         }
+        env->vmx.soft_exception = 0;
 #endif
 #ifdef TARGET_X86_64
+#if !defined(CONFIG_USER_ONLY)
+        if (env->cr[4] & CR4_FRED_MASK) {
+            do_interrupt_fred(env, type, intno, is_int, error_code, next_eip,
+                              has_error_code);
+        } else
+#endif
         if (env->hflags & HF_LMA_MASK) {
             do_interrupt64(env, intno, is_int, error_code, next_eip, is_hw,
                            has_error_code);
@@ -1880,6 +1918,17 @@ void HELPER(load_seg)(CPUX86State *env, int seg_reg, int selector)
     load_seg_ra(env, seg_reg, selector, GETPC());
 }
 
+/*
+ * Where FRED transitions are enabled, far transfers neither change the CPL
+ * nor leave 64-bit mode at CPL 0: #GP(selector) for a call gate, a return
+ * to an outer level, or a code segment with L clear at CPL 0 (Intel SDM
+ * 325462-093 Vol. 3A, 8.5.2).
+ */
+static bool fred_far_compat(CPUX86State *env, int cpl, uint32_t e2)
+{
+    return (env->cr[4] & CR4_FRED_MASK) && cpl == 0 && !(e2 & DESC_L_MASK);
+}
+
 /* protected mode jump */
 void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                            target_ulong next_eip)
@@ -1895,7 +1944,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
     }
     cpl = env->hflags & HF_CPL_MASK;
     if (e2 & DESC_S_MASK) {
-        if (!(e2 & DESC_CS_MASK)) {
+        if (!(e2 & DESC_CS_MASK) || fred_far_compat(env, cpl, e2)) {
             raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
         }
         dpl = (e2 >> DESC_DPL_SHIFT) & 3;
@@ -1935,7 +1984,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
 
 #ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
-            if (type != 12) {
+            if (type != 12 || (env->cr[4] & CR4_FRED_MASK)) {
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
             }
         }
@@ -2092,7 +2141,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
 
     if (e2 & DESC_S_MASK) {
         /* "normal" far call, no stack switch possible */
-        if (!(e2 & DESC_CS_MASK)) {
+        if (!(e2 & DESC_CS_MASK) || fred_far_compat(env, cpl, e2)) {
             raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
         }
         dpl = (e2 >> DESC_DPL_SHIFT) & 3;
@@ -2185,7 +2234,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
 
 #ifdef TARGET_X86_64
         if (env->efer & MSR_EFER_LMA) {
-            if (type != 12) {
+            if (type != 12 || (env->cr[4] & CR4_FRED_MASK)) {
                 raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, GETPC());
             }
         }
@@ -2597,11 +2646,11 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
         raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, retaddr);
     }
     if (!(e2 & DESC_S_MASK) ||
-        !(e2 & DESC_CS_MASK)) {
+        !(e2 & DESC_CS_MASK) || fred_far_compat(env, cpl, e2)) {
         raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, retaddr);
     }
     rpl = new_cs & 3;
-    if (rpl < cpl) {
+    if (rpl < cpl || ((env->cr[4] & CR4_FRED_MASK) && rpl > cpl)) {
         raise_exception_err_ra(env, EXCP0D_GPF, new_cs & 0xfffc, retaddr);
     }
     dpl = (e2 >> DESC_DPL_SHIFT) & 3;
@@ -2829,12 +2878,23 @@ void HELPER(lret_protected)(CPUX86State *env, int shift, int addend)
     helper_ret_protected(env, shift, 0, addend, GETPC());
 }
 
-void HELPER(sysenter)(CPUX86State *env)
+void HELPER(sysenter)(CPUX86State *env, int next_eip_addend)
 {
 #if !defined(CONFIG_USER_ONLY)
     bool shstk_on = x86_shstk_enabled(env, env->hflags & HF_CPL_MASK);
 #endif
 
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+    /*
+     * FRED transitions make SYSENTER an event of type 7 and vector 2, with
+     * no use of IA32_SYSENTER_CS (Intel SDM 325462-093 Vol. 2B, SYSENTER).
+     */
+    if (env->cr[4] & CR4_FRED_MASK) {
+        x86_fred_deliver(env, X86_EVENT_OTHER, 2, 0, false, next_eip_addend,
+                         env->eip + next_eip_addend);
+        return;
+    }
+#endif
     if (env->sysenter_cs == 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
     }
@@ -2884,6 +2944,10 @@ void HELPER(sysexit)(CPUX86State *env, int dflag)
     int cpl;
 
     env->umonitor_armed = false;
+    /* FRED transitions disable SYSEXIT (Intel SDM 325462-093 Vol. 2B). */
+    if (env->cr[4] & CR4_FRED_MASK) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
     cpl = env->hflags & HF_CPL_MASK;
     if (env->sysenter_cs == 0 || cpl != 0) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
@@ -3093,6 +3157,538 @@ void HELPER(verw)(CPUX86State *env, target_ulong selector1)
     CC_SRC = eflags;
     CC_OP = CC_OP_EFLAGS;
 }
+
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+/*
+ * FRED transitions (Intel SDM 325462-093 Vol. 3A, chapter 8): FRED event
+ * delivery in place of IDT event delivery and of SYSCALL's and SYSENTER's
+ * operation where CR4.FRED is set, ERETS, ERETU, and the FRED MSRs.
+ */
+
+/* IA32_FRED_CONFIG (Intel SDM 325462-093 Vol. 3A, 8.2.3). */
+#define FRED_CONFIG_CSL         3ULL
+#define FRED_CONFIG_SSP_DEC     8ULL
+#define FRED_CONFIG_RSP_DEC     0x1c0ULL
+#define FRED_CONFIG_INTR_SL     9
+#define FRED_CONFIG_RESERVED    0x834ULL
+
+/* The augmented CS and SS of FRED's stack frame (8.3.2.1). */
+#define FRED_CS_SL_SHIFT        16
+#define FRED_CS_WFE             (1ULL << 18)
+#define FRED_SS_STI             (1ULL << 16)
+#define FRED_SS_SYS             (1ULL << 17)
+#define FRED_SS_NMI             (1ULL << 18)
+#define FRED_INFO_L             (1ULL << 57)
+#define FRED_INFO_NST           (1ULL << 58)
+
+static uint64_t *fred_rsp(CPUX86State *env, int level)
+{
+    uint64_t *rsp[] = {
+        &env->fred_rsp0, &env->fred_rsp1, &env->fred_rsp2, &env->fred_rsp3,
+    };
+
+    return rsp[level];
+}
+
+/* The FRED SSP MSRs, IA32_PL0_SSP being IA32_FRED_SSP0. */
+static uint64_t *fred_ssp(CPUX86State *env, int level)
+{
+    uint64_t *ssp[] = {
+        &env->pl0_ssp, &env->fred_ssp1, &env->fred_ssp2, &env->fred_ssp3,
+    };
+
+    return ssp[level];
+}
+
+/* Whether supervisor shadow stacks are enabled. */
+static bool fred_sss(CPUX86State *env)
+{
+    return (env->cr[4] & CR4_CET_MASK) && (env->s_cet & CET_SH_STK_EN);
+}
+
+/*
+ * The MMU index of supervisor data accesses with RFLAGS.AC clear, in
+ * 64-bit mode, as FRED event delivery makes them.
+ */
+static int fred_mmu_index(CPUX86State *env)
+{
+    return ((env->hflags & HF_SMAP_MASK) ? MMU_KSMAP64_IDX :
+            MMU_KNOSMAP64_IDX) +
+           ((env->hflags & HF_GUEST_MASK) ? MMU_GUEST_IDX : 0);
+}
+
+/*
+ * Whether a supervisor data access to the SIZE bytes at ADDR is not paging
+ * canonical or makes a LASS violation, which clears bit 63 of an address
+ * where CR4.LASS and CR4.SMAP are set and AC, as for FRED event delivery,
+ * is not (8.3.4).
+ */
+static bool fred_bad_access(CPUX86State *env, uint64_t addr, int size,
+                            bool ac)
+{
+    uint64_t last = addr + size - 1;
+
+    return !x86_canonical(env, addr, true) || !x86_canonical(env, last, true) ||
+           ((env->cr[4] & CR4_LASS_MASK) && (env->cr[4] & CR4_SMAP_MASK) &&
+            !ac && (!(addr >> 63) || !(last >> 63)));
+}
+
+/* CS and SS as FRED transitions load them, at DPL dpl, flat. */
+static void fred_load_flat(CPUX86State *env, int cs, int ss, int dpl,
+                           bool code64)
+{
+    uint32_t common = DESC_G_MASK | DESC_P_MASK | DESC_S_MASK | DESC_A_MASK |
+                      dpl << DESC_DPL_SHIFT;
+
+    cpu_x86_load_seg_cache(env, R_CS, cs, 0, 0xffffffff,
+                           common | DESC_CS_MASK | DESC_R_MASK |
+                           (code64 ? DESC_L_MASK : DESC_B_MASK));
+    cpu_x86_load_seg_cache(env, R_SS, ss, 0, 0xffffffff,
+                           common | DESC_B_MASK | DESC_W_MASK);
+}
+
+static void fred_swap_gs(CPUX86State *env)
+{
+    uint64_t base = env->segs[R_GS].base;
+
+    env->segs[R_GS].base = env->kernelgsbase;
+    env->kernelgsbase = base;
+}
+
+/*
+ * FRED event delivery (8.3.5) of the event of TYPE, an X86_EVENT_*, and
+ * VECTOR, with ERROR_CODE where HAS_ERROR_CODE, of an instruction of LEN
+ * bytes for INT n, INT1, INT3, INTO, SYSCALL, and SYSENTER, returning to
+ * OLD_RIP. The new context comes from IA32_FRED_CONFIG, the stack level,
+ * and the FRED RSP and SSP MSRs; the frame goes on the new stack, and at
+ * CPL 0 on the supervisor shadow stack too. Registers change only once
+ * everything that can fault is done, the nested exception then being
+ * delivered with the state before.
+ */
+void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
+                      bool has_error_code, int len, target_ulong old_rip)
+{
+    int cpl = env->hflags & HF_CPL_MASK;
+    bool nested = env->fred_nested;
+    bool dbl = type == X86_EVENT_HW_EXCEPTION && vector == EXCP08_DBLE;
+    bool sys = type == X86_EVENT_SW_INTR || type == X86_EVENT_OTHER;
+    int ext = sys || type == X86_EVENT_SW_EXCEPTION ? 0 : 1;
+    int csl = cpl == 3 ? 0 : env->fred_config & FRED_CONFIG_CSL;
+    int mmu_index = fred_mmu_index(env);
+    uint64_t old_rflags = cpu_compute_eflags(env);
+    uint64_t old_cs, old_ss, data = 0, new_rip, new_rsp, new_ssp = 0, sp;
+    bool wfe, sss = fred_sss(env);
+    int sl, new_csl;
+
+    /* The RF that IDT event delivery saves too. */
+    if (type == X86_EVENT_HW_EXCEPTION && exception_is_fault(vector)) {
+        old_rflags |= RF_MASK;
+    }
+    wfe = cpl == 0 && (env->cr[4] & CR4_CET_MASK) &&
+          (env->s_cet & CET_ENDBR_EN) && (env->s_cet & CET_WAIT_ENDBR);
+    if (nested) {
+        wfe = env->fred_nested_ibt;
+    } else if (sys) {
+        wfe = false;
+    }
+    old_cs = env->segs[R_CS].selector | (uint64_t)csl << FRED_CS_SL_SHIFT |
+             (wfe ? FRED_CS_WFE : 0);
+    old_ss = env->segs[R_SS].selector |
+             (type == X86_EVENT_HW_EXCEPTION &&
+              (env->hflags & HF_INHIBIT_IRQ_MASK) && !env->shadow_movss ?
+              FRED_SS_STI : 0) |
+             (sys ? FRED_SS_SYS : 0) |
+             (type == X86_EVENT_NMI ? FRED_SS_NMI : 0) |
+             (uint64_t)(vector & 0xff) << 32 | (uint64_t)type << 48 |
+             (env->hflags & HF_CS64_MASK ? FRED_INFO_L : 0) |
+             (nested && !dbl ? FRED_INFO_NST : 0) |
+             (type >= X86_EVENT_SW_INTR ? (uint64_t)(len & 0xf) << 60 : 0);
+    if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
+        data = env->cr[2];
+    } else if (vector == EXCP01_DB &&
+               (type == X86_EVENT_HW_EXCEPTION ||
+                type == X86_EVENT_PRIV_SW_EXCEPTION)) {
+        data = env->db_event;
+    }
+
+    env->fred_nested = true;
+    env->fred_nested_ibt = wfe;
+
+    new_rip = (env->fred_config & ~0xfffULL) + (cpl == 0 ? 256 : 0);
+    if (!x86_canonical(env, new_rip, true)) {
+        raise_exception_err(env, EXCP0D_GPF, ext);
+    }
+    if (cpl == 3 && !nested && !dbl) {
+        sl = 0;
+    } else if (type == X86_EVENT_EXT_INTR) {
+        sl = env->fred_config >> FRED_CONFIG_INTR_SL & 3;
+    } else if (!sys && vector < 32) {
+        sl = env->fred_stklvls >> (2 * vector) & 3;
+    } else {
+        sl = 0;
+    }
+    new_csl = cpl == 3 ? sl : MAX(sl, csl);
+    if (cpl == 3 || new_csl > csl) {
+        new_rsp = *fred_rsp(env, new_csl);
+    } else {
+        new_rsp = (env->regs[R_ESP] -
+                   (env->fred_config & FRED_CONFIG_RSP_DEC)) & ~0x3fULL;
+    }
+    if (sss) {
+        if (cpl == 3 || new_csl > csl) {
+            new_ssp = *fred_ssp(env, new_csl);
+            if (new_ssp & 4) {
+                raise_exception_err(env, EXCP0D_GPF, ext);
+            }
+        } else {
+            new_ssp = env->guest_ssp - (env->fred_config & FRED_CONFIG_SSP_DEC);
+        }
+    }
+
+    sp = new_rsp - 64;
+    if (fred_bad_access(env, sp, 64, false)) {
+        raise_exception_err(env, EXCP0C_STACK, ext);
+    }
+    cpu_stq_le_mmuidx_ra(env, sp + 56, 0, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 48, data, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 40, old_ss, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 32, env->regs[R_ESP], mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 24, old_rflags, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 16, old_cs, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp + 8, old_rip, mmu_index, 0);
+    cpu_stq_le_mmuidx_ra(env, sp, has_error_code ? error_code & 0xffff : 0,
+                         mmu_index, 0);
+    if (sss && cpl == 0) {
+        uint64_t lowest = (new_ssp & ~7ULL) - 24;
+
+        if (fred_bad_access(env, lowest, new_ssp - lowest, false)) {
+            raise_exception_err(env, EXCP0D_GPF, ext);
+        }
+        x86_shstk_fred_push(env, &new_ssp, old_cs, old_rip, env->guest_ssp);
+    }
+
+    if (cpl == 3) {
+        int cs = (env->star >> 32) & 0xfffc;
+
+        if ((env->cr[4] & CR4_CET_MASK) && (env->u_cet & CET_SH_STK_EN)) {
+            env->pl3_ssp = x86_la_adjust(env, env->guest_ssp);
+        }
+        fred_load_flat(env, cs, cs + 8, 0, true);
+        fred_swap_gs(env);
+    }
+    env->eip = new_rip;
+    cpu_load_eflags(env, 0, ~0);
+    env->regs[R_ESP] = sp;
+    env->fred_config = (env->fred_config & ~FRED_CONFIG_CSL) | new_csl;
+    if (sss) {
+        env->guest_ssp = new_ssp;
+    }
+    if ((env->cr[4] & CR4_CET_MASK) && (env->s_cet & CET_ENDBR_EN)) {
+        env->s_cet &= ~(CET_WAIT_ENDBR | CET_SUPPRESS);
+    }
+    /* No debug trap stays pending, and no interrupt shadow (8.3.3). */
+    env->db_movss = 0;
+    env->hflags &= ~HF_INHIBIT_IRQ_MASK;
+    env->shadow_movss = false;
+    env->fred_nested = false;
+}
+
+static void fred_check_insn(CPUX86State *env, uintptr_t ra)
+{
+    if (!(env->cr[4] & CR4_FRED_MASK) || (env->hflags & HF_CPL_MASK)) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+}
+
+/*
+ * What ERETS and ERETU do once they have returned from FROM (8.4.1.3 and
+ * 8.4.2.3): the interrupt shadow the instruction began in ends, STI
+ * blocking starts where STI asks for it, NMIs are unblocked where the
+ * frame's SS asks for that, and where it asks for a single-step trap and
+ * TF is set, the trap comes at once, after DebugCtl.LBR records the return.
+ */
+static void fred_return(CPUX86State *env, uint64_t ss, target_ulong from,
+                        bool sti)
+{
+    env->hflags &= ~HF_INHIBIT_IRQ_MASK;
+    env->shadow_movss = false;
+    if (sti && (env->eflags & IF_MASK)) {
+        env->hflags |= HF_INHIBIT_IRQ_MASK;
+    }
+    if (ss & FRED_SS_NMI) {
+        iret_unblock_nmis(env);
+    }
+    if ((ss & FRED_SS_SYS) && (env->eflags & TF_MASK)) {
+        if (env->debugctl & DEBUGCTL_LBR) {
+            env->lbr_from = from;
+            env->lbr_to = env->eip;
+        }
+        raise_debug_exception(env, DR6_BS, 0);
+    }
+}
+
+/* ERETS (Intel SDM 325462-093 Vol. 2A, ERETS; Vol. 3A, 8.4.1). */
+void HELPER(erets)(CPUX86State *env)
+{
+    uintptr_t ra = GETPC();
+    int mmu_index = cpu_mmu_index(env_cpu(env), false);
+    int csl = env->fred_config & FRED_CONFIG_CSL;
+    target_ulong from = env->eip;
+    uint64_t sp = env->regs[R_ESP] + 8;
+    uint64_t rip, cs, rflags, rsp, ss, ssp = env->guest_ssp;
+    bool sti_before = (env->hflags & HF_INHIBIT_IRQ_MASK) &&
+                      !env->shadow_movss;
+    int new_csl;
+
+    fred_check_insn(env, ra);
+    if (fred_bad_access(env, sp, 40, env->eflags & AC_MASK)) {
+        raise_exception_err_ra(env, EXCP0C_STACK, 0, ra);
+    }
+    rip = cpu_ldq_le_mmuidx_ra(env, sp, mmu_index, ra);
+    cs = cpu_ldq_le_mmuidx_ra(env, sp + 8, mmu_index, ra);
+    rflags = cpu_ldq_le_mmuidx_ra(env, sp + 16, mmu_index, ra);
+    rsp = cpu_ldq_le_mmuidx_ra(env, sp + 24, mmu_index, ra);
+    ss = cpu_ldq_le_mmuidx_ra(env, sp + 32, mmu_index, ra);
+    if (!x86_canonical(env, rip, true) ||
+        (cs & 0xfffffffffff8ffffULL) != env->segs[R_CS].selector ||
+        (rflags & 0xffffffffffc2802aULL) != 2 ||
+        (ss & 0xfff8ffffULL) != env->segs[R_SS].selector) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    new_csl = MIN(csl, (cs >> FRED_CS_SL_SHIFT) & 3);
+    if (fred_sss(env)) {
+        uint64_t new_ssp, lip, sscs;
+
+        if (ssp & 7) {
+            raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, ra);
+        }
+        x86_shstk_fred_pop(env, &ssp, &new_ssp, &lip, &sscs, ra);
+        if (sscs != cs || lip != rip || (new_ssp & 3)) {
+            raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, ra);
+        }
+        if (!x86_canonical(env, new_ssp, false)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+        }
+        if (new_csl < csl && *fred_ssp(env, csl) != ssp) {
+            raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, ra);
+        }
+        ssp = new_ssp;
+    }
+
+    env->eip = rip;
+    cpu_load_eflags(env, rflags, ~0);
+    env->regs[R_ESP] = rsp;
+    env->fred_config = (env->fred_config & ~FRED_CONFIG_CSL) | new_csl;
+    if (fred_sss(env)) {
+        env->guest_ssp = ssp;
+    }
+    if ((env->cr[4] & CR4_CET_MASK) && (env->s_cet & CET_ENDBR_EN) &&
+        !(env->s_cet & CET_SUPPRESS) && (cs & FRED_CS_WFE)) {
+        env->s_cet |= CET_WAIT_ENDBR;
+    }
+    fred_return(env, ss, from, (ss & FRED_SS_STI) && !sti_before);
+}
+
+/*
+ * ERETU's CS and SS from the GDT or an LDT, with IRET's checks for a
+ * return to CPL 3 (Intel SDM 325462-093 Vol. 2A, ERETU; Vol. 2B, IRET).
+ */
+static void eretu_load_segs(CPUX86State *env, int cs, int ss,
+                            SegmentCache *new_cs, SegmentCache *new_ss,
+                            uintptr_t ra)
+{
+    uint32_t e1, e2, ss_e1, ss_e2;
+    int dpl;
+
+    if (!(cs & 0xfffc) ||
+        load_segment_ra(env, &e1, &e2, cs, ra) ||
+        !(e2 & DESC_S_MASK) || !(e2 & DESC_CS_MASK)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, cs & 0xfffc, ra);
+    }
+    dpl = (e2 >> DESC_DPL_SHIFT) & 3;
+    if ((e2 & DESC_C_MASK) ? dpl > 3 : dpl != 3) {
+        raise_exception_err_ra(env, EXCP0D_GPF, cs & 0xfffc, ra);
+    }
+    if (!(e2 & DESC_P_MASK)) {
+        raise_exception_err_ra(env, EXCP0B_NOSEG, cs & 0xfffc, ra);
+    }
+    if ((e2 & DESC_L_MASK) && (e2 & DESC_B_MASK)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, cs & 0xfffc, ra);
+    }
+    if (!(ss & 0xfffc) ||
+        load_segment_ra(env, &ss_e1, &ss_e2, ss, ra) ||
+        !(ss_e2 & DESC_S_MASK) || (ss_e2 & DESC_CS_MASK) ||
+        !(ss_e2 & DESC_W_MASK) || ((ss_e2 >> DESC_DPL_SHIFT) & 3) != 3) {
+        raise_exception_err_ra(env, EXCP0D_GPF, ss & 0xfffc, ra);
+    }
+    if (!(ss_e2 & DESC_P_MASK)) {
+        raise_exception_err_ra(env, EXCP0C_STACK, ss & 0xfffc, ra);
+    }
+    e2 = set_accessed_ra(env, cs, e2, ra);
+    ss_e2 = set_accessed_ra(env, ss, ss_e2, ra);
+    *new_cs = (SegmentCache){ .selector = cs, .base = get_seg_base(e1, e2),
+                              .limit = get_seg_limit(e1, e2), .flags = e2 };
+    *new_ss = (SegmentCache){ .selector = ss,
+                              .base = get_seg_base(ss_e1, ss_e2),
+                              .limit = get_seg_limit(ss_e1, ss_e2),
+                              .flags = ss_e2 };
+}
+
+/* ERETU (Intel SDM 325462-093 Vol. 2A, ERETU; Vol. 3A, 8.4.2). */
+void HELPER(eretu)(CPUX86State *env)
+{
+    uintptr_t ra = GETPC();
+    int mmu_index = cpu_mmu_index(env_cpu(env), false);
+    target_ulong from = env->eip;
+    uint64_t sp = env->regs[R_ESP] + 8;
+    uint64_t rip, cs, rflags, rsp, ss;
+    int star = (env->star >> 48) & 0xffff;
+    uint32_t flat = DESC_G_MASK | DESC_P_MASK | DESC_S_MASK | DESC_A_MASK |
+                    3 << DESC_DPL_SHIFT;
+    SegmentCache new_cs, new_ss;
+    bool to64;
+
+    fred_check_insn(env, ra);
+    if (env->fred_config & FRED_CONFIG_CSL) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (fred_bad_access(env, sp, 40, env->eflags & AC_MASK)) {
+        raise_exception_err_ra(env, EXCP0C_STACK, 0, ra);
+    }
+    rip = cpu_ldq_le_mmuidx_ra(env, sp, mmu_index, ra);
+    cs = cpu_ldq_le_mmuidx_ra(env, sp + 8, mmu_index, ra);
+    rflags = cpu_ldq_le_mmuidx_ra(env, sp + 16, mmu_index, ra);
+    rsp = cpu_ldq_le_mmuidx_ra(env, sp + 24, mmu_index, ra);
+    ss = cpu_ldq_le_mmuidx_ra(env, sp + 32, mmu_index, ra);
+    if ((cs & 0xffffffffffff0003ULL) != 3 ||
+        (rflags & 0xffffffffffc2b02aULL) != 2 ||
+        (ss & 0xfff80003ULL) != 3) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    cs &= 0xffff;
+    if (cs == ((star + 16) & 0xffff) &&
+        (ss & 0xffff) == ((star + 8) & 0xffff)) {
+        new_cs = (SegmentCache){ .selector = cs, .limit = 0xffffffff,
+                                 .flags = flat | DESC_CS_MASK | DESC_R_MASK |
+                                          DESC_L_MASK };
+    } else if (cs == star && (ss & 0xffff) == ((star + 8) & 0xffff)) {
+        new_cs = (SegmentCache){ .selector = cs, .limit = 0xffffffff,
+                                 .flags = flat | DESC_CS_MASK | DESC_R_MASK |
+                                          DESC_B_MASK };
+    } else {
+        eretu_load_segs(env, cs, ss & 0xffff, &new_cs, &new_ss, ra);
+        goto check;
+    }
+    new_ss = (SegmentCache){ .selector = ss & 0xffff, .limit = 0xffffffff,
+                             .flags = flat | DESC_W_MASK | DESC_B_MASK };
+check:
+    to64 = new_cs.flags & DESC_L_MASK;
+    if (to64) {
+        if (!x86_canonical(env, rip, true)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+        }
+    } else {
+        rip = (uint32_t)rip;
+        rsp = (uint32_t)rsp;
+        if (rip > new_cs.limit) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+        }
+    }
+    if ((env->cr[4] & CR4_CET_MASK) && (env->u_cet & CET_SH_STK_EN) &&
+        !to64 && (env->pl3_ssp >> 32)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (fred_sss(env) && env->pl0_ssp != env->guest_ssp) {
+        raise_exception_err_ra(env, EXCP15_CP, CP_FAR_RET_IRET, ra);
+    }
+
+    env->umonitor_armed = false;
+    env->eip = rip;
+    cpu_load_eflags(env, rflags, ~0);
+    env->regs[R_ESP] = rsp;
+    cpu_x86_load_seg_cache(env, R_CS, new_cs.selector, new_cs.base,
+                           new_cs.limit, new_cs.flags);
+    cpu_x86_load_seg_cache(env, R_SS, new_ss.selector, new_ss.base,
+                           new_ss.limit, new_ss.flags);
+    fred_swap_gs(env);
+    if ((env->cr[4] & CR4_CET_MASK) && (env->u_cet & CET_SH_STK_EN)) {
+        env->guest_ssp = env->pl3_ssp;
+    }
+    fred_return(env, ss, from, false);
+}
+
+/* The instructions that FRED transitions disable (8.5.1). */
+void HELPER(fred_ud)(CPUX86State *env)
+{
+    if (env->cr[4] & CR4_FRED_MASK) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+}
+
+/*
+ * The FRED MSRs (8.2.3): -1 for other MSRs, else whether the access is
+ * done, #GP otherwise. Addresses are canonical for the processor's linear-
+ * address width, the RSP MSRs 64-byte aligned, the SSP MSRs 8-byte.
+ */
+int x86_fred_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
+{
+    if (msr < MSR_IA32_FRED_RSP0 || msr > MSR_IA32_FRED_CONFIG) {
+        return -1;
+    }
+    if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED)) {
+        return 0;
+    }
+    switch (msr) {
+    case MSR_IA32_FRED_RSP0 ... MSR_IA32_FRED_RSP3:
+        *val = *fred_rsp(env, msr - MSR_IA32_FRED_RSP0);
+        break;
+    case MSR_IA32_FRED_STKLVLS:
+        *val = env->fred_stklvls;
+        break;
+    case MSR_IA32_FRED_SSP1 ... MSR_IA32_FRED_SSP3:
+        *val = *fred_ssp(env, msr - MSR_IA32_FRED_SSP1 + 1);
+        break;
+    default:
+        *val = env->fred_config;
+        break;
+    }
+    return 1;
+}
+
+int x86_fred_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
+{
+    if (msr < MSR_IA32_FRED_RSP0 || msr > MSR_IA32_FRED_CONFIG) {
+        return -1;
+    }
+    if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED)) {
+        return 0;
+    }
+    switch (msr) {
+    case MSR_IA32_FRED_RSP0 ... MSR_IA32_FRED_RSP3:
+        if ((val & 0x3f) || !x86_canonical(env, val, false)) {
+            return 0;
+        }
+        *fred_rsp(env, msr - MSR_IA32_FRED_RSP0) = val;
+        break;
+    case MSR_IA32_FRED_STKLVLS:
+        env->fred_stklvls = val;
+        break;
+    case MSR_IA32_FRED_SSP1 ... MSR_IA32_FRED_SSP3:
+        if ((val & 7) || !x86_canonical(env, val, false)) {
+            return 0;
+        }
+        *fred_ssp(env, msr - MSR_IA32_FRED_SSP1 + 1) = val;
+        break;
+    default:
+        if ((val & FRED_CONFIG_RESERVED) || !x86_canonical(env, val, false)) {
+            return 0;
+        }
+        env->fred_config = val;
+        break;
+    }
+    return 1;
+}
+#endif
 
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
 /*

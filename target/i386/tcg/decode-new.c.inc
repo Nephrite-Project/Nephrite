@@ -1395,7 +1395,7 @@ static const X86OpEntry opcodes_0F[256] = {
     [0x03] = X86_OP_ENTRYwr(LSL,        G,v, E,w,             chk(prot)),
     [0x05] = X86_OP_ENTRY0(SYSCALL,                           chk(o64_intel)),
     [0x06] = X86_OP_ENTRY0(CLTS,                              chk(cpl0) svm(WRITE_CR0)),
-    [0x07] = X86_OP_ENTRY0(SYSRET,                            chk3(o64_intel, prot, cpl0)),
+    [0x07] = X86_OP_ENTRY0(SYSRET,                            chk2(o64_intel, prot)),
 
     [0x10] = X86_OP_GROUP0(0F10),
     [0x11] = X86_OP_GROUP0(0F11),
@@ -1421,7 +1421,7 @@ static const X86OpEntry opcodes_0F[256] = {
     [0x32] = X86_OP_ENTRY0(RDMSR,                             chk(cpl0)),
     [0x33] = X86_OP_ENTRY0(RDPMC),
     [0x34] = X86_OP_ENTRY0(SYSENTER,                          chk2(i64_amd, prot_or_vm86)),
-    [0x35] = X86_OP_ENTRY0(SYSEXIT,                           chk3(i64_amd, prot, cpl0)),
+    [0x35] = X86_OP_ENTRY0(SYSEXIT,                           chk2(i64_amd, prot)),
 
     [0x40] = X86_OP_ENTRY2(CMOVcc,     G,v, E,v, cpuid(CMOV)),
     [0x41] = X86_OP_ENTRY2(CMOVcc,     G,v, E,v, cpuid(CMOV)),

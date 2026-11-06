@@ -1177,6 +1177,7 @@ G_NORETURN void x86_vmx_exit_full(CPUX86State *env, uint32_t reason,
                         VMX_INTR_TYPE_NMI << VMX_INTR_TYPE_SHIFT;
     cs->exception_index = EXCP_VMEXIT;
     env->old_exception = -1;
+    env->fred_nested = false;
     cpu_loop_exit(cs);
 }
 

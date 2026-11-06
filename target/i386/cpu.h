@@ -2739,6 +2739,15 @@ typedef struct CPUArchState {
     bool uif;
     /* The processor left the HLT state for the interrupt it now takes. */
     bool hlt_woke;
+    /*
+     * FRED: an event's delivery is under way, so that an exception now is
+     * one nested on it, whose saved CS takes fred_nested_ibt as bit 18
+     * (Intel SDM 325462-093 Vol. 3A, 8.3.2.1); db_event, the DR6 bits of
+     * the last #DB raised, its event data.
+     */
+    bool fred_nested;
+    bool fred_nested_ibt;
+    uint32_t db_event;
     int old_exception;  /* exception in flight */
     /* MONITOR armed address-range monitoring, which MWAIT waits on. */
     bool monitor_armed;
@@ -3858,6 +3867,17 @@ static inline bool x86_canonical(CPUX86State *env, uint64_t addr,
 static inline bool x86_has_shstk(CPUX86State *env)
 {
     return env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_CET_SHSTK;
+}
+
+/*
+ * The IA32_PLi_SSP MSRs come with shadow stacks, and IA32_PL0_SSP, which
+ * is IA32_FRED_SSP0, with FRED too (Intel SDM 325462-093 Vol. 3A, 8.2.3).
+ */
+static inline bool x86_has_pl_ssp(CPUX86State *env, uint32_t msr)
+{
+    return x86_has_shstk(env) ||
+           (msr == MSR_IA32_PL0_SSP &&
+            (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED));
 }
 
 static inline bool x86_has_ibt(CPUX86State *env)

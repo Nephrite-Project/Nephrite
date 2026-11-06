@@ -147,6 +147,10 @@ Processor features:
   notifications, UIRET with UIRET_UIF, CLUI, STUI, TESTUI, SENDUIPI, and
   the UINTR state component of XSAVES and XRSTORS; register dumps show
   their state.
+* FRED: FRED event delivery with its stack levels, nested exceptions, and
+  supervisor shadow-stack frames, ERETS and ERETU, the FRED MSRs, which
+  register dumps show, SYSCALL and SYSENTER as FRED events, and the far
+  transfers and instructions that FRED transitions refuse.
 * DebugCtl's branch recording (LBRs) and branch single-stepping.
 
 Devices:
@@ -262,8 +266,9 @@ Behaviour changes
 * KVM's in-kernel PIT drops the ticks that a guest missed, as an 8254 and
   TCG's PIT do, where QEMU redelivers them back to back;
   ``-global kvm-pit.lost_tick_policy=delay`` brings QEMU's behaviour back.
-* TCG's ``max`` CPU model has VMX and user interrupts, which AMD processors
-  lack; SVM tests need ``-cpu max,+svm,-vmx,-uintr``.
+* TCG's ``max`` CPU model has VMX, user interrupts, and FRED; SVM tests,
+  written for AMD processors without them, need
+  ``-cpu max,+svm,-vmx,-uintr,-fred``.
 * MWAIT without an armed monitor continues at once.
 * The STI and MOV SS shadows hold external-interrupt and NMI VM exits.
 * VMX MSR lists of more than 512 entries fail VM entry, as with Linux's
@@ -306,8 +311,11 @@ Known deviations and limits
   supervisor-shadow-stack control, nested page fault exit information
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
+* FRED: VMX and SVM keep no FRED state for their guests; SYSCALL under FRED
+  does not need IA32_EFER.SCE, as the SDM's operation of SYSCALL has it;
+  there is no NMI-source reporting.
 * Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
-  RDPRU, AMD's IBS, and FRED.
+  RDPRU, and AMD's IBS.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.

@@ -3510,7 +3510,35 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             s->base.is_jmp = DISAS_NORETURN;
             break;
 
-        case 0xca: /* clac */
+        case 0xca: /* clac, erets with f2, eretu with f3 */
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+            /*
+             * ERETS and ERETU, in 64-bit mode at CPL 0, end the interrupt
+             * shadow they begin in themselves (Intel SDM 325462-093 Vol.
+             * 2A).
+             */
+            if ((prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) &&
+                (s->cpuid_7_1_eax_features & CPUID_7_1_EAX_FRED)) {
+                TCGv from;
+
+                if ((prefixes & PREFIX_LOCK) || !CODE64(s) || CPL(s) != 0) {
+                    goto illegal_op;
+                }
+                gen_update_cc_op(s);
+                gen_update_eip_cur(s);
+                from = gen_branch_start(s);
+                if (prefixes & PREFIX_REPNZ) {
+                    gen_helper_erets(tcg_env);
+                } else {
+                    gen_helper_eretu(tcg_env);
+                }
+                gen_branch_from(s, from, cpu_eip);
+                assume_cc_op(s, CC_OP_EFLAGS);
+                s->flags &= ~HF_INHIBIT_IRQ_MASK;
+                s->base.is_jmp = DISAS_EOB_ONLY;
+                break;
+            }
+#endif
             if (!(s->cpuid_7_0_ebx_features & CPUID_7_0_EBX_SMAP)
                 || CPL(s) != 0) {
                 goto illegal_op;
@@ -3901,6 +3929,10 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
         case 0xf8: /* swapgs */
 #ifdef TARGET_X86_64
             if (CODE64(s)) {
+#ifndef CONFIG_USER_ONLY
+                /* #UD under FRED comes before #GP at CPL > 0. */
+                gen_helper_fred_ud(tcg_env);
+#endif
                 if (check_cpl0(s)) {
                     tcg_gen_mov_tl(s->T0, cpu_seg_base[R_GS]);
                     tcg_gen_ld_tl(cpu_seg_base[R_GS], tcg_env,

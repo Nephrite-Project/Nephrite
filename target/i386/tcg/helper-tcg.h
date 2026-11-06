@@ -317,6 +317,17 @@ void x86_shstk_push(CPUX86State *env, uint64_t val, uintptr_t ra);
 /* A pop of 8 bytes at the CPL that must give val, else #CP(code). */
 void x86_shstk_pop_check(CPUX86State *env, uint64_t val, int code,
                          uintptr_t ra);
+#ifdef TARGET_X86_64
+/*
+ * FRED event delivery's supervisor shadow-stack frame below *ssp: 4 bytes
+ * of zeros, then, 8-byte aligned, CS, LIP, and the old SSP.
+ */
+void x86_shstk_fred_push(CPUX86State *env, uint64_t *ssp, uint64_t cs,
+                         uint64_t lip, uint64_t old_ssp);
+/* ERETS's pops of that frame, from *ssp. */
+void x86_shstk_fred_pop(CPUX86State *env, uint64_t *ssp, uint64_t *old_ssp,
+                        uint64_t *lip, uint64_t *cs, uintptr_t ra);
+#endif
 #endif
 
 /* system/uintr_helper.c */
@@ -335,6 +346,27 @@ bool x86_uintr_notification(CPUX86State *env, int vector);
 /* The VMX interruption types of INT1 and of INT3 and INTO. */
 #define X86_VMX_PRIV_SOFT_EXCEPTION 5
 #define X86_VMX_SOFT_EXCEPTION 6
+
+/*
+ * The event types of VMX and FRED (Intel SDM 325462-093 Vol. 3A, 8.3.2.1):
+ * external interrupt, NMI, hardware exception, INT n, INT1, INT3 or INTO,
+ * and SYSCALL or SYSENTER.
+ */
+#define X86_EVENT_EXT_INTR 0
+#define X86_EVENT_NMI 2
+#define X86_EVENT_HW_EXCEPTION 3
+#define X86_EVENT_SW_INTR 4
+#define X86_EVENT_PRIV_SW_EXCEPTION X86_VMX_PRIV_SOFT_EXCEPTION
+#define X86_EVENT_SW_EXCEPTION X86_VMX_SOFT_EXCEPTION
+#define X86_EVENT_OTHER 7
+
+/* seg_helper.c, FRED */
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
+                      bool has_error_code, int len, target_ulong old_rip);
+int x86_fred_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+int x86_fred_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
+#endif
 
 /* seg_helper.c */
 void do_interrupt_x86_hardirq(CPUX86State *env, int intno, int is_hw);

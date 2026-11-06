@@ -4730,7 +4730,11 @@ static void gen_SYSENTER(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv from = gen_branch_start(s);
 
-    gen_helper_sysenter(tcg_env);
+    /* FRED event delivery saves the flags, and clears them. */
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_sysenter(tcg_env, cur_insn_len_i32(s));
+    set_cc_op(s, CC_OP_DYNAMIC);
     gen_branch_from(s, from, cpu_eip);
     s->base.is_jmp = DISAS_EOB_ONLY;
 }
