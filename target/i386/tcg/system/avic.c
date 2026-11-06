@@ -628,7 +628,7 @@ void svm_avic_init(X86CPU *cpu)
 {
     cpu->own_pages = g_new(MemoryRegion, 1);
     memory_region_init(cpu->own_pages, OBJECT(cpu), "cpu-own-pages",
-                       X86_OWN_APIC + TARGET_PAGE_SIZE);
+                       X86_OWN_APIC_HOLE + TARGET_PAGE_SIZE);
     cpu->avic_page = g_new(MemoryRegion, 1);
     memory_region_init_io(cpu->avic_page, OBJECT(cpu), &avic_mmio_ops, cpu,
                           "avic-vapic", TARGET_PAGE_SIZE);

@@ -235,7 +235,8 @@ Processor emulation (TCG):
   paging of SVM guest mode and the EPT of VMX non-root operation, whose
   guests' page tables hold guest-physical addresses.
 * TCG's processors can move their local APIC's registers to another base
-  address.
+  address, after which their accesses to the default base no longer reach
+  them.
 * SMM entry and exit flush the TLB; changes to CR4.PKE and CR4.PKS flush
   it too.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
@@ -346,7 +347,6 @@ Known deviations and limits
   over its cache line.
 * PDPTEs are read at walk time after task switches and RSM; under SVM's
   nested paging, guests see PDPEs read on demand, as on AMD processors.
-* A processor still reaches its local APIC at FEE00000h after moving it.
 * HPET FSB interrupts carry no requester ID, like the I/O APIC's.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to

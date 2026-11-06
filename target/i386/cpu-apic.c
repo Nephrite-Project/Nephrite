@@ -64,6 +64,32 @@ void x86_cpu_apic_create(X86CPU *cpu, Error **errp)
     qdev_prop_set_uint32(DEVICE(cpu->apic_state), "id", cpu->apic_id);
 }
 
+/*
+ * What a CPU reaches at the APIC's default base once it moved its APIC
+ * away: no APIC, as apic_mem_read() has it for a disabled one, which the
+ * SDM likens to a processor without one (Intel SDM 325462-093 Vol. 3A,
+ * 13.4.3 and 13.12.2).
+ */
+static uint64_t apic_hole_read(void *opaque, hwaddr addr, unsigned size)
+{
+    return MAKE_64BIT_MASK(0, size * 8);
+}
+
+static void apic_hole_write(void *opaque, hwaddr addr, uint64_t val,
+                            unsigned size)
+{
+}
+
+static const MemoryRegionOps apic_hole_ops = {
+    .read = apic_hole_read,
+    .write = apic_hole_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid = {
+        .min_access_size = 1,
+        .max_access_size = 8,
+    },
+};
+
 void x86_cpu_apic_realize(X86CPU *cpu, Error **errp)
 {
     static bool apic_mmio_map_once;
@@ -81,6 +107,11 @@ void x86_cpu_apic_realize(X86CPU *cpu, Error **errp)
                                  0, 0x1000);
         memory_region_add_subregion(cpu->own_pages, X86_OWN_APIC,
                                     cpu->apic_moved_page);
+        cpu->apic_hole_page = g_new(MemoryRegion, 1);
+        memory_region_init_io(cpu->apic_hole_page, OBJECT(cpu),
+                              &apic_hole_ops, cpu, "apic-hole", 0x1000);
+        memory_region_add_subregion(cpu->own_pages, X86_OWN_APIC_HOLE,
+                                    cpu->apic_hole_page);
     }
 
     /* Map APIC MMIO area */

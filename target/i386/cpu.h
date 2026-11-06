@@ -3255,6 +3255,7 @@ struct ArchCPU {
     struct MemoryRegion *cpu_as_root, *cpu_as_mem, *smram;
     /* TCG: the address space of SVM AVIC's guest vAPIC page. */
     struct MemoryRegion *own_pages, *avic_page, *apic_moved_page;
+    struct MemoryRegion *apic_hole_page;
     /* TCG: the VMX-preemption timer's expiry. */
     QEMUTimer *vmx_timer;
     /* TCG: the end of an UMWAIT's or TPAUSE's wait. */
@@ -3516,6 +3517,7 @@ void cpu_sync_avx_hflag(CPUX86State *env);
 void cpu_sync_apx_hflag(CPUX86State *env);
 
 #define X86_OWN_APIC 0x1000
+#define X86_OWN_APIC_HOLE 0x2000
 
 typedef enum X86ASIdx {
     X86ASIdx_MEM = 0,
@@ -3523,7 +3525,8 @@ typedef enum X86ASIdx {
     /*
      * TCG: pages of the CPU's own: at 0 the vAPIC page whose accesses SVM's
      * AVIC or VMX's APIC-access page filter, at X86_OWN_APIC the local
-     * APIC's registers, where software moved them.
+     * APIC's registers, where software moved them, and at X86_OWN_APIC_HOLE
+     * what it reaches at their default base then.
      */
     X86ASIdx_AVIC = 2,
     X86ASIdx_MAX = X86ASIdx_AVIC
