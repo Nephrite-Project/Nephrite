@@ -2811,10 +2811,10 @@ typedef struct CPUArchState {
     bool bus_lock_now;
     /*
      * The PDPTE registers of PAE paging, where pdpte_loaded: what a MOV to
-     * CR, a VMX transition, VMRUN, or #VMEXIT loaded (Intel SDM 325462-093
-     * Vol. 3A, 5.4.1); else walks read the PDPTEs at CR3, as those under
-     * nested paging do (AMD64 Architecture Programmer's Manual Volume 2,
-     * 24593 rev. 3.45, 15.25.10).
+     * CR, a task switch, RSM, a VMX transition, VMRUN, or #VMEXIT loaded
+     * (Intel SDM 325462-093 Vol. 3A, 5.4.1); else walks read the PDPTEs at
+     * CR3, as those under nested paging do (AMD64 Architecture Programmer's
+     * Manual Volume 2, 24593 rev. 3.46, 15.25.11).
      */
     uint64_t pdpte[4];
     bool pdpte_loaded;

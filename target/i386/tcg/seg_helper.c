@@ -448,11 +448,14 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     int mmu_index, index;
     target_ulong ptr;
     X86Access old, new;
+    bool load_cr3;
 #if !defined(CONFIG_USER_ONLY)
     int old_cpl = env->hflags & HF_CPL_MASK;
     bool shstk_on = x86_shstk_enabled(env, old_cpl);
     bool shstk_push = false, shstk_verify = false;
     X86ShstkTask shstk_frame = { 0 };
+    uint64_t pdpte[4];
+    bool load_pdptes;
 #endif
 
     type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
@@ -624,6 +627,25 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
         new_trap = 0;
     }
 
+    /*
+     * A switch to a 32-bit TSS loads CR3 where paging is on; under PAE
+     * paging, a switch that changes CR3 loads the PDPTE registers from the
+     * new CR3, raising #GP(0) where they set reserved bits, with EXT where
+     * the switch delivers an event from outside the program: an error in
+     * step 9 of the switch, which the processor handles in the prior
+     * execution environment (Intel SDM 325462-093 Vol. 3A, 5.4.1, 5.7,
+     * 7.13, and 10.3).
+     */
+    load_cr3 = (type & 8) && (env->cr[0] & CR0_PG_MASK) &&
+               new_cr3 != env->cr[3];
+#if !defined(CONFIG_USER_ONLY)
+    load_pdptes = load_cr3 &&
+                  x86_pdpte_registers(env, env->cr[0], env->cr[4]);
+    if (load_pdptes && !x86_read_pdptes(env, new_cr3, pdpte, retaddr)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, ext, retaddr);
+    }
+#endif
+
     /* clear busy bit (it is restartable) */
     if (source == SWITCH_TSS_JMP || source == SWITCH_TSS_IRET) {
         tss_set_busy(env, env->tr.selector, 0, retaddr);
@@ -702,8 +724,13 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     }
 #endif
 
-    if ((type & 8) && (env->cr[0] & CR0_PG_MASK)) {
+    if (load_cr3) {
         cpu_x86_update_cr3(env, new_cr3);
+#if !defined(CONFIG_USER_ONLY)
+        if (load_pdptes) {
+            x86_set_pdptes(env, pdpte);
+        }
+#endif
     }
 
     /* load all registers without an exception, then reload them with

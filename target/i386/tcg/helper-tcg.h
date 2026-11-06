@@ -261,8 +261,10 @@ static inline bool x86_pae_paging(uint64_t cr0, uint64_t cr4, uint64_t efer)
     return (cr0 & CR0_PG_MASK) && (cr4 & CR4_PAE_MASK) &&
            !(efer & MSR_EFER_LME);
 }
+bool x86_pdpte_registers(CPUX86State *env, uint64_t cr0, uint64_t cr4);
 bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
                      uintptr_t ra);
+void x86_set_pdptes(CPUX86State *env, const uint64_t *pdpte);
 bool x86_load_pdptes(CPUX86State *env);
 #endif
 

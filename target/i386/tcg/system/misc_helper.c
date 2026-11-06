@@ -177,18 +177,26 @@ void HELPER(lmsw)(CPUX86State *env, target_ulong src, int mem)
 }
 
 /*
+ * Whether paging with CR0 and CR4 is PAE paging with PDPTE registers: not
+ * under nested paging, where walks read the guest's PDPTEs (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.11).
+ */
+bool x86_pdpte_registers(CPUX86State *env, uint64_t cr0, uint64_t cr4)
+{
+    return x86_pae_paging(cr0, cr4, env->efer) &&
+           !((env->hflags2 & HF2_NPT_MASK) && !env->vmx.nonroot);
+}
+
+/*
  * Whether a MOV to CR that leaves CR0 at CR0 and CR4 at CR4 loads the PDPTE
- * registers: where PAE paging is then in use and the move changes CR0.CD,
- * NW, or PG, or CR4.PAE, PGE, PSE, or SMEP, or loads CR3 (Intel SDM
- * 325462-093 Vol. 3A, 5.4.1), but not under nested paging, where walks read
- * the guest's PDPTEs (AMD64 Architecture Programmer's Manual Volume 2,
- * 24593 rev. 3.45, 15.25.10).
+ * registers: where paging then has them and the move changes CR0.CD, NW, or
+ * PG, or CR4.PAE, PGE, PSE, or SMEP, or loads CR3 (Intel SDM 325462-093
+ * Vol. 3A, 5.4.1).
  */
 static bool cr_loads_pdptes(CPUX86State *env, int reg, uint64_t cr0,
                             uint64_t cr4)
 {
-    if (!x86_pae_paging(cr0, cr4, env->efer) ||
-        ((env->hflags2 & HF2_NPT_MASK) && !env->vmx.nonroot)) {
+    if (!x86_pdpte_registers(env, cr0, cr4)) {
         return false;
     }
     return reg == 3 ||
@@ -231,6 +239,13 @@ bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
     return true;
 }
 
+/* Loads the PDPTE registers with the PDPTEs that x86_read_pdptes() read. */
+void x86_set_pdptes(CPUX86State *env, const uint64_t *pdpte)
+{
+    memcpy(env->pdpte, pdpte, sizeof(env->pdpte));
+    env->pdpte_loaded = true;
+}
+
 /*
  * Loads the PDPTE registers from the PDPTEs at CR3, unless they set reserved
  * bits, for what loads them along with CR3 (Intel SDM 325462-093 Vol. 3A,
@@ -244,8 +259,7 @@ bool x86_load_pdptes(CPUX86State *env)
     if (!x86_read_pdptes(env, env->cr[3], pdpte, 0)) {
         return false;
     }
-    memcpy(env->pdpte, pdpte, sizeof(pdpte));
-    env->pdpte_loaded = true;
+    x86_set_pdptes(env, pdpte);
     return true;
 }
 
@@ -362,8 +376,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     }
     /* The updates above dropped the PDPTE registers the move loads. */
     if (load) {
-        memcpy(env->pdpte, pdpte, sizeof(pdpte));
-        env->pdpte_loaded = true;
+        x86_set_pdptes(env, pdpte);
     }
 }
 

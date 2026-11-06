@@ -18,10 +18,13 @@
  */
 
 #include "qemu/osdep.h"
+#include "qemu/log.h"
 #include "cpu.h"
 #include "exec/helper-proto.h"
 #include "exec/log.h"
 #include "exec/cputlb.h"
+#include "accel/tcg/cpu-loop.h"
+#include "system/runstate.h"
 #include "tcg/helper-tcg.h"
 
 static void sm_state_init_64(X86CPU *cpu)
@@ -344,6 +347,23 @@ static void rsm_load_regs_32(CPUX86State *env)
     }
 }
 
+/*
+ * The shutdown of an RSM that finds invalid state (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 10.4; Intel SDM 325462-093
+ * Vol. 3C, 34.3.2), which comes before RSM returns to VMX non-root operation
+ * (Intel SDM 325462-093 Vol. 3C, 34.14.2) or guest mode, as Linux 7.3's KVM
+ * has it: no VM exit or #VMEXIT for it.
+ */
+static G_NORETURN void rsm_shutdown(CPUX86State *env, const char *reason)
+{
+    CPUState *cs = env_cpu(env);
+
+    qemu_log_mask(LOG_GUEST_ERROR, "RSM: %s\n", reason);
+    qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+    cs->exception_index = EXCP_HLT;
+    cpu_loop_exit(cs);
+}
+
 void HELPER(rsm)(CPUX86State *env)
 {
     X86CPU *cpu = env_archcpu(env);
@@ -361,6 +381,18 @@ void HELPER(rsm)(CPUX86State *env)
     env->hflags &= ~HF_SMM_MASK;
     x86_vmx_smm_leave(env);
     tlb_flush(CPU(cpu));
+
+    /*
+     * RSM reloads the PDPTE registers from the CR3 that it restores where it
+     * returns to PAE paging (AMD64 Architecture Programmer's Manual Volume 3,
+     * 24594 rev. 3.39, RSM), through EPT for a guest under it; reserved bits
+     * in them shut the processor down, as invalid state in the state-save
+     * area does.
+     */
+    if (x86_pdpte_registers(env, env->cr[0], env->cr[4]) &&
+        !x86_load_pdptes(env)) {
+        rsm_shutdown(env, "invalid PDPTEs");
+    }
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");
     log_cpu_state_mask(CPU_LOG_INT, CPU(cpu), CPU_DUMP_CCOP);

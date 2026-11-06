@@ -225,8 +225,10 @@ Processor emulation (TCG):
   system registers refuse non-canonical addresses, near branches to
   non-canonical addresses fault, and non-canonical or LASS-violating
   stack accesses raise #SS(0).
-* PAE paging's PDPTE registers are loaded at MOV to CR and checked, and
-  PDPTEs no longer get accessed flags.
+* PAE paging's PDPTE registers are loaded and checked at MOV to CR, at
+  task switches that change CR3, and at RSM, but for guests under SVM's
+  nested paging, whose walks read the PDPEs on demand as on AMD's
+  processors; PDPTEs no longer get accessed flags.
 * CR4.OSXSAVE is allowed wherever CPUID.01H:ECX.XSAVE is set, the XSAVE
   instructions raise #NM while CR0.TS is set, MXCSR is saved and loaded
   with the AVX state and refuses reserved bits, and unaligned accesses
@@ -368,8 +370,12 @@ Known deviations and limits
   and helpers' 64-bit stack accesses, raise #GP; VM switches drop a held
   MOV SS #DB; CLZERO checks the segment at the byte that rAX gives, not
   over its cache line.
-* PDPTEs are read at walk time after task switches and RSM; under SVM's
-  nested paging, guests see PDPEs read on demand, as on AMD processors.
+* PDPTE registers: RSM reloads them wherever it returns to PAE paging and
+  shuts the processor down where they set reserved bits, which AMD's APM
+  gives only for EFER.SVME set and without what invalid ones do, and Intel's
+  SDM does not say; a task switch to a CR3 whose PDPTEs set reserved bits
+  raises #GP in the old task with nothing switched, one of the outcomes
+  that the SDM allows.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to
   the APIC-access page during event delivery always exit, and
