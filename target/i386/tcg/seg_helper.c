@@ -1562,6 +1562,8 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
     target_ulong from = env->eip;
+
+    env->iret_nmi_unblocked = false;
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
     /* The event's type, which FRED event delivery saves as VMX has it. */
     int type = x86_event_type(env, intno, is_int, is_hw);
@@ -2507,6 +2509,40 @@ static void iret_unblock_nmis(CPUX86State *env)
     }
 }
 
+/*
+ * On Intel's processors, an IRET that starts while NMIs are blocked
+ * unblocks them at once, even where it then faults or exits, which those
+ * exits report (Intel SDM 325462-093 Vol. 3C, 30.2.3).
+ */
+static void iret_start(CPUX86State *env)
+{
+#if !defined(CONFIG_USER_ONLY)
+    bool blocked;
+
+    if (!IS_INTEL_CPU(env)) {
+        return;
+    }
+    if (env->vmx.nonroot && x86_vmx_virtual_nmis(env)) {
+        blocked = env->vmx.vnmi_blocked;
+    } else if (svm_vnmi_enabled(env)) {
+        blocked = env->int_ctl & V_NMI_BLOCKING_MASK;
+    } else {
+        blocked = env->hflags2 & HF2_NMI_MASK;
+    }
+    if (blocked) {
+        iret_unblock_nmis(env);
+        env->iret_nmi_unblocked = true;
+    }
+#endif
+}
+
+/* An IRET that completes. */
+static void iret_end(CPUX86State *env)
+{
+    iret_unblock_nmis(env);
+    env->iret_nmi_unblocked = false;
+}
+
 /* real and vm86 mode iret */
 void HELPER(iret_real)(CPUX86State *env, int shift)
 {
@@ -2515,6 +2551,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
     StackAccess sa = {};
 
     env->umonitor_armed = false;
+    iret_start(env);
     sa.env = env;
     sa.ra = GETPC();
     sa.mmu_index = x86_mmu_index_pl(env, 0);
@@ -2549,7 +2586,7 @@ void HELPER(iret_real)(CPUX86State *env, int shift)
         eflags_mask &= 0xffff;
     }
     cpu_load_eflags(env, new_eflags, eflags_mask);
-    iret_unblock_nmis(env);
+    iret_end(env);
 }
 
 static inline void validate_seg(CPUX86State *env, X86Seg seg_reg, int cpl)
@@ -2875,6 +2912,7 @@ void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
     uint32_t e1, e2;
 
     env->umonitor_armed = false;
+    iret_start(env);
     /* specific case for TSS */
     if (env->eflags & NT_MASK) {
 #ifdef TARGET_X86_64
@@ -2899,7 +2937,7 @@ void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
     } else {
         helper_ret_protected(env, shift, 1, 0, GETPC());
     }
-    iret_unblock_nmis(env);
+    iret_end(env);
 }
 
 void HELPER(lret_protected)(CPUX86State *env, int shift, int addend)

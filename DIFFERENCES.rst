@@ -225,8 +225,9 @@ Processor emulation (TCG):
   breakpoints Intel processors suppress, instruction breakpoints match
   linear addresses, and AMD's address masks apply to instruction fetches.
 * NMIs are held in the STI and MOV SS shadows, a second NMI waits behind a
-  pending one, and the local APIC's timer keeps its count across mode
-  changes.
+  pending one, on Intel's processors an IRET unblocks NMIs where it starts,
+  even where it then faults, and the local APIC's timer keeps its count
+  across mode changes.
 * INIT ends HLT and MWAIT, except where VMX root operation blocks it or a
   clear GIF holds it (SDM Vol. 2A, HLT; APM 15.17, Table 15-10).
 * The debugger's and the monitor's accesses to virtual memory (the
@@ -353,9 +354,7 @@ Known deviations and limits
   guest-physical accesses to it are plain memory accesses; the rules on
   already-virtualized accesses are not tracked; unaligned MMIO accesses are
   split; PAUSE-loop exiting runs at TCG's speed; XSAVES at CPL > 0 keeps the
-  #NM and #GP order; the NMI-unblocking bit (bit 12 of the exit
-  qualification) is never set; MTF with BTF and TF reports BS as for
-  non-branches.
+  #NM and #GP order; MTF with BTF and TF reports BS as for non-branches.
 * SVM's PAUSE filter threshold counts cycles as the PMU does.
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no

@@ -1256,6 +1256,7 @@ G_NORETURN void x86_vmx_exit_full(CPUX86State *env, uint32_t reason,
     VMCS_SET(EXIT_INTR_INFO, intr_info);
     VMCS_SET(EXIT_INTR_ERROR, intr_error);
     VMCS_SET(EXIT_INSN_LEN, env->svm_insn_len);
+    env->iret_nmi_unblocked = false;
     env->vmx.exit_nmi = reason == VMX_EXIT_EXCEPTION_NMI &&
                         (intr_info & VMX_INTR_TYPE_MASK) ==
                         VMX_INTR_TYPE_NMI << VMX_INTR_TYPE_SHIFT;
@@ -1382,6 +1383,26 @@ bool x86_vmx_exception_exits(CPUX86State *env, int vector,
     return vector < 32 && (bitmap >> vector) & 1;
 }
 
+/*
+ * "NMI unblocking due to IRET", bit 12 of the exit's interruption
+ * information or qualification, where an IRET that unblocked NMIs (or
+ * virtual NMIs) exits for VECTOR, or -1 for no exception, and where the bit
+ * is defined: NMI exiting off or virtual NMIs on, no event in delivery, and
+ * no #DF (Intel SDM 325462-093 Vol. 3C, 30.2.3).
+ */
+static uint32_t vmx_iret_unblocking(CPUX86State *env, int vector)
+{
+    uint32_t pin = VMCS(PIN_CONTROLS);
+
+    if (!env->iret_nmi_unblocked || vector == EXCP08_DBLE ||
+        ((pin & VMX_PIN_BASED_NMI_EXITING) &&
+         !(pin & VMX_PIN_BASED_VIRTUAL_NMIS)) ||
+        (env->vmx.idt_vectoring_info & VMX_INTR_VALID)) {
+        return 0;
+    }
+    return 1 << 12;
+}
+
 static void vmx_exception_exit(CPUX86State *env, int vector,
                                uint32_t error_code, uintptr_t ra)
 {
@@ -1403,6 +1424,7 @@ static void vmx_exception_exit(CPUX86State *env, int vector,
         info |= VMX_INTR_NESTED;
     }
     env->vmx.soft_exception = 0;
+    info |= vmx_iret_unblocking(env, vector);
     if (type == VMX_INTR_TYPE_HW_EXCEPTION &&
         exception_has_error_code(vector) && (env->cr[0] & CR0_PE_MASK)) {
         info |= VMX_INTR_ERROR_VALID;
@@ -4732,14 +4754,16 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
                                  uintptr_t ra)
 {
-    uint64_t qual = env->vmx.ept_qual | 1 << 7 | (final ? 1 << 8 : 0);
+    uint64_t qual = env->vmx.ept_qual | 1 << 7 | (final ? 1 << 8 : 0) |
+                    vmx_iret_unblocking(env, -1);
 
     VMCS_SET(GUEST_PHYS_ADDR, gpa);
     if (env->vmx.ept_misconfig) {
         x86_vmx_exit(env, VMX_EXIT_EPT_MISCONFIG, 0, ra);
     }
     if (env->vmx.pml_full) {
-        x86_vmx_exit(env, VMX_EXIT_PML_FULL, 0, ra);
+        x86_vmx_exit(env, VMX_EXIT_PML_FULL, vmx_iret_unblocking(env, -1),
+                     ra);
     }
     if (!final && (qual & 2)) {
         qual |= 1;

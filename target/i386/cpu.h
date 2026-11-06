@@ -2563,6 +2563,8 @@ typedef struct CPUArchState {
      */
     uint32_t nmi_source;
     uint16_t nmi_source_taken;
+    /* The IRET in progress unblocked NMIs (tcg/seg_helper.c). */
+    bool iret_nmi_unblocked;
     /* How far LAM shifts user and supervisor data addresses: 0, 7, or 16 */
     target_ulong lam_shift_user;
     target_ulong lam_shift_sup;
