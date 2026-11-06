@@ -1502,6 +1502,17 @@ static const VMStateDescription vmstate_svm_npt = {
     }
 };
 
+static const VMStateDescription vmstate_svm_gpat = {
+    .name = "cpu/svm_gpat",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = svm_npt_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT64(env.svm_gpat, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool svm_guest_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2022,6 +2033,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_intel_pt,
         &vmstate_msr_virt_ssbd,
         &vmstate_svm_npt,
+        &vmstate_svm_gpat,
         &vmstate_svm_guest,
 #ifndef TARGET_X86_64
         &vmstate_efer32,

@@ -715,8 +715,19 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (!(clean & SVM_CLEAN_NP)) {
         c->nested_cr3 = x86_ldq_phys(cs, env->vm_vmcb +
                                      offsetof(struct vmcb, control.nested_cr3));
+        c->g_pat = x86_ldq_phys(cs, env->vm_vmcb +
+                                offsetof(struct vmcb, save.g_pat));
     }
     if (nested_ctl & SVM_NPT_ENABLED) {
+        /*
+         * The guest gets a PAT of its own, G_PAT, whose memory types VMRUN
+         * checks (AMD64 Architecture Programmer's Manual Volume 2, 24593
+         * rev. 3.46, 15.25.4).
+         */
+        if (!x86_pat_valid(c->g_pat)) {
+            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+        }
+        env->svm_gpat = c->g_pat;
         env->nested_cr3 = c->nested_cr3;
         env->hflags2 |= HF2_NPT_MASK;
 
@@ -1568,6 +1579,7 @@ void do_vmexit(CPUX86State *env)
     bool vmrun_failed = x86_ldq_phys(cs, env->vm_vmcb +
                                      offsetof(struct vmcb, control.exit_code))
                         == (uint64_t)SVM_EXIT_ERR;
+    bool npt = env->hflags2 & HF2_NPT_MASK;
 
     /* MOV SS's held #DB stays with the side the switch leaves. */
     env->db_movss = 0;
@@ -1623,6 +1635,11 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.cr3), env->cr[3]);
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.cr4), env->cr[4]);
+    /* With nested paging, G_PAT is part of the guest's paging state. */
+    if (npt) {
+        x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.g_pat),
+                     env->svm_gpat);
+    }
     /* A #VMEXIT during a virtual NMI's delivery saves it unblocked. */
     if (svm_vnmi_enabled(env)) {
         uint32_t event_inj = x86_ldl_phys(cs, env->vm_vmcb +
@@ -1686,6 +1703,9 @@ void do_vmexit(CPUX86State *env)
         c->int_ctl = env->int_ctl;
         c->dr7 = env->dr[7];
         c->dr6 = env->dr[6];
+        if (npt) {
+            c->g_pat = env->svm_gpat;
+        }
     }
 
     /* The guest's last CR4 is what its translations were made under. */

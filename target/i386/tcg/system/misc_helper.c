@@ -710,7 +710,16 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         if (!x86_pat_valid(val)) {
             return false;
         }
-        env->pat = val;
+        /*
+         * Under SVM's nested paging, the guest's PAT is G_PAT (AMD64
+         * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+         * 15.25.4).
+         */
+        if ((env->hflags2 & HF2_NPT_MASK) && !env->vmx.nonroot) {
+            env->svm_gpat = val;
+        } else {
+            env->pat = val;
+        }
         break;
     case MSR_IA32_PKRS:
         if (val & 0xFFFFFFFF00000000ull) {
@@ -1173,7 +1182,8 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         val = env->star;
         break;
     case MSR_PAT:
-        val = env->pat;
+        val = (env->hflags2 & HF2_NPT_MASK) && !env->vmx.nonroot ?
+              env->svm_gpat : env->pat;
         break;
     case MSR_IA32_PKRS:
         val = env->pkrs;

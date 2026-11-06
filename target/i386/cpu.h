@@ -2509,6 +2509,7 @@ typedef struct SVMStateCache {
     uint32_t int_vector;
     /* NP */
     uint64_t nested_cr3;
+    uint64_t g_pat;
     /* CRx */
     uint64_t cr0;
     uint64_t cr3;
@@ -2863,6 +2864,8 @@ typedef struct CPUArchState {
     uint32_t intercept_exceptions;
     uint64_t nested_cr3;
     uint32_t nested_pg_mode;
+    /* Under nested paging, the guest's PAT, G_PAT. */
+    uint64_t svm_gpat;
     uint8_t v_tpr;
     uint32_t int_ctl;
     /* An INIT that a clear GIF holds until STGI or VMRUN sets it. */

@@ -429,7 +429,8 @@ static void dump_virt(CPUX86State *env, FILE *f)
                      env->vm_hsave, env->vm_vmcb,
                      !!(env->hflags2 & HF2_GIF_MASK));
         if ((env->hflags & HF_GUEST_MASK) && (env->hflags2 & HF2_NPT_MASK)) {
-            qemu_fprintf(f, " N_CR3=%016" PRIx64, env->nested_cr3);
+            qemu_fprintf(f, " N_CR3=%016" PRIx64 " G_PAT=%016" PRIx64,
+                         env->nested_cr3, env->svm_gpat);
         }
         qemu_fprintf(f, "\n");
     }

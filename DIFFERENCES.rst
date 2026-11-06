@@ -262,6 +262,9 @@ AMD SVM (TCG):
 * VMMCALL takes its intercept in guests whose EFER.SVME is clear, where
   QEMU raised #UD.
 * A failing VMRUN leaves the guest's state in the VMCB alone.
+* Under nested paging, the guest has a PAT of its own, G_PAT, which VMRUN
+  checks and #VMEXIT saves; QEMU let the guest's PAT writes change the
+  host's.
 * Nested page faults' error codes set the P bit for reserved-bit faults
   and I/D for fetches under the host's SMEP, and bit 8 of PML5Es and
   PML4Es is reserved on AMD processors.
