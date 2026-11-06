@@ -114,34 +114,45 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
  * apart from exceptions, among which those of INT3 and INTO (AMD64
  * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.7.2 and
  * Table 15-1), or an event VMRUN injected, as EVENTINJ gave it. An exception
- * that the delivery of another raises replaces it.
+ * that the delivery of another raises replaces it. For a FRED guest, INT1 and
+ * SYSCALL have types of their own, the exceptions nested on FRED event
+ * delivery but #DF are marked, and EXITINTDATA gets the event data (AMD64
+ * FRED Virtualization 69191 rev. 1.10).
  */
 void handle_even_inj(CPUX86State *env, int intno, int is_int,
                      int error_code, int is_hw, int rm)
 {
+    static const uint32_t svm_types[] = {
+        [X86_EVENT_EXT_INTR] = SVM_EVTINJ_TYPE_INTR,
+        [X86_EVENT_NMI] = SVM_EVTINJ_TYPE_NMI,
+        [X86_EVENT_HW_EXCEPTION] = SVM_EVTINJ_TYPE_EXEPT,
+        [X86_EVENT_SW_INTR] = SVM_EVTINJ_TYPE_SOFT,
+        [X86_EVENT_PRIV_SW_EXCEPTION] = SVM_EVTINJ_TYPE_INT1,
+        [X86_EVENT_SW_EXCEPTION] = SVM_EVTINJ_TYPE_EXEPT,
+        [X86_EVENT_OTHER] = SVM_EVTINJ_TYPE_SYSCALL,
+    };
     CPUState *cs = env_cpu(env);
+    int type = x86_event_type(env, intno, is_int, is_hw);
+    bool fred = env->cr[4] & CR4_FRED_MASK;
     uint32_t event_inj;
-    int type;
 
     if (env->svm_event_injected) {
         env->svm_event_injected = false;
         return;
     }
-    if (is_int && env->vmx.soft_exception != X86_VMX_SOFT_EXCEPTION) {
-        type = SVM_EVTINJ_TYPE_SOFT;
-    } else if (is_hw) {
-        type = intno == EXCP02_NMI ? SVM_EVTINJ_TYPE_NMI
-                                   : SVM_EVTINJ_TYPE_INTR;
-    } else {
-        type = SVM_EVTINJ_TYPE_EXEPT;
-    }
-    event_inj = intno | type | SVM_EVTINJ_VALID;
-    if (!rm && !is_int && !is_hw && exception_has_error_code(intno)) {
+    event_inj = intno | svm_types[type] | SVM_EVTINJ_VALID;
+    if (type == X86_EVENT_HW_EXCEPTION && !rm &&
+        exception_has_error_code(intno)) {
         event_inj |= SVM_EVTINJ_VALID_ERR;
         x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                                  control.event_inj_err),
                      error_code);
     }
+    if (fred && env->fred_nested && type == X86_EVENT_HW_EXCEPTION &&
+        intno != EXCP08_DBLE) {
+        event_inj |= SVM_EVTINJ_NESTED;
+    }
+    env->svm_event_data = fred ? x86_fred_event_data(env, type, intno) : 0;
     x86_stl_phys(cs, env->vm_vmcb + offsetof(struct vmcb, control.event_inj),
                  event_inj);
 }

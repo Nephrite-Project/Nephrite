@@ -360,7 +360,40 @@ bool x86_uintr_notification(CPUX86State *env, int vector);
 #define X86_EVENT_SW_EXCEPTION X86_VMX_SOFT_EXCEPTION
 #define X86_EVENT_OTHER 7
 
+/* The type of the event that do_interrupt_all() delivers. */
+static inline int x86_event_type(CPUX86State *env, int intno, int is_int,
+                                 int is_hw)
+{
+    if (is_hw) {
+        return intno == EXCP02_NMI ? X86_EVENT_NMI : X86_EVENT_EXT_INTR;
+    }
+    if (env->vmx.soft_exception) {
+        return env->vmx.soft_exception;
+    }
+    return is_int ? X86_EVENT_SW_INTR : X86_EVENT_HW_EXCEPTION;
+}
+
+/*
+ * The event data of an event of TYPE and VECTOR that FRED event delivery
+ * saves (Intel SDM 325462-093 Vol. 3A, 8.3.2.1): the linear address of a
+ * page fault, the debug conditions of a #DB, else 0.
+ */
+static inline uint64_t x86_fred_event_data(CPUX86State *env, int type,
+                                           int vector)
+{
+    if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
+        return env->cr[2];
+    }
+    if (vector == EXCP01_DB && (type == X86_EVENT_HW_EXCEPTION ||
+                                type == X86_EVENT_PRIV_SW_EXCEPTION)) {
+        return env->db_event;
+    }
+    return 0;
+}
+
 /* seg_helper.c, FRED */
+/* IA32_FRED_CONFIG's reserved bits (Intel SDM 325462-093 Vol. 3A, 8.2.3). */
+#define FRED_CONFIG_RESERVED 0x834ULL
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
 void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
                       bool has_error_code, int len, target_ulong old_rip);

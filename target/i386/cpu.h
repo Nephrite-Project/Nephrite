@@ -2840,6 +2840,10 @@ typedef struct CPUArchState {
     bool svm_lbr_virt;
     /* VMRUN injected the event whose delivery begins next. */
     bool svm_event_injected;
+    /* The FRED event data of the event that EXITINTINFO would report. */
+    uint64_t svm_event_data;
+    /* FRED virtualization has switched the FRED MSRs. */
+    bool svm_fred_virt;
     /*
      * AVIC, in xAVIC or x2AVIC mode, with the guest's vAPIC base, its backing
      * page, and the VM's logical and physical APIC ID tables; and the vAPIC

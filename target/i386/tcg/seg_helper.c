@@ -1540,10 +1540,7 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     target_ulong from = env->eip;
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
     /* The event's type, which FRED event delivery saves as VMX has it. */
-    int type = is_hw ? (intno == EXCP02_NMI ? X86_EVENT_NMI
-                                            : X86_EVENT_EXT_INTR)
-               : env->vmx.soft_exception ? env->vmx.soft_exception
-               : is_int ? X86_EVENT_SW_INTR : X86_EVENT_HW_EXCEPTION;
+    int type = x86_event_type(env, intno, is_int, is_hw);
 #endif
     /*
      * Outside real mode, an exception pushes an error code by its vector,
@@ -3174,7 +3171,6 @@ void HELPER(verw)(CPUX86State *env, target_ulong selector1)
 #define FRED_CONFIG_SSP_DEC     8ULL
 #define FRED_CONFIG_RSP_DEC     0x1c0ULL
 #define FRED_CONFIG_INTR_SL     9
-#define FRED_CONFIG_RESERVED    0x834ULL
 
 /* The augmented CS and SS of FRED's stack frame (8.3.2.1). */
 #define FRED_CS_SL_SHIFT        16
@@ -3281,16 +3277,18 @@ void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
     int csl = cpl == 3 ? 0 : env->fred_config & FRED_CONFIG_CSL;
     int mmu_index = fred_mmu_index(env);
     uint64_t old_rflags = cpu_compute_eflags(env);
-    uint64_t old_cs, old_ss, data = 0, new_rip, new_rsp, new_ssp = 0, sp;
+    uint64_t old_cs, old_ss, data, new_rip, new_rsp, new_ssp = 0, sp;
     bool wfe, sti, sss = fred_sss(env);
     int sl, new_csl;
 
     /*
-     * The RF that IDT event delivery saves too, but for an event VM entry
-     * injects (Intel SDM 325462-093 Vol. 3C, 29.6.1.1).
+     * The RF that IDT event delivery saves too, but for an event VMX's VM
+     * entry injects (Intel SDM 325462-093 Vol. 3C, 29.6.1.1); events that
+     * VMRUN injects are treated as though they occurred normally (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.20).
      */
     if (type == X86_EVENT_HW_EXCEPTION && exception_is_fault(vector) &&
-        !inject) {
+        !(inject && env->vmx.nonroot)) {
         old_rflags |= RF_MASK;
     }
     wfe = cpl == 0 && (env->cr[4] & CR4_CET_MASK) &&
@@ -3318,15 +3316,8 @@ void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
              (env->hflags & HF_CS64_MASK ? FRED_INFO_L : 0) |
              (nested && !dbl ? FRED_INFO_NST : 0) |
              (type >= X86_EVENT_SW_INTR ? (uint64_t)(len & 0xf) << 60 : 0);
-    if (inject) {
-        data = env->vmx.fred_inject_data;
-    } else if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
-        data = env->cr[2];
-    } else if (vector == EXCP01_DB &&
-               (type == X86_EVENT_HW_EXCEPTION ||
-                type == X86_EVENT_PRIV_SW_EXCEPTION)) {
-        data = env->db_event;
-    }
+    data = inject ? env->vmx.fred_inject_data
+                  : x86_fred_event_data(env, type, vector);
     env->vmx.fred_event_data = data;
 
     env->fred_nested = true;

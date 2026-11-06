@@ -43,6 +43,7 @@
 
 #define LBR_CTL_ENABLE_MASK (1 << 0)
 #define V_VMLOAD_VMSAVE_ENABLED_MASK (1 << 1)
+#define FRED_VIRT_ENABLE_MASK (1 << 4)
 
 #define SVM_INTERRUPT_SHADOW_MASK 1
 
@@ -69,9 +70,12 @@
 #define SVM_EVTINJ_TYPE_NMI (2 << SVM_EVTINJ_TYPE_SHIFT)
 #define SVM_EVTINJ_TYPE_EXEPT (3 << SVM_EVTINJ_TYPE_SHIFT)
 #define SVM_EVTINJ_TYPE_SOFT (4 << SVM_EVTINJ_TYPE_SHIFT)
+#define SVM_EVTINJ_TYPE_INT1 (5 << SVM_EVTINJ_TYPE_SHIFT)
+#define SVM_EVTINJ_TYPE_SYSCALL (7 << SVM_EVTINJ_TYPE_SHIFT)
 
 #define SVM_EVTINJ_VALID (1 << 31)
 #define SVM_EVTINJ_VALID_ERR (1 << 11)
+#define SVM_EVTINJ_NESTED (1 << 13)
 
 #define SVM_EXITINTINFO_VEC_MASK SVM_EVTINJ_VEC_MASK
 
@@ -242,12 +246,16 @@ struct QEMU_PACKED vmcb_control_area {
     uint8_t reserved_6[8];
     uint64_t avic_logical_id;
     uint64_t avic_physical_id;
-    uint8_t reserved_7[200];
+    uint8_t reserved_7[112];
+    uint64_t exit_int_data;
+    uint64_t event_inj_data;
+    uint8_t reserved_8[72];
     uint64_t pml_base;
     uint16_t pml_index;
-    uint8_t reserved_8[558];
+    uint8_t reserved_9[558];
 };
 
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, exit_int_data) != 0x170);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, pml_base) != 0x1c8);
 QEMU_BUILD_BUG_ON(sizeof(struct vmcb_control_area) != 0x400);
 
@@ -303,7 +311,18 @@ struct QEMU_PACKED vmcb_save_area {
     uint64_t br_to;
     uint64_t last_excp_from;
     uint64_t last_excp_to;
+    uint8_t reserved_7[1576];
+    uint64_t fred_rsp1;
+    uint64_t fred_rsp2;
+    uint64_t fred_rsp3;
+    uint64_t fred_stklvls;
+    uint64_t fred_ssp1;
+    uint64_t fred_ssp2;
+    uint64_t fred_ssp3;
+    uint64_t fred_config;
 };
+
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, fred_rsp1) != 0x8c0);
 
 struct QEMU_PACKED vmcb {
     struct vmcb_control_area control;

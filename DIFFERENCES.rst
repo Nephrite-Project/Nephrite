@@ -7,7 +7,7 @@ with the changes below. Each one is a commit of its own; ``git log --grep``
 finds it by the words of its subject, which the entries quote where a
 change is not plain from its description. The processor's documentation is
 cited as Intel's Software Developer's Manual (SDM) 325462-093 and AMD's
-Architecture Programmer's Manual (APM) 24593 rev. 3.45.
+Architecture Programmer's Manual (APM) 24593 rev. 3.46.
 
 
 Names and packaging
@@ -127,6 +127,12 @@ AMD SVM, completing what QEMU's TCG has:
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
   page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
   INVPCID intercepts, AVIC and x2AVIC, and CET state in the VMCB.
+* FRED virtualization (AMD64 FRED Virtualization 69191 rev. 1.10): VMRUN
+  and #VMEXIT switch the FRED MSRs but IA32_FRED_RSP0, with their checks,
+  and VMRUN checks FRED guests' rings; events injected into FRED guests
+  take their event data, the nested-exception bit, and the INT1 and
+  SYSCALL types; EXITINTINFO has its FRED form, with EXITINTDATA; and
+  intercepted #DBs give their event data in EXITINFO2.
 
 Processor features:
 
@@ -318,9 +324,12 @@ Known deviations and limits
   supervisor-shadow-stack control, nested page fault exit information
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
-* FRED: SVM keeps no FRED state for its guests; SYSCALL under FRED does not
-  need IA32_EFER.SCE, as the SDM's operation of SYSCALL has it; there is no
-  NMI-source reporting.
+* FRED: SYSCALL under FRED does not need IA32_EFER.SCE, as the SDM's
+  operation of SYSCALL has it; there is no NMI-source reporting. SVM keeps
+  the FRED MSRs at the state-save area offsets of the APM's Table B-2,
+  where the KVM patches AMD posted ("KVM: SVM: Enable FRED support" v2,
+  April 2026) have them 400h lower, and leaves IA32_PL0_SSP, for which the
+  VMCB has no field, to the hypervisor.
 * Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
   RDPRU, and AMD's IBS.
 * Unknown MSRs read as 0, as in QEMU.

@@ -165,6 +165,107 @@ static bool svm_load_cet(CPUX86State *env, hwaddr addr)
 }
 
 /*
+ * The FRED MSRs that FRED virtualization switches, with their reserved bits,
+ * the addresses among them made canonical; IA32_FRED_RSP0 is the
+ * hypervisor's to switch, and IA32_PL0_SSP has no place in the VMCB (AMD64
+ * FRED Virtualization 69191 rev. 1.10; AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, Table B-2).
+ */
+#ifdef TARGET_X86_64
+static const struct {
+    size_t vmcb;
+    size_t env;
+    uint64_t reserved;
+    bool address;
+} svm_fred_msrs[] = {
+    { offsetof(struct vmcb, save.fred_rsp1),
+      offsetof(CPUX86State, fred_rsp1), 0x3f, true },
+    { offsetof(struct vmcb, save.fred_rsp2),
+      offsetof(CPUX86State, fred_rsp2), 0x3f, true },
+    { offsetof(struct vmcb, save.fred_rsp3),
+      offsetof(CPUX86State, fred_rsp3), 0x3f, true },
+    { offsetof(struct vmcb, save.fred_stklvls),
+      offsetof(CPUX86State, fred_stklvls), 0, false },
+    { offsetof(struct vmcb, save.fred_ssp1),
+      offsetof(CPUX86State, fred_ssp1), 7, true },
+    { offsetof(struct vmcb, save.fred_ssp2),
+      offsetof(CPUX86State, fred_ssp2), 7, true },
+    { offsetof(struct vmcb, save.fred_ssp3),
+      offsetof(CPUX86State, fred_ssp3), 7, true },
+    { offsetof(struct vmcb, save.fred_config),
+      offsetof(CPUX86State, fred_config), FRED_CONFIG_RESERVED, true },
+};
+
+static uint64_t *svm_fred_msr(CPUX86State *env, int i)
+{
+    return (uint64_t *)((char *)env + svm_fred_msrs[i].env);
+}
+
+/* FRED virtualization, which VMCB offset 0B8h enables. */
+static bool svm_fred_virt_enabled(CPUX86State *env, uint64_t virt_ext)
+{
+    return (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED) &&
+           (virt_ext & FRED_VIRT_ENABLE_MASK);
+}
+
+static void svm_save_fred(CPUX86State *env, hwaddr addr)
+{
+    for (int i = 0; i < ARRAY_SIZE(svm_fred_msrs); i++) {
+        x86_stq_phys(env_cpu(env), addr + svm_fred_msrs[i].vmcb,
+                     *svm_fred_msr(env, i));
+    }
+}
+
+/* Loads the FRED MSRs from the save area at ADDR, unless one is invalid. */
+static bool svm_load_fred(CPUX86State *env, hwaddr addr)
+{
+    uint64_t val[ARRAY_SIZE(svm_fred_msrs)];
+
+    for (int i = 0; i < ARRAY_SIZE(svm_fred_msrs); i++) {
+        val[i] = x86_ldq_phys(env_cpu(env), addr + svm_fred_msrs[i].vmcb);
+        if (val[i] & svm_fred_msrs[i].reserved) {
+            return false;
+        }
+    }
+    for (int i = 0; i < ARRAY_SIZE(svm_fred_msrs); i++) {
+        *svm_fred_msr(env, i) = svm_fred_msrs[i].address ?
+                                x86_la_adjust(env, val[i]) : val[i];
+    }
+    return true;
+}
+#else
+static bool svm_fred_virt_enabled(CPUX86State *env, uint64_t virt_ext)
+{
+    return false;
+}
+
+static void svm_save_fred(CPUX86State *env, hwaddr addr)
+{
+}
+
+static bool svm_load_fred(CPUX86State *env, hwaddr addr)
+{
+    return true;
+}
+#endif
+
+/*
+ * A FRED guest runs at ring 0 in 64-bit mode or at ring 3 with IOPL 0, as
+ * its CPL and SS.DPL both say (AMD64 FRED Virtualization 69191 rev. 1.10).
+ */
+static bool svm_fred_ring_valid(CPUX86State *env, int ring)
+{
+    switch (ring) {
+    case 0:
+        return env->segs[R_CS].flags & DESC_L_MASK;
+    case 3:
+        return !(env->eflags & IOPL_MASK);
+    default:
+        return false;
+    }
+}
+
+/*
  * DebugCtl and the last branch MSRs, as LBR virtualization swaps them with
  * those of the save area at ADDR (AMD64 Architecture Programmer's Manual
  * Volume 2, 24593 rev. 3.45, 15.23.1).
@@ -504,6 +605,13 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     if (x86_has_shstk(env)) {
         svm_save_cet(env, env->vm_hsave);
     }
+    env->svm_fred_virt =
+        svm_fred_virt_enabled(env, x86_ldq_phys(cs, env->vm_vmcb +
+                                                offsetof(struct vmcb,
+                                                         control.lbr_ctl)));
+    if (env->svm_fred_virt) {
+        svm_save_fred(env, env->vm_hsave);
+    }
 
     clean = svm_clean_bits(env);
     c->valid = false;
@@ -552,7 +660,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->intercept_dr_write = c->intercept_dr_write;
     env->intercept_exceptions = c->intercept_exceptions;
 
+    /* The guest's interrupt shadow, as STI's, which FRED tells apart. */
     env->hflags &= ~HF_INHIBIT_IRQ_MASK;
+    env->shadow_movss = false;
     if (x86_ldl_phys(cs, env->vm_vmcb +
                 offsetof(struct vmcb, control.int_state)) &
                  SVM_INTERRUPT_SHADOW_MASK) {
@@ -737,6 +847,17 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
          ((env->eflags & VM_MASK) && (env->u_cet & CET_SH_STK_EN)))) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
+    if (env->svm_fred_virt && !svm_load_fred(env, env->vm_vmcb)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
+    if ((env->cr[4] & CR4_FRED_MASK) &&
+        (!svm_fred_ring_valid(env, x86_ldub_phys(cs, env->vm_vmcb +
+                                                 offsetof(struct vmcb,
+                                                          save.cpl))) ||
+         !svm_fred_ring_valid(env, (env->segs[R_SS].flags >> DESC_DPL_SHIFT) &
+                                   3))) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+    }
 
     if (!(clean & SVM_CLEAN_DRX)) {
         c->dr7 = x86_ldq_phys(cs, env->vm_vmcb +
@@ -819,6 +940,8 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                                                  control.event_inj));
     if (event_inj & SVM_EVTINJ_VALID) {
         uint8_t vector = event_inj & SVM_EVTINJ_VEC_MASK;
+        uint32_t type = event_inj & SVM_EVTINJ_TYPE_MASK;
+        bool fred = env->cr[4] & CR4_FRED_MASK;
         uint16_t valid_err = event_inj & SVM_EVTINJ_VALID_ERR;
         uint32_t event_inj_err = x86_ldl_phys(cs, env->vm_vmcb +
                                           offsetof(struct vmcb,
@@ -837,10 +960,36 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                                     offsetof(struct vmcb, control.next_rip));
         }
         env->svm_event_injected = true;
+        env->svm_event_data = 0;
+        /*
+         * For a FRED guest, INT1 and SYSCALL have vector 1, and only
+         * exceptions error codes and the nested-exception bit; the event
+         * data comes from EVENTINJDATA, INT3 and INTO save the type of
+         * software exceptions, and other exceptions the guest's interrupt
+         * shadow, as STI's (AMD64 FRED Virtualization 69191 rev. 1.10).
+         */
+        if (fred) {
+            if (((type == SVM_EVTINJ_TYPE_INT1 ||
+                  type == SVM_EVTINJ_TYPE_SYSCALL) && vector != 1) ||
+                ((event_inj & (SVM_EVTINJ_VALID_ERR | SVM_EVTINJ_NESTED)) &&
+                 type != SVM_EVTINJ_TYPE_EXEPT)) {
+                cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+            }
+            env->svm_event_data =
+                x86_ldq_phys(cs, env->vm_vmcb +
+                             offsetof(struct vmcb, control.event_inj_data));
+            env->vmx.fred_inject = true;
+            env->vmx.fred_inject_data = env->svm_event_data;
+            env->vmx.fred_inject_sti = type == SVM_EVTINJ_TYPE_EXEPT &&
+                                       vector != EXCP03_INT3 &&
+                                       vector != EXCP04_INTO &&
+                                       (env->hflags & HF_INHIBIT_IRQ_MASK);
+            env->fred_nested = event_inj & SVM_EVTINJ_NESTED;
+        }
 
         qemu_log_mask(CPU_LOG_TB_IN_ASM, "Injecting(%#hx): ", valid_err);
         /* FIXME: need to implement valid_err */
-        switch (event_inj & SVM_EVTINJ_TYPE_MASK) {
+        switch (type) {
         case SVM_EVTINJ_TYPE_INTR:
             cs->exception_index = vector;
             env->error_code = event_inj_err;
@@ -864,6 +1013,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             env->error_code = event_inj_err;
             env->exception_is_int = 0;
             env->exception_next_eip = env->eip;
+            env->vmx.soft_exception = X86_EVENT_NMI;
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "NMI");
             cpu_loop_exit(cs);
             break;
@@ -880,6 +1030,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             if (vector == EXCP03_INT3 || vector == EXCP04_INTO) {
                 env->exception_is_int = 1;
                 env->exception_next_eip = next_eip;
+                env->vmx.soft_exception = X86_EVENT_SW_EXCEPTION;
             } else {
                 env->exception_is_int = 0;
                 env->exception_next_eip = -1;
@@ -893,6 +1044,21 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             env->exception_is_int = 1;
             env->exception_next_eip = next_eip;
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "SOFT");
+            cpu_loop_exit(cs);
+            break;
+        case SVM_EVTINJ_TYPE_INT1:
+        case SVM_EVTINJ_TYPE_SYSCALL:
+            if (!fred) {
+                cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+            }
+            cs->exception_index = vector;
+            env->error_code = 0;
+            env->exception_is_int = 1;
+            env->exception_next_eip = next_eip;
+            env->vmx.soft_exception = type == SVM_EVTINJ_TYPE_INT1 ?
+                                      X86_EVENT_PRIV_SW_EXCEPTION :
+                                      X86_EVENT_OTHER;
+            qemu_log_mask(CPU_LOG_TB_IN_ASM, "FRED");
             cpu_loop_exit(cs);
             break;
         default:
@@ -1172,6 +1338,16 @@ void cpu_svm_check_intercept_param(CPUX86State *env, uint32_t type,
         return;
     }
 
+    /*
+     * An intercepted #DB of a FRED guest gives its event data in EXITINFO2
+     * (AMD64 FRED Virtualization 69191 rev. 1.10).
+     */
+    if (type == SVM_EXIT_EXCP_BASE + EXCP01_DB &&
+        (env->cr[4] & CR4_FRED_MASK)) {
+        x86_stq_phys(cs, env->vm_vmcb +
+                     offsetof(struct vmcb, control.exit_info_2),
+                     env->db_event);
+    }
     cpu_vmexit(env, type, param, retaddr);
 }
 
@@ -1338,6 +1514,7 @@ void cpu_vmexit(CPUX86State *env, uint64_t exit_code, uint64_t exit_info_1,
     /* remove any pending exception */
     env->old_exception = -1;
     env->fred_nested = false;
+    env->vmx.fred_inject = false;
     cpu_loop_exit(cs);
 }
 
@@ -1426,6 +1603,9 @@ void do_vmexit(CPUX86State *env)
              env->vm_vmcb + offsetof(struct vmcb, save.rax), env->regs[R_EAX]);
     if (x86_has_shstk(env)) {
         svm_save_cet(env, env->vm_vmcb);
+    }
+    if (env->svm_fred_virt) {
+        svm_save_fred(env, env->vm_vmcb);
     }
     x86_stq_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, save.dr7), env->dr[7]);
@@ -1559,6 +1739,14 @@ load_host:
     if (x86_has_shstk(env)) {
         svm_load_cet(env, env->vm_hsave);
     }
+    /* Invalid host FRED MSRs shut the processor down (69191 rev. 1.10). */
+    if (env->svm_fred_virt) {
+        env->svm_fred_virt = false;
+        if (!svm_load_fred(env, env->vm_hsave)) {
+            qemu_log_mask(LOG_GUEST_ERROR, "#VMEXIT: illegal host FRED MSRs\n");
+            qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+        }
+    }
 
     env->dr[6] = x86_ldq_phys(cs,
                           env->vm_hsave + offsetof(struct vmcb, save.dr6));
@@ -1577,6 +1765,16 @@ load_host:
              env->vm_vmcb + offsetof(struct vmcb, control.exit_int_info_err),
              x86_ldl_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
                                               control.event_inj_err)));
+    /* EXITINTDATA: the FRED event data of the event EXITINTINFO reports. */
+    if (env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_FRED) {
+        bool valid = x86_ldl_phys(cs, env->vm_vmcb +
+                                  offsetof(struct vmcb, control.event_inj)) &
+                     SVM_EVTINJ_VALID;
+
+        x86_stq_phys(cs, env->vm_vmcb +
+                     offsetof(struct vmcb, control.exit_int_data),
+                     valid ? env->svm_event_data : 0);
+    }
     x86_stl_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.event_inj), 0);
 
