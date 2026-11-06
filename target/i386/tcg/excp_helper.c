@@ -251,12 +251,17 @@ G_NORETURN void raise_debug_exception(CPUX86State *env, uint32_t payload,
     raise_exception_ra(env, EXCP01_DB, retaddr);
 }
 
-G_NORETURN void HELPER(icebp)(CPUX86State *env)
+G_NORETURN void HELPER(icebp)(CPUX86State *env, uint32_t len)
 {
     CPUState *cs = env_cpu(env);
 
 #if !defined(CONFIG_USER_ONLY)
-    /* VMX takes INT1 as a privileged software exception. */
+    /*
+     * VMX takes INT1 as a privileged software exception, whose VM exits,
+     * also those of faults in its delivery, report its length (Intel SDM
+     * 325462-093 Vol. 3C, 30.2.5).
+     */
+    env->svm_insn_len = len;
     if (env->vmx.nonroot) {
         env->vmx.soft_exception = X86_VMX_PRIV_SOFT_EXCEPTION;
         if (x86_vmx_exception_exits(env, EXCP01_DB, 0)) {

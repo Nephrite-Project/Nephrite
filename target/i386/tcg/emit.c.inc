@@ -2511,7 +2511,7 @@ static void gen_INT1(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
     gen_update_eip_next(s);
-    gen_helper_icebp(tcg_env);
+    gen_helper_icebp(tcg_env, cur_insn_len_i32(s));
     s->base.is_jmp = DISAS_NORETURN;
 }
 
