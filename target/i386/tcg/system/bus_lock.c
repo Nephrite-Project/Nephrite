@@ -11,7 +11,9 @@
  * accesses fault instead (Intel SDM 325462-093 Vol. 3A, 11.1.2.3), also
  * the implicit locked updates of paging-structure entries and descriptors
  * (Intel SDM 325462-093 Vol. 3A, 11.1.2.1); VMX's "VMM bus-lock detection"
- * exits after any (Intel SDM 325462-093 Vol. 3C, 28.2).
+ * exits after any (Intel SDM 325462-093 Vol. 3C, 28.2), and SVM's bus lock
+ * threshold before any once its count ran out (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.14.5).
  *
  * The translator checks locked instructions only once some processor
  * watches for bus locks: x86_bus_lock_watch() then flushes all
@@ -26,6 +28,7 @@
 #include "exec/tb-flush.h"
 #include "exec/target_page.h"
 #include "exec/translation-block.h"
+#include "accel/tcg/cpu-ldst.h"
 #include "accel/tcg/cpu-loop.h"
 #include "accel/tcg/probe.h"
 #include "tcg/helper-tcg.h"
@@ -51,6 +54,24 @@ static bool os_bld(CPUX86State *env)
 static bool vmx_bus_lock(CPUX86State *env)
 {
     return env->vmx.nonroot && env->vmx.bus_lock;
+}
+
+/* SVM's bus lock threshold, in guest mode with its intercept. */
+static bool svm_threshold(CPUX86State *env)
+{
+    return (env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot &&
+           (env->intercept_vec5 & (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB)));
+}
+
+/*
+ * Before a bus lock under SVM's threshold: a #VMEXIT with the count at
+ * zero, before the instruction executes.
+ */
+static void svm_threshold_check(CPUX86State *env, uintptr_t ra)
+{
+    if (svm_threshold(env) && !env->svm_bus_lock_counter) {
+        cpu_vmexit(env, SVM_EXIT_BUSLOCK, 0, ra);
+    }
 }
 
 /* UC-lock disable, which CR0.CD turns off. */
@@ -126,11 +147,12 @@ void HELPER(bus_lock)(CPUX86State *env, target_ulong addr, uint32_t size,
                     (env->memory_ctrl & MEMORY_CTRL_SPLIT_LOCK_DISABLE);
     bool bld = os_bld(env);
     bool vmx = vmx_bus_lock(env);
+    bool svm = svm_threshold(env);
     bool uc_ac = uc_lock_disabled(env);
     bool wb;
 
     env->bus_lock_now = false;
-    if (!split_ac && !bld && !vmx && !uc_ac) {
+    if (!split_ac && !bld && !vmx && !svm && !uc_ac) {
         return;
     }
     wb = access_wb(env, addr, first, mmu_idx, ra);
@@ -143,7 +165,10 @@ void HELPER(bus_lock)(CPUX86State *env, target_ulong addr, uint32_t size,
     if (!wb && uc_ac) {
         uc_lock_fault(env, ra);
     }
-    env->bus_lock_now = (bld || vmx) && (split || !wb);
+    if (split || !wb) {
+        svm_threshold_check(env, ra);
+        env->bus_lock_now = bld || vmx || svm;
+    }
 }
 
 /*
@@ -164,6 +189,7 @@ void x86_bus_lock_implicit(CPUX86State *env, bool wb, bool fetch,
     if (uc_lock_disabled(env)) {
         uc_lock_fault(env, ra);
     }
+    svm_threshold_check(env, ra);
     if (vmx_bus_lock(env) && !env->vmx.bus_lock_pending) {
         env->vmx.bus_lock_pending = true;
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
@@ -178,12 +204,28 @@ void x86_bus_lock_implicit(CPUX86State *env, bool wb, bool fetch,
     }
 }
 
-/* The locked update of the descriptor at the linear address ADDR. */
-void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uintptr_t ra)
+/* After it, where it asserted a bus lock: the threshold count goes down. */
+void x86_bus_lock_implicit_done(CPUX86State *env)
 {
-    x86_bus_lock_implicit(env, access_wb(env, addr, 1,
-                                         cpu_mmu_index_kernel(env), ra),
-                          false, ra);
+    if (svm_threshold(env)) {
+        env->svm_bus_lock_counter--;
+    }
+}
+
+/*
+ * The locked update of the descriptor at the linear address ADDR to the
+ * 32 bits HIGH.
+ */
+void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uint32_t high,
+                       uintptr_t ra)
+{
+    bool wb = access_wb(env, addr, 4, cpu_mmu_index_kernel(env), ra);
+
+    x86_bus_lock_implicit(env, wb, false, ra);
+    cpu_stl_kernel_ra(env, addr, high, ra);
+    if (!wb) {
+        x86_bus_lock_implicit_done(env);
+    }
 }
 
 /*
@@ -201,6 +243,12 @@ void HELPER(bus_lock_done)(CPUX86State *env)
         return;
     }
     env->bus_lock_now = false;
+    if (svm_threshold(env)) {
+        env->svm_bus_lock_counter--;
+    }
+    if (!os_bld(env) && !vmx_bus_lock(env)) {
+        return;
+    }
     traps = (os_bld(env) ? DR6_BLD : 0) | x86_step_trap(env, false);
     do_end_instruction(env);
     if (vmx_bus_lock(env)) {

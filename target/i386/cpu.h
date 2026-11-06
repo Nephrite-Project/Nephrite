@@ -1094,6 +1094,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_TLBICTL         (1U << 24)
 #define CPUID_SVM_VNMI            (1U << 25)
 #define CPUID_SVM_SVME_ADDR_CHK   (1U << 28)
+#define CPUID_SVM_BUS_LOCK_THRESHOLD (1U << 29)
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
 
 /* CPUID[8000_000A].ECX */
@@ -2886,6 +2887,8 @@ typedef struct CPUArchState {
     uint32_t nested_pg_mode;
     /* Under nested paging, the guest's PAT, G_PAT. */
     uint64_t svm_gpat;
+    /* The bus locks the guest may still assert before it exits. */
+    uint16_t svm_bus_lock_counter;
     uint8_t v_tpr;
     uint32_t int_ctl;
     /* An INIT that a clear GIF holds until STGI or VMRUN sets it. */

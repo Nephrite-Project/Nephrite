@@ -237,18 +237,20 @@ static inline int load_segment(CPUX86State *env, uint32_t *e1_ptr,
 }
 
 /*
- * The update of a descriptor's accessed or busy bit at ADDR is a locked
- * access (Intel SDM 325462-093 Vol. 3A, 11.1.2.1), which bus-lock controls
- * may watch.
+ * The update of a descriptor's accessed or busy bit, the 32 bits HIGH at
+ * ADDR, is a locked access (Intel SDM 325462-093 Vol. 3A, 11.1.2.1),
+ * which bus-lock controls may watch.
  */
-static inline void desc_locked(CPUX86State *env, target_ulong addr,
-                               uintptr_t retaddr)
+static void desc_update(CPUX86State *env, target_ulong addr, uint32_t high,
+                        uintptr_t retaddr)
 {
 #ifndef CONFIG_USER_ONLY
     if (unlikely(x86_bus_lock_implicit_watched(env))) {
-        x86_bus_lock_desc(env, addr, retaddr);
+        x86_bus_lock_desc(env, addr, high, retaddr);
+        return;
     }
 #endif
+    cpu_stl_kernel_ra(env, addr, high, retaddr);
 }
 
 /*
@@ -263,9 +265,8 @@ static uint32_t set_accessed_ra(CPUX86State *env, int selector,
         SegmentCache *dt = selector & 0x4 ? &env->ldt : &env->gdt;
         target_ulong ptr = dt->base + (selector & ~7) + 4;
 
-        desc_locked(env, ptr, retaddr);
         e2 |= DESC_A_MASK;
-        cpu_stl_kernel_ra(env, ptr, e2, retaddr);
+        desc_update(env, ptr, e2, retaddr);
     }
     return e2;
 }
@@ -416,15 +417,12 @@ static void tss_set_busy(CPUX86State *env, int tss_selector, bool value,
     target_ulong ptr = env->gdt.base + (tss_selector & ~7);
     uint32_t e2 = cpu_ldl_kernel_ra(env, ptr + 4, retaddr);
 
+    /* Task switches test and set it with a locked access. */
     if (value) {
-        /* Task switches test and set it with a locked access. */
-        desc_locked(env, ptr + 4, retaddr);
-        e2 |= DESC_TSS_BUSY_MASK;
+        desc_update(env, ptr + 4, e2 | DESC_TSS_BUSY_MASK, retaddr);
     } else {
-        e2 &= ~DESC_TSS_BUSY_MASK;
+        cpu_stl_kernel_ra(env, ptr + 4, e2 & ~DESC_TSS_BUSY_MASK, retaddr);
     }
-
-    cpu_stl_kernel_ra(env, ptr + 4, e2, retaddr);
 }
 
 #define SWITCH_TSS_JMP  0
@@ -1833,8 +1831,7 @@ void HELPER(ltr)(CPUX86State *env, int selector)
         {
             load_seg_cache_raw_dt(&env->tr, e1, e2);
         }
-        desc_locked(env, ptr + 4, GETPC());
-        cpu_stl_kernel_ra(env, ptr + 4, e2, GETPC());
+        desc_update(env, ptr + 4, e2, GETPC());
     }
     env->tr.selector = selector;
 }

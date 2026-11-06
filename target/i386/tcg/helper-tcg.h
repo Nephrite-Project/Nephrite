@@ -234,13 +234,16 @@ void x86_bus_lock_watch(CPUX86State *env);
 bool x86_bus_lock_wb(CPUX86State *env, bool wb, bool mtrr, hwaddr pa);
 void x86_bus_lock_implicit(CPUX86State *env, bool wb, bool fetch,
                            uintptr_t ra);
-void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uintptr_t ra);
+void x86_bus_lock_implicit_done(CPUX86State *env);
+void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uint32_t high,
+                       uintptr_t ra);
 
 /* Whether implicit locked accesses need checking for bus locks. */
 static inline bool x86_bus_lock_implicit_watched(CPUX86State *env)
 {
     return (env->memory_ctrl & MEMORY_CTRL_UC_LOCK_DISABLE) ||
-           (env->vmx.nonroot && env->vmx.bus_lock);
+           (env->vmx.nonroot && env->vmx.bus_lock) ||
+           (env->intercept_vec5 & (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB)));
 }
 #endif
 

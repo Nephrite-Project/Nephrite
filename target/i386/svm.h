@@ -246,7 +246,9 @@ struct QEMU_PACKED vmcb_control_area {
     uint8_t reserved_6[8];
     uint64_t avic_logical_id;
     uint64_t avic_physical_id;
-    uint8_t reserved_7[112];
+    uint8_t reserved_7[32];
+    uint16_t bus_lock_counter;
+    uint8_t reserved_7b[78];
     uint64_t exit_int_data;
     uint64_t event_inj_data;
     uint8_t reserved_8[72];
@@ -255,6 +257,8 @@ struct QEMU_PACKED vmcb_control_area {
     uint8_t reserved_9[558];
 };
 
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area,
+                           bus_lock_counter) != 0x120);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, exit_int_data) != 0x170);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, pml_base) != 0x1c8);
 QEMU_BUILD_BUG_ON(sizeof(struct vmcb_control_area) != 0x400);

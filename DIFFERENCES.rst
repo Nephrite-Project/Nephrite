@@ -139,8 +139,9 @@ AMD SVM, completing what QEMU's TCG has:
   and its threshold, the TSC ratio MSR, VMSAVE/VMLOAD virtualization, LBR
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
   page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
-  INVPCID intercepts, AVIC and x2AVIC, CET state in the VMCB, and
-  HOST_MCE_OVERRIDE.
+  INVPCID intercepts, AVIC and x2AVIC, CET state in the VMCB,
+  HOST_MCE_OVERRIDE, and the bus lock threshold, whose count implicit
+  locked accesses take too.
 * FRED virtualization (AMD64 FRED Virtualization 69191 rev. 1.10): VMRUN
   and #VMEXIT switch the FRED MSRs but IA32_FRED_RSP0, with their checks,
   and VMRUN checks FRED guests' rings; events injected into FRED guests
@@ -148,7 +149,8 @@ AMD SVM, completing what QEMU's TCG has:
   SYSCALL types; EXITINTINFO has its FRED form, with EXITINTDATA; and
   intercepted #DBs give their event data in EXITINFO2.
 * Register dumps show host or guest mode, the host save area, the last
-  VMCB, GIF, and the nested page tables.
+  VMCB, GIF, the nested page tables, G_PAT, and the bus lock threshold
+  count.
 
 Processor features:
 
@@ -387,7 +389,7 @@ Known deviations and limits
   ("KVM: SVM: Enable FRED support" v2, April 2026) have them 400h lower,
   and leaves IA32_PL0_SSP, for which the VMCB has no field, to the
   hypervisor.
-* Not implemented: the bus-lock threshold and AMD's IBS.
+* Not implemented: AMD's IBS.
 * Bus locks: OS bus-lock detection skips the implicit supervisor accesses
   of descriptor and paging-structure updates, as AMD's APM says and
   Intel's SDM does not; with CR0.CD set every locked access is a bus lock,

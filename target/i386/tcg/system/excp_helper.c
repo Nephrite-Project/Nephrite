@@ -218,6 +218,7 @@ static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
 {
     if (set & ~old) {
         uint32_t new = old | set;
+        bool locked = false, done;
 
         if (unlikely(in->load_only) && !ptw_store(in)) {
             return false;
@@ -228,14 +229,20 @@ static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
          */
         if (unlikely(x86_bus_lock_implicit_watched(in->env)) &&
             in->implicit_locks) {
-            x86_bus_lock_implicit(in->env, ptw_wb(in), in->fetch, in->ra);
+            locked = !ptw_wb(in);
+            x86_bus_lock_implicit(in->env, !locked, in->fetch, in->ra);
         }
         if (likely(in->haddr)) {
             old = cpu_to_le32(old);
             new = cpu_to_le32(new);
-            return qatomic_cmpxchg((uint32_t *)in->haddr, old, new) == old;
+            done = qatomic_cmpxchg((uint32_t *)in->haddr, old, new) == old;
+        } else {
+            done = ptw_setl_slow(in, old, new);
         }
-        return ptw_setl_slow(in, old, new);
+        if (unlikely(locked) && done) {
+            x86_bus_lock_implicit_done(in->env);
+        }
+        return done;
     }
     return true;
 }

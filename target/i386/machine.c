@@ -1502,6 +1502,26 @@ static const VMStateDescription vmstate_svm_npt = {
     }
 };
 
+static bool svm_bus_lock_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return (env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot &&
+           (env->intercept_vec5 & (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB)));
+}
+
+static const VMStateDescription vmstate_svm_bus_lock = {
+    .name = "cpu/svm_bus_lock",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = svm_bus_lock_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT16(env.svm_bus_lock_counter, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool memory_ctrl_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2053,6 +2073,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_svm_npt,
         &vmstate_svm_gpat,
         &vmstate_memory_ctrl,
+        &vmstate_svm_bus_lock,
         &vmstate_svm_guest,
 #ifndef TARGET_X86_64
         &vmstate_efer32,

@@ -432,6 +432,11 @@ static void dump_virt(CPUX86State *env, FILE *f)
             qemu_fprintf(f, " N_CR3=%016" PRIx64 " G_PAT=%016" PRIx64,
                          env->nested_cr3, env->svm_gpat);
         }
+        if ((env->hflags & HF_GUEST_MASK) &&
+            (env->intercept_vec5 &
+             (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB)))) {
+            qemu_fprintf(f, " BUS_LOCKS=%u", env->svm_bus_lock_counter);
+        }
         qemu_fprintf(f, "\n");
     }
 }

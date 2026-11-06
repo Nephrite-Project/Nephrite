@@ -664,6 +664,22 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->svm_last_pause = env->svm_pause_cycles;
     env->intercept = c->intercept;
     env->intercept_vec5 = c->intercept_vec5;
+    /*
+     * The bus lock threshold count, which the processor keeps while the
+     * guest runs (AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, 15.14.5).
+     */
+    if (env->features[FEAT_SVM] & CPUID_SVM_BUS_LOCK_THRESHOLD) {
+        env->svm_bus_lock_counter =
+            x86_lduw_phys(cs, env->vm_vmcb +
+                          offsetof(struct vmcb, control.bus_lock_counter));
+        if (env->intercept_vec5 &
+            (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB))) {
+            x86_bus_lock_watch(env);
+        }
+    } else {
+        env->intercept_vec5 &= ~(1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB));
+    }
     env->intercept_cr_read = c->intercept_cr_read;
     env->intercept_cr_write = c->intercept_cr_write;
     env->intercept_dr_read = c->intercept_dr_read;
@@ -1657,6 +1673,12 @@ void do_vmexit(CPUX86State *env)
     }
     x86_stl_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.int_ctl), env->int_ctl);
+    /* #VMEXIT writes back the bus lock threshold count. */
+    if (env->features[FEAT_SVM] & CPUID_SVM_BUS_LOCK_THRESHOLD) {
+        x86_stw_phys(cs, env->vm_vmcb +
+                     offsetof(struct vmcb, control.bus_lock_counter),
+                     env->svm_bus_lock_counter);
+    }
 
     x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.rflags),
              cpu_compute_eflags(env));
