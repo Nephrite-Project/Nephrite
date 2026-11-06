@@ -479,6 +479,62 @@ uint64_t x86_efer_writable(CPUX86State *env)
 }
 
 /*
+ * MPERF and APERF count the TSC's ticks while the processor is in C0, not
+ * halted in HLT, MWAIT, or the wait for SIPI: a TCG processor runs at its
+ * nominal frequency throughout, where the ratio of APERF to MPERF is 1.
+ * On Intel's processors, the overflow of either resets both (Intel SDM
+ * 325462-093 Vol. 3B, 17.2; AMD64 Architecture Programmer's Manual Volume
+ * 2, 24593 rev. 3.46, 17.3).
+ */
+static void eff_freq_sync(CPUX86State *env)
+{
+    uint64_t now = cpu_get_tsc(env);
+    uint64_t ticks = now - env->eff_freq_stamp;
+
+    env->eff_freq_stamp = now;
+    if (env->eff_freq_halted) {
+        return;
+    }
+    if (IS_INTEL_CPU(env) &&
+        (env->mperf + ticks < env->mperf || env->aperf + ticks < env->aperf)) {
+        /* Both count from zero from where the larger one wraps. */
+        uint64_t wrap = -MAX(env->mperf, env->aperf);
+
+        env->mperf = env->aperf = ticks - wrap;
+        return;
+    }
+    env->mperf += ticks;
+    env->aperf += ticks;
+}
+
+void x86_eff_freq_halt(CPUX86State *env, bool halted)
+{
+    if (env->eff_freq_halted != halted) {
+        eff_freq_sync(env);
+        env->eff_freq_halted = halted;
+    }
+}
+
+/*
+ * APERF, or MPERF, which SVM guest mode reads scaled by the TSC ratio
+ * (24593 rev. 3.46, 17.3.2).
+ */
+static uint64_t eff_freq_read(CPUX86State *env, bool aperf)
+{
+    uint64_t low, high;
+
+    eff_freq_sync(env);
+    if (aperf) {
+        return env->aperf;
+    }
+    if (!(env->hflags & HF_GUEST_MASK) || env->vmx.nonroot) {
+        return env->mperf;
+    }
+    mulu64(&low, &high, env->mperf, env->amd_tsc_scale_msr);
+    return (high << 32) | (low >> 32);
+}
+
+/*
  * The CPUID registers that AMD's CPUID override MSR index (MSRC001_1002 +
  * index) controls, OSXSAVE and APIC as fields whatever CR4 and the local
  * APIC's state, and without the hypervisor bit, which the processor's
@@ -771,6 +827,21 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_TSC_AUX:
         env->tsc_aux = val;
         break;
+    case MSR_IA32_MPERF:
+    case MSR_IA32_APERF:
+        if (!(env->features[FEAT_6_ECX] & CPUID_6_ECX_APERFMPERF)) {
+            return false;
+        }
+        eff_freq_sync(env);
+        if (msr == MSR_IA32_MPERF) {
+            env->mperf = val;
+        } else {
+            env->aperf = val;
+        }
+        break;
+    case MSR_AMD_MPERF_RD_ONLY:
+    case MSR_AMD_APERF_RD_ONLY:
+        return false;
     case MSR_AMD64_TSC_RATIO:
         if (!tsc_ratio_present(env) || (val & MSR_AMD64_TSC_RATIO_RESERVED)) {
             return false;
@@ -1206,6 +1277,20 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
             return false;
         }
         val = env->amd_tsc_scale_msr;
+        break;
+    case MSR_IA32_MPERF:
+    case MSR_IA32_APERF:
+        if (!(env->features[FEAT_6_ECX] & CPUID_6_ECX_APERFMPERF)) {
+            return false;
+        }
+        val = eff_freq_read(env, msr == MSR_IA32_APERF);
+        break;
+    case MSR_AMD_MPERF_RD_ONLY:
+    case MSR_AMD_APERF_RD_ONLY:
+        if (!(env->features[FEAT_8000_0007_EDX] & CPUID_APM_EFF_FREQ_RO)) {
+            return false;
+        }
+        val = eff_freq_read(env, msr == MSR_AMD_APERF_RD_ONLY);
         break;
     case MSR_AMD64_AVIC_DOORBELL:
         /* Write-only. */

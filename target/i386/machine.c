@@ -1667,6 +1667,28 @@ static const VMStateDescription vmstate_osvw = {
     }
 };
 
+static bool eff_freq_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.features[FEAT_6_ECX] & CPUID_6_ECX_APERFMPERF;
+}
+
+/* The stamp is a TSC value, which the clocks' state carries along. */
+static const VMStateDescription vmstate_eff_freq = {
+    .name = "cpu/eff_freq",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = eff_freq_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT64(env.mperf, X86CPU),
+        VMSTATE_UINT64(env.aperf, X86CPU),
+        VMSTATE_UINT64(env.eff_freq_stamp, X86CPU),
+        VMSTATE_BOOL(env.eff_freq_halted, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 #ifdef TARGET_X86_64
 static bool intel_fred_msrs_needed(void *opaque)
 {
@@ -1996,6 +2018,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_xfd,
         &vmstate_msr_hwcr,
         &vmstate_osvw,
+        &vmstate_eff_freq,
 #ifdef TARGET_X86_64
         &vmstate_msr_fred,
         &vmstate_amx_xtile,

@@ -513,6 +513,8 @@ typedef enum X86Seg {
 #define MSR_IA32_PRED_CMD               0x49
 #define MSR_IA32_FLUSH_CMD              0x10b
 #define MSR_IA32_UCODE_REV              0x8b
+#define MSR_IA32_MPERF                  0xe7
+#define MSR_IA32_APERF                  0xe8
 #define MSR_IA32_CORE_CAPABILITY        0xcf
 
 #define SPEC_CTRL_IBRS                  (1ULL << 0)
@@ -689,6 +691,8 @@ typedef enum X86Seg {
 #define MSR_KERNELGSBASE                0xc0000102
 #define MSR_TSC_AUX                     0xc0000103
 #define MSR_AMD64_TSC_RATIO             0xc0000104
+#define MSR_AMD_MPERF_RD_ONLY           0xc00000e7
+#define MSR_AMD_APERF_RD_ONLY           0xc00000e8
 
 #define MSR_AMD64_TSC_RATIO_DEFAULT     0x100000000ULL
 #define MSR_AMD64_TSC_RATIO_RESERVED    0xffffff0000000000ULL
@@ -917,6 +921,7 @@ typedef enum FeatureWord {
     FEAT_24_1_ECX,      /* CPUID[EAX=0x24,ECX=0].ECX */
     FEAT_VMX_TERTIARY_CTLS,
     FEAT_8000_000A_ECX, /* CPUID[8000_000A].ECX */
+    FEAT_6_ECX,         /* CPUID[6].ECX */
     FEATURE_WORDS,
 } FeatureWord;
 
@@ -1449,8 +1454,13 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 
 #define CPUID_6_EAX_ARAT       (1U << 2)
 
+/* IA32_MPERF and IA32_APERF */
+#define CPUID_6_ECX_APERFMPERF (1U << 0)
+
 /* CPUID[0x80000007].EDX flags: */
 #define CPUID_APM_INVTSC       (1U << 8)
+/* AMD's read-only copies of MPERF and APERF */
+#define CPUID_APM_EFF_FREQ_RO  (1U << 10)
 
 /* "rng" RNG present (xstore) */
 #define CPUID_C000_0001_EDX_XSTORE             (1U << 2)
@@ -2666,6 +2676,14 @@ typedef struct CPUArchState {
     uint64_t virt_ssbd;
     /* How far WRMSR to IA32_TSC has moved this processor's TSC. */
     int64_t tsc_written_delta;
+    /*
+     * IA32_MPERF and IA32_APERF as of the TSC value eff_freq_stamp, from
+     * which they count but while eff_freq_halted (tcg/system/misc_helper.c).
+     */
+    uint64_t mperf;
+    uint64_t aperf;
+    uint64_t eff_freq_stamp;
+    bool eff_freq_halted;
 
     /* End of state preserved by INIT (dummy marker).  */
     struct {} end_init_save;

@@ -1179,7 +1179,13 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_1_ECX_FEATURES 0
 #define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
 #define TCG_7_2_EDX_FEATURES TCG_7_2_EDX_SPEC_CTRL
+#ifdef CONFIG_USER_ONLY
 #define TCG_APM_FEATURES 0
+#define TCG_6_ECX_FEATURES 0
+#else
+#define TCG_APM_FEATURES CPUID_APM_EFF_FREQ_RO
+#define TCG_6_ECX_FEATURES CPUID_6_ECX_APERFMPERF
+#endif
 #define TCG_6_EAX_FEATURES CPUID_6_EAX_ARAT
 #define TCG_XSAVE_FEATURES (CPUID_XSAVE_XSAVEOPT | CPUID_XSAVE_XSAVEC | \
           CPUID_XSAVE_XGETBV1 | CPUID_XSAVE_XSAVES)
@@ -1366,6 +1372,21 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         },
         .cpuid = { .eax = 0x8000000A, .reg = R_EDX, },
         .tcg_features = TCG_SVM_FEATURES,
+    },
+    [FEAT_6_ECX] = {
+        .type = CPUID_FEATURE_WORD,
+        .feat_names = {
+            "aperfmperf", NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+            NULL, NULL, NULL, NULL,
+        },
+        .cpuid = { .eax = 6, .reg = R_ECX, },
+        .tcg_features = TCG_6_ECX_FEATURES,
     },
     [FEAT_8000_000A_ECX] = {
         .type = CPUID_FEATURE_WORD,
@@ -1584,7 +1605,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .feat_names = {
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
-            "invtsc", NULL, NULL, NULL,
+            "invtsc", NULL, "eff-freq-ro", NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -2245,6 +2266,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },
         .to = { FEAT_8000_000A_ECX,         ~0ull },
+    },
+    {
+        .from = { FEAT_6_ECX,               CPUID_6_ECX_APERFMPERF },
+        .to = { FEAT_8000_0007_EDX,         CPUID_APM_EFF_FREQ_RO },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_WAITPKG },
@@ -9064,7 +9089,7 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         /* Thermal and Power Leaf */
         *eax = env->features[FEAT_6_EAX];
         *ebx = 0;
-        *ecx = 0;
+        *ecx = env->features[FEAT_6_ECX];
         *edx = 0;
         break;
     case 7:
@@ -9885,6 +9910,11 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
     apic_designate_bsp(cpu->apic_state, cs->cpu_index == 0);
 
     cs->halted = !cpu_is_bsp(cpu);
+    if (tcg_enabled()) {
+        /* MPERF and APERF start at zero, the APs' in the wait for SIPI. */
+        env->eff_freq_stamp = cpu_get_tsc(env);
+        env->eff_freq_halted = cs->halted;
+    }
 
 #if defined(CONFIG_IGVM)
     if (cpu_is_bsp(cpu)) {

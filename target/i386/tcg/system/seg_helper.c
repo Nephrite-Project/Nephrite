@@ -208,6 +208,7 @@ void x86_cpu_leaving_halt(CPUState *cpu)
     X86CPU *x86_cpu = X86_CPU(cpu);
     CPUX86State *env = cpu_env(cpu);
 
+    x86_eff_freq_halt(env, false);
     if (env->user_wait) {
         x86_user_wait_end(env);
     } else {

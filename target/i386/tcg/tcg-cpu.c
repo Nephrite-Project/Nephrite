@@ -48,6 +48,15 @@ static void x86_cpu_exec_exit(CPUState *cs)
 
     env->eflags = cpu_compute_eflags(env);
     cpu->eflags_in_tcg = false;
+#ifndef CONFIG_USER_ONLY
+    /*
+     * A halt starts where TCG stops running the processor for it; UMWAIT and
+     * TPAUSE wait in C0's substates, where MPERF counts.
+     */
+    if (cs->halted && !env->user_wait) {
+        x86_eff_freq_halt(env, true);
+    }
+#endif
 }
 
 #ifndef CONFIG_USER_ONLY
