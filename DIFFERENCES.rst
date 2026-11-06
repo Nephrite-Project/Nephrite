@@ -199,6 +199,9 @@ Processor emulation (TCG):
   hflags2 for IGNNE# only from the first CPU's thread").
 * CPUID leaf 0DH marks the CET and Arch LBR state components as
   supervisor ones, which IA32_XSS manages, for TCG as well as for KVM.
+* CR4's upper half, which holds CR4.FRED, survives TCG's and the gdbstub's
+  CR4 writes and SMM, whose state-save area has a quadword for CR4, and
+  register dumps show it.
 
 AMD SVM (TCG):
 

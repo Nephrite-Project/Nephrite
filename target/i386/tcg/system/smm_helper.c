@@ -80,7 +80,12 @@ static void sm_state_init_64(X86CPU *cpu)
     x86_stl_phys(cs, sm_state + 0x7f68, env->dr[6]);
     x86_stl_phys(cs, sm_state + 0x7f60, env->dr[7]);
 
-    x86_stl_phys(cs, sm_state + 0x7f48, env->cr[4]);
+    /*
+     * CR4 takes a quadword, whose upper half holds CR4.FRED (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, Table
+     * 10-1).
+     */
+    x86_stq_phys(cs, sm_state + 0x7f48, env->cr[4]);
     x86_stq_phys(cs, sm_state + 0x7f50, env->cr[3]);
     x86_stl_phys(cs, sm_state + 0x7f58, env->cr[0]);
 
@@ -253,7 +258,7 @@ static void rsm_load_regs_64(CPUX86State *env)
     HELPER(set_dr)(env, 6, x86_ldl_phys(cs, sm_state + 0x7f68));
     HELPER(set_dr)(env, 7, x86_ldl_phys(cs, sm_state + 0x7f60));
 
-    cpu_x86_update_cr4(env, x86_ldl_phys(cs, sm_state + 0x7f48));
+    cpu_x86_update_cr4(env, x86_ldq_phys(cs, sm_state + 0x7f48));
     cpu_x86_update_cr3(env, x86_ldq_phys(cs, sm_state + 0x7f50));
     cpu_x86_update_cr0(env, x86_ldl_phys(cs, sm_state + 0x7f58));
 

@@ -528,11 +528,12 @@ void x86_cpu_dump_state(CPUState *cs, FILE *f, int flags)
                      env->gdt.base, env->gdt.limit);
         qemu_fprintf(f, "IDT=     %016" PRIx64 " %08x\n",
                      env->idt.base, env->idt.limit);
-        qemu_fprintf(f, "CR0=%08x CR2=%016" PRIx64 " CR3=%016" PRIx64 " CR4=%08x\n",
+        qemu_fprintf(f, "CR0=%08x CR2=%016" PRIx64 " CR3=%016" PRIx64
+                     " CR4=%08" PRIx64 "\n",
                      (uint32_t)env->cr[0],
                      env->cr[2],
                      env->cr[3],
-                     (uint32_t)env->cr[4]);
+                     env->cr[4]);
         for(i = 0; i < 4; i++)
             qemu_fprintf(f, "DR%d=%016" PRIx64 " ", i, env->dr[i]);
         qemu_fprintf(f, "\nDR6=%016" PRIx64 " DR7=%016" PRIx64 "\n",

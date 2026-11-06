@@ -3454,7 +3454,7 @@ void x86_stq_phys(CPUState *cs, hwaddr addr, uint64_t val);
 void cpu_x86_update_cr0(CPUX86State *env, uint32_t new_cr0);
 void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3);
 void x86_update_lam(CPUX86State *env);
-void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4);
+void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4);
 void cpu_x86_update_dr7(CPUX86State *env, uint32_t new_dr7);
 bool x86_dr_addr_mask_exists(CPUX86State *env, int index);
 void x86_set_dr_addr_mask(CPUX86State *env, int index, uint64_t mask);

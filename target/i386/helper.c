@@ -244,12 +244,13 @@ void cpu_x86_update_cr3(CPUX86State *env, target_ulong new_cr3)
     }
 }
 
-void cpu_x86_update_cr4(CPUX86State *env, uint32_t new_cr4)
+void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4)
 {
     uint32_t hflags;
 
 #if defined(DEBUG_MMU)
-    printf("CR4 update: %08x -> %08x\n", (uint32_t)env->cr[4], new_cr4);
+    printf("CR4 update: %" PRIx64 " -> %" PRIx64 "\n", (uint64_t)env->cr[4],
+           new_cr4);
 #endif
     if ((new_cr4 ^ env->cr[4]) &
         (CR4_PAE_MASK | CR4_PGE_MASK | CR4_PSE_MASK | CR4_SMEP_MASK)) {
