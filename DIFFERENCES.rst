@@ -85,6 +85,9 @@ with fixes, among them:
   SD cards'.
 * A Phoenix-compatible A20 interface that HIMEM.SYS takes, which answers
   its queries correctly.
+* The MP tables list the first logical CPU of each core rather than of
+  each package; Windows NT 4.0 used to run on one processor of a
+  multi-core package.
 
 The images say ``-qemu-rebios`` in their version. What ReBIOS's SeaBIOS
 adds for ReBIOS itself is built only into its CSM images, not into these.
