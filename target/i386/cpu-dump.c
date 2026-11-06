@@ -471,12 +471,19 @@ static void dump_uintr(CPUX86State *env, FILE *f, int flags)
                  env->uintr_rr, env->uif);
 }
 
-/* TCG's DebugCtl and its last branch and last exception records. */
+/*
+ * TCG's DebugCtl and its last branch and last exception records, and
+ * MSR_MEMORY_CTRL's bus-lock controls.
+ */
 static void dump_lbr(CPUX86State *env, FILE *f, int flags)
 {
+    if (tcg_enabled() && env->memory_ctrl) {
+        qemu_fprintf(f, "MEMORY_CTRL=%016" PRIx64 "\n", env->memory_ctrl);
+    }
     if (!tcg_enabled() ||
         !dump_feature(flags, true,
-                      env->debugctl & (DEBUGCTL_LBR | DEBUGCTL_BTF))) {
+                      env->debugctl & (DEBUGCTL_LBR | DEBUGCTL_BTF |
+                                       DEBUGCTL_BLD))) {
         return;
     }
     qemu_fprintf(f, "DEBUGCTL=%016" PRIx64 " LBR_FROM=%016" PRIx64

@@ -186,6 +186,11 @@ Processor features:
   DR6.BLD after an instruction at CPL > 0 whose locked access splits a
   cache line or has a memory type other than WB, which TLB entries keep
   as the PAT, EPT, nested paging, the MTRRs, and CR0.CD give it.
+* Split-lock disable and UC-lock disable (MSR_MEMORY_CTRL, which
+  IA32_CORE_CAPABILITIES[5] and CPUID.07H.02H:EDX[6] enumerate): #AC(0)
+  and #AC(4) before such locked accesses, also the implicit ones that set
+  accessed, dirty, and busy flags; register dumps show MSR_MEMORY_CTRL and
+  DebugCtl.BLD.
 * The EVEX forms of INVEPT, INVVPID, INVPCID, WRSS, and WRUSS, which
   QEMU's APX decoding lacks (Intel APX 355828-009, 3.1.5).
 

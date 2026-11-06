@@ -40,6 +40,10 @@ typedef struct TranslateParams {
     const uint64_t *pdptes;
     /* The PAT whose entries the leaf's PAT, PCD, and PWT bits select. */
     uint64_t pat;
+    /* CR3 holds a PCID, not the top table's PCD and PWT. */
+    bool pcide;
+    /* The walk's flag updates are locked accesses that bus locks matter to. */
+    bool implicit_locks;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -73,13 +77,19 @@ typedef struct PTETranslate {
     int ptw_idx;
     void *haddr;
     hwaddr gaddr;
+    /* The TLB entry of the table, and the entry that refers to it. */
+    CPUTLBEntryFull *full;
+    uint64_t ref;
+    uint64_t pat;
+    bool implicit_locks;
+    uintptr_t ra;
     /* The entry was probed for loads, so flag updates probe for a store. */
     bool load_only;
     /* A flag update met an EPT violation, which ends the walk. */
     bool fault;
 } PTETranslate;
 
-static bool ptw_translate(PTETranslate *inout, hwaddr addr)
+static bool ptw_translate(PTETranslate *inout, hwaddr addr, uint64_t ref)
 {
     int flags;
 
@@ -91,6 +101,7 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr)
      * Programmer's Manual Volume 2, 24593 rev. 3.45, 15.25.5).
      */
     inout->gaddr = addr;
+    inout->ref = ref;
     inout->load_only = x86_vmx_ept_active(inout->env) ?
                        !x86_vmx_ept_ad(inout->env) :
                        inout->ptw_idx != MMU_PHYS_IDX &&
@@ -98,7 +109,8 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr)
     flags = probe_access_full_mmu(inout->env, addr, 0,
                                   inout->load_only ? MMU_DATA_LOAD
                                                    : MMU_DATA_STORE,
-                                  inout->ptw_idx, &inout->haddr, NULL);
+                                  inout->ptw_idx, &inout->haddr,
+                                  &inout->full);
 
     if (unlikely(flags & TLB_INVALID_MASK)) {
         TranslateFault *err = inout->err;
@@ -161,7 +173,7 @@ static bool ptw_setl_slow(PTETranslate *in, uint32_t old, uint32_t new)
 static bool ptw_store(PTETranslate *in)
 {
     int flags = probe_access_full_mmu(in->env, in->gaddr, 0, MMU_DATA_STORE,
-                                      in->ptw_idx, &in->haddr, NULL);
+                                      in->ptw_idx, &in->haddr, &in->full);
 
     if (unlikely(flags & TLB_INVALID_MASK)) {
         *in->err = (TranslateFault){
@@ -176,6 +188,31 @@ static bool ptw_store(PTETranslate *in)
     return true;
 }
 
+static bool pat_wb(CPUX86State *env, uint64_t pat, uint64_t pte,
+                   int page_size);
+
+/*
+ * Whether the table of the entry a walk updates is WB: by the PAT entry
+ * 2*PCD+PWT of the entry or CR3 that refers to it (Intel SDM 325462-093
+ * Vol. 3A, 5.9.2), joined with EPT's or nested paging's type of the table
+ * and the MTRRs as for a page.
+ */
+static bool ptw_wb(const PTETranslate *in)
+{
+    const CPUTLBEntryFull *full = in->full;
+    bool wb = pat_wb(in->env, in->pat,
+                     in->ref & (PG_PCD_MASK | PG_PWT_MASK), TARGET_PAGE_SIZE);
+    bool mtrr = true;
+
+    if (full->extra.x86.mtrr) {
+        wb &= full->extra.x86.wb;
+    } else {
+        wb = full->extra.x86.wb && (full->extra.x86.ipat || wb);
+        mtrr = false;
+    }
+    return x86_bus_lock_wb(in->env, wb, mtrr, full->phys_addr);
+}
+
 static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
 {
     if (set & ~old) {
@@ -183,6 +220,14 @@ static inline bool ptw_setl(PTETranslate *in, uint32_t old, uint32_t set)
 
         if (unlikely(in->load_only) && !ptw_store(in)) {
             return false;
+        }
+        /*
+         * The processor sets accessed and dirty flags with locked accesses
+         * (Intel SDM 325462-093 Vol. 3A, 11.1.2.1).
+         */
+        if (unlikely(x86_bus_lock_implicit_watched(in->env)) &&
+            in->implicit_locks) {
+            x86_bus_lock_implicit(in->env, ptw_wb(in), in->ra);
         }
         if (likely(in->haddr)) {
             old = cpu_to_le32(old);
@@ -310,6 +355,9 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         .env = env,
         .err = err,
         .ptw_idx = in->ptw_idx,
+        .pat = in->pat,
+        .implicit_locks = in->implicit_locks,
+        .ra = ra,
     };
     hwaddr pte_addr, paddr;
     uint32_t pkr;
@@ -318,6 +366,8 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     int prot;
     /* The page's memory type is WB before the MTRRs; without paging, it is. */
     bool wb = true, mtrr = true;
+    /* The PCD and PWT bits for the top table, from CR3 without PCIDs. */
+    const uint64_t cr3_ref = in->pcide ? 0 : in->cr3;
 #ifdef TARGET_X86_64
     /*
      * PML5Es and PML4Es have no PS bit; AMD reserves their bit 8 too
@@ -345,7 +395,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                  */
                 pte_addr = (in->cr3 & PG_ADDRESS_MASK) +
                            (((addr >> 48) & 0x1ff) << 3);
-                if (!ptw_translate(&pte_trans, pte_addr)) {
+                if (!ptw_translate(&pte_trans, pte_addr, cr3_ref)) {
                     return false;
                 }
             restart_5:
@@ -372,7 +422,8 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
              * Page table level 4
              */
             pte_addr = (pte & PG_ADDRESS_MASK) + (((addr >> 39) & 0x1ff) << 3);
-            if (!ptw_translate(&pte_trans, pte_addr)) {
+            if (!ptw_translate(&pte_trans, pte_addr,
+                               pg_mode & PG_MODE_LA57 ? pte : cr3_ref)) {
                 return false;
             }
         restart_4:
@@ -395,7 +446,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
              * Page table level 3
              */
             pte_addr = (pte & PG_ADDRESS_MASK) + (((addr >> 30) & 0x1ff) << 3);
-            if (!ptw_translate(&pte_trans, pte_addr)) {
+            if (!ptw_translate(&pte_trans, pte_addr, pte)) {
                 return false;
             }
         restart_3_lma:
@@ -430,7 +481,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                 pte = in->pdptes[(addr >> 30) & 3];
             } else {
                 pte_addr = (in->cr3 & 0xffffffe0ULL) + ((addr >> 27) & 0x18);
-                if (!ptw_translate(&pte_trans, pte_addr)) {
+                if (!ptw_translate(&pte_trans, pte_addr, cr3_ref)) {
                     return false;
                 }
                 pte = ptw_ldq(&pte_trans, ra);
@@ -449,7 +500,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
          * Page table level 2
          */
         pte_addr = (pte & PG_ADDRESS_MASK) + (((addr >> 21) & 0x1ff) << 3);
-        if (!ptw_translate(&pte_trans, pte_addr)) {
+        if (!ptw_translate(&pte_trans, pte_addr, pte)) {
             return false;
         }
     restart_2_pae:
@@ -479,7 +530,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
          * Page table level 1
          */
         pte_addr = (pte & PG_ADDRESS_MASK) + (((addr >> 12) & 0x1ff) << 3);
-        if (!ptw_translate(&pte_trans, pte_addr)) {
+        if (!ptw_translate(&pte_trans, pte_addr, pte)) {
             return false;
         }
         pte = ptw_ldq(&pte_trans, ra);
@@ -498,7 +549,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
          * Page table level 2
          */
         pte_addr = (in->cr3 & 0xfffff000ULL) + ((addr >> 20) & 0xffc);
-        if (!ptw_translate(&pte_trans, pte_addr)) {
+        if (!ptw_translate(&pte_trans, pte_addr, cr3_ref)) {
             return false;
         }
     restart_2_nopae:
@@ -530,7 +581,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
          * Page table level 1
          */
         pte_addr = (pte & ~0xfffu) + ((addr >> 10) & 0xffc);
-        if (!ptw_translate(&pte_trans, pte_addr)) {
+        if (!ptw_translate(&pte_trans, pte_addr, pte)) {
             return false;
         }
         pte = ptw_ldl(&pte_trans, ra);
@@ -852,7 +903,7 @@ static bool lass_violation(CPUX86State *env, vaddr addr,
 static bool get_physical_address(CPUX86State *env, vaddr addr,
                                  MMUAccessType access_type, int mmu_idx,
                                  TranslateResult *out, TranslateFault *err,
-                                 uint64_t ra)
+                                 bool implicit_locks, uint64_t ra)
 {
     TranslateParams in;
     bool use_stage2 = env->hflags2 & HF2_NPT_MASK;
@@ -890,6 +941,8 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             in.cr3 = env->nested_cr3;
             in.pdptes = NULL;
             in.pat = env->pat;
+            in.pcide = false;
+            in.implicit_locks = false;
             in.pg_mode = env->nested_pg_mode;
             in.mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
             /*
@@ -929,6 +982,9 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             /* Under nested paging, the guest's PAT is G_PAT. */
             in.pat = use_stage2 && !env->vmx.nonroot ? env->svm_gpat
                                                      : env->pat;
+            in.pcide = (env->hflags & HF_LMA_MASK) &&
+                       (env->cr[4] & CR4_PCIDE_MASK);
+            in.implicit_locks = implicit_locks;
             in.mmu_idx = mmu_idx;
             in.ptw_idx = MMU_PHYS_IDX;
             if (use_stage2) {
@@ -1019,7 +1075,7 @@ static void svm_fetch_insn_bytes(CPUX86State *env, MMUAccessType access_type,
             TranslateFault err;
 
             if (!get_physical_address(env, addr, MMU_INST_FETCH, mmu_idx,
-                                      &out, &err, 0)) {
+                                      &out, &err, false, 0)) {
                 break;
             }
             page = addr & TARGET_PAGE_MASK;
@@ -1090,7 +1146,7 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     TranslateFault err;
 
     if (get_physical_address(env, addr, access_type, mmu_idx, &out, &err,
-                             retaddr)) {
+                             !probe, retaddr)) {
         MemTxAttrs attrs = cpu_get_mem_attrs(env);
         hwaddr pa = out.paddr;
         CPUTLBEntryFull full;

@@ -521,6 +521,9 @@ typedef enum X86Seg {
 #define MSR_IA32_MPERF                  0xe7
 #define MSR_IA32_APERF                  0xe8
 #define MSR_IA32_CORE_CAPABILITY        0xcf
+#define MSR_MEMORY_CTRL                 0x33
+#define MEMORY_CTRL_UC_LOCK_DISABLE     (1ULL << 28)
+#define MEMORY_CTRL_SPLIT_LOCK_DISABLE  (1ULL << 29)
 
 #define SPEC_CTRL_IBRS                  (1ULL << 0)
 #define SPEC_CTRL_STIBP                 (1ULL << 1)
@@ -1311,6 +1314,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 
 /* Do not exhibit MXCSR Configuration Dependent Timing (MCDT) behavior */
 #define CPUID_7_2_EDX_MCDT_NO           (1U << 5)
+/* UC-lock disable, whose locks raise #AC(4) */
+#define CPUID_7_2_EDX_UC_LOCK_DISABLE   (1U << 6)
 
 /* XFD Extend Feature Disabled */
 #define CPUID_D_1_EAX_XFD               (1U << 4)
@@ -2940,6 +2945,8 @@ typedef struct CPUArchState {
 
     /* DebugCtl, and the last control transfers it has had recorded. */
     uint64_t debugctl;
+    /* MSR_MEMORY_CTRL's split-lock and UC-lock disable bits. */
+    uint64_t memory_ctrl;
     target_ulong lbr_from;
     target_ulong lbr_to;
     target_ulong lbr_int_from;

@@ -385,6 +385,21 @@ static void tsc_changed(CPUX86State *env)
 }
 
 /*
+ * The MSR_MEMORY_CTRL bits the processor has: split-lock disable, which
+ * IA32_CORE_CAPABILITIES[5] enumerates, and UC-lock disable, which
+ * CPUID.07H.02H:EDX[6] does (Intel SDM 325462-093 Vol. 3A, 11.1.2.3); the
+ * MSR exists where either does.
+ */
+static uint64_t memory_ctrl_bits(CPUX86State *env)
+{
+    return (env->features[FEAT_CORE_CAPABILITY] &
+            MSR_CORE_CAP_SPLIT_LOCK_DETECT ?
+            MEMORY_CTRL_SPLIT_LOCK_DISABLE : 0) |
+           (env->features[FEAT_7_2_EDX] & CPUID_7_2_EDX_UC_LOCK_DISABLE ?
+            MEMORY_CTRL_UC_LOCK_DISABLE : 0);
+}
+
+/*
  * The IA32_SPEC_CTRL bits CPUID shows (Intel SDM 325462-093 Vol. 4, Table
  * 2-2; APM 24593 rev. 3.45, 3.2.9); the MSR exists where any is. TCG does
  * not speculate, so the controls need only keep their values.
@@ -1059,9 +1074,19 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         break;
     case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_EXIT_CTLS2:
     case MSR_IA32_ARCH_CAPABILITIES:
+    case MSR_IA32_CORE_CAPABILITY:
     case MSR_IA32_XAPIC_DISABLE_STATUS:
         /* Read-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
         return false;
+    case MSR_MEMORY_CTRL:
+        if (!memory_ctrl_bits(env) || (val & ~memory_ctrl_bits(env))) {
+            return false;
+        }
+        if (val) {
+            x86_bus_lock_watch(env);
+        }
+        env->memory_ctrl = val;
+        break;
     case MSR_IA32_SPEC_CTRL:
         if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
             return false;
@@ -1487,6 +1512,18 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
             return false;
         }
         val = env->features[FEAT_ARCH_CAPABILITIES];
+        break;
+    case MSR_IA32_CORE_CAPABILITY:
+        if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_CORE_CAPABILITY)) {
+            return false;
+        }
+        val = env->features[FEAT_CORE_CAPABILITY];
+        break;
+    case MSR_MEMORY_CTRL:
+        if (!memory_ctrl_bits(env)) {
+            return false;
+        }
+        val = env->memory_ctrl;
         break;
     case MSR_IA32_XAPIC_DISABLE_STATUS:
         if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_CAPABILITIES) ||

@@ -41,7 +41,7 @@ static void x86_cpu_exec_enter(CPUState *cs)
     cpu->eflags_in_tcg = true;
 #ifndef CONFIG_USER_ONLY
     /* State loaded from elsewhere, as by migration, may watch bus locks. */
-    if (unlikely(env->debugctl & DEBUGCTL_BLD)) {
+    if (unlikely((env->debugctl & DEBUGCTL_BLD) || env->memory_ctrl)) {
         x86_bus_lock_watch(env);
     }
 #endif

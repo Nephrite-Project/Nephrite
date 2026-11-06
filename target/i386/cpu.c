@@ -1145,7 +1145,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_0_EDX_FEATURES (CPUID_7_0_EDX_FSRM | \
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
           TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES | \
-          TCG_7_0_EDX_UINTR)
+          TCG_7_0_EDX_UINTR | CPUID_7_0_EDX_CORE_CAPABILITY)
 
 #ifdef CONFIG_USER_ONLY
 /*
@@ -1182,7 +1182,16 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           TCG_7_1_EAX_FRED)
 #define TCG_7_1_ECX_FEATURES 0
 #define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
-#define TCG_7_2_EDX_FEATURES TCG_7_2_EDX_SPEC_CTRL
+#ifdef CONFIG_USER_ONLY
+#define TCG_7_2_EDX_UC_LOCK_DISABLE 0
+/* IA32_CORE_CAPABILITIES cannot be read from user mode. */
+#define TCG_CORE_CAPABILITY (~0ULL)
+#else
+#define TCG_7_2_EDX_UC_LOCK_DISABLE CPUID_7_2_EDX_UC_LOCK_DISABLE
+#define TCG_CORE_CAPABILITY MSR_CORE_CAP_SPLIT_LOCK_DETECT
+#endif
+#define TCG_7_2_EDX_FEATURES (TCG_7_2_EDX_SPEC_CTRL | \
+          TCG_7_2_EDX_UC_LOCK_DISABLE)
 #ifdef CONFIG_USER_ONLY
 #define TCG_APM_FEATURES 0
 #define TCG_6_ECX_FEATURES 0
@@ -1528,7 +1537,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             "intel-psfd", "ipred-ctrl", "rrsba-ctrl", "ddpd-u",
-            "bhi-ctrl", "mcdt-no", NULL, NULL,
+            "bhi-ctrl", "mcdt-no", "uc-lock-disable", NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -1843,6 +1852,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .msr = {
             .index = MSR_IA32_CORE_CAPABILITY,
         },
+        .tcg_features = TCG_CORE_CAPABILITY,
     },
     [FEAT_PERF_CAPABILITIES] = {
         .type = MSR_FEATURE_WORD,

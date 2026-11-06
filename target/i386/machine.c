@@ -1502,6 +1502,24 @@ static const VMStateDescription vmstate_svm_npt = {
     }
 };
 
+static bool memory_ctrl_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.memory_ctrl != 0;
+}
+
+static const VMStateDescription vmstate_memory_ctrl = {
+    .name = "cpu/memory_ctrl",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = memory_ctrl_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT64(env.memory_ctrl, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static const VMStateDescription vmstate_svm_gpat = {
     .name = "cpu/svm_gpat",
     .version_id = 1,
@@ -2034,6 +2052,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_virt_ssbd,
         &vmstate_svm_npt,
         &vmstate_svm_gpat,
+        &vmstate_memory_ctrl,
         &vmstate_svm_guest,
 #ifndef TARGET_X86_64
         &vmstate_efer32,

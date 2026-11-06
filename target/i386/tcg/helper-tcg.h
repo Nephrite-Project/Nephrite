@@ -230,6 +230,15 @@ void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra);
 /* The translator checks locked instructions for bus locks. */
 extern bool x86_bus_lock_checks;
 void x86_bus_lock_watch(CPUX86State *env);
+bool x86_bus_lock_wb(CPUX86State *env, bool wb, bool mtrr, hwaddr pa);
+void x86_bus_lock_implicit(CPUX86State *env, bool wb, uintptr_t ra);
+void x86_bus_lock_desc(CPUX86State *env, target_ulong addr, uintptr_t ra);
+
+/* Whether implicit locked accesses need checking for bus locks. */
+static inline bool x86_bus_lock_implicit_watched(CPUX86State *env)
+{
+    return env->memory_ctrl & MEMORY_CTRL_UC_LOCK_DISABLE;
+}
 #endif
 
 /* system/misc_helper.c */
