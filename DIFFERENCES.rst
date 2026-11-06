@@ -187,9 +187,9 @@ Processor emulation (TCG):
 * MSR accesses that the processor refuses fault; the Pentium's machine
   check MSRs read as 0.
 * A #DB's DR6 bits are written as the exception is delivered, MOV SS's
-  data breakpoints are held past the next instruction, instruction
-  breakpoints match linear addresses, and AMD's address masks apply to
-  instruction fetches.
+  data breakpoints are held past the next instruction, whose instruction
+  breakpoints Intel processors suppress, instruction breakpoints match
+  linear addresses, and AMD's address masks apply to instruction fetches.
 * NMIs are held in the STI and MOV SS shadows, a second NMI waits behind a
   pending one, and the local APIC's timer keeps its count across mode
   changes.

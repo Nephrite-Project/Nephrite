@@ -241,8 +241,14 @@ static bool x86_debug_check_breakpoint(CPUState *cs)
     X86CPU *cpu = X86_CPU(cs);
     CPUX86State *env = &cpu->env;
 
-    /* RF disables all architectural breakpoints. */
-    return !(env->eflags & RF_MASK);
+    /*
+     * RF disables all architectural breakpoints, and on Intel processors
+     * MOV SS and POP SS the instruction breakpoints of the next instruction
+     * (Intel SDM 325462-093 Vol. 3A, 7.8.3).
+     */
+    return !(env->eflags & RF_MASK) &&
+           !(IS_INTEL_CPU(env) && (env->hflags & HF_INHIBIT_IRQ_MASK) &&
+             env->shadow_movss);
 }
 
 static void x86_cpu_exec_reset(CPUState *cs)
