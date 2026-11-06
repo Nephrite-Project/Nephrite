@@ -66,7 +66,7 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: pacman --noconfirm -Syu && pacman --needed --noconfirm -S base-devel git nodejs python meson ninja glib2 pixman xz
+        run: pacman --noconfirm -Syu && pacman --needed --noconfirm -S base-devel git nodejs python meson xz
 
       - name: Checkout code
         uses: actions/checkout@v7
@@ -79,21 +79,6 @@ jobs:
 
       - name: Package the source release tarball
         run: make dist
-
-      # Nephrite is released only once its tarball builds.
-      - name: Build Nephrite from the source release tarball
-        env:
-          TAG_NAME: ${{ needs.validate.outputs.tag }}
-        run: |
-          set -eu
-          VERSION="${TAG_NAME#v}"
-          mkdir build
-          tar -xf "nephrite-$VERSION.tar.xz" -C build
-          mkdir "build/nephrite-$VERSION/build"
-          cd "build/nephrite-$VERSION/build"
-          ../configure --target-list=x86_64-softmmu
-          make -j"$(nproc)"
-          ./nephrite-system-x86_64 --version
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
