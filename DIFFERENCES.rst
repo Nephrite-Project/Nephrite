@@ -233,7 +233,9 @@ Processor emulation (TCG):
   raise #AC with alignment checking.
 * MSR accesses that the processor refuses fault, as do EFER writes that
   set reserved bits or change LME while paging is on, on AMD's processors
-  those that change LMA, and IA32_PAT writes of reserved memory types; the
+  those that change LMA, IA32_PAT writes of reserved memory types, and MTRR
+  writes of reserved memory types, reserved bits, or addresses past
+  MAXPHYADDR, as do accesses to the MTRRs where CPUID shows none; the
   Pentium's machine check MSRs read as 0.
 * A #DB's DR6 bits are written as the exception is delivered, MOV SS's
   data breakpoints are held past the next instruction, whose instruction

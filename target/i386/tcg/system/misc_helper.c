@@ -385,6 +385,50 @@ static void tsc_changed(CPUX86State *env)
 }
 
 /*
+ * The values WRMSR writes to the MTRRs, which exist with CPUID.01H:EDX[12]:
+ * one of the memory types UC, WC, WT, WP, and WB in each type field, the
+ * reserved bits clear, and in the variable ranges' bases and masks the
+ * bits past MAXPHYADDR (Intel SDM 325462-093 Vol. 3A, 14.11.2.1 to
+ * 14.11.2.3 and Table 14-8; AMD64 Architecture Programmer's Manual Volume
+ * 2, 24593 rev. 3.46, 7.7.1 and 7.7.2), as Linux 7.3's KVM checks them
+ * (kvm_mtrr_valid()).
+ */
+static bool mtrr_types_valid(uint64_t val, int fields)
+{
+    for (int i = 0; i < fields; i++) {
+        uint8_t type = val >> (8 * i);
+
+        if (type == 2 || type == 3 || type > 6) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool mtrr_valid(CPUX86State *env, uint32_t msr, uint64_t val)
+{
+    uint64_t rsvd = ~MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
+
+    if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+        return false;
+    }
+    switch (msr) {
+    case MSR_MTRRdefType:
+        return !(val & ~0xcffULL) && mtrr_types_valid(val, 1);
+    case MSR_MTRRfix64K_00000:
+    case MSR_MTRRfix16K_80000:
+    case MSR_MTRRfix16K_A0000:
+    case MSR_MTRRfix4K_C0000 ... MSR_MTRRfix4K_F8000:
+        return mtrr_types_valid(val, 8);
+    default:
+        if (!((msr - MSR_MTRRphysBase(0)) & 1)) {
+            return !(val & (rsvd | 0xf00)) && mtrr_types_valid(val, 1);
+        }
+        return !(val & (rsvd | 0x7ff));
+    }
+}
+
+/*
  * The MSR_MEMORY_CTRL bits the processor has: split-lock disable, which
  * IA32_CORE_CAPABILITIES[5] enumerates, and UC-lock disable, which
  * CPUID.07H.02H:EDX[6] does (Intel SDM 325462-093 Vol. 3A, 11.1.2.3); the
@@ -792,6 +836,9 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_MTRRphysBase(5):
     case MSR_MTRRphysBase(6):
     case MSR_MTRRphysBase(7):
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_var[(msr -
                        MSR_MTRRphysBase(0)) / 2].base = val;
         break;
@@ -803,15 +850,24 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_MTRRphysMask(5):
     case MSR_MTRRphysMask(6):
     case MSR_MTRRphysMask(7):
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_var[(msr -
                        MSR_MTRRphysMask(0)) / 2].mask = val;
         break;
     case MSR_MTRRfix64K_00000:
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_fixed[msr -
                         MSR_MTRRfix64K_00000] = val;
         break;
     case MSR_MTRRfix16K_80000:
     case MSR_MTRRfix16K_A0000:
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_fixed[msr -
                         MSR_MTRRfix16K_80000 + 1] = val;
         break;
@@ -823,10 +879,16 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_MTRRfix4K_E8000:
     case MSR_MTRRfix4K_F0000:
     case MSR_MTRRfix4K_F8000:
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_fixed[msr -
                         MSR_MTRRfix4K_C0000 + 3] = val;
         break;
     case MSR_MTRRdefType:
+        if (!mtrr_valid(env, msr, val)) {
+            return false;
+        }
         env->mtrr_deftype = val;
         break;
     case MSR_MCG_STATUS:
@@ -1076,6 +1138,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_IA32_ARCH_CAPABILITIES:
     case MSR_IA32_CORE_CAPABILITY:
     case MSR_IA32_XAPIC_DISABLE_STATUS:
+    case MSR_MTRRcap:
         /* Read-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
         return false;
     case MSR_MEMORY_CTRL:
@@ -1259,6 +1322,9 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_MTRRphysBase(5):
     case MSR_MTRRphysBase(6):
     case MSR_MTRRphysBase(7):
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_var[(msr -
                              MSR_MTRRphysBase(0)) / 2].base;
         break;
@@ -1270,14 +1336,23 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_MTRRphysMask(5):
     case MSR_MTRRphysMask(6):
     case MSR_MTRRphysMask(7):
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_var[(msr -
                              MSR_MTRRphysMask(0)) / 2].mask;
         break;
     case MSR_MTRRfix64K_00000:
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_fixed[0];
         break;
     case MSR_MTRRfix16K_80000:
     case MSR_MTRRfix16K_A0000:
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_fixed[msr -
                               MSR_MTRRfix16K_80000 + 1];
         break;
@@ -1289,20 +1364,24 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     case MSR_MTRRfix4K_E8000:
     case MSR_MTRRfix4K_F0000:
     case MSR_MTRRfix4K_F8000:
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_fixed[msr -
                               MSR_MTRRfix4K_C0000 + 3];
         break;
     case MSR_MTRRdefType:
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
+        }
         val = env->mtrr_deftype;
         break;
     case MSR_MTRRcap:
-        if (env->features[FEAT_1_EDX] & CPUID_MTRR) {
-            val = MSR_MTRRcap_VCNT | MSR_MTRRcap_FIXRANGE_SUPPORT |
-                MSR_MTRRcap_WC_SUPPORTED;
-        } else {
-            /* XXX: exception? */
-            val = 0;
+        if (!(env->features[FEAT_1_EDX] & CPUID_MTRR)) {
+            return false;
         }
+        val = MSR_MTRRcap_VCNT | MSR_MTRRcap_FIXRANGE_SUPPORT |
+              MSR_MTRRcap_WC_SUPPORTED;
         break;
     case MSR_P5_MC_ADDR:
     case MSR_P5_MC_TYPE:
