@@ -96,7 +96,8 @@ static void ioapic_entry_parse(uint64_t entry, struct ioapic_entry_info *info)
 
 static void ioapic_service(IOAPICCommonState *s)
 {
-    AddressSpace *ioapic_as = X86_MACHINE(qdev_get_machine())->ioapic_as;
+    X86MachineState *x86ms = X86_MACHINE(qdev_get_machine());
+    AddressSpace *ioapic_as = x86ms->ioapic_as;
     struct ioapic_entry_info info;
     uint8_t i;
     uint32_t mask;
@@ -142,7 +143,7 @@ static void ioapic_service(IOAPICCommonState *s)
                  * address space will decide whether we need a
                  * translation. */
                 address_space_stl_le(ioapic_as, info.addr, info.data,
-                                     MEMTXATTRS_UNSPECIFIED, NULL);
+                                     x86ms->ioapic_attrs, NULL);
             }
         }
     }

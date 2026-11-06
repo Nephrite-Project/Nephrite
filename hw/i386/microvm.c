@@ -341,6 +341,8 @@ static void microvm_memory_init(MicrovmMachineState *mms)
 
     x86ms->fw_cfg = fw_cfg;
     x86ms->ioapic_as = &address_space_memory;
+    x86ms->ioapic_attrs = MEMTXATTRS_UNSPECIFIED;
+    x86ms->hpet_attrs = MEMTXATTRS_UNSPECIFIED;
 }
 
 static gchar *microvm_get_mmio_cmdline(gchar *name, uint32_t virtio_irq_base)

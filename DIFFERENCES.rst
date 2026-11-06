@@ -286,6 +286,9 @@ Devices:
 * The AMD IOMMU reads every DTE again at INVALIDATE_IOMMU_ALL.
 * HPET FSB interrupts go through the IOMMU, with the DMAR and IVRS entries
   that let guests remap them.
+* The I/O APIC's and the HPETs' interrupts carry the requester IDs that the
+  DMAR and IVRS give them, which VT-d checks against the source IDs of
+  their interrupt remapping table entries.
 * The AMD IOMMU names the southbridge by the root bus's ISA bridge, so
   that Linux enables interrupt remapping on q35.
 * ATAPI completes the commands that a pending unit attention refuses; on
@@ -347,7 +350,6 @@ Known deviations and limits
   over its cache line.
 * PDPTEs are read at walk time after task switches and RSM; under SVM's
   nested paging, guests see PDPEs read on demand, as on AMD processors.
-* HPET FSB interrupts carry no requester ID, like the I/O APIC's.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to
   the APIC-access page during event delivery always exit, and

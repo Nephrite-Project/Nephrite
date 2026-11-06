@@ -2991,6 +2991,12 @@ static void amdvi_sysbus_realize(DeviceState *dev, Error **errp)
         x86ms->ioapic_as = amdvi_host_dma_iommu(pcms->pcibus, s,
                                                 PCI_BDF_TO_DEVFN(s->sb_devid));
     }
+    /*
+     * The device IDs of the IVRS's I/O APIC and HPET entries (AMD IOMMU
+     * 48882 rev. 3.11, Table 109).
+     */
+    x86ms->ioapic_attrs = (MemTxAttrs) { .requester_id = s->sb_devid };
+    x86ms->hpet_attrs = (MemTxAttrs) { .requester_id = s->sb_devid };
 
     if (kvm_enabled() && x86ms->apic_id_limit > 255 && !s->xtsup) {
         error_report("AMD IOMMU with x2APIC configuration requires xtsup=on");

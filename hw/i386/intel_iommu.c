@@ -5812,6 +5812,19 @@ static void vtd_realize(DeviceState *dev, Error **errp)
     pci_setup_iommu(bus, &vtd_iommu_ops, dev);
     /* Pseudo address space under root PCI bus. */
     x86ms->ioapic_as = vtd_host_dma_iommu(bus, s, Q35_PSEUDO_DEVFN_IOAPIC);
+    /*
+     * The source IDs of the DMAR's I/O APIC and HPET device scopes, which
+     * interrupt remapping checks (VT-d D51397-019 rev. 5.20, 8.3.1.1,
+     * 8.3.1.2, and 9.9).
+     */
+    x86ms->ioapic_attrs = (MemTxAttrs) {
+        .requester_id = PCI_BUILD_BDF(Q35_PSEUDO_BUS_PLATFORM,
+                                      Q35_PSEUDO_DEVFN_IOAPIC),
+    };
+    x86ms->hpet_attrs = (MemTxAttrs) {
+        .requester_id = PCI_BUILD_BDF(Q35_PSEUDO_BUS_PLATFORM,
+                                      Q35_PSEUDO_DEVFN_HPET),
+    };
 }
 
 static void vtd_class_init(ObjectClass *klass, const void *data)

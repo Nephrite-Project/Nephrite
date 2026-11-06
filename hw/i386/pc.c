@@ -920,6 +920,8 @@ void pc_memory_init(PCMachineState *pcms,
 
     /* Init default IOAPIC address space */
     x86ms->ioapic_as = &address_space_memory;
+    x86ms->ioapic_attrs = MEMTXATTRS_UNSPECIFIED;
+    x86ms->hpet_attrs = MEMTXATTRS_UNSPECIFIED;
 
     /* Init ACPI memory hotplug IO base address */
     pcms->memhp_io_base = ACPI_MEMORY_HOTPLUG_BASE;

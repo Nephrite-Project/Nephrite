@@ -202,6 +202,15 @@ static AddressSpace *hpet_fsb_as(void)
     return machine ? X86_MACHINE(machine)->ioapic_as : &address_space_memory;
 }
 
+/* With the requester ID that the IOMMU's ACPI tables give the HPETs. */
+static MemTxAttrs hpet_fsb_attrs(void)
+{
+    Object *machine = object_dynamic_cast(qdev_get_machine(),
+                                          TYPE_X86_MACHINE);
+
+    return machine ? X86_MACHINE(machine)->hpet_attrs : MEMTXATTRS_UNSPECIFIED;
+}
+
 static void update_irq(struct HPETTimer *timer, int set)
 {
     uint64_t mask;
@@ -233,7 +242,7 @@ static void update_irq(struct HPETTimer *timer, int set)
     if (set && timer_enabled(timer) && hpet_enabled(s)) {
         if (timer_fsb_route(timer)) {
             address_space_stl_le(hpet_fsb_as(), timer->fsb >> 32,
-                                 timer->fsb & 0xffffffff, MEMTXATTRS_UNSPECIFIED,
+                                 timer->fsb & 0xffffffff, hpet_fsb_attrs(),
                                  NULL);
         } else if (timer->config & HPET_TN_TYPE_LEVEL) {
             BQL_LOCK_GUARD();

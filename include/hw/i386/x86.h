@@ -84,6 +84,12 @@ struct X86MachineState {
      * will be translated to MSI messages in the address space.
      */
     AddressSpace *ioapic_as;
+    /*
+     * The attributes of the I/O APIC's and the HPETs' interrupt messages:
+     * the requester IDs that the IOMMU's ACPI tables give them, or none.
+     */
+    MemTxAttrs ioapic_attrs;
+    MemTxAttrs hpet_attrs;
 
     /*
      * Ratelimit enforced on detected bus locks in guest.
