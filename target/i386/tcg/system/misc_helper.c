@@ -848,6 +848,20 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
                                        ~val;
         break;
     }
+    case MSR_AMD_OSVW_ID_LENGTH:
+        /* Bits 63:16 are reserved. */
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_OSVW) ||
+            (val >> 16)) {
+            return false;
+        }
+        env->osvw_length = val;
+        break;
+    case MSR_AMD_OSVW_STATUS:
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_OSVW)) {
+            return false;
+        }
+        env->osvw_status = val;
+        break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
         int index = msr == MSR_DR0_ADDR_MASK ? 0 :
@@ -1253,6 +1267,18 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
               ~env->amd_cpuid_hidden[index];
         break;
     }
+    case MSR_AMD_OSVW_ID_LENGTH:
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_OSVW)) {
+            return false;
+        }
+        val = env->osvw_length;
+        break;
+    case MSR_AMD_OSVW_STATUS:
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_OSVW)) {
+            return false;
+        }
+        val = env->osvw_status;
+        break;
     case MSR_DR0_ADDR_MASK:
     case MSR_DR1_ADDR_MASK ... MSR_DR1_ADDR_MASK + 2: {
         int index = msr == MSR_DR0_ADDR_MASK ? 0 :

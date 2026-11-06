@@ -705,6 +705,14 @@ typedef enum X86Seg {
 #define MSR_AMD_CPUID_FEATURES          0xc0011004
 #define MSR_AMD_CPUID_EXT_FEATURES      0xc0011005
 
+/*
+ * The OS-visible workaround MSRs: the length of the erratum status vector,
+ * and its first 64 bits (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.46, Appendix E).
+ */
+#define MSR_AMD_OSVW_ID_LENGTH          0xc0010140
+#define MSR_AMD_OSVW_STATUS             0xc0010141
+
 #define MSR_VM_HSAVE_PA                 0xc0010117
 #define MSR_AMD64_AVIC_DOORBELL         0xc001011b
 
@@ -2895,6 +2903,10 @@ typedef struct CPUArchState {
     uint64_t msr_pkg_energy_status;
 
     /* Fields up to this point are cleared by a CPU reset */
+    /* The OS-visible workaround MSRs. */
+    uint64_t osvw_length;
+    uint64_t osvw_status;
+
     struct {} end_reset_fields;
 
     /* Fields after this point are preserved across CPU reset. */

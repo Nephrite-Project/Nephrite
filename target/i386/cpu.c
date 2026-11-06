@@ -1042,7 +1042,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 
 #define TCG_EXT3_FEATURES (CPUID_EXT3_LAHF_LM | CPUID_EXT3_SVM | \
           CPUID_EXT3_CR8LEG | CPUID_EXT3_ABM | CPUID_EXT3_SSE4A | \
-          CPUID_EXT3_3DNOWPREFETCH | CPUID_EXT3_KERNEL_FEATURES | \
+          CPUID_EXT3_3DNOWPREFETCH | CPUID_EXT3_OSVW | \
+          CPUID_EXT3_KERNEL_FEATURES | \
           CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT | \
           CPUID_EXT3_EXTAPIC | \
           TCG_EXT3_PMU)
@@ -9804,6 +9805,11 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
     }
 
     env->msr_ia32_misc_enable = MSR_IA32_MISC_ENABLE_DEFAULT;
+    /*
+     * The errata that OSVW IDs 0 to 3 stand for, which TCG does not have:
+     * Linux's KVM gives its guests the same length (arch/x86/kvm/svm/svm.c).
+     */
+    env->osvw_length = 4;
     if (env->features[FEAT_1_ECX] & CPUID_EXT_MONITOR) {
         env->msr_ia32_misc_enable |= MSR_IA32_MISC_ENABLE_MWAIT;
     }

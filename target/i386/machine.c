@@ -1647,6 +1647,26 @@ static const VMStateDescription vmstate_msr_hwcr = {
     }
 };
 
+static bool osvw_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return env->osvw_length != 4 || env->osvw_status != 0;
+}
+
+static const VMStateDescription vmstate_osvw = {
+    .name = "cpu/osvw",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = osvw_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT64(env.osvw_length, X86CPU),
+        VMSTATE_UINT64(env.osvw_status, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 #ifdef TARGET_X86_64
 static bool intel_fred_msrs_needed(void *opaque)
 {
@@ -1975,6 +1995,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_pdptrs,
         &vmstate_msr_xfd,
         &vmstate_msr_hwcr,
+        &vmstate_osvw,
 #ifdef TARGET_X86_64
         &vmstate_msr_fred,
         &vmstate_amx_xtile,
