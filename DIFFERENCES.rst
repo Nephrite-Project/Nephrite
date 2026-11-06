@@ -153,7 +153,8 @@ Processor features:
   (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID faulting,
   WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
-  FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, and CLZERO.
+  FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
+  extensions, and CLZERO.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
