@@ -457,6 +457,7 @@ int exception_has_error_code(int intno);
 void do_smm_enter(X86CPU *cpu);
 
 /* system/bpt_helper.c */
+void x86_load_dr6(CPUX86State *env, target_ulong val);
 uint32_t hw_breakpoint_hits(CPUX86State *env, bool *enabled);
 uint32_t hw_data_breakpoint_hits(CPUX86State *env, bool *enabled);
 bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp);

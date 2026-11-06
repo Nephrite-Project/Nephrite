@@ -258,6 +258,9 @@ Processor emulation (TCG):
   them.
 * SMM entry and exit flush the TLB; changes to CR4.PKE and CR4.PKS flush
   it too.
+* SMI delivery and RSM load the debug registers as they are, without the
+  checks and intercepts of MOV to DR, which had them raise #DB where
+  DR7.GD was set, #GP, or SVM's DR-write #VMEXIT halfway through.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
   hflags2 for IGNNE# only from the first CPU's thread").
 * CPUID leaf 0DH marks the CET and Arch LBR state components as
