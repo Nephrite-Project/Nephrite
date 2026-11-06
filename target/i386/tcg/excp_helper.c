@@ -75,12 +75,12 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
 
 #if !defined(CONFIG_USER_ONLY)
     if (env->old_exception == EXCP08_DBLE) {
-        if (env->vmx.nonroot) {
-            x86_vmx_check_intercept(env, SVM_EXIT_SHUTDOWN, 0, retaddr);
-        }
-        if (env->hflags & HF_GUEST_MASK) {
-            cpu_vmexit(env, SVM_EXIT_SHUTDOWN, 0, retaddr); /* does not return */
-        }
+        /*
+         * VMX non-root operation exits for a triple fault, SVM guest mode
+         * only where its shutdown intercept is set (AMD64 Architecture
+         * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.14.3).
+         */
+        cpu_svm_check_intercept_param(env, SVM_EXIT_SHUTDOWN, 0, retaddr);
 
         qemu_log_mask(CPU_LOG_RESET, "Triple fault\n");
 

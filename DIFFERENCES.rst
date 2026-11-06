@@ -264,6 +264,8 @@ AMD SVM (TCG):
 * SVM guest mode has MMU indexes of its own.
 * VMSAVE and VMLOAD virtualization is checked as the APM checks it.
 * INIT is held while GIF is clear.
+* A guest's shutdown takes #VMEXIT only where the shutdown intercept is
+  set; without it, the processor shuts down.
 
 Devices:
 
