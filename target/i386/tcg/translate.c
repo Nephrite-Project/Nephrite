@@ -3744,7 +3744,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!SVM(s) || !PE(s)) {
                 goto illegal_op;
             }
-            gen_svm_allowed(s, false, true);
+            gen_svm_allowed(s, true, true);
             gen_svm_check_intercept(s, SVM_EXIT_SKINIT);
             /* If not intercepted, not implemented -- raise #UD. */
             goto illegal_op;

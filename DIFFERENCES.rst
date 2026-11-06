@@ -248,6 +248,7 @@ AMD SVM (TCG):
   selective CR0 write intercept, CR read intercepts give their register's
   code, intercepts save the next RIP, RDTSCP has its own intercept, and
   MOV to CR's and MOV DR's operands are checked before the intercepts.
+* SKINIT raises #GP outside CPL 0, before its intercept is checked.
 * A failing VMRUN leaves the guest's state in the VMCB alone.
 * Nested page faults' error codes set the P bit for reserved-bit faults
   and I/D for fetches under the host's SMEP, and bit 8 of PML5Es and
