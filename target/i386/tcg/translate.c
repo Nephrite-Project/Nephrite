@@ -591,6 +591,23 @@ static inline MemOp ac_align(DisasContext *s, MemOp mop)
     return mop;
 }
 
+/*
+ * Of 16-byte SSE memory operands, those that need no alignment, those that
+ * need it or raise #GP, and those of legacy SSE instructions for which
+ * MXCSR.MM, where misaligned SSE mode exists, may lift that.
+ */
+#define SSE_ALIGN_MM 2
+
+/* A misaligned operand of the last kind: the helper sees to MXCSR.MM. */
+static void gen_check_align_mm(DisasContext *s, TCGv a0)
+{
+    TCGLabel *aligned = gen_new_label();
+
+    tcg_gen_brcondi_tl(TCG_COND_TSTEQ, a0, 15, aligned);
+    gen_helper_sse_misaligned(tcg_env, tcg_constant_i32(s->ac_check));
+    gen_set_label(aligned);
+}
+
 /* With alignment checking, 16- and 32-byte alignment is checked here: #GP. */
 static void gen_check_align_gpf(DisasContext *s, TCGv a0, int mask)
 {
@@ -2620,30 +2637,34 @@ static inline void gen_stq_env_A0(DisasContext *s, int offset)
     tcg_gen_qemu_st_i64(t, s->A0, s->mem_index, ac_align(s, MO_LEUQ));
 }
 
-static inline void gen_ldo_env_A0(DisasContext *s, int offset, bool align)
+static inline void gen_ldo_env_A0(DisasContext *s, int offset, int align)
 {
     MemOp atom = (s->cpuid_ext_features & CPUID_EXT_AVX
                   ? MO_ATOM_IFALIGN : MO_ATOM_IFALIGN_PAIR);
-    MemOp mop = MO_128 | MO_LE | atom | (align ? MO_ALIGN_16 : 0);
+    MemOp mop = MO_128 | MO_LE | atom | (align == 1 ? MO_ALIGN_16 : 0);
     int mem_index = s->mem_index;
     TCGv_i128 t = tcg_temp_new_i128();
 
-    if (align) {
+    if (align == SSE_ALIGN_MM) {
+        gen_check_align_mm(s, s->A0);
+    } else if (align) {
         gen_check_align_gpf(s, s->A0, 15);
     }
     tcg_gen_qemu_ld_i128(t, s->A0, mem_index, mop);
     tcg_gen_st_i128(t, tcg_env, offset);
 }
 
-static inline void gen_sto_env_A0(DisasContext *s, int offset, bool align)
+static inline void gen_sto_env_A0(DisasContext *s, int offset, int align)
 {
     MemOp atom = (s->cpuid_ext_features & CPUID_EXT_AVX
                   ? MO_ATOM_IFALIGN : MO_ATOM_IFALIGN_PAIR);
-    MemOp mop = MO_128 | MO_LE | atom | (align ? MO_ALIGN_16 : 0);
+    MemOp mop = MO_128 | MO_LE | atom | (align == 1 ? MO_ALIGN_16 : 0);
     int mem_index = s->mem_index;
     TCGv_i128 t = tcg_temp_new_i128();
 
-    if (align) {
+    if (align == SSE_ALIGN_MM) {
+        gen_check_align_mm(s, s->A0);
+    } else if (align) {
         gen_check_align_gpf(s, s->A0, 15);
     }
     tcg_gen_ld_i128(t, tcg_env, offset);

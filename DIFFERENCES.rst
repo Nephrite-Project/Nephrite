@@ -154,7 +154,7 @@ Processor features:
   WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
   FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
-  extensions, and CLZERO.
+  extensions, AMD's misaligned SSE mode, and CLZERO.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and

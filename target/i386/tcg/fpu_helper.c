@@ -2605,12 +2605,21 @@ void HELPER(frstor)(CPUX86State *env, target_ulong ptr, int data32)
 
 #define XO(X)  offsetof(X86XSaveArea, X)
 
+/* MXCSR.MM, where misaligned SSE mode exists. */
+#define SSE_MM 0x20000
+
 /*
- * The MXCSR bits that MXCSR_MASK, saved as 0000FFFFh, leaves out are
- * reserved, and loading them raises #GP (Intel SDM 325462-093 Vol. 1,
- * 11.6.6).
+ * The MXCSR bits that MXCSR_MASK leaves out are reserved, and loading them
+ * raises #GP (Intel SDM 325462-093 Vol. 1, 11.6.6): all but bits 15:0, and
+ * MM, bit 17, where misaligned SSE mode exists (AMD64 Architecture
+ * Programmer's Manual Volume 1, 24592 rev. 3.25, 4.2.2).
  */
-#define MXCSR_MASK_VALUE 0x0000ffff
+static uint32_t mxcsr_mask(CPUX86State *env)
+{
+    return 0x0000ffff |
+           (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_MISALIGNSSE ?
+            SSE_MM : 0);
+}
 
 static void do_xsave_fpu(X86Access *ac, target_ulong ptr)
 {
@@ -2652,7 +2661,7 @@ static void do_xsave_mxcsr(X86Access *ac, target_ulong ptr)
 
     update_mxcsr_from_sse_status(env);
     access_stl(ac, ptr + XO(legacy.mxcsr), env->mxcsr);
-    access_stl(ac, ptr + XO(legacy.mxcsr_mask), MXCSR_MASK_VALUE);
+    access_stl(ac, ptr + XO(legacy.mxcsr_mask), mxcsr_mask(env));
 }
 
 static void do_xsave_sse(X86Access *ac, target_ulong ptr)
@@ -3194,7 +3203,7 @@ void HELPER(fxrstor)(CPUX86State *env, target_ulong ptr)
     access_prepare(&ac, env, ptr, sizeof(X86LegacyXSaveArea),
                    MMU_DATA_LOAD, ra);
     if ((env->cr[4] & CR4_OSFXSR_MASK) &&
-        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~MXCSR_MASK_VALUE)) {
+        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~mxcsr_mask(env))) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
     }
     do_fxrstor(&ac, ptr);
@@ -3467,7 +3476,7 @@ static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
     if ((xcomp_bv & XCOMP_BV_COMPACTED
          ? rfbm & xstate_bv & XSTATE_SSE_MASK
          : rfbm & (XSTATE_SSE_MASK | XSTATE_YMM_MASK)) &&
-        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~MXCSR_MASK_VALUE)) {
+        (access_ldl(&ac, ptr + XO(legacy.mxcsr)) & ~mxcsr_mask(env))) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
     }
     size_ext = xsave_extent(xcomp_bv, rfbm & xstate_bv);
@@ -3715,10 +3724,26 @@ void HELPER(update_mxcsr)(CPUX86State *env)
 
 void HELPER(ldmxcsr)(CPUX86State *env, uint32_t val)
 {
-    if (val & ~MXCSR_MASK_VALUE) {
+    if (val & ~mxcsr_mask(env)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
     cpu_set_mxcsr(env, val);
+}
+
+/*
+ * A misaligned 16-byte operand of a legacy SSE instruction that MXCSR.MM
+ * governs: #GP, but where MM is set, and then #AC where alignment checking
+ * is on (AMD64 Architecture Programmer's Manual Volume 1, 24592 rev. 3.25,
+ * 4.3.2).
+ */
+void HELPER(sse_misaligned)(CPUX86State *env, uint32_t ac)
+{
+    if (!(env->mxcsr & SSE_MM)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    if (ac) {
+        raise_exception_err_ra(env, EXCP11_ALGN, 0, GETPC());
+    }
 }
 
 void HELPER(enter_mmx)(CPUX86State *env)

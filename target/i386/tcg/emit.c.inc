@@ -192,7 +192,8 @@ static void compute_xmm_offset(X86DecodedOp *op)
     }
 }
 
-static void gen_load_sse(DisasContext *s, TCGv temp, MemOp ot, int dest_ofs, bool aligned)
+static void gen_load_sse(DisasContext *s, TCGv temp, MemOp ot, int dest_ofs,
+                         int aligned)
 {
     switch(ot) {
     case MO_8:
@@ -221,22 +222,40 @@ static void gen_load_sse(DisasContext *s, TCGv temp, MemOp ot, int dest_ofs, boo
     }
 }
 
-static bool sse_needs_alignment(DisasContext *s, X86DecodedInsn *decode, MemOp ot)
+static void gen_MOVDQ(DisasContext *s, X86DecodedInsn *decode);
+
+/*
+ * How a vector memory operand is aligned, 0, 1, or SSE_ALIGN_MM: MXCSR.MM,
+ * where misaligned SSE mode exists, governs legacy SSE instructions but the
+ * aligned and non-temporal moves, though MOVNTDQA too (AMD64 Architecture
+ * Programmer's Manual Volume 1, 24592 rev. 3.25, 4.3.2 and 4.6.1.2).
+ */
+static int sse_needs_alignment(DisasContext *s, X86DecodedInsn *decode,
+                               MemOp ot)
 {
+    bool mm = (s->cpuid_ext3_features & CPUID_EXT3_MISALIGNSSE) &&
+              !(s->prefix & PREFIX_VEX);
+
+    if (ot < MO_128) {
+        return 0;
+    }
     switch (decode->e.vex_class) {
     case 2:
     case 4:
         if ((s->prefix & PREFIX_VEX) ||
             decode->e.vex_special == X86_VEX_SSEUnaligned) {
             /* MOST legacy SSE instructions require aligned memory operands, but not all.  */
-            return false;
+            return 0;
         }
-        /* fall through */
+        return mm ? SSE_ALIGN_MM : 1;
     case 1:
-        return ot >= MO_128;
+        if (mm && decode->e.gen == gen_MOVDQ && decode->b == 0x2a) {
+            return SSE_ALIGN_MM;
+        }
+        return 1;
 
     default:
-        return false;
+        return 0;
     }
 }
 
@@ -306,7 +325,7 @@ static void gen_load(DisasContext *s, X86DecodedInsn *decode, int opn, TCGv v)
         compute_xmm_offset(op);
     load_vector:
         if (op->has_ea) {
-            bool aligned = sse_needs_alignment(s, decode, op->ot);
+            int aligned = sse_needs_alignment(s, decode, op->ot);
             gen_load_sse(s, v, op->ot, op->offset, aligned);
         }
         break;
@@ -453,7 +472,7 @@ static void gen_store_sse(DisasContext *s, X86DecodedInsn *decode, int src_ofs)
 {
     MemOp ot = decode->op[0].ot;
     int vec_len = vector_len(s, decode);
-    bool aligned = sse_needs_alignment(s, decode, ot);
+    int aligned = sse_needs_alignment(s, decode, ot);
 
     if (!decode->op[0].has_ea) {
         tcg_gen_gvec_mov(MO_64, decode->op[0].offset, src_ofs, vec_len, vec_len);
