@@ -135,7 +135,8 @@ AMD SVM, completing what QEMU's TCG has:
   and its threshold, the TSC ratio MSR, VMSAVE/VMLOAD virtualization, LBR
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
   page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
-  INVPCID intercepts, AVIC and x2AVIC, and CET state in the VMCB.
+  INVPCID intercepts, AVIC and x2AVIC, CET state in the VMCB, and
+  HOST_MCE_OVERRIDE.
 * FRED virtualization (AMD64 FRED Virtualization 69191 rev. 1.10): VMRUN
   and #VMEXIT switch the FRED MSRs but IA32_FRED_RSP0, with their checks,
   and VMRUN checks FRED guests' rings; events injected into FRED guests
@@ -368,8 +369,7 @@ Known deviations and limits
   where the KVM patches AMD posted ("KVM: SVM: Enable FRED support" v2,
   April 2026) have them 400h lower, and leaves IA32_PL0_SSP, for which the
   VMCB has no field, to the hypervisor.
-* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, and AMD's
-  IBS.
+* Not implemented: the bus-lock threshold and AMD's IBS.
 * MPERF and APERF both count the TSC's ticks outside HLT, MWAIT, and the
   wait for SIPI, as the processor always runs at its nominal frequency.
   RDPRU sets CF where ECX names a register and clears it otherwise; the APM
