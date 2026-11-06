@@ -461,6 +461,17 @@ uint64_t x86_efer_writable(CPUX86State *env)
     if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
         mask |= MSR_EFER_SVME;
     }
+    /*
+     * AMD's processors have LMSLE, for 64-bit mode, but those that say
+     * otherwise (AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, 3.1.7).
+     */
+    if (!IS_INTEL_CPU(env) &&
+        (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) &&
+        !(env->features[FEAT_8000_0008_EBX] &
+          CPUID_8000_0008_EBX_EFER_LMSLE_MBZ)) {
+        mask |= MSR_EFER_LMSLE;
+    }
     if (env->features[FEAT_8000_0021_EAX] & CPUID_8000_0021_EAX_UAI) {
         mask |= MSR_EFER_UAIE;
     }

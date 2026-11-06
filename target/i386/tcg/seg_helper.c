@@ -69,6 +69,13 @@ typedef struct StackAccess
     uint32_t limit;
     uint32_t flags;
     int error;
+    /*
+     * Where set, 64-bit pushes and pops at CPL > 0 with EFER.LMSLE, which
+     * must end at or below FFFFFFFF_00000000H plus SS's limit, else #SS(0)
+     * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+     * 4.12.2).
+     */
+    bool lmsle;
 } StackAccess;
 
 /*
@@ -1165,15 +1172,33 @@ static void do_interrupt_protected(CPUX86State *env, int intno, int is_int,
 
 #ifdef TARGET_X86_64
 
+/* Whether the stack accesses at privilege level PL check LMSLE's limit. */
+static void stack_lmsle(StackAccess *sa, int pl)
+{
+    sa->lmsle = (sa->env->efer & MSR_EFER_LMSLE) && pl > 0;
+}
+
+static void lmsle_check(StackAccess *sa)
+{
+    if (sa->lmsle &&
+        sa->sp + 7 > 0xffffffff00000000ULL + sa->env->segs[R_SS].limit) {
+        raise_exception_err_ra(sa->env, EXCP0C_STACK, 0, sa->ra);
+    }
+}
+
 static void pushq(StackAccess *sa, uint64_t val)
 {
     sa->sp -= 8;
+    lmsle_check(sa);
     cpu_stq_le_mmuidx_ra(sa->env, sa->sp, val, sa->mmu_index, sa->ra);
 }
 
 static uint64_t popq(StackAccess *sa)
 {
-    uint64_t ret = cpu_ldq_le_mmuidx_ra(sa->env, sa->sp, sa->mmu_index, sa->ra);
+    uint64_t ret;
+
+    lmsle_check(sa);
+    ret = cpu_ldq_le_mmuidx_ra(sa->env, sa->sp, sa->mmu_index, sa->ra);
     sa->sp += 8;
     return ret;
 }
@@ -1306,6 +1331,7 @@ static void do_interrupt64(CPUX86State *env, int intno, int is_int,
         }
         new_stack = 0;
         sa.sp = env->regs[R_ESP];
+        stack_lmsle(&sa, dpl);
     }
     sa.sp &= ~0xfLL; /* align stack */
 
@@ -2168,6 +2194,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             sa.sp = env->regs[R_ESP];
             sa.sp_mask = -1;
             sa.ss_base = 0;
+            stack_lmsle(&sa, cpl);
             pushq(&sa, env->segs[R_CS].selector);
             pushq(&sa, next_eip);
 #if !defined(CONFIG_USER_ONLY)
@@ -2400,6 +2427,11 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
                 stack_limit(&sa, env->segs[R_SS].limit,
                             env->segs[R_SS].flags, 0);
             }
+#ifdef TARGET_X86_64
+            if (env->hflags & HF_CS64_MASK) {
+                stack_lmsle(&sa, cpl);
+            }
+#endif
             /* push_size = (4 << shift); */
             new_stack = 0;
         }
@@ -2591,6 +2623,7 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
 #ifdef TARGET_X86_64
     if (shift == 2) {
         sa.sp_mask = -1;
+        stack_lmsle(&sa, cpl);
     } else
 #endif
     {

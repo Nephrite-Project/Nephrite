@@ -154,6 +154,9 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
         if (env->efer & MSR_EFER_UAIE) {
             more_flags |= TB_UAI;
         }
+        if ((env->efer & MSR_EFER_LMSLE) && (env->hflags & HF_CPL_MASK)) {
+            more_flags |= TB_LMSLE;
+        }
     } else {
         cs_base = env->segs[R_CS].base;
         pc = (uint32_t)(cs_base + env->eip);

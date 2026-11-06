@@ -154,8 +154,8 @@ Processor features:
   WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
   FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
-  extensions, AMD's misaligned SSE mode, AMD's upper address ignore, and
-  CLZERO.
+  extensions, AMD's misaligned SSE mode, AMD's upper address ignore, AMD's
+  segment limit checks in 64-bit mode (EFER.LMSLE), and CLZERO.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
@@ -313,6 +313,9 @@ Behaviour changes
 * The STI and MOV SS shadows hold external-interrupt and NMI VM exits.
 * VMX MSR lists of more than 512 entries fail VM entry, as with Linux's
   KVM.
+* ``EPYC-Milan``, ``EPYC-Genoa``, and ``EPYC-Turin`` report that EFER.LMSLE
+  is reserved (CPUID 8000_0008H:EBX[20], ``efer-lmsle-mbz``), as those
+  processors do.
 * ``EPYC-Genoa`` needs ``+sbpb,+ibpb-brtype`` for Linux's SRSO mitigation
   to come up without warnings, as under KVM.
 * The PMU has no reference-cycles event.

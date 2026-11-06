@@ -1205,7 +1205,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 
 #define TCG_8000_0008_EBX  (CPUID_8000_0008_EBX_XSAVEERPTR | \
-          CPUID_8000_0008_EBX_CLZERO | \
+          CPUID_8000_0008_EBX_CLZERO | CPUID_8000_0008_EBX_EFER_LMSLE_MBZ | \
           CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_KERNEL_FEATURES | \
           TCG_8000_0008_EBX_SPEC_CTRL | TCG_8000_0008_EBX_INVLPGB)
 
@@ -1619,13 +1619,15 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, "wbnoinvd", NULL, NULL,
             "ibpb", NULL, "ibrs", "amd-stibp",
             NULL, "stibp-always-on", NULL, NULL,
-            NULL, "invlpgb-nested", NULL, NULL,
+            "efer-lmsle-mbz", "invlpgb-nested", NULL, NULL,
             "amd-ssbd", "virt-ssbd", "amd-no-ssb", NULL,
             "amd-psfd", NULL, NULL, NULL,
         },
         .cpuid = { .eax = 0x80000008, .reg = R_EBX, },
         .tcg_features = TCG_8000_0008_EBX,
         .unmigratable_flags = 0,
+        /* A processor that lacks EFER.LMSLE, not a feature. */
+        .no_autoenable_flags = CPUID_8000_0008_EBX_EFER_LMSLE_MBZ,
     },
     [FEAT_8000_0021_EAX] = {
         .type = CPUID_FEATURE_WORD,
@@ -7168,6 +7170,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_8000_0008_EBX_CLZERO | CPUID_8000_0008_EBX_XSAVEERPTR |
             CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_IBPB |
             CPUID_8000_0008_EBX_IBRS | CPUID_8000_0008_EBX_STIBP |
+            CPUID_8000_0008_EBX_EFER_LMSLE_MBZ |
             CPUID_8000_0008_EBX_AMD_SSBD,
         .features[FEAT_7_0_EBX] =
             CPUID_7_0_EBX_FSGSBASE | CPUID_7_0_EBX_BMI1 | CPUID_7_0_EBX_AVX2 |
@@ -7273,6 +7276,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_IBPB |
             CPUID_8000_0008_EBX_IBRS | CPUID_8000_0008_EBX_STIBP |
             CPUID_8000_0008_EBX_STIBP_ALWAYS_ON |
+            CPUID_8000_0008_EBX_EFER_LMSLE_MBZ |
             CPUID_8000_0008_EBX_AMD_SSBD | CPUID_8000_0008_EBX_AMD_PSFD,
         .features[FEAT_8000_0021_EAX] =
             CPUID_8000_0021_EAX_NO_NESTED_DATA_BP |
@@ -7550,6 +7554,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_IBPB |
             CPUID_8000_0008_EBX_IBRS | CPUID_8000_0008_EBX_STIBP |
             CPUID_8000_0008_EBX_STIBP_ALWAYS_ON |
+            CPUID_8000_0008_EBX_EFER_LMSLE_MBZ |
             CPUID_8000_0008_EBX_AMD_SSBD | CPUID_8000_0008_EBX_AMD_PSFD,
         .features[FEAT_8000_0021_EAX] =
             CPUID_8000_0021_EAX_NO_NESTED_DATA_BP |

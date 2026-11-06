@@ -165,9 +165,10 @@ typedef struct DisasContext {
     /* The TB counts its instructions as PAUSE filter cycles (svm_helper.c). */
     TCGOp *pause_cycles;
 
-    /* In 64-bit mode, TB_LA57 and TB_UAI. */
+    /* In 64-bit mode, TB_LA57, TB_UAI, and TB_LMSLE. */
     bool la57;
     bool uai;
+    bool lmsle;
     /* The instruction makes data accesses through SS, and through others. */
     bool insn_ss;
     bool insn_other;
@@ -938,6 +939,28 @@ static void gen_seg_check(DisasContext *s, MemOp aflag, int seg, TCGv ofs,
 }
 #endif
 
+#if defined(TARGET_X86_64) && !defined(CONFIG_USER_ONLY)
+/*
+ * With EFER.LMSLE, 64-bit mode's accesses at CPL > 0 through DS, ES, FS,
+ * and SS must end at or below FFFFFFFF_00000000H plus their segment's
+ * limit, else #GP(0), or #SS(0) for SS (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, 4.12.2).
+ */
+static void gen_lmsle_check(DisasContext *s, int seg, TCGv linear, int acc)
+{
+    TCGLabel *ok = gen_new_label();
+    TCGv end = tcg_temp_new();
+    TCGv bound = tcg_temp_new();
+
+    tcg_gen_addi_tl(end, linear, (acc >> 2) - 1);
+    tcg_gen_ld32u_tl(bound, tcg_env, offsetof(CPUX86State, segs[seg].limit));
+    tcg_gen_addi_tl(bound, bound, 0xffffffff00000000ULL);
+    tcg_gen_brcond_tl(TCG_COND_LEU, end, bound, ok);
+    gen_helper_seg_fault(tcg_env, tcg_constant_i32(seg));
+    gen_set_label(ok);
+}
+#endif
+
 /*
  * Compute SEG:REG into DEST.  SEG is selected from the override segment
  * (OVR_SEG) and the default segment (DEF_SEG).  OVR_SEG may be -1 to
@@ -990,6 +1013,13 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
     tcg_gen_ext_tl(dest, a0, easize);
 
 #ifdef TARGET_X86_64
+#ifndef CONFIG_USER_ONLY
+    if (s->lmsle && acc != SEG_NONE &&
+        (ovr_seg == R_DS || ovr_seg == R_ES || ovr_seg == R_FS ||
+         ovr_seg == R_SS)) {
+        gen_lmsle_check(s, ovr_seg, dest, acc);
+    }
+#endif
     /* LAM applies to the 64-bit linear addresses of data accesses. */
     if ((s->flags & HF_LAM_MASK) && CODE64(s) && def_seg >= 0 &&
         !s->no_lam) {
@@ -4427,12 +4457,14 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     if (flags & HF_CS64_MASK) {
         dc->la57 = dc->base.tb->cs_base & TB_LA57;
         dc->uai = dc->base.tb->cs_base & TB_UAI;
+        dc->lmsle = dc->base.tb->cs_base & TB_LMSLE;
         /* 64-bit mode checks no segment limits. */
         memset(dc->seg_class, TB_SEG_FLAT, sizeof(dc->seg_class));
         dc->fetch_class = TB_SEG_FLAT;
         dc->fetch_end = 0;
     } else {
         dc->uai = false;
+        dc->lmsle = false;
         for (int i = R_ES; i <= R_GS; i++) {
             dc->seg_class[i] = (dc->base.tb->cs_base >>
                                 (TB_SEG_SHIFT + i * 2)) & 3;

@@ -251,9 +251,13 @@ typedef enum X86Seg {
  * TB_SEG_SLOW whatever a helper finds.
  */
 #define TB_SEG_SHIFT         37
-/* In 64-bit mode, which needs no segment checks: CR4.LA57 and EFER.UAIE. */
+/*
+ * In 64-bit mode, which needs no segment checks: CR4.LA57, EFER.UAIE, and
+ * EFER.LMSLE at CPL > 0.
+ */
 #define TB_LA57              (1ULL << 37)
 #define TB_UAI               (1ULL << 38)
+#define TB_LMSLE             (1ULL << 39)
 #define TB_SEG_FLAT          0
 #define TB_SEG_64K           1
 #define TB_SEG_LIMIT         2
@@ -672,6 +676,7 @@ typedef enum X86Seg {
 #define MSR_EFER_LMA   (1 << 10)
 #define MSR_EFER_NXE   (1 << 11)
 #define MSR_EFER_SVME  (1 << 12)
+#define MSR_EFER_LMSLE (1 << 13)
 #define MSR_EFER_FFXSR (1 << 14)
 #define MSR_EFER_UAIE  (1 << 20)
 
@@ -1379,6 +1384,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0008_EBX_STIBP       (1U << 15)
 /* STIBP mode has enhanced performance and may be left always on */
 #define CPUID_8000_0008_EBX_STIBP_ALWAYS_ON    (1U << 17)
+/* EFER.LMSLE is reserved */
+#define CPUID_8000_0008_EBX_EFER_LMSLE_MBZ (1U << 20)
 /* INVLPGB invalidates the nested translations of guests */
 #define CPUID_8000_0008_EBX_INVLPGB_NESTED (1U << 21)
 /* Speculative Store Bypass Disable */
