@@ -1371,14 +1371,14 @@ void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type,
 
 /*
  * The intercept of a descriptor-table instruction of TYPE: VMX's
- * descriptor-table exits report INFO, the instruction information, and
- * DISP, the displacement.
+ * descriptor-table exits report INFO and EII, the instruction information
+ * and the extended one, and DISP, the displacement.
  */
 void HELPER(desc_intercept)(CPUX86State *env, uint32_t type, uint32_t info,
-                            target_ulong disp)
+                            uint64_t eii, target_ulong disp)
 {
     if (env->vmx.nonroot) {
-        x86_vmx_desc_exit(env, type, info, disp, GETPC());
+        x86_vmx_desc_exit(env, type, info, eii, disp, GETPC());
     } else {
         cpu_svm_check_intercept_param(env, type, 0, GETPC());
     }

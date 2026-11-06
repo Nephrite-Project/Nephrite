@@ -293,7 +293,7 @@ typedef struct DisasContext {
 #ifdef CONFIG_USER_ONLY
 STUB_HELPER(clgi, TCGv_env env)
 STUB_HELPER(desc_intercept, TCGv_env env, TCGv_i32 type, TCGv_i32 info,
-            TCGv disp)
+            TCGv_i64 eii, TCGv disp)
 STUB_HELPER(flush_page, TCGv_env env, TCGv addr)
 STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
 STUB_HELPER(invlpgb, TCGv_env env, TCGv rax)
@@ -2657,30 +2657,35 @@ static void gen_sty_env_A0(DisasContext *s, int offset, bool align)
  * instruction information of VMX's descriptor-table exits, which have the
  * operand, and for one in memory the displacement as the exit
  * qualification (Intel SDM 325462-093 Vol. 3C, 30.2.1 and Tables 30-10
- * and 30-11).
+ * and 30-11), and in the extended instruction information (Intel APX
+ * 355828-009, Figures 3.15 and 3.16).
  */
 static void gen_desc_intercept(DisasContext *s, X86DecodedInsn *decode,
                                int modrm, uint32_t type, int identity)
 {
 #ifndef CONFIG_USER_ONLY
     bool mem = (modrm >> 6) != 3;
+    int reg = (modrm & 7) | REX_B(s);
     uint32_t info = identity << 28;
+    uint64_t eii = (uint64_t)identity << 40;
 
     if (likely(!GUEST(s))) {
         return;
     }
     if (mem) {
         info |= vmx_mem_insn_info(s, decode);
+        eii |= vmx_mem_eii(s, decode);
     } else {
-        info |= 1 << 10 | (s->aflag - MO_16) << 7 |
-                (((modrm & 7) | REX_B(s)) & 0xf) << 3;
+        info |= 1 << 10 | (s->aflag - MO_16) << 7 | (reg & 0xf) << 3;
+        eii |= 1 << 4 | (s->aflag - MO_16) << 2 | (uint64_t)reg << 16;
     }
     if (type == SVM_EXIT_IDTR_READ || type == SVM_EXIT_GDTR_READ ||
         type == SVM_EXIT_IDTR_WRITE || type == SVM_EXIT_GDTR_WRITE) {
         info |= (s->dflag == MO_32) << 11;
+        eii |= (s->dflag == MO_32) << 5;
     }
     gen_helper_desc_intercept(tcg_env, tcg_constant_i32(type),
-                              tcg_constant_i32(info),
+                              tcg_constant_i32(info), tcg_constant_i64(eii),
                               tcg_constant_tl(mem ? decode->mem.disp : 0));
 #endif
 }
@@ -3346,11 +3351,11 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             translator_io_start(&s->base);
             rm = (modrm & 7) | REX_B(s);
             /*
-             * The instruction information of a VMX exit: the register, the
-             * operand size, and, in bit 31, RDSEED rather than RDRAND.
+             * What a VMX exit reports: the register, the operand size in
+             * bits 6:5, and, in bit 31, RDSEED rather than RDRAND.
              */
             gen_helper_rdrand(s->T0, tcg_env,
-                              tcg_constant_i32(rm << 3 | (dflag - MO_16) << 11 |
+                              tcg_constant_i32(rm | (dflag - MO_16) << 5 |
                                                (((modrm >> 3) & 7) == 7 ?
                                                 1u << 31 : 0)));
             gen_op_mov_reg_v(s, dflag, rm, s->T0);
@@ -3484,6 +3489,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                                                           VMX_EXIT_VMLAUNCH :
                                                           VMX_EXIT_VMRESUME),
                                          tcg_constant_i32(0),
+                                         tcg_constant_i64(0),
                                          tcg_constant_tl(0));
             }
             gen_helper_vmlaunch(tcg_env, tcg_constant_i32(modrm == 0xc3),
@@ -3502,6 +3508,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 gen_helper_vmx_insn_exit(tcg_env,
                                          tcg_constant_i32(VMX_EXIT_VMXOFF),
                                          tcg_constant_i32(0),
+                                         tcg_constant_i64(0),
                                          tcg_constant_tl(0));
             }
             gen_helper_vmxoff(tcg_env);

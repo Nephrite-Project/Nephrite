@@ -118,6 +118,10 @@ Intel VMX, which QEMU's TCG does not have:
   FRED event delivery of injected events with their event data, the
   nested-exception bit, and injected SYSCALL and SYSENTER, and the
   original-event data of VM exits during FRED event delivery.
+* APX: the VM-exit extended instruction-information field, whose register
+  numbers have five bits for R16 to R31, as the GPR fields of the exit
+  qualifications of CR and DR accesses now have (Intel APX 355828-009,
+  3.1.4.4.1).
 * Register dumps show VMX operation: root or non-root, the VMXON region,
   and the current VMCS.
 

@@ -140,8 +140,8 @@ bool x86_feature_control_write(CPUX86State *env, uint64_t val);
 void x86_vmx_init(X86CPU *cpu);
 bool x86_vmx_holds_init(CPUX86State *env);
 /* HELPER(user_wait)'s INFO: the source register, and UMWAIT not TPAUSE. */
-#define USER_WAIT_REG 15
-#define USER_WAIT_UMWAIT 16
+#define USER_WAIT_REG 31
+#define USER_WAIT_UMWAIT 32
 void x86_user_wait_init(X86CPU *cpu);
 void x86_user_wait_end(CPUX86State *env);
 void x86_vmx_smm_enter(CPUX86State *env);
@@ -189,14 +189,14 @@ uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc);
 void x86_vmx_tsc_seen(CPUX86State *env);
 uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay);
 bool x86_vmx_user_wait_enabled(CPUX86State *env);
-void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason,
-                            uint32_t info, uintptr_t ra);
-void x86_vmx_invpcid(CPUX86State *env, uint32_t info, target_ulong disp,
-                     uintptr_t ra);
+void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason, int reg,
+                            uintptr_t ra);
+void x86_vmx_invpcid(CPUX86State *env, uint32_t info, uint64_t eii,
+                     target_ulong disp, uintptr_t ra);
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);
 void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
-                       target_ulong disp, uintptr_t ra);
+                       uint64_t eii, target_ulong disp, uintptr_t ra);
 bool x86_vmx_ept_mbec(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,

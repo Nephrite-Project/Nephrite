@@ -98,6 +98,7 @@
 #define VMCS_INJECTED_EVENT_DATA 0x2052
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_ORIGINAL_EVENT_DATA 0x2404
+#define VMCS_EXIT_EII 0x2406
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
 #define VMCS_GUEST_PAT 0x2804
@@ -298,6 +299,7 @@ static const uint16_t vmcs_fields[] = {
     0x2052, /* injected-event data */
     0x2400, /* guest-physical address */
     0x2404, /* original-event data */
+    0x2406, /* VM-exit extended instruction information */
     0x2800, /* VMCS link pointer */
     0x2802, /* guest IA32_DEBUGCTL */
     0x2804, /* guest IA32_PAT */
@@ -1166,6 +1168,17 @@ void x86_vmx_smm_leave(CPUX86State *env)
 #define VMCS(f) x86_vmcs_read(env, VMCS_##f)
 #define VMCS_SET(f, v) x86_vmcs_write(env, VMCS_##f, v)
 
+/*
+ * The instruction information of an exit, with the extended instruction
+ * information that has APX's 5-bit register numbers (Intel APX
+ * 355828-009, 3.1.4.4.1).
+ */
+static void vmx_set_insn_info(CPUX86State *env, uint32_t info, uint64_t eii)
+{
+    VMCS_SET(EXIT_INSN_INFO, info);
+    VMCS_SET(EXIT_EII, eii);
+}
+
 static uint32_t vmx_proc2(CPUX86State *env)
 {
     return VMCS(PROC_CONTROLS) & VMX_CPU_BASED_ACTIVATE_SECONDARY_CONTROLS ?
@@ -1340,7 +1353,7 @@ void x86_vmx_check_io(CPUX86State *env, uint32_t port, uint32_t svm_flags,
         }
         qual |= 1 << 4;
         VMCS_SET(GUEST_LINEAR_ADDR, env->segs[seg].base + offset);
-        VMCS_SET(EXIT_INSN_INFO, asize << 7 | seg << 15);
+        vmx_set_insn_info(env, asize << 7 | seg << 15, asize << 2 | seg << 7);
     }
     if (svm_flags & SVM_IOIO_REP_MASK) {
         qual |= 1 << 5;
@@ -2095,7 +2108,7 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
 {
     uint32_t proc = VMCS(PROC_CONTROLS);
     uint32_t proc2 = vmx_proc2(env);
-    uint64_t gpr = param & 0xf;
+    uint64_t gpr = param & 0x1f;
 
     switch (type) {
     case SVM_EXIT_CPUID:
@@ -2203,10 +2216,9 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
  * VMREAD or VMWRITE bitmap clear (Intel SDM 325462-093 Vol. 3C, 28.1.3).
  * The instruction information and displacement come from the translator.
  */
-static bool vmx_shadowed(CPUX86State *env, uint32_t reason,
-                         uint32_t insn_info)
+static bool vmx_shadowed(CPUX86State *env, uint32_t reason, uint64_t eii)
 {
-    uint64_t field = env->regs[insn_info >> 28];
+    uint64_t field = env->regs[(eii >> 40) & 0x1f];
     uint64_t bitmap;
 
     if (!(env->hflags & HF_CS64_MASK)) {
@@ -2223,10 +2235,11 @@ static bool vmx_shadowed(CPUX86State *env, uint32_t reason,
 }
 
 void HELPER(vmx_insn_exit)(CPUX86State *env, uint32_t reason,
-                           uint32_t insn_info, target_ulong disp)
+                           uint32_t insn_info, uint64_t eii,
+                           target_ulong disp)
 {
-    if (env->vmx.nonroot && !vmx_shadowed(env, reason, insn_info)) {
-        VMCS_SET(EXIT_INSN_INFO, insn_info);
+    if (env->vmx.nonroot && !vmx_shadowed(env, reason, eii)) {
+        vmx_set_insn_info(env, insn_info, eii);
         x86_vmx_exit(env, reason, disp, GETPC());
     }
 }
@@ -4256,11 +4269,11 @@ bool x86_vmx_user_wait_enabled(CPUX86State *env)
  * register in the instruction information (Intel SDM 325462-093 Vol. 3C,
  * 28.1.3 and Table 30-13).
  */
-void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason,
-                            uint32_t info, uintptr_t ra)
+void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason, int reg,
+                            uintptr_t ra)
 {
     if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_RDTSC_EXITING) {
-        VMCS_SET(EXIT_INSN_INFO, info);
+        vmx_set_insn_info(env, (reg & 0xf) << 3, (uint64_t)reg << 16);
         x86_vmx_exit(env, reason, 0, ra);
     }
 }
@@ -4273,10 +4286,12 @@ void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason,
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra)
 {
     bool seed = info >> 31;
+    int reg = info & 0x1f, osize = (info >> 5) & 3;
 
     if (vmx_proc2(env) & (seed ? VMX_SECONDARY_EXEC_RDSEED_EXITING :
                                  VMX_SECONDARY_EXEC_RDRAND_EXITING)) {
-        VMCS_SET(EXIT_INSN_INFO, info & ~(1u << 31));
+        vmx_set_insn_info(env, (reg & 0xf) << 3 | osize << 11,
+                          (uint64_t)reg << 16 | osize << 5);
         x86_vmx_exit(env, seed ? VMX_EXIT_RDSEED : VMX_EXIT_RDRAND, 0, ra);
     }
 }
@@ -4294,7 +4309,7 @@ void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra)
  * this one leaves.
  */
 void HELPER(vmx_xsaves)(CPUX86State *env, uint32_t reason, uint32_t info,
-                        target_ulong disp, uint64_t rfbm)
+                        uint64_t eii, target_ulong disp, uint64_t rfbm)
 {
     if (!env->vmx.nonroot || !(env->cr[4] & CR4_OSXSAVE_MASK)) {
         return;
@@ -4307,7 +4322,7 @@ void HELPER(vmx_xsaves)(CPUX86State *env, uint32_t reason, uint32_t info,
     }
     if (!(env->hflags & HF_CPL_MASK) &&
         (rfbm & env->xss & VMCS(XSS_EXIT_BITMAP))) {
-        VMCS_SET(EXIT_INSN_INFO, info);
+        vmx_set_insn_info(env, info, eii);
         x86_vmx_exit(env, reason, disp, GETPC());
     }
 }
@@ -4319,13 +4334,13 @@ void HELPER(vmx_xsaves)(CPUX86State *env, uint32_t reason, uint32_t info,
  * 28.1.3 and 30.2.1).
  */
 void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
-                       target_ulong disp, uintptr_t ra)
+                       uint64_t eii, target_ulong disp, uintptr_t ra)
 {
     bool table = type == SVM_EXIT_IDTR_READ || type == SVM_EXIT_GDTR_READ ||
                  type == SVM_EXIT_IDTR_WRITE || type == SVM_EXIT_GDTR_WRITE;
 
     if (vmx_proc2(env) & VMX_SECONDARY_EXEC_DESC) {
-        VMCS_SET(EXIT_INSN_INFO, info);
+        vmx_set_insn_info(env, info, eii);
         x86_vmx_exit(env, table ? VMX_EXIT_GDTR_IDTR : VMX_EXIT_LDTR_TR, disp,
                      ra);
     }
@@ -4337,14 +4352,14 @@ void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
  * INFO, its instruction information, and DISP, its displacement, as the
  * exit qualification (Intel SDM 325462-093 Vol. 3C, 30.2.1).
  */
-void x86_vmx_invpcid(CPUX86State *env, uint32_t info, target_ulong disp,
-                     uintptr_t ra)
+void x86_vmx_invpcid(CPUX86State *env, uint32_t info, uint64_t eii,
+                     target_ulong disp, uintptr_t ra)
 {
     if (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_INVPCID)) {
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
     if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_INVLPG_EXITING) {
-        VMCS_SET(EXIT_INSN_INFO, info);
+        vmx_set_insn_info(env, info, eii);
         x86_vmx_exit(env, VMX_EXIT_INVPCID, disp, ra);
     }
 }

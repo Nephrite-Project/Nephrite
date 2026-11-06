@@ -255,7 +255,7 @@ void HELPER(write_crN)(CPUX86State *env, int reg, target_ulong t0)
     bool load = false;
 
     if (env->vmx.nonroot) {
-        t0 = x86_vmx_cr_write(env, reg, t0, env->svm_decode_info & 0xf,
+        t0 = x86_vmx_cr_write(env, reg, t0, env->svm_decode_info & 0x1f,
                               GETPC());
     }
     switch (reg) {
@@ -1391,14 +1391,15 @@ void HELPER(rdmsr)(CPUX86State *env)
  * the global ones too, as the processor may.
  */
 void HELPER(invpcid)(CPUX86State *env, target_ulong addr, target_ulong type,
-                     uint32_t vmx_info, target_ulong vmx_disp)
+                     uint32_t vmx_info, uint64_t vmx_eii,
+                     target_ulong vmx_disp)
 {
     CPUState *cs = env_cpu(env);
     uintptr_t ra = GETPC();
     uint64_t desc, laddr;
 
     if (env->vmx.nonroot) {
-        x86_vmx_invpcid(env, vmx_info, vmx_disp, ra);
+        x86_vmx_invpcid(env, vmx_info, vmx_eii, vmx_disp, ra);
     }
 
     if (cpu_svm_has_intercept(env, SVM_EXIT_INVPCID)) {
@@ -1762,7 +1763,7 @@ G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
     if (env->vmx.nonroot) {
         x86_vmx_user_wait_exit(env,
                                umwait ? VMX_EXIT_UMWAIT : VMX_EXIT_TPAUSE,
-                               (info & USER_WAIT_REG) << 3, GETPC());
+                               info & USER_WAIT_REG, GETPC());
     }
     if ((uint32_t)src & ~1u) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());

@@ -3926,6 +3926,7 @@ static void gen_unreachable(DisasContext *s, X86DecodedInsn *decode)
 
 #ifndef CONFIG_USER_ONLY
 static uint32_t vmx_mem_insn_info(DisasContext *s, X86DecodedInsn *decode);
+static uint64_t vmx_mem_eii(DisasContext *s, X86DecodedInsn *decode);
 
 /*
  * INVPCID, whose VM exit reports the type register and the descriptor's
@@ -3936,10 +3937,12 @@ static void gen_INVPCID(DisasContext *s, X86DecodedInsn *decode)
 {
     uint32_t info = vmx_mem_insn_info(s, decode) |
                     (decode->op[1].n & 0xf) << 28;
+    uint64_t eii = vmx_mem_eii(s, decode) | (uint64_t)decode->op[1].n << 40;
 
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
     gen_helper_invpcid(tcg_env, s->A0, s->T0, tcg_constant_i32(info),
+                       tcg_constant_i64(eii),
                        tcg_constant_tl(decode->mem.disp));
     s->base.is_jmp = DISAS_EOB_NEXT;
 }
@@ -3969,9 +3972,9 @@ static int vmx_mem_seg(DisasContext *s, X86DecodedInsn *decode)
 
 /*
  * The instruction information of a VMX instruction's exit with a memory
- * operand: scaling, address size, segment, index, and base (Intel SDM
- * 325462-093 Vol. 3C, Tables 30-9, 30-14, and 30-15); its displacement is
- * the exit qualification.
+ * operand: scaling, address size, segment, index, and base, of which APX's
+ * R16 to R31 give their low 4 bits (Intel SDM 325462-093 Vol. 3C, Tables
+ * 30-9, 30-14, and 30-15); its displacement is the exit qualification.
  */
 static uint32_t vmx_mem_insn_info(DisasContext *s, X86DecodedInsn *decode)
 {
@@ -3979,35 +3982,64 @@ static uint32_t vmx_mem_insn_info(DisasContext *s, X86DecodedInsn *decode)
     uint32_t info = mem->scale | (s->aflag - MO_16) << 7 |
                     vmx_mem_seg(s, decode) << 15;
 
-    info |= mem->index >= 0 ? mem->index << 18 : 1 << 22;
-    info |= mem->base >= 0 ? mem->base << 23 : 1 << 27;
+    info |= mem->index >= 0 ? (mem->index & 0xf) << 18 : 1 << 22;
+    info |= mem->base >= 0 ? (mem->base & 0xf) << 23 : 1 << 27;
     return info;
 }
 
 /*
+ * The extended instruction information of the same exit, with 5-bit
+ * register numbers (Intel APX 355828-009, Table 3.11).
+ */
+static uint64_t vmx_mem_eii(DisasContext *s, X86DecodedInsn *decode)
+{
+    AddressParts *mem = &decode->mem;
+    uint64_t eii = mem->scale | (s->aflag - MO_16) << 2 |
+                   vmx_mem_seg(s, decode) << 7;
+
+    eii |= mem->index >= 0 ? (uint64_t)mem->index << 24 : 1 << 10;
+    eii |= mem->base >= 0 ? (uint64_t)mem->base << 32 : 1 << 11;
+    return eii;
+}
+
+/*
  * The start of a VMX instruction: its exit in non-root operation, which
- * comes before the checks of VMX root operation.
+ * comes before the checks of VMX root operation, with its register operands
+ * REG1 and REG2, or -1, in the instruction information.
  */
 static void gen_vmx_start(DisasContext *s, X86DecodedInsn *decode,
-                          uint32_t reason, uint32_t info, bool mem)
+                          uint32_t reason, int reg1, int reg2, bool mem)
 {
     gen_update_cc_op(s);
     gen_update_eip_cur(s);
     if (GUEST(s)) {
+        uint32_t info = 0;
+        uint64_t eii = 0;
+
+        if (reg1 >= 0) {
+            info |= (reg1 & 0xf) << 3;
+            eii |= (uint64_t)reg1 << 16;
+        }
+        if (reg2 >= 0) {
+            info |= (reg2 & 0xf) << 28;
+            eii |= (uint64_t)reg2 << 40;
+        }
         if (mem) {
             info |= vmx_mem_insn_info(s, decode);
+            eii |= vmx_mem_eii(s, decode);
         } else {
             info |= 1 << 10 | (s->aflag - MO_16) << 7;
+            eii |= 1 << 4 | (s->aflag - MO_16) << 2;
         }
         gen_helper_vmx_insn_exit(tcg_env, tcg_constant_i32(reason),
-                                 tcg_constant_i32(info),
+                                 tcg_constant_i32(info), tcg_constant_i64(eii),
                                  tcg_constant_tl(mem ? decode->mem.disp : 0));
     }
 }
 
 static void gen_INVEPT(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_INVEPT, decode->op[1].n << 28, true);
+    gen_vmx_start(s, decode, VMX_EXIT_INVEPT, -1, decode->op[1].n, true);
     gen_helper_invept(tcg_env, s->A0, s->T0,
                       tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4016,7 +4048,7 @@ static void gen_INVEPT(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_INVVPID(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_INVVPID, decode->op[1].n << 28, true);
+    gen_vmx_start(s, decode, VMX_EXIT_INVVPID, -1, decode->op[1].n, true);
     gen_helper_invvpid(tcg_env, s->A0, s->T0,
                        tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4025,7 +4057,7 @@ static void gen_INVVPID(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_VMXON(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMXON, 0, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMXON, -1, -1, true);
     gen_helper_vmxon(tcg_env, s->A0,
                      tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4034,7 +4066,7 @@ static void gen_VMXON(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_VMCLEAR(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMCLEAR, 0, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMCLEAR, -1, -1, true);
     gen_helper_vmclear(tcg_env, s->A0,
                        tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4042,7 +4074,7 @@ static void gen_VMCLEAR(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_VMPTRLD(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMPTRLD, 0, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMPTRLD, -1, -1, true);
     gen_helper_vmptrld(tcg_env, s->A0,
                        tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4050,7 +4082,7 @@ static void gen_VMPTRLD(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_VMPTRST(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMPTRST, 0, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMPTRST, -1, -1, true);
     gen_helper_vmptrst(tcg_env, s->A0,
                        tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4063,15 +4095,15 @@ static void gen_VMPTRST(DisasContext *s, X86DecodedInsn *decode)
  */
 static void gen_VMREAD(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMREAD,
-                  decode->op[0].n << 3 | decode->op[2].n << 28, false);
+    gen_vmx_start(s, decode, VMX_EXIT_VMREAD, decode->op[0].n,
+                  decode->op[2].n, false);
     gen_helper_vmread(s->T0, tcg_env, s->T1, s->T0);
     set_cc_op(s, CC_OP_EFLAGS);
 }
 
 static void gen_VMREADm(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMREAD, decode->op[2].n << 28, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMREAD, -1, decode->op[2].n, true);
     gen_helper_vmread_mem(tcg_env, s->T1, s->A0,
                           tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4079,15 +4111,15 @@ static void gen_VMREADm(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_VMWRITE(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMWRITE,
-                  decode->op[2].n << 3 | decode->op[1].n << 28, false);
+    gen_vmx_start(s, decode, VMX_EXIT_VMWRITE, decode->op[2].n,
+                  decode->op[1].n, false);
     gen_helper_vmwrite(tcg_env, s->T0, s->T1);
     set_cc_op(s, CC_OP_EFLAGS);
 }
 
 static void gen_VMWRITEm(DisasContext *s, X86DecodedInsn *decode)
 {
-    gen_vmx_start(s, decode, VMX_EXIT_VMWRITE, decode->op[1].n << 28, true);
+    gen_vmx_start(s, decode, VMX_EXIT_VMWRITE, -1, decode->op[1].n, true);
     gen_helper_vmwrite_mem(tcg_env, s->T0, s->A0,
                            tcg_constant_i32(vmx_mem_seg(s, decode)));
     set_cc_op(s, CC_OP_EFLAGS);
@@ -4105,6 +4137,7 @@ static void gen_vmx_xsaves(DisasContext *s, X86DecodedInsn *decode,
         gen_update_eip_cur(s);
         gen_helper_vmx_xsaves(tcg_env, tcg_constant_i32(reason),
                               tcg_constant_i32(vmx_mem_insn_info(s, decode)),
+                              tcg_constant_i64(vmx_mem_eii(s, decode)),
                               tcg_constant_tl(decode->mem.disp), features);
     }
 }
