@@ -273,34 +273,34 @@ void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4)
 
     /* SSE handling */
     if (!(env->features[FEAT_1_EDX] & CPUID_SSE)) {
-        new_cr4 &= ~CR4_OSFXSR_MASK;
+        new_cr4 &= ~(uint64_t)CR4_OSFXSR_MASK;
     }
     if (new_cr4 & CR4_OSFXSR_MASK) {
         hflags |= HF_OSFXSR_MASK;
     }
 
     if (!(env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_SMAP)) {
-        new_cr4 &= ~CR4_SMAP_MASK;
+        new_cr4 &= ~(uint64_t)CR4_SMAP_MASK;
     }
     if (new_cr4 & CR4_SMAP_MASK) {
         hflags |= HF_SMAP_MASK;
     }
     if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_UMIP)) {
-        new_cr4 &= ~CR4_UMIP_MASK;
+        new_cr4 &= ~(uint64_t)CR4_UMIP_MASK;
     }
     if (new_cr4 & CR4_UMIP_MASK) {
         hflags |= HF_UMIP_MASK;
     }
 
     if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_PKU)) {
-        new_cr4 &= ~CR4_PKE_MASK;
+        new_cr4 &= ~(uint64_t)CR4_PKE_MASK;
     }
     if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_PKS)) {
-        new_cr4 &= ~CR4_PKS_MASK;
+        new_cr4 &= ~(uint64_t)CR4_PKS_MASK;
     }
 
     if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_LAM)) {
-        new_cr4 &= ~CR4_LAM_SUP_MASK;
+        new_cr4 &= ~(uint64_t)CR4_LAM_SUP_MASK;
     }
 
     /*
@@ -312,7 +312,7 @@ void cpu_x86_update_cr4(CPUX86State *env, uint64_t new_cr4)
      */
     if (!(env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_CET_SHSTK) &&
         !(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_CET_IBT)) {
-        new_cr4 &= ~CR4_CET_MASK;
+        new_cr4 &= ~(uint64_t)CR4_CET_MASK;
     }
 
     env->cr[4] = new_cr4;
