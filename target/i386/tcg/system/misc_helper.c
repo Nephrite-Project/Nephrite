@@ -589,6 +589,18 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         uint64_t update_mask = x86_efer_writable(env);
         uint64_t old = env->efer;
 
+        /*
+         * Reserved bits (Intel SDM 325462-093 Vol. 2D, WRMSR), LME while
+         * paging is on (Vol. 3A, 5.1.2; AMD64 Architecture Programmer's
+         * Manual Volume 2, 24593 rev. 3.46, Table 14-5), and on AMD's
+         * processors an LMA other than the processor's (3.1.7), which
+         * Intel's ignore as a read-only bit.
+         */
+        if ((val & ~(update_mask | MSR_EFER_LMA)) ||
+            ((env->cr[0] & CR0_PG_MASK) && ((val ^ old) & MSR_EFER_LME)) ||
+            (!IS_INTEL_CPU(env) && ((val ^ old) & MSR_EFER_LMA))) {
+            return false;
+        }
         cpu_load_efer(env, (env->efer & ~update_mask) | (val & update_mask));
         if (((old ^ env->efer) & MSR_EFER_SVME) && x86_pmu_enabled(env)) {
             x86_pmu_reconfigure(env);

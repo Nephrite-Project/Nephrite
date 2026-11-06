@@ -448,7 +448,7 @@ static inline bool is_efer_invalid_state (CPUX86State *env)
         return true;
     }
 
-    if (env->efer & MSR_EFER_RESERVED) {
+    if (env->efer & ~(x86_efer_writable(env) | MSR_EFER_LMA)) {
         return true;
     }
 
