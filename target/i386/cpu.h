@@ -251,8 +251,9 @@ typedef enum X86Seg {
  * TB_SEG_SLOW whatever a helper finds.
  */
 #define TB_SEG_SHIFT         37
-/* In 64-bit mode, which needs no segment checks: CR4.LA57. */
+/* In 64-bit mode, which needs no segment checks: CR4.LA57 and EFER.UAIE. */
 #define TB_LA57              (1ULL << 37)
+#define TB_UAI               (1ULL << 38)
 #define TB_SEG_FLAT          0
 #define TB_SEG_64K           1
 #define TB_SEG_LIMIT         2
@@ -672,6 +673,7 @@ typedef enum X86Seg {
 #define MSR_EFER_NXE   (1 << 11)
 #define MSR_EFER_SVME  (1 << 12)
 #define MSR_EFER_FFXSR (1 << 14)
+#define MSR_EFER_UAIE  (1 << 20)
 
 #define MSR_STAR                        0xc0000081
 #define MSR_LSTAR                       0xc0000082
@@ -1399,6 +1401,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0021_EAX_VERW_CLEAR                   (1U << 5)
 /* Null Selector Clears Base */
 #define CPUID_8000_0021_EAX_NULL_SEL_CLR_BASE            (1U << 6)
+/* Upper Address Ignore: EFER.UAIE */
+#define CPUID_8000_0021_EAX_UAI                          (1U << 7)
 /* Automatic IBRS */
 #define CPUID_8000_0021_EAX_AUTO_IBRS                    (1U << 8)
 /* HWCR.CpuidUserDis: CPUID faults at CPL > 0 */

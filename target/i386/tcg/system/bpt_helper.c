@@ -98,17 +98,35 @@ static target_ulong insn_linear(CPUX86State *env)
     return env->segs[R_CS].base + env->eip;
 }
 
+/*
+ * Upper Address Ignore, while active, leaves bits 63:57 of DR0-3 out of
+ * data breakpoints' matches (AMD64 Architecture Programmer's Manual Volume
+ * 2, 24593 rev. 3.46, 5.10.4).
+ */
+static bool hw_breakpoint_uai(CPUX86State *env)
+{
+    return (env->efer & MSR_EFER_UAIE) && (env->hflags & HF_CS64_MASK);
+}
+
 static int hw_watchpoint_insert(CPUX86State *env, int index, int flags)
 {
     uint64_t ignored = hw_breakpoint_ignored(env, index);
     vaddr addr = env->dr[index] & ~ignored;
+    vaddr last = env->dr[index] | ignored;
 
+    /*
+     * Where Upper Address Ignore may take bits 63:57 out of the match, the
+     * accesses that match have them as copies of bit 56.
+     */
+    if (env->features[FEAT_8000_0021_EAX] & CPUID_8000_0021_EAX_UAI) {
+        addr = sextract64(addr, 0, 57);
+        last = sextract64(last, 0, 57);
+    }
     /*
      * One range from the lowest address that matches to the highest;
      * x86_debug_check_watchpoint() drops what a mask with holes leaves.
      */
-    return cpu_watchpoint_insert(env_cpu(env), addr,
-                                 (env->dr[index] | ignored) - addr + 1,
+    return cpu_watchpoint_insert(env_cpu(env), addr, last - addr + 1,
                                  flags, &env->cpu_watchpoint[index]);
 }
 
@@ -119,8 +137,12 @@ bool x86_debug_check_watchpoint(CPUState *cs, CPUWatchpoint *wp)
 
     for (i = 0; i < DR7_MAX_BP; i++) {
         if (env->cpu_watchpoint[i] == wp) {
-            return !((wp->hitaddr ^ env->dr[i]) &
-                     ~hw_breakpoint_ignored(env, i));
+            uint64_t ignored = hw_breakpoint_ignored(env, i);
+
+            if (hw_breakpoint_uai(env)) {
+                ignored |= MAKE_64BIT_MASK(57, 7);
+            }
+            return !((wp->hitaddr ^ env->dr[i]) & ~ignored);
         }
     }
     return true;

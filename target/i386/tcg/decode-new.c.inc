@@ -3527,22 +3527,29 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     /*
      * 3EH is a no-track prefix where it is the last segment override, or in
      * 64-bit mode where no 64H or 65H comes with it (Intel SDM 325462-093
-     * Vol. 1, 18.3.1).
+     * Vol. 1, 18.3.1).  In 64-bit mode, 2EH, 36H, 3EH, and 26H are null
+     * prefixes but where Upper Address Ignore is on, whose canonical checks
+     * they choose (AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, 2.5.2).
      */
     case 0x2e:
         if (!CODE64(s)) {
             s->override = R_CS;
             s->prefix &= ~PREFIX_NOTRACK;
+        } else if (UAI(s)) {
+            s->override = R_CS;
         }
         goto next_byte;
     case 0x36:
         if (!CODE64(s)) {
             s->override = R_SS;
             s->prefix &= ~PREFIX_NOTRACK;
+        } else if (UAI(s)) {
+            s->override = R_SS;
         }
         goto next_byte;
     case 0x3e:
-        if (!CODE64(s)) {
+        if (!CODE64(s) || UAI(s)) {
             s->override = R_DS;
         }
         s->prefix |= PREFIX_NOTRACK;
@@ -3551,6 +3558,8 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
         if (!CODE64(s)) {
             s->override = R_ES;
             s->prefix &= ~PREFIX_NOTRACK;
+        } else if (UAI(s)) {
+            s->override = R_ES;
         }
         goto next_byte;
     case 0x64:

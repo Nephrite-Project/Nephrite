@@ -1215,13 +1215,19 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define CPUID_8000_0021_EAX_KERNEL_FEATURES 0
 #endif
 
+#if defined(CONFIG_USER_ONLY) || !defined(TARGET_X86_64)
+#define TCG_8000_0021_EAX_UAI 0
+#else
+#define TCG_8000_0021_EAX_UAI CPUID_8000_0021_EAX_UAI
+#endif
+
 #define TCG_8000_0021_EAX_FEATURES ( \
             CPUID_8000_0021_EAX_NO_NESTED_DATA_BP | \
             CPUID_8000_0021_EAX_NULL_SEL_CLR_BASE | \
             CPUID_8000_0021_EAX_ERAPS | \
             CPUID_8000_0021_EAX_CPUID_USER_DIS | \
             CPUID_8000_0021_EAX_KERNEL_FEATURES | \
-            TCG_8000_0021_EAX_SPEC_CTRL)
+            TCG_8000_0021_EAX_UAI | TCG_8000_0021_EAX_SPEC_CTRL)
 
 FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_1_EDX] = {
@@ -1625,7 +1631,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             "no-nested-data-bp", "fs-gs-base-ns", "lfence-always-serializing", NULL,
-            NULL, "verw-clear", "null-sel-clr-base", NULL,
+            NULL, "verw-clear", "null-sel-clr-base", "uai",
             "auto-ibrs", NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, "cpuid-user-dis", NULL, NULL,

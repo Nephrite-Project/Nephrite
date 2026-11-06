@@ -165,8 +165,9 @@ typedef struct DisasContext {
     /* The TB counts its instructions as PAUSE filter cycles (svm_helper.c). */
     TCGOp *pause_cycles;
 
-    /* In 64-bit mode, TB_LA57. */
+    /* In 64-bit mode, TB_LA57 and TB_UAI. */
     bool la57;
+    bool uai;
     /* The instruction makes data accesses through SS, and through others. */
     bool insn_ss;
     bool insn_other;
@@ -234,12 +235,14 @@ typedef struct DisasContext {
 #define IOPL(S)   0
 #define SVM(S)    false
 #define GUEST(S)  false
+#define UAI(S)    false
 #else
 #define PE(S)     (((S)->flags & HF_PE_MASK) != 0)
 #define CPL(S)    ((S)->cpl)
 #define IOPL(S)   ((S)->iopl)
 #define SVM(S)    true
 #define GUEST(S)  (((S)->flags & HF_GUEST_MASK) != 0)
+#define UAI(S)    ((S)->uai)
 #endif
 #if defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
 #define VM86(S)   false
@@ -991,6 +994,15 @@ static void gen_lea_v_seg_dest(DisasContext *s, MemOp aflag, TCGv dest, TCGv a0,
     if ((s->flags & HF_LAM_MASK) && CODE64(s) && def_seg >= 0 &&
         !s->no_lam) {
         gen_lam_untag(dest);
+    }
+    /*
+     * Upper Address Ignore leaves bits 63:57 of the references through DS
+     * and ES out of the canonical check (AMD64 Architecture Programmer's
+     * Manual Volume 2, 24593 rev. 3.46, 5.10.2).
+     */
+    if (UAI(s) && def_seg >= 0 && !s->no_lam &&
+        (ovr_seg == R_DS || ovr_seg == R_ES)) {
+        tcg_gen_sextract_tl(dest, dest, 0, 57);
     }
 #endif
 }
@@ -4414,11 +4426,13 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->pmu_far_misses = !IS_INTEL_CPU(env);
     if (flags & HF_CS64_MASK) {
         dc->la57 = dc->base.tb->cs_base & TB_LA57;
+        dc->uai = dc->base.tb->cs_base & TB_UAI;
         /* 64-bit mode checks no segment limits. */
         memset(dc->seg_class, TB_SEG_FLAT, sizeof(dc->seg_class));
         dc->fetch_class = TB_SEG_FLAT;
         dc->fetch_end = 0;
     } else {
+        dc->uai = false;
         for (int i = R_ES; i <= R_GS; i++) {
             dc->seg_class[i] = (dc->base.tb->cs_base >>
                                 (TB_SEG_SHIFT + i * 2)) & 3;

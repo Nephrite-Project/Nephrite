@@ -461,6 +461,9 @@ uint64_t x86_efer_writable(CPUX86State *env)
     if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
         mask |= MSR_EFER_SVME;
     }
+    if (env->features[FEAT_8000_0021_EAX] & CPUID_8000_0021_EAX_UAI) {
+        mask |= MSR_EFER_UAIE;
+    }
     return mask;
 }
 

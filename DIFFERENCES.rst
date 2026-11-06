@@ -154,7 +154,8 @@ Processor features:
   WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
   FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
-  extensions, AMD's misaligned SSE mode, and CLZERO.
+  extensions, AMD's misaligned SSE mode, AMD's upper address ignore, and
+  CLZERO.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
@@ -358,8 +359,8 @@ Known deviations and limits
   where the KVM patches AMD posted ("KVM: SVM: Enable FRED support" v2,
   April 2026) have them 400h lower, and leaves IA32_PL0_SSP, for which the
   VMCB has no field, to the hypervisor.
-* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
-  RDPRU, and AMD's IBS.
+* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, RDPRU, and
+  AMD's IBS.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.
