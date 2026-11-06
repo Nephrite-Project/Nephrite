@@ -2276,6 +2276,8 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
         type = VMX_INTR_TYPE_HW_EXCEPTION;
     }
     env->vmx.soft_exception = 0;
+    env->vmx.int1_delivery = type == VMX_INTR_TYPE_PRIV_SW_EXCEPTION &&
+                             !is_int;
     env->vmx.idt_vectoring_info = intno | type << VMX_INTR_TYPE_SHIFT |
                                   VMX_INTR_VALID;
     env->vmx.idt_vectoring_error = 0;
@@ -2301,6 +2303,7 @@ void x86_vmx_event_end(CPUX86State *env)
     CPUState *cs = env_cpu(env);
 
     env->vmx.idt_vectoring_info = 0;
+    env->vmx.int1_delivery = false;
     if (env->vmx.mtf) {
         env->vmx.mtf_pending = true;
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
@@ -2759,6 +2762,16 @@ static void vmx_load_host(CPUX86State *env)
 /* The rest of a VM exit, from the main loop. */
 void x86_vmx_do_vmexit(CPUX86State *env)
 {
+    /*
+     * An exit in the delivery of the guest's INT1 saves RIP at the
+     * instruction (Intel SDM 325462-093 Vol. 3C, 30.3.3), as one in the
+     * delivery of INT n does.
+     */
+    if (env->vmx.int1_delivery &&
+        (env->vmx.idt_vectoring_info & VMX_INTR_VALID)) {
+        env->eip -= env->svm_insn_len;
+    }
+    env->vmx.int1_delivery = false;
     VMCS_SET(IDT_VECTORING_INFO, env->vmx.idt_vectoring_info);
     VMCS_SET(IDT_VECTORING_ERROR, env->vmx.idt_vectoring_error);
     VMCS_SET(ORIGINAL_EVENT_DATA, env->vmx.fred_event_data);

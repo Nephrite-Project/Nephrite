@@ -2363,6 +2363,11 @@ typedef struct X86VMXState {
     /* The interruption type of INT3, INTO, or INT1 being raised, else 0. */
     uint8_t soft_exception;
     /*
+     * The event being delivered is the #DB of the guest's INT1, a trap,
+     * with RIP past the instruction already.
+     */
+    bool int1_delivery;
+    /*
      * FRED event delivery of the event a VM entry injects: its event data
      * and the blocking by STI that its SS takes; then the event data of
      * the event delivered, for the original-event data field.
