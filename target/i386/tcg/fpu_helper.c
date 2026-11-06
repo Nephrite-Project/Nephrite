@@ -2739,10 +2739,14 @@ static void do_fxsave(X86Access *ac, target_ulong ptr)
     do_xsave_fpu(ac, ptr);
     if (env->cr[4] & CR4_OSFXSR_MASK) {
         do_xsave_mxcsr(ac, ptr);
-        /* Fast FXSAVE leaves out the XMM registers */
+        /*
+         * Fast FXSAVE leaves out the XMM registers in 64-bit mode at CPL 0
+         * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+         * 3.1.7).
+         */
         if (!(env->efer & MSR_EFER_FFXSR)
             || (env->hflags & HF_CPL_MASK)
-            || !(env->hflags & HF_LMA_MASK)) {
+            || !(env->hflags & HF_CS64_MASK)) {
             do_xsave_sse(ac, ptr);
         }
     }
@@ -3145,10 +3149,10 @@ static void do_fxrstor(X86Access *ac, target_ulong ptr)
     do_xrstor_fpu(ac, ptr);
     if (env->cr[4] & CR4_OSFXSR_MASK) {
         do_xrstor_mxcsr(ac, ptr);
-        /* Fast FXRSTOR leaves out the XMM registers */
+        /* Fast FXRSTOR leaves them out too. */
         if (!(env->efer & MSR_EFER_FFXSR)
             || (env->hflags & HF_CPL_MASK)
-            || !(env->hflags & HF_LMA_MASK)) {
+            || !(env->hflags & HF_CS64_MASK)) {
             do_xrstor_sse(ac, ptr);
         }
     }
