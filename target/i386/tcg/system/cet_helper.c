@@ -162,15 +162,20 @@ void x86_shstk_release(CPUX86State *env, uint64_t addr, uintptr_t ra)
  * the CS, LIP, and SSP of the transfer's origin go on where push is set:
  * #GP(0) where the token is misaligned, the frame and it are not in one
  * aligned 32-byte block, a 32-bit SSP is not, or the token is not free.
+ * Intel's processors check the block whether or not the frame goes on
+ * (Intel SDM 325462-093 Vol. 2A, CALL and INT n), AMD's only where it does
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+ * 18.6.4).
  */
 static void shstk_switch_in(CPUX86State *env, uint64_t new_ssp, bool to64,
                             bool push, uint32_t cs, uint64_t lip,
                             uintptr_t ra)
 {
+    bool block = push || !IS_AMD_CPU(env);
     uint64_t ssp = new_ssp;
 
     if ((new_ssp & 7) ||
-        (new_ssp & ~0x1fULL) != ((new_ssp - 24) & ~0x1fULL) ||
+        (block && (new_ssp & ~0x1fULL) != ((new_ssp - 24) & ~0x1fULL)) ||
         (!to64 && (new_ssp >> 32)) || !x86_shstk_acquire(env, new_ssp, ra)) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
