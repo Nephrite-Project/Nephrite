@@ -208,9 +208,12 @@ struct CPUClass {
 
 /*
  * Fix the number of mmu modes across all targets.
- * Current maximum is target/arm/.
+ * Current maximum is target/i386/, whose guest mode keeps two guests'
+ * translations. 29 is also as many as an aarch64 host reaches from env,
+ * whose CPUTLBDescFast[0] is then MIN_TLB_MASK_TABLE_OFS (-512) away with
+ * CONFIG_PLUGIN.
  */
-#define NB_MMU_MODES 22
+#define NB_MMU_MODES 29
 typedef uint32_t MMUIdxMap;
 
 /* Use a fully associative victim tlb of 8 entries. */
