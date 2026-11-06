@@ -268,6 +268,11 @@ Processor emulation (TCG):
 * RSM shuts the processor down where the state-save area holds state
   that the processor refuses there, with Intel's list on Intel's
   processors and AMD's on the others, before it restores anything.
+* RSM takes EFER.LMA from EFER.LME, CR0.PG, and CR4.PAE, and on AMD's
+  processors keeps EFER.SVME, takes CPL 0 in real mode and 3 in
+  virtual-8086 mode, clears RFLAGS.VM outside protected mode and in long
+  mode, and makes the bases of FS, GS, and the system tables canonical and
+  those of the other segments 32-bit, as AMD's APM has it.
 * IGNNE# changes hflags2 only from the first CPU's thread ("Change
   hflags2 for IGNNE# only from the first CPU's thread").
 * CPUID leaf 0DH marks the CET and Arch LBR state components as
@@ -386,6 +391,8 @@ Known deviations and limits
   SDM does not say; a task switch to a CR3 whose PDPTEs set reserved bits
   raises #GP in the old task with nothing switched, one of the outcomes
   that the SDM allows.
+* RSM on Intel's processors restores CPL, RFLAGS.VM, and the segment bases
+  as the state-save area has them, which the SDM does not cover.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to
   the APIC-access page during event delivery always exit, and
