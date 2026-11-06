@@ -3244,6 +3244,14 @@ static void fred_load_flat(CPUX86State *env, int cs, int ss, int dpl,
                            common | DESC_B_MASK | DESC_W_MASK);
 }
 
+/*
+ * The RFLAGS bits that env->eflags holds: the arithmetic flags and DF live in
+ * CC_SRC and env->df, which cpu_load_eflags() loads whatever its mask says,
+ * and which cpu_compute_eflags() ORs into env->eflags.
+ */
+#define FRED_EFLAGS_MASK \
+    (~(CC_O | CC_S | CC_Z | CC_A | CC_P | CC_C | DF_MASK))
+
 static void fred_swap_gs(CPUX86State *env)
 {
     uint64_t base = env->segs[R_GS].base;
@@ -3383,7 +3391,7 @@ void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
         fred_swap_gs(env);
     }
     env->eip = new_rip;
-    cpu_load_eflags(env, 0, ~0);
+    cpu_load_eflags(env, 0, FRED_EFLAGS_MASK);
     env->regs[R_ESP] = sp;
     env->fred_config = (env->fred_config & ~FRED_CONFIG_CSL) | new_csl;
     if (sss) {
@@ -3482,7 +3490,7 @@ void HELPER(erets)(CPUX86State *env)
     }
 
     env->eip = rip;
-    cpu_load_eflags(env, rflags, ~0);
+    cpu_load_eflags(env, rflags, FRED_EFLAGS_MASK);
     env->regs[R_ESP] = rsp;
     env->fred_config = (env->fred_config & ~FRED_CONFIG_CSL) | new_csl;
     if (fred_sss(env)) {
@@ -3610,7 +3618,7 @@ check:
 
     env->umonitor_armed = false;
     env->eip = rip;
-    cpu_load_eflags(env, rflags, ~0);
+    cpu_load_eflags(env, rflags, FRED_EFLAGS_MASK);
     env->regs[R_ESP] = rsp;
     cpu_x86_load_seg_cache(env, R_CS, new_cs.selector, new_cs.base,
                            new_cs.limit, new_cs.flags);
