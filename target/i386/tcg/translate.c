@@ -4104,6 +4104,20 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             gen_helper_clzero(tcg_env, s->A0);
             break;
 
+#ifndef CONFIG_USER_ONLY
+        case 0xfd: /* RDPRU */
+            if (!(s->cpuid_8000_0008_ebx_features &
+                  CPUID_8000_0008_EBX_RDPRU)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            translator_io_start(&s->base);
+            gen_helper_rdpru(tcg_env);
+            assume_cc_op(s, CC_OP_EFLAGS);
+            break;
+#endif
+
         case 0xfe: /* INVLPGB */
             if (!(s->cpuid_8000_0008_ebx_features &
                   CPUID_8000_0008_EBX_INVLPGB) || !PE(s) || VM86(s)) {

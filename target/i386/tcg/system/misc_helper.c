@@ -535,6 +535,32 @@ static uint64_t eff_freq_read(CPUX86State *env, bool aperf)
 }
 
 /*
+ * RDPRU: MPERF or APERF, or zero for the ECX values past both, after its
+ * #UD checks and before its intercept (AMD64 Architecture Programmer's
+ * Manual Volume 3, 24594 rev. 3.39, RDPRU; Volume 2, 24593 rev. 3.46,
+ * Table 15-7).  The APM has RDPRU modify CF without saying how; here CF
+ * says whether ECX named a register, as RDRAND's says whether it returned
+ * a value.
+ */
+void HELPER(rdpru)(CPUX86State *env)
+{
+    uint32_t ecx = env->regs[R_ECX];
+    uint64_t val = 0;
+
+    if ((env->cr[4] & CR4_TSD_MASK) && (env->hflags & HF_CPL_MASK)) {
+        raise_exception_ra(env, EXCP06_ILLOP, GETPC());
+    }
+    cpu_svm_check_intercept_param(env, SVM_EXIT_RDPRU, 0, GETPC());
+    if (ecx <= RDPRU_MAX_ECX) {
+        val = eff_freq_read(env, ecx == 1);
+    }
+    env->regs[R_EAX] = (uint32_t)val;
+    env->regs[R_EDX] = val >> 32;
+    env->cc_src = ecx <= RDPRU_MAX_ECX ? CC_C : 0;
+    env->cc_op = CC_OP_EFLAGS;
+}
+
+/*
  * The CPUID registers that AMD's CPUID override MSR index (MSRC001_1002 +
  * index) controls, OSXSAVE and APIC as fields whatever CR4 and the local
  * APIC's state, and without the hypervisor bit, which the processor's

@@ -155,8 +155,8 @@ Processor features:
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
   FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
   extensions, AMD's misaligned SSE mode, AMD's upper address ignore, AMD's
-  segment limit checks in 64-bit mode (EFER.LMSLE), CLZERO, and IA32_MPERF
-  and IA32_APERF with AMD's read-only copies of them.
+  segment limit checks in 64-bit mode (EFER.LMSLE), CLZERO, IA32_MPERF and
+  IA32_APERF with AMD's read-only copies of them, and RDPRU.
 * AMD's extended APIC space: the extended LVT entries, four or as many as
   the ``extapic-lvts`` CPU property asks for, up to eight (``max`` has
   eight), specific EOIs, and the interrupt enable registers, in xAPIC and
@@ -363,13 +363,16 @@ Known deviations and limits
   where the KVM patches AMD posted ("KVM: SVM: Enable FRED support" v2,
   April 2026) have them 400h lower, and leaves IA32_PL0_SSP, for which the
   VMCB has no field, to the hypervisor.
-* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, RDPRU, and
-  AMD's IBS.
+* Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, and AMD's
+  IBS.
 * MPERF and APERF both count the TSC's ticks outside HLT, MWAIT, and the
   wait for SIPI, as the processor always runs at its nominal frequency.
+  RDPRU sets CF where ECX names a register and clears it otherwise; the APM
+  says that RDPRU modifies CF, not how.
 * The named CPU models leave out the features that KVM does not give its
-  guests, such as UAI and MPERF and APERF (``uai``, ``aperfmperf``); TCG's
-  ``max`` has them, and named models take them as properties.
+  guests, such as UAI, RDPRU, and MPERF and APERF (``uai``, ``rdpru``,
+  ``aperfmperf``); TCG's ``max`` has them, and named models take them as
+  properties.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.

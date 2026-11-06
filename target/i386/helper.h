@@ -82,6 +82,7 @@ DEF_HELPER_1(rdtscp, void, env)
 DEF_HELPER_1(rdpmc, void, env)
 
 #ifndef CONFIG_USER_ONLY
+DEF_HELPER_1(rdpru, void, env)
 DEF_HELPER_3(outb, void, env, i32, i32)
 DEF_HELPER_2(inb, tl, env, i32)
 DEF_HELPER_3(outw, void, env, i32, i32)

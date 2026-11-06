@@ -1204,16 +1204,19 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_8000_0008_EBX_STIBP_ALWAYS_ON | CPUID_8000_0008_EBX_AMD_SSBD | \
           CPUID_8000_0008_EBX_AMD_PSFD)
 #define TCG_8000_0008_EBX_INVLPGB 0
+#define TCG_8000_0008_EBX_RDPRU 0
 #else
 #define CPUID_8000_0008_EBX_KERNEL_FEATURES 0
 #define TCG_8000_0008_EBX_INVLPGB (CPUID_8000_0008_EBX_INVLPGB | \
           CPUID_8000_0008_EBX_INVLPGB_NESTED)
+#define TCG_8000_0008_EBX_RDPRU CPUID_8000_0008_EBX_RDPRU
 #endif
 
 #define TCG_8000_0008_EBX  (CPUID_8000_0008_EBX_XSAVEERPTR | \
           CPUID_8000_0008_EBX_CLZERO | CPUID_8000_0008_EBX_EFER_LMSLE_MBZ | \
           CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_KERNEL_FEATURES | \
-          TCG_8000_0008_EBX_SPEC_CTRL | TCG_8000_0008_EBX_INVLPGB)
+          TCG_8000_0008_EBX_SPEC_CTRL | TCG_8000_0008_EBX_INVLPGB | \
+          TCG_8000_0008_EBX_RDPRU)
 
 #if defined CONFIG_USER_ONLY
 #define CPUID_8000_0021_EAX_KERNEL_FEATURES CPUID_8000_0021_EAX_AUTO_IBRS
@@ -1636,7 +1639,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             "clzero", NULL, "xsaveerptr", "invlpgb",
-            NULL, NULL, NULL, NULL,
+            "rdpru", NULL, NULL, NULL,
             NULL, "wbnoinvd", NULL, NULL,
             "ibpb", NULL, "ibrs", "amd-stibp",
             NULL, "stibp-always-on", NULL, NULL,
@@ -2270,6 +2273,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_6_ECX,               CPUID_6_ECX_APERFMPERF },
         .to = { FEAT_8000_0007_EDX,         CPUID_APM_EFF_FREQ_RO },
+    },
+    {
+        .from = { FEAT_6_ECX,               CPUID_6_ECX_APERFMPERF },
+        .to = { FEAT_8000_0008_EBX,         CPUID_8000_0008_EBX_RDPRU },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_WAITPKG },
@@ -9550,6 +9557,9 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         }
         *ebx = env->features[FEAT_8000_0008_EBX];
         *edx = *ebx & CPUID_8000_0008_EBX_INVLPGB ? INVLPGB_COUNT_MAX : 0;
+        if (*ebx & CPUID_8000_0008_EBX_RDPRU) {
+            *edx |= RDPRU_MAX_ECX << 16;
+        }
 
         /*
          * Don't emulate Bits [7:0] & Bits [15:12] for Intel/Zhaoxin, since

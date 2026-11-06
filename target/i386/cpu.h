@@ -1379,6 +1379,10 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_8000_0008_EBX_XSAVEERPTR  (1U << 2)
 /* INVLPGB and TLBSYNC */
 #define CPUID_8000_0008_EBX_INVLPGB     (1U << 3)
+/* RDPRU reads MPERF and APERF */
+#define CPUID_8000_0008_EBX_RDPRU       (1U << 4)
+/* RDPRU's largest ECX: 0 for MPERF, 1 for APERF */
+#define RDPRU_MAX_ECX                   1
 /* Write back and do not invalidate cache */
 #define CPUID_8000_0008_EBX_WBNOINVD    (1U << 9)
 /* Indirect Branch Prediction Barrier */
