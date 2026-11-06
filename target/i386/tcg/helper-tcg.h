@@ -194,6 +194,8 @@ void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason,
 void x86_vmx_invpcid(CPUX86State *env, uintptr_t ra);
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);
+void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
+                       target_ulong disp, uintptr_t ra);
 bool x86_vmx_ept_mbec(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,

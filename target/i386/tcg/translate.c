@@ -292,6 +292,8 @@ typedef struct DisasContext {
 
 #ifdef CONFIG_USER_ONLY
 STUB_HELPER(clgi, TCGv_env env)
+STUB_HELPER(desc_intercept, TCGv_env env, TCGv_i32 type, TCGv_i32 info,
+            TCGv disp)
 STUB_HELPER(flush_page, TCGv_env env, TCGv addr)
 STUB_HELPER(invlpga, TCGv_env env, TCGv addr, TCGv_i32 asid)
 STUB_HELPER(invlpgb, TCGv_env env, TCGv rax)
@@ -2651,6 +2653,39 @@ static void gen_sty_env_A0(DisasContext *s, int offset, bool align)
 #include "emit.c.inc"
 
 /*
+ * The intercept of a descriptor-table instruction, of IDENTITY in the
+ * instruction information of VMX's descriptor-table exits, which have the
+ * operand, and for one in memory the displacement as the exit
+ * qualification (Intel SDM 325462-093 Vol. 3C, 30.2.1 and Tables 30-10
+ * and 30-11).
+ */
+static void gen_desc_intercept(DisasContext *s, X86DecodedInsn *decode,
+                               int modrm, uint32_t type, int identity)
+{
+#ifndef CONFIG_USER_ONLY
+    bool mem = (modrm >> 6) != 3;
+    uint32_t info = identity << 28;
+
+    if (likely(!GUEST(s))) {
+        return;
+    }
+    if (mem) {
+        info |= vmx_mem_insn_info(s, decode);
+    } else {
+        info |= 1 << 10 | (s->aflag - MO_16) << 7 |
+                (((modrm & 7) | REX_B(s)) & 0xf) << 3;
+    }
+    if (type == SVM_EXIT_IDTR_READ || type == SVM_EXIT_GDTR_READ ||
+        type == SVM_EXIT_IDTR_WRITE || type == SVM_EXIT_GDTR_WRITE) {
+        info |= (s->dflag == MO_32) << 11;
+    }
+    gen_helper_desc_intercept(tcg_env, tcg_constant_i32(type),
+                              tcg_constant_i32(info),
+                              tcg_constant_tl(mem ? decode->mem.disp : 0));
+#endif
+}
+
+/*
  * The access of an x87 instruction's memory operand, by OP, the low opcode
  * bits and the ModRM reg field: the environment takes 14 bytes with a
  * 16-bit operand size and 28 otherwise, and FSAVE's state 80 more (Intel
@@ -3337,7 +3372,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (s->flags & HF_UMIP_MASK && !check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_LDTR_READ);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_LDTR_READ, 0);
             tcg_gen_ld32u_tl(s->T0, tcg_env,
                              offsetof(CPUX86State, ldt.selector));
             ot = mod == 3 ? dflag : MO_16;
@@ -3348,7 +3383,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 goto illegal_op;
             if (check_cpl0(s)) {
                 t32 = tcg_temp_new_i32();
-                gen_svm_check_intercept(s, SVM_EXIT_LDTR_WRITE);
+                gen_desc_intercept(s, decode, modrm, SVM_EXIT_LDTR_WRITE, 2);
                 gen_ld_modrm(s, decode, MO_16);
                 tcg_gen_trunc_tl_i32(t32, s->T0);
                 gen_helper_lldt(tcg_env, t32);
@@ -3360,7 +3395,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (s->flags & HF_UMIP_MASK && !check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_TR_READ);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_TR_READ, 1);
             tcg_gen_ld32u_tl(s->T0, tcg_env,
                              offsetof(CPUX86State, tr.selector));
             ot = mod == 3 ? dflag : MO_16;
@@ -3371,7 +3406,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 goto illegal_op;
             if (check_cpl0(s)) {
                 t32 = tcg_temp_new_i32();
-                gen_svm_check_intercept(s, SVM_EXIT_TR_WRITE);
+                gen_desc_intercept(s, decode, modrm, SVM_EXIT_TR_WRITE, 3);
                 gen_ld_modrm(s, decode, MO_16);
                 tcg_gen_trunc_tl_i32(t32, s->T0);
                 gen_helper_ltr(tcg_env, t32);
@@ -3414,7 +3449,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (s->flags & HF_UMIP_MASK && !check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_GDTR_READ);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_GDTR_READ, 0);
             gen_lea_modrm_acc(s, decode, SEG_W(CODE64(s) ? 10 : 6));
             tcg_gen_ld32u_tl(s->T0,
                              tcg_env, offsetof(CPUX86State, gdt.limit));
@@ -3560,7 +3595,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (s->flags & HF_UMIP_MASK && !check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_IDTR_READ);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_IDTR_READ, 1);
             gen_lea_modrm_acc(s, decode, SEG_W(CODE64(s) ? 10 : 6));
             tcg_gen_ld32u_tl(s->T0, tcg_env, offsetof(CPUX86State, idt.limit));
             gen_op_st_v(s, MO_16, s->T0, s->A0);
@@ -3730,7 +3765,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_GDTR_WRITE);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_GDTR_WRITE, 2);
             gen_lea_modrm_acc(s, decode, SEG_R(CODE64(s) ? 10 : 6));
             gen_op_ld_v(s, MO_16, s->T1, s->A0);
             gen_add_A0_im(s, 2);
@@ -3749,7 +3784,7 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             if (!check_cpl0(s)) {
                 break;
             }
-            gen_svm_check_intercept(s, SVM_EXIT_IDTR_WRITE);
+            gen_desc_intercept(s, decode, modrm, SVM_EXIT_IDTR_WRITE, 3);
             gen_lea_modrm_acc(s, decode, SEG_R(CODE64(s) ? 10 : 6));
             gen_op_ld_v(s, MO_16, s->T1, s->A0);
             gen_add_A0_im(s, 2);

@@ -2155,22 +2155,6 @@ void x86_vmx_check_intercept(CPUX86State *env, uint32_t type,
             x86_vmx_exit(env, VMX_EXIT_WBINVD, 0, ra);
         }
         break;
-    case SVM_EXIT_IDTR_READ:
-    case SVM_EXIT_GDTR_READ:
-    case SVM_EXIT_IDTR_WRITE:
-    case SVM_EXIT_GDTR_WRITE:
-        if (proc2 & VMX_SECONDARY_EXEC_DESC) {
-            x86_vmx_exit(env, VMX_EXIT_GDTR_IDTR, 0, ra);
-        }
-        break;
-    case SVM_EXIT_LDTR_READ:
-    case SVM_EXIT_TR_READ:
-    case SVM_EXIT_LDTR_WRITE:
-    case SVM_EXIT_TR_WRITE:
-        if (proc2 & VMX_SECONDARY_EXEC_DESC) {
-            x86_vmx_exit(env, VMX_EXIT_LDTR_TR, 0, ra);
-        }
-        break;
     case SVM_EXIT_READ_CR0 + 3:
         if (proc & VMX_CPU_BASED_CR3_STORE_EXITING) {
             x86_vmx_exit(env, VMX_EXIT_CR_ACCESS, 3 | 1 << 4 | gpr << 8, ra);
@@ -4325,6 +4309,25 @@ void HELPER(vmx_xsaves)(CPUX86State *env, uint32_t reason, uint32_t info,
         (rfbm & env->xss & VMCS(XSS_EXIT_BITMAP))) {
         VMCS_SET(EXIT_INSN_INFO, info);
         x86_vmx_exit(env, reason, disp, GETPC());
+    }
+}
+
+/*
+ * Descriptor-table exiting: LGDT, LIDT, SGDT, SIDT, LLDT, LTR, SLDT, and STR
+ * exit with their instruction information and, for a memory operand, its
+ * displacement as the exit qualification (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3 and 30.2.1).
+ */
+void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
+                       target_ulong disp, uintptr_t ra)
+{
+    bool table = type == SVM_EXIT_IDTR_READ || type == SVM_EXIT_GDTR_READ ||
+                 type == SVM_EXIT_IDTR_WRITE || type == SVM_EXIT_GDTR_WRITE;
+
+    if (vmx_proc2(env) & VMX_SECONDARY_EXEC_DESC) {
+        VMCS_SET(EXIT_INSN_INFO, info);
+        x86_vmx_exit(env, table ? VMX_EXIT_GDTR_IDTR : VMX_EXIT_LDTR_TR, disp,
+                     ra);
     }
 }
 

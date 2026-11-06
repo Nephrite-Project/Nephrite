@@ -1370,6 +1370,21 @@ void HELPER(svm_check_intercept)(CPUX86State *env, uint32_t type,
 }
 
 /*
+ * The intercept of a descriptor-table instruction of TYPE: VMX's
+ * descriptor-table exits report INFO, the instruction information, and
+ * DISP, the displacement.
+ */
+void HELPER(desc_intercept)(CPUX86State *env, uint32_t type, uint32_t info,
+                            target_ulong disp)
+{
+    if (env->vmx.nonroot) {
+        x86_vmx_desc_exit(env, type, info, disp, GETPC());
+    } else {
+        cpu_svm_check_intercept_param(env, type, 0, GETPC());
+    }
+}
+
+/*
  * MOV to a CR and MOV DR take SVM's intercept after their other exception
  * checks (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
  * Table 15-7), through x86_svm_late_intercept(), but VMX's MOV-DR exit
