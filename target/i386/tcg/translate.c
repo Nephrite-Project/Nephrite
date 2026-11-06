@@ -4414,6 +4414,10 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->pmu_far_misses = !IS_INTEL_CPU(env);
     if (flags & HF_CS64_MASK) {
         dc->la57 = dc->base.tb->cs_base & TB_LA57;
+        /* 64-bit mode checks no segment limits. */
+        memset(dc->seg_class, TB_SEG_FLAT, sizeof(dc->seg_class));
+        dc->fetch_class = TB_SEG_FLAT;
+        dc->fetch_end = 0;
     } else {
         for (int i = R_ES; i <= R_GS; i++) {
             dc->seg_class[i] = (dc->base.tb->cs_base >>
