@@ -35,11 +35,14 @@ void HELPER(syscall)(CPUX86State *env, int next_eip_addend)
 #ifdef TARGET_X86_64
     /*
      * FRED transitions make SYSCALL an event of type 7 and vector 1, with
-     * no use of IA32_EFER.SCE (Intel SDM 325462-093 Vol. 2B, SYSCALL).
+     * no use of IA32_EFER.SCE (Intel SDM 325462-093 Vol. 2B, SYSCALL),
+     * whose VM exits in delivery take its length.
      */
     if (env->cr[4] & CR4_FRED_MASK) {
-        x86_fred_deliver(env, X86_EVENT_OTHER, 1, 0, false, next_eip_addend,
-                         env->eip + next_eip_addend);
+        env->svm_insn_len = next_eip_addend;
+        env->vmx.soft_exception = X86_EVENT_OTHER;
+        do_interrupt_all(env_archcpu(env), 1, 1, 0,
+                         env->eip + next_eip_addend, 0);
         return;
     }
 #endif

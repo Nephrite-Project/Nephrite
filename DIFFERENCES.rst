@@ -113,6 +113,11 @@ Intel VMX, which QEMU's TCG does not have:
 * User interrupts: the guest UINV field, the "load UINV" and "clear UINV"
   controls, injected and virtual user-interrupt notifications, and
   SENDUIPI with APIC virtualization.
+* FRED: the FRED MSRs' guest and host fields with the "load FRED" VM-entry
+  control and the secondary VM-exit controls "save FRED" and "load FRED",
+  FRED event delivery of injected events with their event data, the
+  nested-exception bit, and injected SYSCALL and SYSENTER, and the
+  original-event data of VM exits during FRED event delivery.
 
 AMD SVM, completing what QEMU's TCG has:
 
@@ -311,9 +316,9 @@ Known deviations and limits
   supervisor-shadow-stack control, nested page fault exit information
   lacks the shadow-stack bit, and ENDBR is recognized only as exactly
   ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
-* FRED: VMX and SVM keep no FRED state for their guests; SYSCALL under FRED
-  does not need IA32_EFER.SCE, as the SDM's operation of SYSCALL has it;
-  there is no NMI-source reporting.
+* FRED: SVM keeps no FRED state for its guests; SYSCALL under FRED does not
+  need IA32_EFER.SCE, as the SDM's operation of SYSCALL has it; there is no
+  NMI-source reporting.
 * Not implemented: HOST_MCE_OVERRIDE, the bus-lock threshold, AMD's UAI,
   RDPRU, and AMD's IBS.
 * Unknown MSRs read as 0, as in QEMU.

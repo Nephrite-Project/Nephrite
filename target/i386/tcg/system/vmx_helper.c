@@ -94,16 +94,25 @@
 #define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_PROC3_CONTROLS 0x2034
 #define VMCS_PID_TABLE_ADDR 0x2042
+#define VMCS_EXIT2_CONTROLS 0x2044
+#define VMCS_INJECTED_EVENT_DATA 0x2052
 #define VMCS_GUEST_PHYS_ADDR 0x2400
+#define VMCS_ORIGINAL_EVENT_DATA 0x2404
 #define VMCS_LINK_POINTER 0x2800
 #define VMCS_GUEST_DEBUGCTL 0x2802
 #define VMCS_GUEST_PAT 0x2804
 #define VMCS_GUEST_EFER 0x2806
 #define VMCS_GUEST_PERF_GLOBAL_CTRL 0x2808
 #define VMCS_GUEST_PDPTE(n) (0x280a + 2 * (n))
+/*
+ * IA32_FRED_CONFIG, IA32_FRED_RSP1 to 3, IA32_FRED_STKLVLS, and
+ * IA32_FRED_SSP1 to 3, the guest's and the host's, 2 encodings apart.
+ */
+#define VMCS_GUEST_FRED 0x281a
 #define VMCS_HOST_PAT 0x2c00
 #define VMCS_HOST_EFER 0x2c02
 #define VMCS_HOST_PERF_GLOBAL_CTRL 0x2c04
+#define VMCS_HOST_FRED 0x2c08
 #define VMCS_PIN_CONTROLS 0x4000
 #define VMCS_PROC_CONTROLS 0x4002
 #define VMCS_EXCEPTION_BITMAP 0x4004
@@ -193,6 +202,7 @@
 #define VMX_INTR_TYPE_OTHER 7
 #define VMX_INTR_ERROR_VALID (1U << 11)
 #define VMX_INTR_NMI_UNBLOCKED (1U << 12)
+#define VMX_INTR_NESTED (1U << 13)
 #define VMX_INTR_VALID (1U << 31)
 
 /* Guest interruptibility state (Intel SDM 325462-093 Vol. 3C, Table 27-3). */
@@ -284,7 +294,10 @@ static const uint16_t vmcs_fields[] = {
     0x2032, /* TSC multiplier */
     0x2034, /* tertiary processor-based VM-execution controls */
     0x2042, /* PID-pointer table address */
+    0x2044, /* secondary VM-exit controls */
+    0x2052, /* injected-event data */
     0x2400, /* guest-physical address */
+    0x2404, /* original-event data */
     0x2800, /* VMCS link pointer */
     0x2802, /* guest IA32_DEBUGCTL */
     0x2804, /* guest IA32_PAT */
@@ -295,10 +308,26 @@ static const uint16_t vmcs_fields[] = {
     0x280e, /* guest PDPTE2 */
     0x2810, /* guest PDPTE3 */
     0x2818, /* guest IA32_PKRS */
+    0x281a, /* guest IA32_FRED_CONFIG */
+    0x281c, /* guest IA32_FRED_RSP1 */
+    0x281e, /* guest IA32_FRED_RSP2 */
+    0x2820, /* guest IA32_FRED_RSP3 */
+    0x2822, /* guest IA32_FRED_STKLVLS */
+    0x2824, /* guest IA32_FRED_SSP1 */
+    0x2826, /* guest IA32_FRED_SSP2 */
+    0x2828, /* guest IA32_FRED_SSP3 */
     0x2c00, /* host IA32_PAT */
     0x2c02, /* host IA32_EFER */
     0x2c04, /* host IA32_PERF_GLOBAL_CTRL */
     0x2c06, /* host IA32_PKRS */
+    0x2c08, /* host IA32_FRED_CONFIG */
+    0x2c0a, /* host IA32_FRED_RSP1 */
+    0x2c0c, /* host IA32_FRED_RSP2 */
+    0x2c0e, /* host IA32_FRED_RSP3 */
+    0x2c10, /* host IA32_FRED_STKLVLS */
+    0x2c12, /* host IA32_FRED_SSP1 */
+    0x2c14, /* host IA32_FRED_SSP2 */
+    0x2c16, /* host IA32_FRED_SSP3 */
     0x4000, /* pin-based VM-execution controls */
     0x4002, /* primary processor-based VM-execution controls */
     0x4004, /* exception bitmap */
@@ -938,6 +967,13 @@ static uint32_t vmx_entry_features(CPUX86State *env)
     return features;
 }
 
+/* The secondary VM-exit controls, FRED's, with their primary control. */
+static uint64_t vmx_exit2_features(CPUX86State *env)
+{
+    return vmx_exit_features(env) & VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS ?
+           VMX_VM_EXIT2_SAVE_FRED | VMX_VM_EXIT2_LOAD_FRED : 0;
+}
+
 /*
  * The VMX capability MSRs, from the CPU model's VMX features (Intel SDM
  * 325462-093 Vol. 3D, Appendix A); false where the MSR does not exist.
@@ -1047,6 +1083,14 @@ bool x86_vmx_read_msr(CPUX86State *env, uint32_t index, uint64_t *val)
         }
         *val = env->features[FEAT_VMX_TERTIARY_CTLS];
         return true;
+    case MSR_IA32_VMX_EXIT_CTLS2:
+        /* All 64 bits too (Intel SDM 325462-093 Vol. 3D, A.4.2). */
+        if (!(vmx_exit_features(env) &
+              VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS)) {
+            return false;
+        }
+        *val = vmx_exit2_features(env);
+        return true;
     default:
         return false;
     }
@@ -1133,6 +1177,33 @@ static uint64_t vmx_proc3(CPUX86State *env)
     return VMCS(PROC_CONTROLS) & VMX_CPU_BASED_ACTIVATE_TERTIARY_CONTROLS ?
            VMCS(PROC3_CONTROLS) : 0;
 }
+
+static uint64_t vmx_exit2(CPUX86State *env)
+{
+    return VMCS(EXIT_CONTROLS) & VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS ?
+           VMCS(EXIT2_CONTROLS) : 0;
+}
+
+#ifdef TARGET_X86_64
+/* The FRED MSRs in the order of their VMCS fields. */
+static uint64_t *vmx_fred_msr(CPUX86State *env, int i)
+{
+    uint64_t *msrs[] = {
+        &env->fred_config, &env->fred_rsp1, &env->fred_rsp2, &env->fred_rsp3,
+        &env->fred_stklvls, &env->fred_ssp1, &env->fred_ssp2, &env->fred_ssp3,
+    };
+
+    return msrs[i];
+}
+
+/* The FRED MSRs from the guest's or the host's fields at BASE. */
+static void vmx_fred_load(CPUX86State *env, uint32_t base)
+{
+    for (int i = 0; i < 8; i++) {
+        *vmx_fred_msr(env, i) = x86_vmcs_read(env, base + 2 * i);
+    }
+}
+#endif
 
 /* VMX access rights from and to QEMU's descriptor flags. */
 static uint32_t vmx_ar(const SegmentCache *sc)
@@ -1309,6 +1380,14 @@ static void vmx_exception_exit(CPUX86State *env, int vector,
     /* What does not exit keeps its type for the IDT-vectoring information. */
     if (!x86_vmx_exception_exits(env, vector, error_code)) {
         return;
+    }
+    /*
+     * One in FRED event delivery is nested on it, but #DF (Intel SDM
+     * 325462-093 Vol. 3C, 30.2.2).
+     */
+    if (env->fred_nested && type == VMX_INTR_TYPE_HW_EXCEPTION &&
+        vector != EXCP08_DBLE) {
+        info |= VMX_INTR_NESTED;
     }
     env->vmx.soft_exception = 0;
     if (type == VMX_INTR_TYPE_HW_EXCEPTION &&
@@ -2203,6 +2282,12 @@ void x86_vmx_event_start(CPUX86State *env, int intno, int is_int,
     env->vmx.idt_vectoring_info = intno | type << VMX_INTR_TYPE_SHIFT |
                                   VMX_INTR_VALID;
     env->vmx.idt_vectoring_error = 0;
+    env->vmx.fred_event_data = 0;
+    /* An exception nested on FRED event delivery, but #DF (30.2.4). */
+    if (env->fred_nested && type == VMX_INTR_TYPE_HW_EXCEPTION &&
+        intno != EXCP08_DBLE) {
+        env->vmx.idt_vectoring_info |= VMX_INTR_NESTED;
+    }
     if (type == VMX_INTR_TYPE_HW_EXCEPTION && has_error_code) {
         env->vmx.idt_vectoring_info |= VMX_INTR_ERROR_VALID;
         env->vmx.idt_vectoring_error = error_code;
@@ -2400,6 +2485,15 @@ static void vmx_save_guest(CPUX86State *env)
     if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_UINTR) {
         VMCS_SET(GUEST_UINV, x86_uintr_uinv(env));
     }
+#ifdef TARGET_X86_64
+    /* "Save FRED" (Intel SDM 325462-093 Vol. 3C, 30.3.3). */
+    if (vmx_exit2(env) & VMX_VM_EXIT2_SAVE_FRED) {
+        for (int i = 0; i < 8; i++) {
+            x86_vmcs_write(env, VMCS_GUEST_FRED + 2 * i,
+                           *vmx_fred_msr(env, i));
+        }
+    }
+#endif
     for (int i = 0; i < 8; i++) {
         const SegmentCache *sc = i == R_LDTR ? &env->ldt :
                                  i == R_TR ? &env->tr : &env->segs[i];
@@ -2611,6 +2705,12 @@ static void vmx_load_host(CPUX86State *env)
     if (exit_ctl & VMX_VM_EXIT_CLEAR_UINV) {
         x86_uintr_set_uinv(env, 0);
     }
+#ifdef TARGET_X86_64
+    /* "Load FRED" (Intel SDM 325462-093 Vol. 3C, 30.5.1). */
+    if (vmx_exit2(env) & VMX_VM_EXIT2_LOAD_FRED) {
+        vmx_fred_load(env, VMCS_HOST_FRED);
+    }
+#endif
 
     cpu_x86_load_seg_cache(env, R_CS, VMCS(HOST_SEL(R_CS)), 0, 0xffffffff,
                            DESC_P_MASK | DESC_S_MASK | DESC_CS_MASK |
@@ -2664,6 +2764,7 @@ void x86_vmx_do_vmexit(CPUX86State *env)
 {
     VMCS_SET(IDT_VECTORING_INFO, env->vmx.idt_vectoring_info);
     VMCS_SET(IDT_VECTORING_ERROR, env->vmx.idt_vectoring_error);
+    VMCS_SET(ORIGINAL_EVENT_DATA, env->vmx.fred_event_data);
     env->vmx.idt_vectoring_info = 0;
     VMCS_SET(ENTRY_INTR_INFO, VMCS(ENTRY_INTR_INFO) & ~VMX_INTR_VALID);
     vmx_save_guest(env);
@@ -2736,15 +2837,28 @@ static bool vmx_injection_valid(CPUX86State *env)
     bool error = info & VMX_INTR_ERROR_VALID;
     uint32_t len = VMCS(ENTRY_INSN_LEN);
 
+    bool fred_call = type == VMX_INTR_TYPE_OTHER && vector &&
+                     (VMCS(GUEST_CR4) & CR4_FRED_MASK);
+
     if (!(info & VMX_INTR_VALID)) {
         return true;
     }
-    if (type == 1 || (info & 0x7ffff000) ||
+    /*
+     * Type 7 is a pending MTF VM exit of vector 0, or for a guest with
+     * FRED transitions SYSCALL or SYSENTER of vector 1 or 2; the nested-
+     * exception bit marks hardware exceptions only, with IA32_VMX_BASIC[58].
+     */
+    if (type == 1 || (info & 0x7fffd000) ||
         (type == VMX_INTR_TYPE_NMI && vector != EXCP02_NMI) ||
         (type == VMX_INTR_TYPE_HW_EXCEPTION && vector > 31) ||
-        (type == VMX_INTR_TYPE_OTHER &&
+        (type == VMX_INTR_TYPE_OTHER && !fred_call &&
          (vector || !(env->features[FEAT_VMX_PROCBASED_CTLS] &
-                      VMX_CPU_BASED_MONITOR_TRAP_FLAG)))) {
+                      VMX_CPU_BASED_MONITOR_TRAP_FLAG))) ||
+        (fred_call && vector > 2) ||
+        ((info & VMX_INTR_NESTED) &&
+         (type != VMX_INTR_TYPE_HW_EXCEPTION ||
+          !(env->features[FEAT_VMX_BASIC] &
+            MSR_VMX_BASIC_NESTED_EXCEPTION)))) {
         return false;
     }
     if (error && (real || type != VMX_INTR_TYPE_HW_EXCEPTION)) {
@@ -2765,7 +2879,7 @@ static bool vmx_injection_valid(CPUX86State *env)
     }
     if ((type == VMX_INTR_TYPE_SW_INTR ||
          type == VMX_INTR_TYPE_PRIV_SW_EXCEPTION ||
-         type == VMX_INTR_TYPE_SW_EXCEPTION) &&
+         type == VMX_INTR_TYPE_SW_EXCEPTION || fred_call) &&
         (len > 15 || (!len && !(env->features[FEAT_VMX_MISC] &
                                 MSR_VMX_MISC_ZERO_LEN_INJECT)))) {
         return false;
@@ -2798,6 +2912,9 @@ static bool vmx_controls_valid(CPUX86State *env)
                        MSR_IA32_VMX_TRUE_EXIT_CTLS, exit_ctl) ||
         !vmx_ctl_valid(env, MSR_IA32_VMX_ENTRY_CTLS,
                        MSR_IA32_VMX_TRUE_ENTRY_CTLS, entry_ctl)) {
+        return false;
+    }
+    if (vmx_exit2(env) & ~vmx_exit2_features(env)) {
         return false;
     }
     if (VMCS(CR3_TARGET_COUNT) > VMX_MISC_CR3_TARGETS) {
@@ -2965,6 +3082,31 @@ static bool vmx_pat_valid(uint64_t pat)
  * The host-state area (Intel SDM 325462-093 Vol. 3C, 29.2.2 to 29.2.4),
  * on a processor with Intel 64 architecture.
  */
+/*
+ * The FRED MSR fields the "load FRED" controls take, the guest's or the
+ * host's at BASE (Intel SDM 325462-093 Vol. 3C, 29.2.2 and 29.3.1.1):
+ * IA32_FRED_CONFIG with its reserved bits clear, the RSP fields 64-byte
+ * aligned and the SSP fields 8-byte, all CPU canonical.
+ */
+static bool vmx_fred_fields_valid(CPUX86State *env, uint32_t base)
+{
+    uint64_t config = x86_vmcs_read(env, base);
+
+    if ((config & 0x834) || !vmx_canonical(env, config)) {
+        return false;
+    }
+    for (int i = 1; i <= 3; i++) {
+        uint64_t rsp = x86_vmcs_read(env, base + 2 * i);
+        uint64_t ssp = x86_vmcs_read(env, base + 2 * (i + 4));
+
+        if ((rsp & 0x3f) || (ssp & 7) || !vmx_canonical(env, rsp) ||
+            !vmx_canonical(env, ssp)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool vmx_host_state_valid(CPUX86State *env)
 {
     uint32_t exit_ctl = VMCS(EXIT_CONTROLS);
@@ -3002,6 +3144,10 @@ static bool vmx_host_state_valid(CPUX86State *env)
          !!(efer & MSR_EFER_LME) != host64)) {
         return false;
     }
+    if ((vmx_exit2(env) & VMX_VM_EXIT2_LOAD_FRED) &&
+        !vmx_fred_fields_valid(env, VMCS_HOST_FRED)) {
+        return false;
+    }
     for (int i = R_ES; i <= R_GS; i++) {
         if (x86_vmcs_read(env, VMCS_HOST_SEL(i)) & 7) {
             return false;
@@ -3030,7 +3176,8 @@ static bool vmx_host_state_valid(CPUX86State *env)
     if (host64) {
         return (cr4 & CR4_PAE_MASK) && vmx_canonical(env, VMCS(HOST_RIP));
     }
-    return !(cr4 & CR4_PCIDE_MASK) && !(VMCS(HOST_RIP) >> 32);
+    return !(cr4 & (CR4_PCIDE_MASK | CR4_FRED_MASK)) &&
+           !(VMCS(HOST_RIP) >> 32);
 }
 
 /*
@@ -3110,6 +3257,16 @@ static bool vmx_guest_segments_valid(CPUX86State *env, bool ia32e, bool ug,
         if ((!ug && (ss_rpl != (VMCS(GUEST_SEL(R_CS)) & 3) ||
                      VMX_AR_DPL(ss_ar) != ss_rpl)) ||
             ((cs_type == 3 || !(cr0 & CR0_PE_MASK)) && VMX_AR_DPL(ss_ar))) {
+            return false;
+        }
+        /*
+         * With FRED transitions, CS is of DPL 0 in 64-bit mode or of DPL 3
+         * with IOPL 0 and no blocking by STI (29.3.1.2).
+         */
+        if ((VMCS(GUEST_CR4) & CR4_FRED_MASK) &&
+            (VMX_AR_DPL(cs_ar) == 0 ? !(cs_ar & VMX_AR_L)
+             : VMX_AR_DPL(cs_ar) != 3 || (rflags & IOPL_MASK) ||
+               (VMCS(GUEST_INTERRUPTIBILITY) & VMX_BLOCKING_STI))) {
             return false;
         }
         if (!(ss_ar & VMX_AR_UNUSABLE) &&
@@ -3251,6 +3408,10 @@ static int vmx_guest_state_check(CPUX86State *env)
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_UINV) && (VMCS(GUEST_UINV) & 0xff00)) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_FRED) &&
+        !vmx_fred_fields_valid(env, VMCS_GUEST_FRED)) {
+        return 1;
+    }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_EFER) {
         uint64_t efer = VMCS(GUEST_EFER);
 
@@ -3350,14 +3511,14 @@ static int vmx_guest_state_check(CPUX86State *env)
 
 /*
  * The entry injects an event, the pending MTF VM exits of type other
- * event aside (Intel SDM 325462-093 Vol. 3C, 29.7).
+ * event and vector 0 aside (Intel SDM 325462-093 Vol. 3C, 29.7).
  */
 static bool vmx_injecting(CPUX86State *env)
 {
     uint32_t info = VMCS(ENTRY_INTR_INFO);
 
     return (info & VMX_INTR_VALID) &&
-           (info & VMX_INTR_TYPE_MASK) !=
+           (info & (VMX_INTR_TYPE_MASK | VMX_INTR_VECTOR_MASK)) !=
            VMX_INTR_TYPE_OTHER << VMX_INTR_TYPE_SHIFT;
 }
 
@@ -3408,6 +3569,11 @@ static void vmx_load_guest(CPUX86State *env)
     if (entry_ctl & VMX_VM_ENTRY_LOAD_UINV) {
         x86_uintr_set_uinv(env, VMCS(GUEST_UINV));
     }
+#ifdef TARGET_X86_64
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_FRED) {
+        vmx_fred_load(env, VMCS_GUEST_FRED);
+    }
+#endif
 
     env->eflags = 0;
     cpu_load_eflags(env, VMCS(GUEST_RFLAGS),
@@ -3486,6 +3652,19 @@ static void vmx_inject(CPUX86State *env)
     if (!(info & VMX_INTR_VALID)) {
         return;
     }
+    /*
+     * FRED event delivery of it saves the injected-event data, the guest's
+     * blocking by STI, which ends, and the nested-exception bit (Intel SDM
+     * 325462-093 Vol. 3C, 29.6.1.1).
+     */
+    if ((env->cr[4] & CR4_FRED_MASK) &&
+        (type != VMX_INTR_TYPE_OTHER || vector)) {
+        env->vmx.fred_inject = true;
+        env->vmx.fred_inject_data = VMCS(INJECTED_EVENT_DATA);
+        env->vmx.fred_inject_sti = VMCS(GUEST_INTERRUPTIBILITY) &
+                                   VMX_BLOCKING_STI;
+        env->fred_nested = info & VMX_INTR_NESTED;
+    }
     switch (type) {
     case VMX_INTR_TYPE_EXT_INTR:
         /*
@@ -3495,6 +3674,7 @@ static void vmx_inject(CPUX86State *env)
          */
         if ((env->cr[4] & CR4_UINTR_MASK) && (env->hflags & HF_LMA_MASK) &&
             vector == x86_uintr_uinv(env)) {
+            env->vmx.fred_inject = false;
             x86_uintr_process(env);
             cs->halted = VMCS(GUEST_ACTIVITY) == VMX_ACTIVITY_HLT;
             return;
@@ -3525,9 +3705,13 @@ static void vmx_inject(CPUX86State *env)
         break;
     case VMX_INTR_TYPE_OTHER:
         /* A pending MTF VM exit (Intel SDM 325462-093 Vol. 3C, 29.6.2). */
-        env->vmx.mtf_pending = true;
-        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
-        return;
+        if (!vector) {
+            env->vmx.mtf_pending = true;
+            cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+            return;
+        }
+        /* Else SYSCALL or SYSENTER, as INT n with their type. */
+        /* fall through */
     default:
         env->vmx.soft_exception = type == VMX_INTR_TYPE_SW_INTR ? 0 : type;
         cs->exception_index = vector;

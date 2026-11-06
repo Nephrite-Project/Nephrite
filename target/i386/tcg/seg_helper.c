@@ -2887,11 +2887,14 @@ void HELPER(sysenter)(CPUX86State *env, int next_eip_addend)
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
     /*
      * FRED transitions make SYSENTER an event of type 7 and vector 2, with
-     * no use of IA32_SYSENTER_CS (Intel SDM 325462-093 Vol. 2B, SYSENTER).
+     * no use of IA32_SYSENTER_CS (Intel SDM 325462-093 Vol. 2B, SYSENTER),
+     * whose VM exits in delivery take its length.
      */
     if (env->cr[4] & CR4_FRED_MASK) {
-        x86_fred_deliver(env, X86_EVENT_OTHER, 2, 0, false, next_eip_addend,
-                         env->eip + next_eip_addend);
+        env->svm_insn_len = next_eip_addend;
+        env->vmx.soft_exception = X86_EVENT_OTHER;
+        do_interrupt_all(env_archcpu(env), 2, 1, 0,
+                         env->eip + next_eip_addend, 0);
         return;
     }
 #endif
@@ -3269,6 +3272,7 @@ void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
                       bool has_error_code, int len, target_ulong old_rip)
 {
     int cpl = env->hflags & HF_CPL_MASK;
+    bool inject = env->vmx.fred_inject;
     bool nested = env->fred_nested;
     bool dbl = type == X86_EVENT_HW_EXCEPTION && vector == EXCP08_DBLE;
     bool sys = type == X86_EVENT_SW_INTR || type == X86_EVENT_OTHER;
@@ -3277,39 +3281,52 @@ void x86_fred_deliver(CPUX86State *env, int type, int vector, int error_code,
     int mmu_index = fred_mmu_index(env);
     uint64_t old_rflags = cpu_compute_eflags(env);
     uint64_t old_cs, old_ss, data = 0, new_rip, new_rsp, new_ssp = 0, sp;
-    bool wfe, sss = fred_sss(env);
+    bool wfe, sti, sss = fred_sss(env);
     int sl, new_csl;
 
-    /* The RF that IDT event delivery saves too. */
-    if (type == X86_EVENT_HW_EXCEPTION && exception_is_fault(vector)) {
+    /*
+     * The RF that IDT event delivery saves too, but for an event VM entry
+     * injects (Intel SDM 325462-093 Vol. 3C, 29.6.1.1).
+     */
+    if (type == X86_EVENT_HW_EXCEPTION && exception_is_fault(vector) &&
+        !inject) {
         old_rflags |= RF_MASK;
     }
     wfe = cpl == 0 && (env->cr[4] & CR4_CET_MASK) &&
           (env->s_cet & CET_ENDBR_EN) && (env->s_cet & CET_WAIT_ENDBR);
-    if (nested) {
+    sti = type == X86_EVENT_HW_EXCEPTION &&
+          (env->hflags & HF_INHIBIT_IRQ_MASK) && !env->shadow_movss;
+    /*
+     * An event that VM entry injects takes the tracker whatever its type,
+     * the guest's blocking by STI, and the injected-event data.
+     */
+    env->vmx.fred_inject = false;
+    if (inject) {
+        sti = env->vmx.fred_inject_sti;
+    } else if (nested) {
         wfe = env->fred_nested_ibt;
     } else if (sys) {
         wfe = false;
     }
     old_cs = env->segs[R_CS].selector | (uint64_t)csl << FRED_CS_SL_SHIFT |
              (wfe ? FRED_CS_WFE : 0);
-    old_ss = env->segs[R_SS].selector |
-             (type == X86_EVENT_HW_EXCEPTION &&
-              (env->hflags & HF_INHIBIT_IRQ_MASK) && !env->shadow_movss ?
-              FRED_SS_STI : 0) |
+    old_ss = env->segs[R_SS].selector | (sti ? FRED_SS_STI : 0) |
              (sys ? FRED_SS_SYS : 0) |
              (type == X86_EVENT_NMI ? FRED_SS_NMI : 0) |
              (uint64_t)(vector & 0xff) << 32 | (uint64_t)type << 48 |
              (env->hflags & HF_CS64_MASK ? FRED_INFO_L : 0) |
              (nested && !dbl ? FRED_INFO_NST : 0) |
              (type >= X86_EVENT_SW_INTR ? (uint64_t)(len & 0xf) << 60 : 0);
-    if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
+    if (inject) {
+        data = env->vmx.fred_inject_data;
+    } else if (type == X86_EVENT_HW_EXCEPTION && vector == EXCP0E_PAGE) {
         data = env->cr[2];
     } else if (vector == EXCP01_DB &&
                (type == X86_EVENT_HW_EXCEPTION ||
                 type == X86_EVENT_PRIV_SW_EXCEPTION)) {
         data = env->db_event;
     }
+    env->vmx.fred_event_data = data;
 
     env->fred_nested = true;
     env->fred_nested_ibt = wfe;

@@ -751,6 +751,7 @@ typedef enum X86Seg {
 #define MSR_IA32_VMX_TRUE_ENTRY_CTLS     0x00000490
 #define MSR_IA32_VMX_VMFUNC             0x00000491
 #define MSR_IA32_VMX_PROCBASED_CTLS3    0x00000492
+#define MSR_IA32_VMX_EXIT_CTLS2         0x00000493
 
 #define MSR_APIC_START                  0x00000800
 #define MSR_APIC_END                    0x000008ff
@@ -1649,6 +1650,10 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL      0x40000000
 #define VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS     0x80000000
 
+/* Secondary VM-exit controls (Intel SDM 325462-093 Vol. 3C, Table 27-15). */
+#define VMX_VM_EXIT2_SAVE_FRED                      (1ULL << 0)
+#define VMX_VM_EXIT2_LOAD_FRED                      (1ULL << 1)
+
 #define VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS            0x00000004
 #define VMX_VM_ENTRY_IA32E_MODE                     0x00000200
 #define VMX_VM_ENTRY_SMM                            0x00000400
@@ -2357,6 +2362,15 @@ typedef struct X86VMXState {
     uint64_t exception_qual;
     /* The interruption type of INT3, INTO, or INT1 being raised, else 0. */
     uint8_t soft_exception;
+    /*
+     * FRED event delivery of the event a VM entry injects: its event data
+     * and the blocking by STI that its SS takes; then the event data of
+     * the event delivered, for the original-event data field.
+     */
+    bool fred_inject;
+    bool fred_inject_sti;
+    uint64_t fred_inject_data;
+    uint64_t fred_event_data;
     /*
      * A hardware exception VM entry injects, until its delivery begins,
      * and whether it pushes an error code.
