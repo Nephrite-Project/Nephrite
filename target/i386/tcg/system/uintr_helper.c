@@ -306,7 +306,13 @@ void HELPER(uiret)(CPUX86State *env)
         x86_shstk_pop_check(env, rip, CP_FAR_RET_IRET, ra);
     }
     env->eip = rip;
-    cpu_load_eflags(env, rflags, UIRET_RFLAGS_MASK);
+    /*
+     * The arithmetic flags and DF go to CC_SRC and env->df whatever the mask,
+     * and env->eflags keeps none of them, as cpu_compute_eflags() ORs it in.
+     */
+    cpu_load_eflags(env, rflags,
+                    UIRET_RFLAGS_MASK & ~(CC_O | CC_S | CC_Z | CC_A | CC_P |
+                                          CC_C | DF_MASK));
     env->regs[R_ESP] = rsp;
     env->uif = !(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_UIRET_UIF) ||
                (rflags & 2);
