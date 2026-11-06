@@ -162,6 +162,8 @@ typedef struct DisasContext {
     uint8_t pmu_counted;
     /* The add whose operand becomes the TB's instruction count. */
     TCGOp *pmu_insns;
+    /* The TB counts its instructions as PAUSE filter cycles (svm_helper.c). */
+    TCGOp *pause_cycles;
 
     /* In 64-bit mode, TB_LA57. */
     bool la57;
@@ -1965,9 +1967,30 @@ static void gen_pmu_tb_start(DisasContext *s)
     tcg_gen_st_i64(insns, tcg_env, PMU_TOTAL(s, insns));
 }
 
-/* The instruction faults, which the TB's start counted as retiring. */
+/*
+ * Where SVM guest mode's PAUSE filter has a threshold, the TB's start counts
+ * its instructions as the filter's cycles (svm_helper.c), the count coming
+ * in when the TB is complete (i386_tr_tb_stop).
+ */
+static void gen_pause_cycles_start(DisasContext *s)
+{
+    TCGv_i64 cycles = tcg_temp_new_i64();
+
+    tcg_gen_ld_i64(cycles, tcg_env, offsetof(CPUX86State, svm_pause_cycles));
+    tcg_gen_add_i64(cycles, cycles, tcg_constant_i64(0));
+    s->pause_cycles = tcg_last_op();
+    tcg_gen_st_i64(cycles, tcg_env, offsetof(CPUX86State, svm_pause_cycles));
+}
+
+/*
+ * The instruction faults, which the TB's start counted as retiring, for the
+ * PMU and the PAUSE filter.
+ */
 static void gen_pmu_fault(DisasContext *s)
 {
+    if (s->flags & HF_PAUSE_COUNT_MASK) {
+        gen_pmu_add(offsetof(CPUX86State, svm_pause_cycles), -1);
+    }
     if (!s->pmu) {
         return;
     }
@@ -4414,6 +4437,9 @@ static void i386_tr_tb_start(DisasContextBase *db, CPUState *cpu)
     if (dc->pmu) {
         gen_pmu_tb_start(dc);
     }
+    if (dc->flags & HF_PAUSE_COUNT_MASK) {
+        gen_pause_cycles_start(dc);
+    }
 #endif
 }
 
@@ -4524,7 +4550,7 @@ static void i386_tr_translate_insn(DisasContextBase *dcbase, CPUState *cpu)
     if (dc->insn_ss && !dc->insn_other) {
         insn_word |= X86_INSN_STACK;
     }
-    if (dc->pmu) {
+    if (dc->pmu || (dc->flags & HF_PAUSE_COUNT_MASK)) {
         insn_word |= dc->pmu_counted |
                      (dc->base.num_insns - 1) << X86_PMU_INSN_INDEX_SHIFT;
     }
@@ -4554,6 +4580,10 @@ static void i386_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
 #ifndef CONFIG_USER_ONLY
     if (dc->pmu) {
         tcg_set_insn_param(dc->pmu_insns, 2,
+                           tcgv_i64_arg(tcg_constant_i64(dc->base.num_insns)));
+    }
+    if (dc->flags & HF_PAUSE_COUNT_MASK) {
+        tcg_set_insn_param(dc->pause_cycles, 2,
                            tcgv_i64_arg(tcg_constant_i64(dc->base.num_insns)));
     }
 #endif

@@ -125,6 +125,18 @@ static uint32_t svm_clean_bits(CPUX86State *env)
 }
 
 /*
+ * Whether an intercepted PAUSE has a filter threshold, whose cycles guest
+ * mode then counts (svm_pause_exits).
+ */
+static bool svm_pause_threshold(CPUX86State *env)
+{
+    return (env->intercept & (1ULL << (SVM_EXIT_PAUSE - SVM_EXIT_INTR))) &&
+           (env->features[FEAT_SVM] & CPUID_SVM_PAUSEFILTER) &&
+           (env->features[FEAT_SVM] & CPUID_SVM_PFTHRESHOLD) &&
+           env->svm_pause_filter_thresh;
+}
+
+/*
  * With shadow stacks, VMRUN and #VMEXIT switch S_CET, SSP, and ISST_ADDR,
  * sign-extending the shadow-stack pointers, and VMRUN fails for an S_CET
  * with reserved bits set (AMD64 Architecture Programmer's Manual Volume 2,
@@ -646,7 +658,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->svm_pause_filter_thresh = c->pause_filter_thresh;
     env->svm_pause_filter_count = c->pause_filter_count;
     env->svm_pause_count = c->pause_filter_count;
-    env->svm_last_pause = 0;
+    env->svm_last_pause = env->svm_pause_cycles;
     env->intercept = c->intercept;
     env->intercept_vec5 = c->intercept_vec5;
     env->intercept_cr_read = c->intercept_cr_read;
@@ -734,6 +746,9 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
 
     /* enable intercepts */
     env->hflags |= HF_GUEST_MASK;
+    if (svm_pause_threshold(env)) {
+        env->hflags |= HF_PAUSE_COUNT_MASK;
+    }
 
     env->tsc_offset = c->tsc_offset;
 
@@ -1280,24 +1295,23 @@ bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type)
  * count, which each PAUSE lowers, exiting where it reaches zero; with a
  * threshold, a PAUSE more cycles than that after the last one reloads the
  * count first, and the exit comes where it falls below zero (AMD64
- * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 15.14.4).
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.14.4).
+ * The cycles are the instructions that guest mode retires, one a cycle as
+ * for the PMU (pmu.c), which its TBs count while HF_PAUSE_COUNT is set.
  */
 static bool svm_pause_exits(CPUX86State *env)
 {
-    uint64_t now;
-
     if (!(env->features[FEAT_SVM] & CPUID_SVM_PAUSEFILTER)) {
         return true;
     }
-    if (!(env->features[FEAT_SVM] & CPUID_SVM_PFTHRESHOLD) ||
-        !env->svm_pause_filter_thresh) {
+    if (!svm_pause_threshold(env)) {
         return --env->svm_pause_count <= 0;
     }
-    now = cpu_get_tsc(env);
-    if (now - env->svm_last_pause > env->svm_pause_filter_thresh) {
+    if (env->svm_pause_cycles - env->svm_last_pause >
+        env->svm_pause_filter_thresh) {
         env->svm_pause_count = env->svm_pause_filter_count;
     }
-    env->svm_last_pause = now;
+    env->svm_last_pause = env->svm_pause_cycles;
     return --env->svm_pause_count < 0;
 }
 
@@ -1680,7 +1694,7 @@ void do_vmexit(CPUX86State *env)
 load_host:
     /* Reload the host state from vm_hsave */
     env->hflags2 &= ~(HF2_HIF_MASK | HF2_VINTR_MASK);
-    env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK);
+    env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK | HF_PAUSE_COUNT_MASK);
     env->intercept = 0;
     env->intercept_vec5 = 0;
     env->intercept_exceptions = 0;

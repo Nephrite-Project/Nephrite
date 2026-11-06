@@ -627,11 +627,17 @@ void x86_pmu_restore(CPUX86State *env, const TranslationBlock *tb,
     memset(p->limit, 0, sizeof(p->limit));
 }
 
-/* The instruction at which the state was restored retires after all. */
+/*
+ * The instruction at which the state was restored retires after all, for
+ * the PMU and for SVM's PAUSE filter (x86_restore_state_to_opc).
+ */
 void x86_pmu_restored_retired(CPUX86State *env)
 {
     if (env->pmu.fix_pending) {
         env->pmu.fix_insns--;
+    }
+    if (env->hflags & HF_PAUSE_COUNT_MASK) {
+        env->svm_pause_cycles++;
     }
 }
 

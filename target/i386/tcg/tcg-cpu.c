@@ -214,6 +214,11 @@ static void x86_restore_state_to_opc(CPUState *cs,
     if (x86_pmu_enabled(env)) {
         x86_pmu_restore(env, tb, data[2]);
     }
+    /* Of the PAUSE filter's cycles, those of the instructions not retired. */
+    if (tb->flags & HF_PAUSE_COUNT_MASK) {
+        env->svm_pause_cycles -=
+            tb->icount - (data[2] >> X86_PMU_INSN_INDEX_SHIFT);
+    }
 #endif
 }
 

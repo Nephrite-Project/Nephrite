@@ -339,6 +339,7 @@ Known deviations and limits
   #NM and #GP order; the NMI-unblocking bit (bit 12 of the exit
   qualification) is never set; MTF with BTF and TF reports BS as for
   non-branches.
+* SVM's PAUSE filter threshold counts cycles as the PMU does.
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no
   PerfMonV2, PEBS, or LBR format.

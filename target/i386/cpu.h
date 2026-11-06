@@ -186,6 +186,7 @@ typedef enum X86Seg {
 #define HF_GUEST_SHIFT      21 /* SVM intercepts are active */
 #define HF_OSFXSR_SHIFT     22 /* CR4.OSFXSR */
 #define HF_SMAP_SHIFT       23 /* CR4.SMAP */
+#define HF_PAUSE_COUNT_SHIFT 24 /* guest mode counts PAUSE filter cycles */
 #define HF_MPX_EN_SHIFT     25 /* MPX Enabled (CR4+XCR0+BNDCFGx) */
 #define HF_MPX_IU_SHIFT     26 /* BND registers in-use */
 #define HF_UMIP_SHIFT       27 /* CR4.UMIP */
@@ -217,6 +218,7 @@ typedef enum X86Seg {
 #define HF_GUEST_MASK        (1 << HF_GUEST_SHIFT)
 #define HF_OSFXSR_MASK       (1 << HF_OSFXSR_SHIFT)
 #define HF_SMAP_MASK         (1 << HF_SMAP_SHIFT)
+#define HF_PAUSE_COUNT_MASK  (1 << HF_PAUSE_COUNT_SHIFT)
 #define HF_MPX_EN_MASK       (1 << HF_MPX_EN_SHIFT)
 #define HF_MPX_IU_MASK       (1 << HF_MPX_IU_SHIFT)
 #define HF_UMIP_MASK         (1 << HF_UMIP_SHIFT)
@@ -2837,12 +2839,14 @@ typedef struct CPUArchState {
     /* The last nested walk had a dirty flag to set with the PML full. */
     bool svm_pml_full;
     /*
-     * The PAUSE filter: VMRUN's count and threshold, the count left, and the
-     * TSC at the guest's last PAUSE.
+     * The PAUSE filter: VMRUN's count and threshold, the count left, the
+     * cycles that guest mode spent where it has a threshold, and those at
+     * the guest's last PAUSE.
      */
     uint16_t svm_pause_filter_count;
     uint16_t svm_pause_filter_thresh;
     int32_t svm_pause_count;
+    uint64_t svm_pause_cycles;
     uint64_t svm_last_pause;
     /* Decode assists: EXITINFO1 of the current instruction's intercepts. */
     uint64_t svm_decode_info;
