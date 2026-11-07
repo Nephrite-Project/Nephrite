@@ -276,6 +276,10 @@ Processor emulation (TCG):
   paging.
 * SMIs save SSP in the state-save area, and RSM restores it made
   canonical.
+* An SMI in the HLT state sets the state-save area's auto-halt restart
+  field, for which RSM returns to the HLT state. MWAIT, which TCG takes as
+  a halt on a single processor, no longer counts as the HLT state there or
+  for user-interrupt notifications.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs

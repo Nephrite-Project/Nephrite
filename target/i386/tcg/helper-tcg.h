@@ -472,7 +472,7 @@ void handle_even_inj(CPUX86State *env, int intno, int is_int,
 int exception_has_error_code(int intno);
 
 /* smm_helper.c */
-void do_smm_enter(X86CPU *cpu);
+void do_smm_enter(X86CPU *cpu, bool halted);
 
 /* system/bpt_helper.c */
 void x86_load_dr6(CPUX86State *env, target_ulong val);

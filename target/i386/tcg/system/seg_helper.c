@@ -231,9 +231,10 @@ void x86_cpu_leaving_halt(CPUState *cpu)
     if (env->user_wait) {
         x86_user_wait_end(env);
     } else {
-        env->vmx.hlt_wake = env->vmx.nonroot;
-        env->hlt_woke = true;
+        env->vmx.hlt_wake = env->vmx.nonroot && !env->mwait_halted;
+        env->hlt_woke = !env->mwait_halted;
     }
+    env->mwait_halted = false;
     /* Complete HLT, UMWAIT, or TPAUSE instruction.  */
     if (env->eflags & TF_MASK) {
         env->dr[6] |= DR6_BS;
@@ -291,7 +292,7 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
     case CPU_INTERRUPT_SMI:
         cpu_svm_check_intercept_param(env, SVM_EXIT_SMI, 0, 0);
         cpu_reset_interrupt(cs, CPU_INTERRUPT_SMI);
-        do_smm_enter(cpu);
+        do_smm_enter(cpu, hlt_woke);
         break;
     case CPU_INTERRUPT_NMI:
         cpu_svm_check_intercept_param(env, SVM_EXIT_NMI, 0, 0);

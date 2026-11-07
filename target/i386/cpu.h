@@ -2883,8 +2883,12 @@ typedef struct CPUArchState {
     uint64_t uintr_pd;
     uint64_t uintr_tt;
     bool uif;
-    /* The processor left the HLT state for the interrupt it now takes. */
+    /*
+     * The processor left the HLT state for the interrupt it now takes; the
+     * halt it waits in is MWAIT's, which TCG may take for one.
+     */
     bool hlt_woke;
+    bool mwait_halted;
     /*
      * FRED: an event's delivery is under way, so that an exception now is
      * one nested on it, whose saved CS takes fred_nested_ibt as bit 18

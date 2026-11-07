@@ -171,9 +171,16 @@ static void sm_state_init_32(X86CPU *cpu)
     x86_stl_phys(cs, sm_state + 0x7ef8, env->smbase);
 }
 
-void do_smm_enter(X86CPU *cpu)
+/*
+ * An SMI, HALTED where it came in the HLT state, which the auto-halt
+ * restart field records for RSM to return to (Intel SDM 325462-093 Vol.
+ * 3C, 34.10; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+ * 3.46, 10.3.7).
+ */
+void do_smm_enter(X86CPU *cpu, bool halted)
 {
     CPUX86State *env = &cpu->env;
+    CPUState *cs = CPU(cpu);
 
     qemu_log_mask(CPU_LOG_INT, "SMM: enter\n");
     log_cpu_state_mask(CPU_LOG_INT, CPU(cpu), CPU_DUMP_CCOP);
@@ -194,11 +201,13 @@ void do_smm_enter(X86CPU *cpu)
 
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         sm_state_init_64(cpu);
+        x86_stb_phys(cs, env->smbase + 0x8000 + 0x7ec9, halted);
         x86_svm_smm_enter(env, env->smbase + 0x8000);
         env->smm_svme = env->efer & MSR_EFER_SVME;
         cpu_load_efer(env, 0);
     } else {
         sm_state_init_32(cpu);
+        x86_stw_phys(cs, env->smbase + 0x8000 + 0x7f02, halted);
     }
 
     /* init SMM cpu state */
@@ -564,8 +573,11 @@ static const char *rsm_invalid(CPUX86State *env, const RsmChecked *c)
 void HELPER(rsm)(CPUX86State *env)
 {
     X86CPU *cpu = env_archcpu(env);
+    CPUState *cs = CPU(cpu);
     bool lm = env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM;
     hwaddr sm_state = env->smbase + 0x8000;
+    bool halt = lm ? x86_ldub_phys(cs, sm_state + 0x7ec9) != 0
+                   : x86_lduw_phys(cs, sm_state + 0x7f02) & 1;
     RsmChecked checked;
     SVMSmmSaved svm;
     const char *invalid;
@@ -607,4 +619,12 @@ void HELPER(rsm)(CPUX86State *env)
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");
     log_cpu_state_mask(CPU_LOG_INT, CPU(cpu), CPU_DUMP_CCOP);
+
+    /* The auto-halt restart field takes the processor back to HLT. */
+    if (halt) {
+        do_end_instruction(env);
+        cs->halted = 1;
+        cs->exception_index = EXCP_HLT;
+        cpu_loop_exit(cs);
+    }
 }

@@ -1944,6 +1944,7 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {
         HELPER(pause)(env);
     } else {
+        env->mwait_halted = true;
         do_hlt(env);
     }
 }
