@@ -409,11 +409,8 @@ static void svm_cache_seg(CPUX86State *env, SegmentCache *dst,
  * nested paging mode, and xAVIC vAPIC base, as their entries hold what
  * those decided.
  */
-static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
+static X86GuestTLBTag svm_tlb_tag(CPUX86State *env, uint32_t asid)
 {
-    CPUState *cs = env_cpu(env);
-    uint8_t tlb_ctl = x86_ldub_phys(cs, env->vm_vmcb +
-                                    offsetof(struct vmcb, control.tlb_ctl));
     X86GuestTLBTag tag = {
         .id = asid,
         .apic = env->svm_avic && !env->svm_x2avic ? env->svm_avic_bar
@@ -421,6 +418,16 @@ static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
         .cr4 = env->cr[4] & SVM_TLB_CR4_BITS,
         .pg_mode = env->nested_pg_mode,
     };
+
+    return tag;
+}
+
+static void svm_vmrun_tlb(CPUX86State *env, uint32_t asid)
+{
+    CPUState *cs = env_cpu(env);
+    uint8_t tlb_ctl = x86_ldub_phys(cs, env->vm_vmcb +
+                                    offsetof(struct vmcb, control.tlb_ctl));
+    X86GuestTLBTag tag = svm_tlb_tag(env, asid);
     bool flush = false;
 
     switch (tlb_ctl) {
@@ -1884,4 +1891,201 @@ load_host:
         env->db_event = DR6_BS;
         do_interrupt_all(X86_CPU(cs), EXCP01_DB, 0, 0, env->eip, 0);
     }
+}
+
+/*
+ * An SMI in SVM guest mode that the guest does not intercept: the
+ * state-save area takes the guest's VMCB, virtual interrupt state, and
+ * G_PAT, and the host's EFER and control registers, and the SMM handler
+ * runs outside the guest's controls (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.46, 15.22.3 and Table 10-1), which RSM restores.
+ */
+void x86_svm_smm_enter(CPUX86State *env, hwaddr sm_state)
+{
+    CPUState *cs = env_cpu(env);
+    bool guest = (env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot;
+
+    x86_stq_phys(cs, sm_state + 0x7ed8, guest);
+    if (!guest) {
+        return;
+    }
+    x86_stq_phys(cs, sm_state + 0x7ee0, env->vm_vmcb);
+    x86_stq_phys(cs, sm_state + 0x7ee8,
+                 env->int_ctl | (uint64_t)env->svm_int_vector << 32);
+    x86_stq_phys(cs, sm_state + 0x7f20,
+                 env->hflags2 & HF2_NPT_MASK ? env->svm_gpat : 0);
+    x86_stq_phys(cs, sm_state + 0x7f28,
+                 x86_ldq_phys(cs, env->vm_hsave +
+                              offsetof(struct vmcb, save.efer)));
+    x86_stq_phys(cs, sm_state + 0x7f30,
+                 x86_ldq_phys(cs, env->vm_hsave +
+                              offsetof(struct vmcb, save.cr4)));
+    x86_stq_phys(cs, sm_state + 0x7f38,
+                 x86_ldq_phys(cs, env->vm_hsave +
+                              offsetof(struct vmcb, save.cr3)));
+    x86_stq_phys(cs, sm_state + 0x7f40,
+                 x86_ldq_phys(cs, env->vm_hsave +
+                              offsetof(struct vmcb, save.cr0)));
+
+    env->svm_smm = (SVMSmmGuest) {
+        .active = true,
+        .hflags = env->hflags & HF_PAUSE_COUNT_MASK,
+        .hflags2 = env->hflags2 & (HF2_NPT_MASK | HF2_HIF_MASK),
+        .intercept = env->intercept,
+        .intercept_vec5 = env->intercept_vec5,
+        .intercept_cr_read = env->intercept_cr_read,
+        .intercept_cr_write = env->intercept_cr_write,
+        .intercept_dr_read = env->intercept_dr_read,
+        .intercept_dr_write = env->intercept_dr_write,
+        .intercept_exceptions = env->intercept_exceptions,
+        .tsc_offset = env->tsc_offset,
+        .nested_cr3 = env->nested_cr3,
+        .nested_pg_mode = env->nested_pg_mode,
+        .iopm_base = env->svm_iopm_base,
+        .msrpm_base = env->svm_msrpm_base,
+        .asid = x86_guest_tlb_current(env)->id,
+        .bus_lock_counter = env->svm_bus_lock_counter,
+        .pause_filter_count = env->svm_pause_filter_count,
+        .pause_filter_thresh = env->svm_pause_filter_thresh,
+        .pause_count = env->svm_pause_count,
+        .last_pause = env->svm_last_pause,
+        .tlbi_enabled = env->svm_tlbi_enabled,
+        .lbr_virt = env->svm_lbr_virt,
+        .fred_virt = env->svm_fred_virt,
+        .avic = env->svm_avic,
+        .x2avic = env->svm_x2avic,
+        .avic_bar = env->svm_avic_bar,
+        .avic_backing = env->svm_avic_backing,
+        .avic_logical = env->svm_avic_logical,
+        .avic_physical = env->svm_avic_physical,
+        .avic_max_index = env->svm_avic_max_index,
+    };
+
+    env->hflags &= ~(HF_GUEST_MASK | HF_TLB_SET_MASK | HF_PAUSE_COUNT_MASK);
+    env->hflags2 &= ~(HF2_NPT_MASK | HF2_VINTR_MASK | HF2_HIF_MASK |
+                      HF2_VGIF_MASK);
+    env->intercept = 0;
+    env->intercept_vec5 = 0;
+    env->intercept_cr_read = 0;
+    env->intercept_cr_write = 0;
+    env->intercept_dr_read = 0;
+    env->intercept_dr_write = 0;
+    env->intercept_exceptions = 0;
+    env->tsc_offset = 0;
+    env->nested_pg_mode = 0;
+    env->int_ctl = 0;
+    env->svm_int_vector = 0;
+    env->svm_lbr_virt = false;
+    env->svm_fred_virt = false;
+    env->svm_avic = false;
+    env->svm_x2avic = false;
+    cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ | CPU_INTERRUPT_VNMI);
+}
+
+/*
+ * The state-save area's fields of SVM guest mode, which RSM reads while
+ * the processor is still in SMM: outside it, the addresses of SMRAM may
+ * show other memory.
+ */
+void x86_svm_smm_read(CPUX86State *env, hwaddr sm_state, SVMSmmSaved *saved)
+{
+    CPUState *cs = env_cpu(env);
+
+    saved->guest = x86_ldq_phys(cs, sm_state + 0x7ed8);
+    saved->vmcb = x86_ldq_phys(cs, sm_state + 0x7ee0);
+    saved->vintr = x86_ldq_phys(cs, sm_state + 0x7ee8);
+    saved->gpat = x86_ldq_phys(cs, sm_state + 0x7f20);
+    saved->host_efer = x86_ldq_phys(cs, sm_state + 0x7f28);
+    saved->host_cr4 = x86_ldq_phys(cs, sm_state + 0x7f30);
+    saved->host_cr3 = x86_ldq_phys(cs, sm_state + 0x7f38);
+    saved->host_cr0 = x86_ldq_phys(cs, sm_state + 0x7f40);
+}
+
+/*
+ * RSM to SVM guest mode where the state-save area says so: the controls
+ * that the SMI set aside, with the VMCB, virtual interrupt state, and G_PAT
+ * that the state-save area holds, and its host EFER and control registers
+ * back where #VMEXIT takes them from. False where no SMI set guest mode
+ * aside or G_PAT is invalid.
+ */
+bool x86_svm_smm_leave(CPUX86State *env, const SVMSmmSaved *saved)
+{
+    CPUState *cs = env_cpu(env);
+    SVMSmmGuest *g = &env->svm_smm;
+    bool active = g->active;
+    X86GuestTLBTag tag;
+
+    g->active = false;
+    if (!(saved->guest & 1)) {
+        return true;
+    }
+    if (!active ||
+        ((g->hflags2 & HF2_NPT_MASK) && !x86_pat_valid(saved->gpat))) {
+        return false;
+    }
+    env->vm_vmcb = saved->vmcb;
+    env->int_ctl = saved->vintr;
+    env->svm_int_vector = saved->vintr >> 32;
+    if (g->hflags2 & HF2_NPT_MASK) {
+        env->svm_gpat = saved->gpat;
+    }
+    x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.efer),
+                 saved->host_efer);
+    x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.cr4),
+                 saved->host_cr4);
+    x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.cr3),
+                 saved->host_cr3);
+    x86_stq_phys(cs, env->vm_hsave + offsetof(struct vmcb, save.cr0),
+                 saved->host_cr0);
+
+    env->intercept = g->intercept;
+    env->intercept_vec5 = g->intercept_vec5;
+    env->intercept_cr_read = g->intercept_cr_read;
+    env->intercept_cr_write = g->intercept_cr_write;
+    env->intercept_dr_read = g->intercept_dr_read;
+    env->intercept_dr_write = g->intercept_dr_write;
+    env->intercept_exceptions = g->intercept_exceptions;
+    env->tsc_offset = g->tsc_offset;
+    env->nested_cr3 = g->nested_cr3;
+    env->nested_pg_mode = g->nested_pg_mode;
+    env->svm_iopm_base = g->iopm_base;
+    env->svm_msrpm_base = g->msrpm_base;
+    env->svm_bus_lock_counter = g->bus_lock_counter;
+    env->svm_pause_filter_count = g->pause_filter_count;
+    env->svm_pause_filter_thresh = g->pause_filter_thresh;
+    env->svm_pause_count = g->pause_count;
+    env->svm_last_pause = g->last_pause;
+    env->svm_tlbi_enabled = g->tlbi_enabled;
+    env->svm_lbr_virt = g->lbr_virt;
+    env->svm_fred_virt = g->fred_virt;
+    env->svm_avic = g->avic;
+    env->svm_x2avic = g->x2avic;
+    env->svm_avic_bar = g->avic_bar;
+    env->svm_avic_backing = g->avic_backing;
+    env->svm_avic_logical = g->avic_logical;
+    env->svm_avic_physical = g->avic_physical;
+    env->svm_avic_max_index = g->avic_max_index;
+
+    env->hflags |= HF_GUEST_MASK | g->hflags;
+    env->hflags2 |= g->hflags2 & HF2_NPT_MASK;
+    if (env->int_ctl & V_INTR_MASKING_MASK) {
+        env->hflags2 |= HF2_VINTR_MASK | (g->hflags2 & HF2_HIF_MASK);
+    }
+    if (virtual_gif_set(env)) {
+        env->hflags2 |= HF2_VGIF_MASK;
+    }
+    tag = svm_tlb_tag(env, g->asid);
+    x86_guest_tlb_enter(env, &tag, false);
+    if (env->svm_avic) {
+        svm_avic_request(env);
+    } else if (ctl_has_irq(env)) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
+    }
+    if (svm_vnmi_enabled(env) && (env->int_ctl & V_NMI_PENDING_MASK)) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VNMI);
+    }
+    if (env->intercept_vec5 & (1 << (SVM_EXIT_BUSLOCK - SVM_EXIT_INVLPGB))) {
+        x86_bus_lock_watch(env);
+    }
+    return true;
 }

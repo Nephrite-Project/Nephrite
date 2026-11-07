@@ -1592,6 +1592,55 @@ static const VMStateDescription vmstate_smm = {
     }
 };
 
+/* SVM guest mode's controls, which an SMI in guest mode set aside. */
+static bool svm_smm_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.svm_smm.active;
+}
+
+static const VMStateDescription vmstate_svm_smm = {
+    .name = "cpu/svm_smm",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = svm_smm_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_BOOL(env.svm_smm.active, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.hflags, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.hflags2, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.intercept, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.intercept_vec5, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.intercept_cr_read, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.intercept_cr_write, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.intercept_dr_read, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.intercept_dr_write, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.intercept_exceptions, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.tsc_offset, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.nested_cr3, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.nested_pg_mode, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.iopm_base, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.msrpm_base, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.asid, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.bus_lock_counter, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.pause_filter_count, X86CPU),
+        VMSTATE_UINT16(env.svm_smm.pause_filter_thresh, X86CPU),
+        VMSTATE_INT32(env.svm_smm.pause_count, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.last_pause, X86CPU),
+        VMSTATE_BOOL(env.svm_smm.tlbi_enabled, X86CPU),
+        VMSTATE_BOOL(env.svm_smm.lbr_virt, X86CPU),
+        VMSTATE_BOOL(env.svm_smm.fred_virt, X86CPU),
+        VMSTATE_BOOL(env.svm_smm.avic, X86CPU),
+        VMSTATE_BOOL(env.svm_smm.x2avic, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.avic_bar, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.avic_backing, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.avic_logical, X86CPU),
+        VMSTATE_UINT64(env.svm_smm.avic_physical, X86CPU),
+        VMSTATE_UINT32(env.svm_smm.avic_max_index, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 #ifndef TARGET_X86_64
 static bool intel_efer32_needed(void *opaque)
 {
@@ -2098,6 +2147,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_svm_bus_lock,
         &vmstate_svm_guest,
         &vmstate_smm,
+        &vmstate_svm_smm,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif

@@ -122,10 +122,28 @@ bool x86_seg_access_ok(CPUX86State *env, int seg, target_ulong ofs,
 
 /* system/svm_helper.c */
 #ifndef CONFIG_USER_ONLY
+/*
+ * The state-save area's fields of SVM guest mode (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, Table 10-1).
+ */
+typedef struct SVMSmmSaved {
+    uint64_t guest;
+    uint64_t vmcb;
+    uint64_t vintr;
+    uint64_t gpat;
+    uint64_t host_efer;
+    uint64_t host_cr4;
+    uint64_t host_cr3;
+    uint64_t host_cr0;
+} SVMSmmSaved;
+
 G_NORETURN void cpu_vmexit(CPUX86State *nenv, uint64_t exit_code,
                            uint64_t exit_info_1, uintptr_t retaddr);
 void do_vmexit(CPUX86State *env);
 target_ulong svm_next_rip(CPUX86State *env);
+void x86_svm_smm_enter(CPUX86State *env, hwaddr sm_state);
+void x86_svm_smm_read(CPUX86State *env, hwaddr sm_state, SVMSmmSaved *saved);
+bool x86_svm_smm_leave(CPUX86State *env, const SVMSmmSaved *saved);
 
 /* system/avic.c */
 void svm_avic_init(X86CPU *cpu);

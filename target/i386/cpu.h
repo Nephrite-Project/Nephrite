@@ -2559,6 +2559,46 @@ typedef struct SVMStateCache {
     uint64_t last_excp_to;
 } SVMStateCache;
 
+/*
+ * SVM guest mode's controls as VMRUN loaded them, which an SMI in guest
+ * mode sets aside, where active, for the SMM handler to run outside them,
+ * and RSM restores (AMD64 Architecture Programmer's Manual Volume 2, 24593
+ * rev. 3.46, 15.22.3).
+ */
+typedef struct SVMSmmGuest {
+    bool active;
+    uint32_t hflags;
+    uint32_t hflags2;
+    uint64_t intercept;
+    uint32_t intercept_vec5;
+    uint16_t intercept_cr_read;
+    uint16_t intercept_cr_write;
+    uint16_t intercept_dr_read;
+    uint16_t intercept_dr_write;
+    uint32_t intercept_exceptions;
+    uint64_t tsc_offset;
+    uint64_t nested_cr3;
+    uint32_t nested_pg_mode;
+    uint64_t iopm_base;
+    uint64_t msrpm_base;
+    uint32_t asid;
+    uint16_t bus_lock_counter;
+    uint16_t pause_filter_count;
+    uint16_t pause_filter_thresh;
+    int32_t pause_count;
+    uint64_t last_pause;
+    bool tlbi_enabled;
+    bool lbr_virt;
+    bool fred_virt;
+    bool avic;
+    bool x2avic;
+    uint64_t avic_bar;
+    uint64_t avic_backing;
+    uint64_t avic_logical;
+    uint64_t avic_physical;
+    uint32_t avic_max_index;
+} SVMSmmGuest;
+
 typedef struct CPUArchState {
     /* standard registers */
     target_ulong regs[CPU_NB_EREGS];
@@ -2955,6 +2995,7 @@ typedef struct CPUArchState {
     hwaddr svm_avic_logical;
     hwaddr svm_avic_physical;
     uint32_t svm_avic_max_index;
+    SVMSmmGuest svm_smm;
 
     X86VMXState vmx;
 

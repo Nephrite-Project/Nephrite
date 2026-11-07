@@ -186,6 +186,7 @@ void do_smm_enter(X86CPU *cpu)
 
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         sm_state_init_64(cpu);
+        x86_svm_smm_enter(env, env->smbase + 0x8000);
         env->smm_svme = env->efer & MSR_EFER_SVME;
         cpu_load_efer(env, 0);
     } else {
@@ -545,7 +546,10 @@ static const char *rsm_invalid(CPUX86State *env, const RsmChecked *c)
 void HELPER(rsm)(CPUX86State *env)
 {
     X86CPU *cpu = env_archcpu(env);
+    bool lm = env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM;
+    hwaddr sm_state = env->smbase + 0x8000;
     RsmChecked checked;
+    SVMSmmSaved svm;
     const char *invalid;
 
     rsm_read_checked(env, &checked);
@@ -553,7 +557,8 @@ void HELPER(rsm)(CPUX86State *env)
     if (invalid) {
         rsm_shutdown(env, invalid);
     }
-    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
+    if (lm) {
+        x86_svm_smm_read(env, sm_state, &svm);
         rsm_load_regs_64(env);
     } else {
         rsm_load_regs_32(env);
@@ -565,6 +570,9 @@ void HELPER(rsm)(CPUX86State *env)
     env->hflags2 &= ~HF2_SMM_INSIDE_NMI_MASK;
     env->hflags &= ~HF_SMM_MASK;
     x86_vmx_smm_leave(env);
+    if (lm && !x86_svm_smm_leave(env, &svm)) {
+        rsm_shutdown(env, "SVM guest mode that it cannot resume");
+    }
     tlb_flush(CPU(cpu));
 
     /*

@@ -268,6 +268,12 @@ Processor emulation (TCG):
 * RSM shuts the processor down where the state-save area holds state
   that the processor refuses there, with Intel's list on Intel's
   processors and AMD's on the others, before it restores anything.
+* An SMI in SVM guest mode that the guest does not intercept runs the SMM
+  handler outside the guest's controls, with the guest's VMCB, virtual
+  interrupt state, and G_PAT and the host's control registers and EFER in
+  the state-save area, and RSM returns to guest mode where the state-save
+  area says so; the handler ran under the guest's intercepts and nested
+  paging.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
@@ -396,7 +402,9 @@ Known deviations and limits
   raises #GP in the old task with nothing switched, one of the outcomes
   that the SDM allows.
 * RSM on Intel's processors restores CPL, RFLAGS.VM, and the segment bases
-  as the state-save area has them, which the SDM does not cover.
+  as the state-save area has them, which the SDM does not cover. RSM back
+  to SVM guest mode restores the controls that the SMI set aside, not
+  those that the VMCB holds by then, which the APM does not cover either.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to
   the APIC-access page during event delivery always exit, and
