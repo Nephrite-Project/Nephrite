@@ -274,6 +274,8 @@ Processor emulation (TCG):
   the state-save area, and RSM returns to guest mode where the state-save
   area says so; the handler ran under the guest's intercepts and nested
   paging.
+* SMIs save SSP in the state-save area, and RSM restores it made
+  canonical.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs

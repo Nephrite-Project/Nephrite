@@ -98,6 +98,14 @@ static void sm_state_init_64(X86CPU *cpu)
     x86_stq_phys(cs, sm_state + 0x7f48, env->cr[4]);
     x86_stq_phys(cs, sm_state + 0x7f50, env->cr[3]);
     x86_stq_phys(cs, sm_state + 0x7f58, env->cr[0]);
+    /*
+     * SSP, which RSM restores made canonical (Intel SDM 325462-093 Vol. 3C,
+     * 34.3.2; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+     * 3.46, 10.4).
+     */
+    if (x86_has_shstk(env)) {
+        x86_stq_phys(cs, sm_state + 0x7f18, env->guest_ssp);
+    }
 
     x86_stl_phys(cs, sm_state + 0x7efc, SMM_REVISION_64);
     x86_stl_phys(cs, sm_state + 0x7f00, env->smbase);
@@ -236,18 +244,24 @@ void do_smm_enter(X86CPU *cpu)
  * any processor, as CR0's load sets it.
  */
 #ifdef TARGET_X86_64
-static uint64_t rsm_base(CPUX86State *env, int seg, uint64_t base)
+/* ADDR sign-extended from the processor's highest linear address bit. */
+static uint64_t rsm_canonical(CPUX86State *env, uint64_t addr)
 {
     int shift = env->features[FEAT_7_0_ECX] & CPUID_7_0_ECX_LA57 ? 64 - 57
                                                                   : 64 - 48;
 
+    return (int64_t)(addr << shift) >> shift;
+}
+
+static uint64_t rsm_base(CPUX86State *env, int seg, uint64_t base)
+{
     if (IS_INTEL_CPU(env)) {
         return base;
     }
     if (seg == R_CS || seg == R_DS || seg == R_ES || seg == R_SS) {
         return (uint32_t)base;
     }
-    return (int64_t)(base << shift) >> shift;
+    return rsm_canonical(env, base);
 }
 #endif
 
@@ -342,6 +356,10 @@ static void rsm_load_regs_64(CPUX86State *env)
                                 0xf0ff) << 8);
     }
     rsm_cpl(env, cr0);
+    if (x86_has_shstk(env)) {
+        env->guest_ssp = rsm_canonical(env,
+                                       x86_ldq_phys(cs, sm_state + 0x7f18));
+    }
 
     val = x86_ldl_phys(cs, sm_state + 0x7efc); /* revision ID */
     if (val & 0x20000) {
