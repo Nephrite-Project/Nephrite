@@ -407,6 +407,12 @@ Known deviations and limits
   SDM does not say; a task switch to a CR3 whose PDPTEs set reserved bits
   raises #GP in the old task with nothing switched, one of the outcomes
   that the SDM allows.
+* The 64-bit SMM state-save area keeps AMD's layout on Intel's processors
+  too, as QEMU's and KVM's do, which puts Intel's fields elsewhere: SSP and
+  the auto-halt restart field at AMD's places for them, FF18h and FEC9h
+  (Intel's 7EC8H and 7F02H), and the record of EPT at SMIs in VMX non-root
+  operation at FF04h and FF08h (Intel's 7EE0H and 7ED8H, where AMD's layout
+  has SVM's fields).
 * RSM on Intel's processors restores CPL, RFLAGS.VM, and the segment bases
   as the state-save area has them, which the SDM does not cover. RSM back
   to SVM guest mode restores the controls that the SMI set aside, not

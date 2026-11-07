@@ -187,6 +187,9 @@ void do_smm_enter(X86CPU *cpu, bool halted)
 
     env->msr_smi_count++;
     env->hflags |= HF_SMM_MASK;
+    if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
+        x86_vmx_smm_save_ept(env, env->smbase + 0x8000);
+    }
     x86_vmx_smm_enter(env);
     /*
      * TLB entries keep the memory attributes they were filled with, and

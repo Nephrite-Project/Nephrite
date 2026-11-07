@@ -4556,6 +4556,27 @@ bool x86_vmx_ept_ad(CPUX86State *env)
 }
 
 /*
+ * An SMI records in the state-save area whether VMX non-root operation had
+ * "enable EPT" set, with EPTP where it had (Intel SDM 325462-093 Vol. 3C,
+ * 34.14.1): at FF04h and FF08h of the 64-bit area, which keeps AMD's
+ * layout, where the places of Intel's, 7EE0H and 7ED8H, hold SVM's fields.
+ */
+void x86_vmx_smm_save_ept(CPUX86State *env, hwaddr sm_state)
+{
+    CPUState *cs = env_cpu(env);
+    bool ept = x86_vmx_ept_active(env);
+
+    if (!(env->features[FEAT_VMX_SECONDARY_CTLS] &
+          VMX_SECONDARY_EXEC_ENABLE_EPT)) {
+        return;
+    }
+    x86_stl_phys(cs, sm_state + 0x7f04, ept);
+    if (ept) {
+        x86_stq_phys(cs, sm_state + 0x7f08, VMCS(EPT_POINTER));
+    }
+}
+
+/*
  * A debugger's translation of guest-physical GPA through EPT, which sets no
  * flag and exits for nothing: false where EPT does not map it; GPA itself
  * without EPT.
