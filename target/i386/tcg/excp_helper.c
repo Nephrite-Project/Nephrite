@@ -172,13 +172,17 @@ void raise_interrupt2(CPUX86State *env, int intno,
         cpu_svm_check_intercept_param(env, SVM_EXIT_EXCP_BASE + intno,
                                       error_code, retaddr);
         intno = check_exception(env, intno, &error_code, retaddr);
-#if !defined(CONFIG_USER_ONLY)
-        /* The double fault an exception became may exit too. */
-        if (intno == EXCP08_DBLE && env->vmx.nonroot) {
-            x86_vmx_check_intercept(env, SVM_EXIT_EXCP_BASE + EXCP08_DBLE,
-                                    0, retaddr);
+        /*
+         * The double fault that exceptions combine into checks its own
+         * intercept before its delivery (AMD64 Architecture Programmer's
+         * Manual Volume 2, 24593 rev. 3.46, 15.12; Intel SDM 325462-093
+         * Vol. 3C, 30.1).
+         */
+        if (intno == EXCP08_DBLE) {
+            cpu_svm_check_intercept_param(env,
+                                          SVM_EXIT_EXCP_BASE + EXCP08_DBLE,
+                                          0, retaddr);
         }
-#endif
         debug_payload_apply(env, intno);
     } else {
         /* Decode assists: the vector of INTn. */

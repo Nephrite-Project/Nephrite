@@ -313,6 +313,7 @@ AMD SVM (TCG):
 * An exception in the delivery of an injected exception combines with it
   into a double fault or shutdown, as with a raised one, where QEMU
   delivered it as a first exception.
+* A double fault that exceptions combine into checks the #DF intercept.
 * INT3 and INTO check the exception intercepts, LMSW always takes the
   selective CR0 write intercept, CR read intercepts give their register's
   code, intercepts save the next RIP, RDTSCP has its own intercept, and
