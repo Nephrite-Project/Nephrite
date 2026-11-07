@@ -1241,15 +1241,17 @@ void HELPER(vmsave)(CPUX86State *env, int aflag)
 
 /*
  * The SVM instructions' #UD without EFER.SVME, but for STGI and SKINIT
- * where the processor has SKINIT, comes before the #GP outside CPL 0 of
- * those that have one (AMD64 Architecture Programmer's Manual Volume 3,
- * 24594 rev. 3.39, VMRUN, VMLOAD, VMSAVE, CLGI, STGI, SKINIT, INVLPGA,
- * VMMCALL). Bit 0 of FLAGS asks for CPL 0, bit 1 lets SKINIT do.
+ * where the processor has SKINIT or SVM-Lock, comes before the #GP outside
+ * CPL 0 of those that have one (AMD64 Architecture Programmer's Manual
+ * Volume 3, 24594 rev. 3.39, VMRUN, VMLOAD, VMSAVE, CLGI, STGI, SKINIT,
+ * INVLPGA, VMMCALL). Bit 0 of FLAGS asks for CPL 0, bit 1 lets SKINIT and
+ * SVM-Lock do.
  */
 void HELPER(svm_allowed)(CPUX86State *env, uint32_t flags)
 {
     bool skinit = (flags & 2) &&
-                  (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SKINIT);
+                  ((env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SKINIT) ||
+                   (env->features[FEAT_SVM] & CPUID_SVM_SVMLOCK));
 
     if (!(env->efer & MSR_EFER_SVME) && !skinit) {
         raise_exception_ra(env, EXCP06_ILLOP, GETPC());

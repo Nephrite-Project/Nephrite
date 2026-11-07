@@ -821,6 +821,13 @@ void do_cpu_init(X86CPU *cpu)
            offsetof(CPUX86State, end_init_save) -
            offsetof(CPUX86State, start_init_save));
     g_free(save);
+    /*
+     * INIT clears VM_CR.SVMDIS where LOCK does not hold it (AMD64
+     * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.30.1).
+     */
+    if (!(env->vm_cr & MSR_VM_CR_LOCK)) {
+        env->vm_cr &= ~MSR_VM_CR_SVMDIS;
+    }
 
     if (kvm_enabled()) {
         kvm_arch_do_init_vcpu(cpu);

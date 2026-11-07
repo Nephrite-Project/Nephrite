@@ -2135,7 +2135,8 @@ static bool check_cpl0(DisasContext *s)
 /*
  * EFER.SVME, which the TB's flags do not hold, checked when the SVM
  * instruction runs: its #UD comes before the #GP outside CPL 0 that CPL0
- * asks for, and SKINIT allows STGI and SKINIT without it (svm_helper.c).
+ * asks for, and SKINIT or SVM-Lock allows STGI and SKINIT without it
+ * (svm_helper.c).
  */
 static void gen_svm_allowed(DisasContext *s, bool cpl0, bool skinit)
 {

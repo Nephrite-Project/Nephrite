@@ -776,6 +776,10 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
             (!IS_INTEL_CPU(env) && ((val ^ old) & MSR_EFER_LMA))) {
             return false;
         }
+        /* VM_CR.SVMDIS makes SVME reserved (24593 rev. 3.46, 15.30.1). */
+        if ((val & MSR_EFER_SVME) && (env->vm_cr & MSR_VM_CR_SVMDIS)) {
+            return false;
+        }
         cpu_load_efer(env, (env->efer & ~update_mask) | (val & update_mask));
         if (((old ^ env->efer) & MSR_EFER_SVME) && x86_pmu_enabled(env)) {
             x86_pmu_reconfigure(env);
@@ -812,6 +816,40 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
             return false;
         }
         env->vm_hsave = val;
+        break;
+    case MSR_VM_CR: {
+        uint64_t mask = MSR_VM_CR_DEFINED;
+
+        /*
+         * Setting SVMDIS with EFER.SVME set raises #GP whatever LOCK holds,
+         * and LOCK keeps itself and SVMDIS (AMD64 Architecture Programmer's
+         * Manual Volume 2, 24593 rev. 3.46, 15.30.1).
+         */
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) ||
+            (val & ~MSR_VM_CR_DEFINED) ||
+            ((val & MSR_VM_CR_SVMDIS) && (env->efer & MSR_EFER_SVME))) {
+            return false;
+        }
+        if (env->vm_cr & MSR_VM_CR_LOCK) {
+            mask &= ~(MSR_VM_CR_LOCK | MSR_VM_CR_SVMDIS);
+        }
+        env->vm_cr = (env->vm_cr & ~mask) | (val & mask);
+        break;
+    }
+    case MSR_SVM_KEY:
+        /*
+         * A write sets the key while VM_CR.LOCK is clear, and else clears
+         * LOCK where it matches a key other than 0 (24593 rev. 3.46,
+         * 15.31.1).
+         */
+        if (!(env->features[FEAT_SVM] & CPUID_SVM_SVMLOCK)) {
+            return false;
+        }
+        if (!(env->vm_cr & MSR_VM_CR_LOCK)) {
+            env->svm_key = val;
+        } else if (val && val == env->svm_key) {
+            env->vm_cr &= ~MSR_VM_CR_LOCK;
+        }
         break;
 #ifdef TARGET_X86_64
     case MSR_LSTAR:
@@ -1301,6 +1339,19 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         break;
     case MSR_VM_HSAVE_PA:
         val = env->vm_hsave;
+        break;
+    case MSR_VM_CR:
+        if (!(env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM)) {
+            return false;
+        }
+        val = env->vm_cr;
+        break;
+    case MSR_SVM_KEY:
+        /* The key is kept secret (24593 rev. 3.46, 15.31.1). */
+        if (!(env->features[FEAT_SVM] & CPUID_SVM_SVMLOCK)) {
+            return false;
+        }
+        val = 0;
         break;
     case MSR_IA32_PERF_STATUS:
         /* tsc_increment_by_tick */

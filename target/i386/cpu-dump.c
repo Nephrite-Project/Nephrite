@@ -409,13 +409,16 @@ static bool dump_feature(int flags, bool has, bool enabled)
 
 /*
  * TCG's VMX operation and SVM: root or non-root operation, with the VMXON
- * region and the current VMCS, and host or guest mode, with the host save
- * area, the last VMCB, GIF, and the nested page tables.
+ * region and the current VMCS, VM_CR, and host or guest mode, with the host
+ * save area, the last VMCB, GIF, and the nested page tables.
  */
 static void dump_virt(CPUX86State *env, FILE *f)
 {
     if (!tcg_enabled()) {
         return;
+    }
+    if (env->vm_cr) {
+        qemu_fprintf(f, "VM_CR=%016" PRIx64 "\n", env->vm_cr);
     }
     if (env->vmx.on) {
         qemu_fprintf(f, "VMX: %s VMXON=%016" PRIx64 " VMCS=%016" PRIx64

@@ -1551,6 +1551,26 @@ static const VMStateDescription vmstate_svm_gpat = {
     }
 };
 
+static bool svm_lock_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return tcg_enabled() && (env->vm_cr || env->svm_key);
+}
+
+static const VMStateDescription vmstate_svm_lock = {
+    .name = "cpu/svm_lock",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = svm_lock_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT64(env.vm_cr, X86CPU),
+        VMSTATE_UINT64(env.svm_key, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool svm_guest_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2162,6 +2182,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_msr_virt_ssbd,
         &vmstate_svm_npt,
         &vmstate_svm_gpat,
+        &vmstate_svm_lock,
         &vmstate_memory_ctrl,
         &vmstate_svm_bus_lock,
         &vmstate_svm_guest,

@@ -728,7 +728,16 @@ typedef enum X86Seg {
 #define MSR_AMD_OSVW_ID_LENGTH          0xc0010140
 #define MSR_AMD_OSVW_STATUS             0xc0010141
 
+/*
+ * VM_CR and the SVM key of SVM-Lock (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.46, 15.30.1 and 15.31).
+ */
+#define MSR_VM_CR                       0xc0010114
+#define MSR_VM_CR_LOCK                  (1ULL << 3)
+#define MSR_VM_CR_SVMDIS                (1ULL << 4)
+#define MSR_VM_CR_DEFINED               0x1fULL
 #define MSR_VM_HSAVE_PA                 0xc0010117
+#define MSR_SVM_KEY                     0xc0010118
 #define MSR_AMD64_AVIC_DOORBELL         0xc001011b
 
 #define MSR_IA32_XFD                    0x000001c4
@@ -2695,6 +2704,8 @@ typedef struct CPUArchState {
     uint64_t star;
 
     uint64_t vm_hsave;
+    uint64_t vm_cr;
+    uint64_t svm_key;
 
 #ifdef TARGET_X86_64
     uint64_t lstar;
