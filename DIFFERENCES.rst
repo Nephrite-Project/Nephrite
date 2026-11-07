@@ -310,6 +310,9 @@ AMD SVM (TCG):
 * EXITINTINFO reports interrupted NMIs and interrupts as such, INT3 and
   INTO as exceptions, and the exception delivered in place of an event
   whose delivery raised it.
+* An exception in the delivery of an injected exception combines with it
+  into a double fault or shutdown, as with a raised one, where QEMU
+  delivered it as a first exception.
 * INT3 and INTO check the exception intercepts, LMSW always takes the
   selective CR0 write intercept, CR read intercepts give their register's
   code, intercepts save the next RIP, RDTSCP has its own intercept, and

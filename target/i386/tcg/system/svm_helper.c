@@ -1083,6 +1083,13 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
                 env->exception_is_int = 0;
                 env->exception_next_eip = -1;
             }
+            /*
+             * Injected events are delivered as events that occur in the
+             * guest (AMD64 Architecture Programmer's Manual Volume 2, 24593
+             * rev. 3.46, 15.20): an exception in the delivery of an injected
+             * one makes a double fault as it would of a raised one.
+             */
+            x86_exception_in_delivery(env, vector);
             qemu_log_mask(CPU_LOG_TB_IN_ASM, "EXEPT");
             cpu_loop_exit(cs);
             break;

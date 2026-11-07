@@ -48,6 +48,31 @@ G_NORETURN void HELPER(raise_gpf)(CPUX86State *env)
 }
 
 /*
+ * The contributory exceptions: #DE, #TS, #NP, #SS, #GP, and #CP (Intel SDM
+ * 325462-093 Vol. 3A, Table 7-4).
+ */
+static bool exception_contributory(int intno)
+{
+    return intno == EXCP00_DIVZ ||
+           (intno >= EXCP0A_TSS && intno <= EXCP0D_GPF) ||
+           intno == EXCP15_CP;
+}
+
+/*
+ * Records exception INTNO, whose delivery starts, as the one in delivery
+ * where the conditions for double faults take it into account: a
+ * contributory exception, #PF, or #DF (Intel SDM 325462-093 Vol. 3A, Table
+ * 7-5).
+ */
+void x86_exception_in_delivery(CPUX86State *env, int intno)
+{
+    if (exception_contributory(intno) || intno == EXCP0E_PAGE ||
+        intno == EXCP08_DBLE) {
+        env->old_exception = intno;
+    }
+}
+
+/*
  * Check nested exceptions and change to double or triple fault if
  * needed. It should only be called, if this is not an interrupt.
  * Returns the new exception number.
@@ -55,17 +80,8 @@ G_NORETURN void HELPER(raise_gpf)(CPUX86State *env)
 static int check_exception(CPUX86State *env, int intno, int *error_code,
                            uintptr_t retaddr)
 {
-    /*
-     * The contributory exceptions: #DE, #TS, #NP, #SS, #GP, and #CP (Intel
-     * SDM 325462-093 Vol. 3A, Table 7-4).
-     */
-    int first_contributory = env->old_exception == 0 ||
-                              (env->old_exception >= 10 &&
-                               env->old_exception <= 13) ||
-                              env->old_exception == EXCP15_CP;
-    int second_contributory = intno == 0 ||
-                               (intno >= 10 && intno <= 13) ||
-                               intno == EXCP15_CP;
+    int first_contributory = exception_contributory(env->old_exception);
+    int second_contributory = exception_contributory(intno);
 
     qemu_log_mask(CPU_LOG_INT, "check_exception old: 0x%x (%s) new 0x%x (%s)\n",
                 env->old_exception,
@@ -96,10 +112,7 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
         *error_code = 0;
     }
 
-    if (second_contributory || (intno == EXCP0E_PAGE) ||
-        (intno == EXCP08_DBLE)) {
-        env->old_exception = intno;
-    }
+    x86_exception_in_delivery(env, intno);
 
     return intno;
 }
