@@ -61,11 +61,15 @@ static const VMStateDescription vmstate_port92_isa = {
     }
 };
 
+/*
+ * Port 92h is 00h after reset (Intel 82371AB PIIX4 datasheet 290562-001,
+ * 4.2.7.2; Intel ICH10 datasheet 319973-003, 13.7.3): its A20 gate too.
+ */
 static void port92_reset(DeviceState *d)
 {
     Port92State *s = PORT92(d);
 
-    s->outport &= ~1;
+    s->outport = 0;
 }
 
 static const MemoryRegionOps port92_ops = {

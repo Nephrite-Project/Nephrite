@@ -353,6 +353,7 @@ Devices:
   at 03C0 with the flip-flop either way. They read 0 with it in the data
   state, so Windows 3.1's standard mode, which saves the register on
   switching away from a DOS session, blanked the screen on switching back.
+* Port 92h is 00h after a reset, its A20 gate included, which it kept.
 
 Memory and KVM:
 
