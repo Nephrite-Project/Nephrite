@@ -304,7 +304,9 @@ Processor emulation (TCG):
 AMD SVM (TCG):
 
 * Injected interrupts are delivered once, not twice; virtual interrupts
-  are taken only above V_TPR, and CR8 writes raise them without the BQL.
+  are taken only above V_TPR, clear V_IRQ before their delivery, so that
+  a #VMEXIT in it does not have them taken twice, and CR8 writes raise
+  them without the BQL.
 * EXITINTINFO reports interrupted NMIs and interrupts as such, INT3 and
   INTO as exceptions, and the exception delivered in place of an event
   whose delivery raised it.

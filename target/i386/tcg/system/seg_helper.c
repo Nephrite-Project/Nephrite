@@ -373,9 +373,15 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         intno = env->svm_int_vector & 0xff;
         qemu_log_mask(CPU_LOG_INT,
                       "Servicing virtual hardware INT=0x%02x\n", intno);
-        do_interrupt_x86_hardirq(env, intno, 1);
+        /*
+         * V_IRQ clears once the VINTR intercept is checked and before the
+         * IDT is read, so a #VMEXIT in the delivery finds it clear (AMD64
+         * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+         * 15.21.4).
+         */
         cpu_reset_interrupt(cs, CPU_INTERRUPT_VIRQ);
         env->int_ctl &= ~V_IRQ_MASK;
+        do_interrupt_x86_hardirq(env, intno, 1);
         break;
     }
 
