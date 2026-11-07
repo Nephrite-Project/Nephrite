@@ -3786,10 +3786,7 @@ static void vmx_inject(CPUX86State *env)
         env->vmx.inject_error = info & VMX_INTR_ERROR_VALID;
         env->exception_is_int = 0;
         env->exception_next_eip = -1;
-        if (vector == EXCP0E_PAGE || vector == EXCP08_DBLE ||
-            vector == EXCP00_DIVZ || (vector >= 10 && vector <= 13)) {
-            env->old_exception = vector;
-        }
+        x86_exception_in_delivery(env, vector);
         break;
     case VMX_INTR_TYPE_OTHER:
         /* A pending MTF VM exit (Intel SDM 325462-093 Vol. 3C, 29.6.2). */
