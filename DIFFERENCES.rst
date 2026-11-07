@@ -276,6 +276,8 @@ Processor emulation (TCG):
   paging.
 * SMIs save SSP in the state-save area, and RSM restores it made
   canonical.
+* SMIs save and clear IA32_BNDCFGS, which RSM restores with its reserved
+  bits clear and a canonical base.
 * An SMI in the HLT state sets the state-save area's auto-halt restart
   field, for which RSM returns to the HLT state. MWAIT, which TCG takes as
   a halt on a single processor, no longer counts as the HLT state there or
@@ -411,8 +413,8 @@ Known deviations and limits
   too, as QEMU's and KVM's do, which puts Intel's fields elsewhere: SSP and
   the auto-halt restart field at AMD's places for them, FF18h and FEC9h
   (Intel's 7EC8H and 7F02H), and the record of EPT at SMIs in VMX non-root
-  operation at FF04h and FF08h (Intel's 7EE0H and 7ED8H, where AMD's layout
-  has SVM's fields).
+  operation at FF04h and FF08h and IA32_BNDCFGS at FF10h (Intel's 7EE0H,
+  7ED8H, and 7ED0H, where AMD's layout has SVM's fields and EFER).
 * RSM on Intel's processors restores CPL, RFLAGS.VM, and the segment bases
   as the state-save area has them, which the SDM does not cover. RSM back
   to SVM guest mode restores the controls that the SMI set aside, not

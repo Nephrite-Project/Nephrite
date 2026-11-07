@@ -205,6 +205,16 @@ void do_smm_enter(X86CPU *cpu, bool halted)
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         sm_state_init_64(cpu);
         x86_stb_phys(cs, env->smbase + 0x8000 + 0x7ec9, halted);
+        /*
+         * MPX: IA32_BNDCFGS, which SMM starts with clear and RSM restores
+         * (Intel SDM 325462-093 Vol. 1, E.5.6), at FF10h of the 64-bit area,
+         * which keeps AMD's layout, where Intel's place, 7ED0H, holds EFER.
+         */
+        if (env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_MPX) {
+            x86_stq_phys(cs, env->smbase + 0x8000 + 0x7f10, env->msr_bndcfgs);
+            env->msr_bndcfgs = 0;
+            cpu_sync_bndcs_hflags(env);
+        }
         x86_svm_smm_enter(env, env->smbase + 0x8000);
         env->smm_svme = env->efer & MSR_EFER_SVME;
         cpu_load_efer(env, 0);
@@ -371,6 +381,14 @@ static void rsm_load_regs_64(CPUX86State *env)
     if (x86_has_shstk(env)) {
         env->guest_ssp = rsm_canonical(env,
                                        x86_ldq_phys(cs, sm_state + 0x7f18));
+    }
+    /* IA32_BNDCFGS with bits 11:2 clear and a canonical base. */
+    if (env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_MPX) {
+        uint64_t bndcfgs = x86_ldq_phys(cs, sm_state + 0x7f10);
+
+        env->msr_bndcfgs = rsm_canonical(env, bndcfgs & ~0xfffULL) |
+                           (bndcfgs & (BNDCFG_ENABLE | BNDCFG_BNDPRESERVE));
+        cpu_sync_bndcs_hflags(env);
     }
 
     val = x86_ldl_phys(cs, sm_state + 0x7efc); /* revision ID */
