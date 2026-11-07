@@ -385,6 +385,16 @@ Behaviour changes
 * ``EPYC-Milan``, ``EPYC-Genoa``, and ``EPYC-Turin`` report that EFER.LMSLE
   is reserved (CPUID 8000_0008H:EBX[20], ``efer-lmsle-mbz``), as those
   processors do.
+* Under TCG, the named CPU models also have the features of their
+  processors that KVM does not give its guests, as the SDM's MSR tables,
+  AMD's BKDGs and PPRs, and InstLatx64's CPUID dumps show them: IA32_MPERF
+  and IA32_APERF (``aperfmperf``) on the Intel models from ``coreduo`` and
+  ``n270`` on, on ``Opteron_G4`` and the later AMD models, on ``Dhyana``,
+  and on ``YongFeng``; AMD's read-only copies of them (``eff-freq-ro``) on
+  ``Opteron_G5``, the EPYC models, and ``Dhyana``; RDPRU (``rdpru``) from
+  ``EPYC-Rome`` on; and UAI (``uai``) on ``EPYC-Genoa`` and
+  ``EPYC-Turin``. ``ClearwaterForest`` and ``DiamondRapids`` go without
+  them, as no MSR table or CPUID dump covers those processors yet.
 * ``EPYC-Genoa`` needs ``+sbpb,+ibpb-brtype`` for Linux's SRSO mitigation
   to come up without warnings, as under KVM.
 * The PMU has no reference-cycles event.
@@ -453,10 +463,6 @@ Known deviations and limits
   wait for SIPI, as the processor always runs at its nominal frequency.
   RDPRU sets CF where ECX names a register and clears it otherwise; the APM
   says that RDPRU modifies CF, not how.
-* The named CPU models leave out the features that KVM does not give its
-  guests, such as UAI, RDPRU, and MPERF and APERF (``uai``, ``rdpru``,
-  ``aperfmperf``); TCG's ``max`` has them, and named models take them as
-  properties.
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.

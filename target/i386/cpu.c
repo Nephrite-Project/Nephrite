@@ -2653,6 +2653,11 @@ typedef struct X86CPUDefinition {
      */
     bool cpuid_0x1f;
     FeatureWordArray features;
+    /*
+     * Features of the real processor that KVM does not give its guests,
+     * which the model has under TCG where TCG has them.
+     */
+    FeatureWordArray tcg_features;
     const char *model_id;
     const CPUCaches *const cache_info;
     /*
@@ -3964,6 +3969,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_VMX_SECONDARY_CTLS] =
              VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-3. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel(R) Core(TM)2 Duo CPU     T7700  @ 2.40GHz",
     },
     {
@@ -4082,6 +4089,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_CPU_BASED_USE_IO_BITMAPS | VMX_CPU_BASED_MONITOR_EXITING |
              VMX_CPU_BASED_PAUSE_EXITING | VMX_CPU_BASED_USE_MSR_BITMAPS,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-66. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Genuine Intel(R) CPU           T2600  @ 2.16GHz",
     },
     {
@@ -4174,6 +4183,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_8000_0001_ECX] =
             CPUID_EXT3_LAHF_LM,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-4. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel(R) Atom(TM) CPU N270   @ 1.60GHz",
     },
     {
@@ -4214,6 +4225,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_VMX_SECONDARY_CTLS] =
              VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-3. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Celeron_4x0 (Conroe/Merom Class Core 2)",
     },
     {
@@ -4258,6 +4271,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES |
              VMX_SECONDARY_EXEC_WBINVD_EXITING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-3. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Core 2 Duo P9xxx (Penryn Class Core 2)",
     },
     {
@@ -4321,6 +4336,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
              VMX_SECONDARY_EXEC_ENABLE_VPID,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-15. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Core i7 9xx (Nehalem Class Core i7)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4402,6 +4419,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
              VMX_SECONDARY_EXEC_ENABLE_VPID | VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-15. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Westmere E56xx/L56xx/X56xx (Nehalem-C)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4488,6 +4507,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
              VMX_SECONDARY_EXEC_ENABLE_VPID | VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon E312xx (Sandy Bridge)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4580,6 +4601,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY |
              VMX_SECONDARY_EXEC_RDRAND_EXITING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon E3-12xx v2 (Ivy Bridge)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4677,6 +4700,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_ENABLE_VMFUNC | VMX_SECONDARY_EXEC_SHADOW_VMCS,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Core Processor (Haswell)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4808,6 +4833,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Core Processor (Broadwell)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -4932,6 +4959,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Core Processor (Skylake)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5058,6 +5087,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_ENABLE_VMFUNC | VMX_SECONDARY_EXEC_SHADOW_VMCS |
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (Skylake)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5206,6 +5237,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_ENABLE_VMFUNC | VMX_SECONDARY_EXEC_SHADOW_VMCS |
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (Cascadelake)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5366,6 +5399,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (Cooperlake)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5477,6 +5512,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDRAND_EXITING | VMX_SECONDARY_EXEC_ENABLE_INVPCID |
              VMX_SECONDARY_EXEC_ENABLE_VMFUNC | VMX_SECONDARY_EXEC_SHADOW_VMCS,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (Icelake)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5690,6 +5727,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_VMX_VMFUNC] =
             MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-20. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (SapphireRapids)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -5891,6 +5930,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_VMX_VMFUNC] =
             MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-56. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (GraniteRapids)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -6283,6 +6324,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_VMX_VMFUNC] =
             MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-57. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Processor (SierraForest)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -6594,6 +6637,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-6. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Atom Processor (Denverton)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -6727,6 +6772,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
              VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_ENABLE_PML,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-6. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Atom Processor (SnowRidge)",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -6799,6 +6846,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_6_EAX] =
             CPUID_6_EAX_ARAT,
         .xlevel = 0x80000008,
+        /* Intel SDM 325462-093 Vol. 4, Table 2-61. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Intel Xeon Phi Processor (Knights Mill)",
     },
     {
@@ -6898,6 +6947,8 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE,
         /* no xsaveopt! */
         .xlevel = 0x8000001A,
+        /* AMD BKDG 42301 rev. 3.14, CPUID Fn0000_0006_ECX. */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "AMD Opteron 62xx class CPU",
     },
     {
@@ -6930,6 +6981,12 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE,
         /* no xsaveopt! */
         .xlevel = 0x8000001A,
+        /*
+         * AMD BKDG 42301 rev. 3.14, CPUID Fn0000_0006_ECX and
+         * Fn8000_0007_EDX (EffFreqRO from revision OR-C0).
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
         .model_id = "AMD Opteron 63xx class CPU",
     },
     {
@@ -6973,6 +7030,12 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_SVM] =
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE,
         .xlevel = 0x8000001E,
+        /*
+         * AMD PPR 54945 rev. 3.03, CPUID_Fn00000006_ECX and
+         * CPUID_Fn80000007_EDX.
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
         .model_id = "AMD EPYC Processor",
         .cache_info = &epyc_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -7074,6 +7137,12 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_SVM] =
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE,
         .xlevel = 0x8000001E,
+        /*
+         * InstLatx64's CPUID dump of a Hygon C86 3185
+         * (HygonGenuine0900F02_Hygon_CPUID.txt at 17be9a9793).
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
         .model_id = "Hygon Dhyana Processor",
         .cache_info = &epyc_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -7135,6 +7204,13 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_SVM] =
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE,
         .xlevel = 0x8000001E,
+        /*
+         * AMD PPR 55803 rev. 0.93, CPUID_Fn00000006_ECX,
+         * CPUID_Fn80000007_EDX, and CPUID_Fn80000008_EBX.
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
+        .tcg_features[FEAT_8000_0008_EBX] = CPUID_8000_0008_EBX_RDPRU,
         .model_id = "AMD EPYC-Rome Processor",
         .cache_info = &epyc_rome_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -7241,6 +7317,13 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_SVM] =
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE | CPUID_SVM_SVME_ADDR_CHK,
         .xlevel = 0x8000001E,
+        /*
+         * AMD PPR 55898 rev. 0.50, CPUID_Fn00000006_ECX,
+         * CPUID_Fn80000007_EDX, and CPUID_Fn80000008_EBX.
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
+        .tcg_features[FEAT_8000_0008_EBX] = CPUID_8000_0008_EBX_RDPRU,
         .model_id = "AMD EPYC-Milan Processor",
         .cache_info = &epyc_milan_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -7363,6 +7446,14 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_SVM_NPT | CPUID_SVM_NRIPSAVE | CPUID_SVM_VNMI |
             CPUID_SVM_SVME_ADDR_CHK,
         .xlevel = 0x80000022,
+        /*
+         * AMD PPR 55901 rev. 0.47, CPUID_Fn00000006_ECX,
+         * CPUID_Fn80000007_EDX, CPUID_Fn80000008_EBX, and CPUID_Fn80000021_EAX.
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
+        .tcg_features[FEAT_8000_0008_EBX] = CPUID_8000_0008_EBX_RDPRU,
+        .tcg_features[FEAT_8000_0021_EAX] = CPUID_8000_0021_EAX_UAI,
         .model_id = "AMD EPYC-Genoa Processor",
         .cache_info = &epyc_genoa_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -7523,6 +7614,11 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS,
         .features[FEAT_VMX_VMFUNC] = MSR_VMX_VMFUNC_EPT_SWITCHING,
         .xlevel = 0x80000008,
+        /*
+         * InstLatx64's CPUID dump of a Zhaoxin KaiSheng KH-40000
+         * (CentaurHauls00507B3_KX40000_01_CPUID.txt at 17be9a9793).
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
         .model_id = "Zhaoxin YongFeng Processor",
         .versions = (X86CPUVersionDefinition[]) {
             { .version = 1 },
@@ -7627,6 +7723,14 @@ static const X86CPUDefinition builtin_x86_defs[] = {
             CPUID_SVM_V_VMSAVE_VMLOAD | CPUID_SVM_VGIF |
             CPUID_SVM_VNMI | CPUID_SVM_SVME_ADDR_CHK,
         .xlevel = 0x80000022,
+        /*
+         * AMD PPR 57238 rev. 0.49, CPUID_Fn00000006_ECX,
+         * CPUID_Fn80000007_EDX, CPUID_Fn80000008_EBX, and CPUID_Fn80000021_EAX.
+         */
+        .tcg_features[FEAT_6_ECX] = CPUID_6_ECX_APERFMPERF,
+        .tcg_features[FEAT_8000_0007_EDX] = CPUID_APM_EFF_FREQ_RO,
+        .tcg_features[FEAT_8000_0008_EBX] = CPUID_8000_0008_EBX_RDPRU,
+        .tcg_features[FEAT_8000_0021_EAX] = CPUID_8000_0021_EAX_UAI,
         .model_id = "AMD EPYC-Turin Processor",
         .cache_info = &epyc_turin_cache_info,
         .versions = (X86CPUVersionDefinition[]) {
@@ -8815,6 +8919,10 @@ static void x86_cpu_load_model(X86CPU *cpu, const X86CPUModel *model)
                             &error_abort);
     for (w = 0; w < FEATURE_WORDS; w++) {
         env->features[w] = def->features[w];
+        if (tcg_enabled()) {
+            env->features[w] |= def->tcg_features[w] &
+                                feature_word_info[w].tcg_features;
+        }
     }
 
     /* legacy-cache defaults to 'off' if CPU model provides cache info */
