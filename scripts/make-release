@@ -38,11 +38,10 @@ if [ $# -ne 2 ]; then
     exit 0
 fi
 
-# Only include wraps that are invoked with subproject()
+# Only include wraps that are invoked with subproject(), and the crates of the
+# Rust workspace, which takes each crate from the wrap named after it
 SUBPROJECTS="libvfio-user keycodemapdb berkeley-softfloat-3
-  berkeley-testfloat-3 anyhow-1-rs arbitrary-int-1-rs attrs-0.2-rs bilge-0.2-rs
-  bitfield-0.9-rs foreign-0.3-rs libc-0.2-rs probe-0.5-rs proc-macro2-1-rs quote-1-rs
-  syn-2-rs unicode-ident-1-rs"
+  berkeley-testfloat-3"
 
 src="$1"
 version="$2"
@@ -52,6 +51,11 @@ git clone --single-branch -b "v${version}" -c advice.detachedHead=false \
     "${src}" ${destination}
 
 pushd ${destination}
+
+for wrap in subprojects/*-rs.wrap; do
+    [ -e "$wrap" ] || continue
+    SUBPROJECTS="$SUBPROJECTS $(basename "$wrap" .wrap)"
+done
 
 git submodule update --init --single-branch
 meson subprojects download $SUBPROJECTS

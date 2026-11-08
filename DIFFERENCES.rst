@@ -65,6 +65,10 @@ Names and packaging
   examples run Nephrite's programs.
 * QEMU's GitHub workflow that closed every pull request is gone. Pushing a
   version tag releases it on GitHub, with its source tarball.
+* The source tarball has every crate of the Rust workspace, which
+  ``scripts/make-release`` takes from their wraps; QEMU lists the crates by
+  hand, and its list had fallen behind them, so that building its tarball
+  with Rust needed downloads.
 * ``scripts/checkpatch.pl`` accepts trailers that credit AI tools, and
   ``AGENTS.md`` gives agents Nephrite's guidelines instead of QEMU's.
 
