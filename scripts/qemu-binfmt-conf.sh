@@ -187,7 +187,7 @@ Usage: qemu-binfmt-conf.sh [--qemu-path PATH][--debian][--systemd CPU]
                            [--persistent yes|no][--qemu-suffix SUFFIX]
                            [--preserve-argv0 yes|no]
 
-       Configure binfmt_misc to use qemu interpreter
+       Configure binfmt_misc to use Nephrite's user-mode programs
 
        --help:          display this usage
        --qemu-path:     set path to qemu interpreter ($QEMU_PATH)
@@ -332,7 +332,7 @@ qemu_set_binfmts() {
             target="i386"
         fi
 
-        qemu="$QEMU_PATH/qemu-$target$QEMU_SUFFIX"
+        qemu="$QEMU_PATH/nephrite-$target$QEMU_SUFFIX"
 
         if [ "$magic" = "" ] || [ "$mask" = "" ] || [ "$family" = "" ] ; then
             echo "INTERNAL ERROR: unknown cpu $cpu" 1>&2

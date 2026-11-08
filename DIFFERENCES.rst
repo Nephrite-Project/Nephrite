@@ -33,6 +33,10 @@ Names and packaging
   the directory where Nephrite looks for the modules of an upgraded
   installation (``/var/run/nephrite``), so that its helpers run next to
   QEMU's.
+* ``scripts/qemu-binfmt-conf.sh`` registers Nephrite's user-mode programs
+  as the interpreters of binfmt_misc's ``qemu-<cpu>`` entries, whose names
+  stay QEMU's so that QEMU's and Nephrite's emulators do not both register
+  for one architecture.
 * Nephrite has version numbers of its own, starting at 0.1.0, in
   ``NEPHRITE_VERSION``; ``VERSION`` keeps the version of QEMU that
   Nephrite is based on. Its programs, and QMP's ``package`` member, show
