@@ -259,6 +259,9 @@ Processor emulation (TCG):
   across mode changes.
 * INIT ends HLT and MWAIT, except where VMX root operation blocks it or a
   clear GIF holds it (SDM Vol. 2A, HLT; APM 15.17, Table 15-10).
+* INIT leaves the MTRRs as they are (SDM Vol. 3A, Table 12-1; APM Table
+  14-1), so that processors that an OS starts with INIT and SIPI keep the
+  firmware's MTRRs.
 * The debugger's and the monitor's accesses to virtual memory (the
   gdbstub, ``x``, ``info tlb``, and ``info mem``) go through the nested
   paging of SVM guest mode and the EPT of VMX non-root operation, whose

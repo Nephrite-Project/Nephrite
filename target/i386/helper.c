@@ -820,6 +820,14 @@ void do_cpu_init(X86CPU *cpu)
     memcpy(&env->start_init_save, &save->start_init_save,
            offsetof(CPUX86State, end_init_save) -
            offsetof(CPUX86State, start_init_save));
+    /*
+     * INIT leaves the MTRRs as they are (Intel SDM 325462-093 Vol. 3A,
+     * Table 12-1; AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, Table 14-1).
+     */
+    memcpy(env->mtrr_fixed, save->mtrr_fixed, sizeof(env->mtrr_fixed));
+    env->mtrr_deftype = save->mtrr_deftype;
+    memcpy(env->mtrr_var, save->mtrr_var, sizeof(env->mtrr_var));
     g_free(save);
     /*
      * INIT clears VM_CR.SVMDIS where LOCK does not hold it (AMD64
