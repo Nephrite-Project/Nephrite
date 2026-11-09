@@ -27,6 +27,9 @@ Names and packaging
   tapsets and probes (``nephrite.*``), and the plugin header
   (``include/nephrite/qemu-plugin.h``) are Nephrite's too, so that
   Nephrite and QEMU install side by side.
+* User mode looks for the guest's libraries under
+  ``/usr/gnemul/nephrite-<cpu>`` unless configure's ``--interp-prefix``
+  says otherwise, where QEMU's look under ``/usr/gnemul/qemu-<cpu>``.
 * The D-Bus display, the D-Bus VMState helpers, and ``nephrite-vnc`` serve
   interfaces under ``org.nephrite`` (``org.nephrite.Display1``,
   ``org.nephrite.VMState1``, and ``org.nephrite.Vnc1``, with their objects

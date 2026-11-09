@@ -76,7 +76,7 @@ Command line options
    Print the help
 
 ``-L path``
-   Set the x86 elf interpreter prefix (default=/usr/local/qemu-i386)
+   Set the x86 elf interpreter prefix (default=/usr/gnemul/nephrite-i386)
 
 ``-s size``
    Set the x86 stack size in bytes (default=524288)
