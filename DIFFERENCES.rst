@@ -357,6 +357,10 @@ Processor emulation (TCG):
 * TCG's processors can move their local APIC's registers to another base
   address, after which their accesses to the default base no longer reach
   them.
+* Reserved-bit page faults set the P bit of their error codes, as do the
+  nested page faults of reserved bits in nested page tables (SDM Vol. 3A,
+  5.7), and AMD's processors reserve bit 8 of PML5Es and PML4Es, which
+  Intel's ignore (APM Figures 5-19 and 5-20).
 * SMM entry and exit flush the TLB; changes to CR4.PKE and CR4.PKS flush
   it too.
 * SMI delivery and RSM load the debug registers as they are, without the
@@ -424,9 +428,8 @@ AMD SVM (TCG):
 * Under nested paging, the guest has a PAT of its own, G_PAT, which VMRUN
   checks and #VMEXIT saves; QEMU let the guest's PAT writes change the
   host's.
-* Nested page faults' error codes set the P bit for reserved-bit faults
-  and I/D for fetches under the host's SMEP, and bit 8 of PML5Es and
-  PML4Es is reserved on AMD processors.
+* Nested page faults' error codes set I/D for fetches under the host's
+  SMEP.
 * SVM guest mode has MMU indexes of its own.
 * VMSAVE and VMLOAD virtualization is checked as the APM checks it.
 * INIT is held while GIF is clear.
