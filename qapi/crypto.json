@@ -497,8 +497,8 @@
 #     Properties for tls-creds-psk objects.
 #
 # @username: the username which will be sent to the server.  For
-#     clients only.  If absent, "qemu" is sent and the property will
-#     read back as an empty string.
+#     clients only.  If absent, "nephrite" is sent and the property
+#     will read back as an empty string.
 #
 # Since: 3.0
 ##

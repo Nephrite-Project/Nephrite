@@ -145,7 +145,7 @@ qcrypto_tls_creds_psk_load(QCryptoTLSCredsPSK *creds,
         if (creds->username) {
             username = creds->username;
         } else {
-            username = "qemu";
+            username = "nephrite";
         }
         if (lookup_key(pskfile, username, &key, errp) != 0) {
             goto cleanup;

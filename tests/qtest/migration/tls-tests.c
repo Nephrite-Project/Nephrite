@@ -60,7 +60,7 @@ migrate_hook_start_tls_psk_common(QTestState *from,
                              "                 'id': 'tlscredspsk0',"
                              "                 'endpoint': 'client',"
                              "                 'dir': %s,"
-                             "                 'username': 'qemu'} }",
+                             "                 'username': 'nephrite'} }",
                              data->workdir);
 
     qtest_qmp_assert_success(to,

@@ -435,7 +435,7 @@ TLS-enabled servers such as ``qemu-nbd`` can use this directory like so::
      image.qcow2
 
 When connecting from a qemu-based client you must specify the directory
-containing ``keys.psk`` and an optional username (defaults to "qemu")::
+containing ``keys.psk`` and an optional username (defaults to "nephrite")::
 
    qemu-img info \
      --object tls-creds-psk,id=tls0,dir=/tmp/keys,username=rich,endpoint=client \

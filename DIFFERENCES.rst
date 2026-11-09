@@ -27,6 +27,8 @@ Names and packaging
   tapsets and probes (``nephrite.*``), and the plugin header
   (``include/nephrite/qemu-plugin.h``) are Nephrite's too, so that
   Nephrite and QEMU install side by side.
+* PSK TLS clients send the username ``nephrite`` unless they are given
+  one, where QEMU's send ``qemu``.
 * Taps run ``<sysconfdir>/nephrite-ifup`` and ``nephrite-ifdown`` by
   default, where QEMU's run ``qemu-ifup`` and ``qemu-ifdown``.
 * The systemd units in ``contrib/systemd`` start Nephrite's programs, and

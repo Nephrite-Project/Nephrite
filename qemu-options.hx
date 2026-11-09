@@ -6057,7 +6057,7 @@ SRST
         or ``client`` depending on whether the QEMU network backend that
         uses the credentials will be acting as a client or as a server.
         For clients only, ``username`` is the username which will be
-        sent to the server. If omitted it defaults to "qemu".
+        sent to the server. If omitted it defaults to "nephrite".
 
         The dir parameter tells QEMU where to find the keys file. It is
         called "dir/keys.psk" and contains "username:key" pairs. This

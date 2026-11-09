@@ -39,13 +39,13 @@ test_tls_psk_init_common(const char *pskfile, const char *user, const char *key)
 void test_tls_psk_init(const char *pskfile)
 {
     /* Don't hard code a key like this in real applications!  Use psktool. */
-    test_tls_psk_init_common(pskfile, "qemu", "009d5638c40fde0c");
+    test_tls_psk_init_common(pskfile, "nephrite", "009d5638c40fde0c");
 }
 
 void test_tls_psk_init_alt(const char *pskfile)
 {
     /* Don't hard code a key like this in real applications!  Use psktool. */
-    test_tls_psk_init_common(pskfile, "qemu", "10ffa6a2c42f0388");
+    test_tls_psk_init_common(pskfile, "nephrite", "10ffa6a2c42f0388");
 }
 
 void test_tls_psk_cleanup(const char *pskfile)
