@@ -232,7 +232,7 @@ int module_load(const char *prefix, const char *name, Error **errp)
     }
     g_hash_table_add(loaded_modules, module_name);
 
-    search_dir = getenv("QEMU_MODULE_DIR");
+    search_dir = getenv("NEPHRITE_MODULE_DIR");
     if (search_dir != NULL) {
         dirs[n_dirs++] = g_strdup(search_dir);
     }

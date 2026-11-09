@@ -113,7 +113,7 @@ Debug options:
 
    If a unix socket path contains single ``%d`` placeholder (e.g.,
    ``/tmp/qemu-%d.sock``), it is replaced by the emulator PID, which is useful
-   when passing this option via the ``QEMU_GDB`` environment variable to a
+   when passing this option via the ``NEPHRITE_GDB`` environment variable to a
    multi-process application.
 
    If the endpoint address is followed by ``,suspend=n`` (e.g.,
@@ -127,7 +127,7 @@ Debug options:
 
 Environment variables:
 
-QEMU_STRACE
+NEPHRITE_STRACE
    Print system calls and arguments similar to the 'strace' program
    (NOTE: the actual 'strace' program will not work because the user
    space emulator hasn't implemented ptrace). At the moment this is

@@ -82,7 +82,7 @@ static const char *seed_optarg;
 
 /*
  * Used to implement backwards-compatibility for the `-strace`, and
- * QEMU_STRACE options. Without this, the QEMU_LOG can be overwritten by
+ * NEPHRITE_STRACE options. Without this, the NEPHRITE_LOG can be overwritten by
  * -strace, or vice versa.
  */
 static bool enable_strace;
@@ -479,60 +479,62 @@ static const struct qemu_argument arg_table[] = {
      "",           "print this help"},
     {"help",       "",                 false, handle_arg_help,
      "",           ""},
-    {"g",          "QEMU_GDB",         true,  handle_arg_gdb,
+    {"g",          "NEPHRITE_GDB",         true,  handle_arg_gdb,
      "port",       "wait gdb connection to 'port'"},
-    {"L",          "QEMU_LD_PREFIX",   true,  handle_arg_ld_prefix,
+    {"L",          "NEPHRITE_LD_PREFIX",   true,  handle_arg_ld_prefix,
      "path",       "set the elf interpreter prefix to 'path'"},
-    {"s",          "QEMU_STACK_SIZE",  true,  handle_arg_stack_size,
+    {"s",          "NEPHRITE_STACK_SIZE",  true,  handle_arg_stack_size,
      "size",       "set the stack size to 'size' bytes"},
-    {"cpu",        "QEMU_CPU",         true,  handle_arg_cpu,
+    {"cpu",        "NEPHRITE_CPU",         true,  handle_arg_cpu,
      "model",      "select CPU (-cpu help for list)"},
-    {"E",          "QEMU_SET_ENV",     true,  handle_arg_set_env,
+    {"E",          "NEPHRITE_SET_ENV",     true,  handle_arg_set_env,
      "var=value",  "sets targets environment variable (see below)"},
-    {"U",          "QEMU_UNSET_ENV",   true,  handle_arg_unset_env,
+    {"U",          "NEPHRITE_UNSET_ENV",   true,  handle_arg_unset_env,
      "var",        "unsets targets environment variable (see below)"},
-    {"0",          "QEMU_ARGV0",       true,  handle_arg_argv0,
+    {"0",          "NEPHRITE_ARGV0",       true,  handle_arg_argv0,
      "argv0",      "forces target process argv[0] to be 'argv0'"},
-    {"r",          "QEMU_UNAME",       true,  handle_arg_uname,
+    {"r",          "NEPHRITE_UNAME",       true,  handle_arg_uname,
      "uname",      "set qemu uname release string to 'uname'"},
-    {"B",          "QEMU_GUEST_BASE",  true,  handle_arg_guest_base,
+    {"B",          "NEPHRITE_GUEST_BASE",  true,  handle_arg_guest_base,
      "address",    "set guest_base address to 'address'"},
-    {"R",          "QEMU_RESERVED_VA", true,  handle_arg_reserved_va,
+    {"R",          "NEPHRITE_RESERVED_VA", true,  handle_arg_reserved_va,
      "size",       "reserve 'size' bytes for guest virtual address space"},
-    {"t",          "QEMU_RTSIG_MAP",   true,  handle_arg_rtsig_map,
+    {"t",          "NEPHRITE_RTSIG_MAP",   true,  handle_arg_rtsig_map,
      "tsig hsig n[,...]",
                    "map target rt signals [tsig,tsig+n) to [hsig,hsig+n]"},
-    {"d",          "QEMU_LOG",         true,  handle_arg_log,
+    {"d",          "NEPHRITE_LOG",         true,  handle_arg_log,
      "item[,...]", "enable logging of specified items "
      "(use '-d help' for a list of items)"},
-    {"dfilter",    "QEMU_DFILTER",     true,  handle_arg_dfilter,
+    {"dfilter",    "NEPHRITE_DFILTER",     true,  handle_arg_dfilter,
      "range[,...]","filter logging based on address range"},
-    {"D",          "QEMU_LOG_FILENAME", true, handle_arg_log_filename,
+    {"D",          "NEPHRITE_LOG_FILENAME", true, handle_arg_log_filename,
      "logfile",     "write logs to 'logfile' (default stderr)"},
     {"one-insn-per-tb",
-                   "QEMU_ONE_INSN_PER_TB",  false, handle_arg_one_insn_per_tb,
+                   "NEPHRITE_ONE_INSN_PER_TB", false,
+                   handle_arg_one_insn_per_tb,
      "",           "run with one guest instruction per emulated TB"},
-    {"tb-size",    "QEMU_TB_SIZE",     true,  handle_arg_tb_size,
+    {"tb-size",    "NEPHRITE_TB_SIZE",     true,  handle_arg_tb_size,
      "size",       "TCG translation block cache size"},
-    {"strace",     "QEMU_STRACE",      false, handle_arg_strace,
+    {"strace",     "NEPHRITE_STRACE",      false, handle_arg_strace,
      "",           "log system calls"},
-    {"seed",       "QEMU_RAND_SEED",   true,  handle_arg_seed,
+    {"seed",       "NEPHRITE_RAND_SEED",   true,  handle_arg_seed,
      "",           "Seed for pseudo-random number generator"},
-    {"trace",      "QEMU_TRACE",       true,  handle_arg_trace,
+    {"trace",      "NEPHRITE_TRACE",       true,  handle_arg_trace,
      "",           "[[enable=]<pattern>][,events=<file>][,file=<file>]"},
 #ifdef CONFIG_PLUGIN
-    {"plugin",     "QEMU_PLUGIN",      true,  handle_arg_plugin,
+    {"plugin",     "NEPHRITE_PLUGIN",      true,  handle_arg_plugin,
      "",           "[file=]<file>[,<argname>=<argvalue>]"},
 #endif
-    {"version",    "QEMU_VERSION",     false, handle_arg_version,
+    {"version",    "NEPHRITE_VERSION",     false, handle_arg_version,
      "",           "display version information and exit"},
 #if defined(TARGET_XTENSA)
-    {"xtensa-abi-call0", "QEMU_XTENSA_ABI_CALL0", false, handle_arg_abi_call0,
+    {"xtensa-abi-call0", "NEPHRITE_XTENSA_ABI_CALL0", false,
+                   handle_arg_abi_call0,
      "",           "assume CALL0 Xtensa ABI"},
 #endif
-    {"perfmap",    "QEMU_PERFMAP",     false, handle_arg_perfmap,
+    {"perfmap",    "NEPHRITE_PERFMAP",     false, handle_arg_perfmap,
      "",           "Generate a /tmp/perf-${pid}.map file for perf"},
-    {"jitdump",    "QEMU_JITDUMP",     false, handle_arg_jitdump,
+    {"jitdump",    "NEPHRITE_JITDUMP",     false, handle_arg_jitdump,
      "",           "Generate a jit-${pid}.dump file for perf"},
     {NULL, NULL, false, NULL, NULL, NULL}
 };
@@ -585,14 +587,14 @@ static void usage(int exitcode)
 
     printf("\n"
            "Defaults:\n"
-           "QEMU_LD_PREFIX  = %s\n"
-           "QEMU_STACK_SIZE = %ld byte\n",
+           "NEPHRITE_LD_PREFIX  = %s\n"
+           "NEPHRITE_STACK_SIZE = %ld byte\n",
            interp_prefix,
            guest_stack_size);
 
     printf("\n"
-           "You can use -E and -U options or the QEMU_SET_ENV and\n"
-           "QEMU_UNSET_ENV environment variables to set and unset\n"
+           "You can use -E and -U options or the NEPHRITE_SET_ENV and\n"
+           "NEPHRITE_UNSET_ENV environment variables to set and unset\n"
            "environment variables for the target process.\n"
            "It is possible to provide several variables by separating them\n"
            "by commas in getsubopt(3) style. Additionally it is possible to\n"
@@ -600,7 +602,7 @@ static void usage(int exitcode)
            "The following lines are equivalent:\n"
            "    -E var1=val2 -E var2=val2 -U LD_PRELOAD -U LD_DEBUG\n"
            "    -E var1=val2,var2=val2 -U LD_PRELOAD,LD_DEBUG\n"
-           "    QEMU_SET_ENV=var1=val2,var2=val2 QEMU_UNSET_ENV=LD_PRELOAD,LD_DEBUG\n"
+           "    NEPHRITE_SET_ENV=var1=val2,var2=val2 NEPHRITE_UNSET_ENV=LD_PRELOAD,LD_DEBUG\n"
            "Note that if you provide several changes to a single variable\n"
            "the last change will stay in effect.\n"
            "\n"

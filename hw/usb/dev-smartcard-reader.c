@@ -1564,7 +1564,7 @@ static void ccid_realize(USBDevice *dev, Error **errp)
     s->notify_slot_change = false;
     s->powered = true;
     ccid_reset(s);
-    s->debug = parse_debug_env("QEMU_CCID_DEBUG", D_VERBOSE, s->debug);
+    s->debug = parse_debug_env("NEPHRITE_CCID_DEBUG", D_VERBOSE, s->debug);
 }
 
 static int ccid_pre_load(void *opaque)

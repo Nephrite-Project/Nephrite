@@ -65,8 +65,13 @@ Names and packaging
   D-Bus, SPICE, and audio clients show, and the monitor's banner and
   prompt say Nephrite.
 * QEMU's names stay where guests, drivers, management tools, or existing
-  configurations depend on them: device and CPU model names and IDs, the
-  fw_cfg signature and ``QEMU_*`` environment variables.
+  configurations depend on them: device and CPU model names and IDs, and
+  the fw_cfg signature.
+* The programs read ``NEPHRITE_*`` environment variables where QEMU's read
+  ``QEMU_*`` ones: user mode's, such as ``NEPHRITE_LD_PREFIX`` and
+  ``NEPHRITE_CPU``, ``NEPHRITE_MODULE_DIR``, the smartcard devices' debug
+  variables, SDL's logging hint, and the state that CPR passes across an
+  exec.
 * VNC's and SPICE's SASL authentication take the application name
   ``nephrite``, so that their configuration is
   ``/etc/sasl2/nephrite.conf``, of which ``nephrite.sasl`` is a sample.

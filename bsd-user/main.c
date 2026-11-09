@@ -180,7 +180,7 @@ static void usage(void)
 #endif
            "\n"
            "Environment variables:\n"
-           "QEMU_STRACE       Print system calls and arguments similar to the\n"
+           "NEPHRITE_STRACE   Print system calls and arguments similar to the\n"
            "                  'strace' program.  Enable by setting to any value.\n"
            "You can use -E and -U options to set/unset environment variables\n"
            "for target process.  It is possible to provide several variables\n"
@@ -535,7 +535,7 @@ int main(int argc, char **argv)
         guest_addr_max = ~0ul;
     }
 
-    if (getenv("QEMU_STRACE")) {
+    if (getenv("NEPHRITE_STRACE")) {
         do_strace = 1;
     }
 

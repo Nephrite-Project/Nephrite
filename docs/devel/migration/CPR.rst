@@ -347,7 +347,7 @@ other.
 This mode does not require a channel of type ``cpr``.  The information
 that is passed over that channel for cpr-transfer mode is instead
 serialized to a memfd, the number of the fd is saved in the
-QEMU_CPR_EXEC_STATE environment variable during the exec of new QEMU.
+NEPHRITE_CPR_EXEC_STATE environment variable during the exec of new QEMU.
 and new QEMU mmaps the memfd.
 
 Usage

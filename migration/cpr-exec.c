@@ -22,7 +22,7 @@
 #include "system/runstate.h"
 #include "trace.h"
 
-#define CPR_EXEC_STATE_NAME "QEMU_CPR_EXEC_STATE"
+#define CPR_EXEC_STATE_NAME "NEPHRITE_CPR_EXEC_STATE"
 
 static QEMUFile *qemu_file_new_fd_input(int fd, const char *name)
 {

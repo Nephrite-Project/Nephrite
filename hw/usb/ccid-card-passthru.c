@@ -368,7 +368,7 @@ static void passthru_realize(CCIDCardState *base, Error **errp)
         error_setg(errp, "missing chardev");
         return;
     }
-    card->debug = parse_debug_env("QEMU_CCID_PASSTHRU_DEBUG", D_VERBOSE,
+    card->debug = parse_debug_env("NEPHRITE_CCID_PASSTHRU_DEBUG", D_VERBOSE,
                                   card->debug);
     assert(sizeof(DEFAULT_ATR) <= MAX_ATR_SIZE);
     memcpy(card->atr, DEFAULT_ATR, sizeof(DEFAULT_ATR));

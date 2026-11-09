@@ -74,7 +74,7 @@ void module_call_init(module_init_type type);
  * module_load: attempt to load a module from a set of directories
  *
  * directories searched are:
- * - getenv("QEMU_MODULE_DIR")
+ * - getenv("NEPHRITE_MODULE_DIR")
  * - get_relocated_path(CONFIG_QEMU_MODDIR);
  * - /var/run/qemu/${version_dir}
  *

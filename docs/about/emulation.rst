@@ -213,9 +213,9 @@ behaviour. In this case the howvec plugin is being asked to use inline
 ops to count and break down the hint instructions by type.
 
 Linux user-mode emulation also evaluates the environment variable
-``QEMU_PLUGIN``::
+``NEPHRITE_PLUGIN``::
 
-  QEMU_PLUGIN="file=contrib/plugins/libhowvec.so,inline=on,count=hint" $QEMU
+  NEPHRITE_PLUGIN="file=contrib/plugins/libhowvec.so,inline=on,count=hint" $QEMU
 
 QEMU plugins avoid to write directly to stdin/stderr, and use the log provided
 by the API (see function ``qemu_plugin_outs``).

@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 
     assert(qemu);
 
-    if (!getenv("QEMU_RTSIG_MAP")) {
+    if (!getenv("NEPHRITE_RTSIG_MAP")) {
         char **new_argv = malloc((argc + 2) * sizeof(char *));
         int tsig1, hsig1, count1, tsig2, hsig2, count2;
         char rt_sigmap[64];
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
         count2 = 1;
         snprintf(rt_sigmap, sizeof(rt_sigmap), "%d %d %d,%d %d %d",
                  tsig1, hsig1, count1, tsig2, hsig2, count2);
-        setenv("QEMU_RTSIG_MAP", rt_sigmap, 0);
+        setenv("NEPHRITE_RTSIG_MAP", rt_sigmap, 0);
         assert(execve(new_argv[0], new_argv, environ) == 0);
         return EXIT_FAILURE;
     }

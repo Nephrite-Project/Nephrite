@@ -582,7 +582,7 @@ int main(int argc, char **argv)
     trace_init_file();
 
     dir = g_test_build_filename(G_TEST_BUILT, "..", "..", NULL);
-    g_setenv("QEMU_MODULE_DIR", dir, true);
+    g_setenv("NEPHRITE_MODULE_DIR", dir, true);
     qemu_init_exec_dir(argv[0]);
     module_call_init(MODULE_INIT_QOM);
     module_init_info(qemu_modinfo);

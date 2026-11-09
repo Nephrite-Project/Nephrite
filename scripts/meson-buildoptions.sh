@@ -79,7 +79,7 @@ meson_options_help() {
   printf "%s\n" '                           "manufacturer" name for nephrite-ga registry'
   printf "%s\n" '                           entries [Nephrite]'
   printf "%s\n" '  --qemu-ga-version=VALUE  version number for nephrite-ga installer'
-  printf "%s\n" '  --rtsig-map=VALUE        default value of QEMU_RTSIG_MAP [NULL]'
+  printf "%s\n" '  --rtsig-map=VALUE        default value of NEPHRITE_RTSIG_MAP [NULL]'
   printf "%s\n" '  --smbd=VALUE             Path to smbd for slirp networking'
   printf "%s\n" '  --sysconfdir=VALUE       Sysconf data directory [etc]'
   printf "%s\n" '  --tls-priority=VALUE     Default TLS protocol/cipher priority string'

@@ -536,15 +536,18 @@ static void signal_table_init(const char *rtsig_map)
             int i;
 
             if (qemu_strtoi(s, &s, 10, &tsig) || *s++ != ' ') {
-                fprintf(stderr, "Malformed target signal in QEMU_RTSIG_MAP\n");
+                fprintf(stderr,
+                        "Malformed target signal in NEPHRITE_RTSIG_MAP\n");
                 exit(EXIT_FAILURE);
             }
             if (qemu_strtoi(s, &s, 10, &hsig) || *s++ != ' ') {
-                fprintf(stderr, "Malformed host signal in QEMU_RTSIG_MAP\n");
+                fprintf(stderr,
+                        "Malformed host signal in NEPHRITE_RTSIG_MAP\n");
                 exit(EXIT_FAILURE);
             }
             if (qemu_strtoi(s, &s, 10, &count) || (*s && *s != ',')) {
-                fprintf(stderr, "Malformed signal count in QEMU_RTSIG_MAP\n");
+                fprintf(stderr,
+                        "Malformed signal count in NEPHRITE_RTSIG_MAP\n");
                 exit(EXIT_FAILURE);
             }
 
