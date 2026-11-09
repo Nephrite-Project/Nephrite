@@ -272,8 +272,9 @@ This section provides some examples of real QMP usage, in all of them
 
   .. code-block:: QMP
 
-    <- { "QMP": {"version": {"qemu": {"micro": 0, "minor": 0, "major": 3},
-         "package": "v3.0.0"}, "capabilities": ["oob"] } }
+    <- { "QMP": {"version": {"nephrite": {"micro": 1, "minor": 3, "major": 0},
+         "package": "Nephrite 0.3.1 (v0.3.1), based on QEMU 11.1.50"},
+         "capabilities": ["oob"] } }
 
 .. admonition:: Example
 

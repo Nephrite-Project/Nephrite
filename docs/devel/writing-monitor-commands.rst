@@ -64,10 +64,10 @@ Then, in a different terminal::
  {
      "QMP": {
          "version": {
-             "qemu": {
-                 "micro": 50,
-                 "minor": 2,
-                 "major": 8
+             "nephrite": {
+                 "micro": 1,
+                 "minor": 3,
+                 "major": 0
              },
              "package": ...
          },

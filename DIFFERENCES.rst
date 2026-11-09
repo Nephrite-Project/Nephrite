@@ -45,9 +45,10 @@ Names and packaging
 * Nephrite has version numbers of its own, starting at 0.1.0, in
   ``NEPHRITE_VERSION``; ``VERSION`` keeps the version of QEMU that
   Nephrite is based on. Its programs, and QMP's ``package`` member, show
-  both ("Nephrite emulator version 0.1.0, based on QEMU 11.1.50"). QEMU's
-  version stays alone where guests and management tools depend on it:
-  QMP's ``qemu`` member, the machine types, the guest agent's
+  both ("Nephrite emulator version 0.1.0, based on QEMU 11.1.50"), and
+  QMP's version member is ``nephrite``, with Nephrite's version, where
+  QEMU's is ``qemu``. QEMU's version stays alone where guests and
+  management tools depend on it: the machine types, the guest agent's
   ``guest-info``, and the version of the guest agent's Windows
   installer, which replaces QEMU's agent in place.
 * Nephrite's release tags are ``v0.1.0`` and on. QEMU has tags of the
@@ -62,9 +63,9 @@ Names and packaging
   prompt say Nephrite.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, the
-  fw_cfg signature, QMP and its ``qemu`` version member, SASL's ``qemu``
-  application name, ``QEMU_*`` environment variables, and the guest
-  agent's protocol, state directory, and Windows service and VSS provider.
+  fw_cfg signature, SASL's ``qemu`` application name, ``QEMU_*``
+  environment variables, and the guest agent's protocol, state directory,
+  and Windows service and VSS provider.
 * The documentation's text is QEMU's; its front page says so, and its
   examples run Nephrite's programs.
 * QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and

@@ -73,7 +73,7 @@ class MonitorHotplug(QemuSystemTest):
         # Send a real command to prove the session is fully functional
         resp = qmp.cmd_obj({'execute': 'query-version'})
         self.assertIn('return', resp)
-        self.assertIn('qemu', resp['return'])
+        self.assertIn('nephrite', resp['return'])
 
         qmp.close()
 

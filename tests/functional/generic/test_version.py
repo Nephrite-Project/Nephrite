@@ -21,7 +21,7 @@ class Version(QemuSystemTest):
         self.vm.add_args('-nodefaults')
         self.vm.launch()
         res = self.vm.cmd('query-version')
-        version = res['qemu']
+        version = res['nephrite']
         self.assertIsInstance(version['major'], int)
         self.assertIsInstance(version['minor'], int)
         self.assertIsInstance(version['micro'], int)

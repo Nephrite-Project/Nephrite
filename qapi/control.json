@@ -68,29 +68,24 @@
 
 ##
 # @VersionInfo:
-#     A description of QEMU's version.
+#     A description of Nephrite's version.
 #
-# @qemu: The version of QEMU.  By current convention, a micro version
-#     of 50 signifies a development branch.  A micro version greater
-#     than or equal to 90 signifies a release candidate for the next
-#     minor version.  A micro version of less than 50 signifies a
-#     stable release.
+# @nephrite: The version of Nephrite.
 #
-# @package: Nephrite's version and the version of QEMU that it is
-#     based on, for example "Nephrite 0.1.0 (v0.1.0), based on QEMU
-#     11.1.50".  Downstream versions of QEMU, such as Nephrite, set
-#     this to a string that names them.
+# @package: Nephrite's version, as its programs show it, and the
+#     version of QEMU that it is based on, for example "Nephrite 0.1.0
+#     (v0.1.0), based on QEMU 11.1.50".
 #
 # Since: 0.14
 ##
 { 'struct': 'VersionInfo',
-  'data': {'qemu': 'VersionTriple', 'package': 'str'} }
+  'data': {'nephrite': 'VersionTriple', 'package': 'str'} }
 
 ##
 # @query-version:
-#     Return the current version of QEMU.
+#     Return the current version of Nephrite.
 #
-# Returns: An object describing the current version of QEMU.
+# Returns: An object describing the current version of Nephrite.
 #
 # Since: 0.14
 #
@@ -99,12 +94,12 @@
 #     -> { "execute": "query-version" }
 #     <- {
 #           "return":{
-#              "qemu":{
+#              "nephrite":{
 #                 "major":0,
-#                 "minor":11,
-#                 "micro":5
+#                 "minor":3,
+#                 "micro":1
 #              },
-#              "package":""
+#              "package":"Nephrite 0.3.1 (v0.3.1), based on QEMU 11.1.50"
 #           }
 #        }
 ##
