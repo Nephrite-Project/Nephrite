@@ -67,6 +67,7 @@ Names and packaging
   custom-runner jobs that they started, its Travis and Coverity Scan
   configurations, and the GitHub workflow that closed every pull request.
   Pushing a version tag releases it on GitHub, with its source tarball.
+* QEMU's Read the Docs configuration is gone.
 * Container builds use no registry unless ``REGISTRY`` or configure's
   ``--container-registry`` names one; QEMU's pulled their layers from QEMU's
   GitLab registry.
