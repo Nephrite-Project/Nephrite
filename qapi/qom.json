@@ -660,7 +660,7 @@
 # @prealloc-context: thread context to use for creation of
 #     preallocation threads (default: none) (since 7.2)
 #
-# @share: if false, the memory is private to QEMU; if true, it is
+# @share: if false, the memory is private to Nephrite; if true, it is
 #     shared (default false for backends memory-backend-file and
 #     memory-backend-ram, true for backends memory-backend-epc,
 #     memory-backend-memfd, and memory-backend-shm)
@@ -700,10 +700,10 @@
 # @MemoryBackendFileProperties:
 #     Properties for memory-backend-file objects.
 #
-# @align: the base address alignment when QEMU mmap(2)s @mem-path.
+# @align: the base address alignment when Nephrite mmap(2)s @mem-path.
 #     Some backend stores specified by @mem-path require an alignment
-#     different than the default one used by QEMU, e.g. the device DAX
-#     /dev/dax0.0 requires 2M alignment rather than 4K.  In such
+#     different than the default one used by Nephrite, e.g. the device
+#     DAX /dev/dax0.0 requires 2M alignment rather than 4K.  In such
 #     cases, users can specify the required alignment via this option.
 #     0 selects a default alignment (currently the page size).
 #     (default: 0)
@@ -713,11 +713,11 @@
 #     file.  Must be a multiple of the page size.
 #     (default: 0) (since 8.1)
 #
-# @discard-data: if true, the file contents can be destroyed when QEMU
-#     exits, to avoid unnecessarily flushing data to the backing file.
-#     Note that @discard-data is only an optimization, and QEMU might
-#     not discard file contents if it aborts unexpectedly or is
-#     terminated using SIGKILL.  (default: false)
+# @discard-data: if true, the file contents can be destroyed when
+#     Nephrite exits, to avoid unnecessarily flushing data to the
+#     backing file.  Note that @discard-data is only an optimization,
+#     and Nephrite might not discard file contents if it aborts
+#     unexpectedly or is terminated using SIGKILL.  (default: false)
 #
 # @mem-path: the path to either a shared memory or huge page
 #     filesystem mount
@@ -739,9 +739,9 @@
 #     want to have proper RAM in configurations that would
 #     traditionally create ROM before this property was introduced: VM
 #     templating, where we want to open a file readonly (@readonly set
-#     to true) and mark the memory to be private for QEMU (@share set
-#     to false).  For this use case, we need writable RAM instead of
-#     ROM, and want to set this property to 'off'.  (default: auto,
+#     to true) and mark the memory to be private for Nephrite (@share
+#     set to false).  For this use case, we need writable RAM instead
+#     of ROM, and want to set this property to 'off'.  (default: auto,
 #     since 8.2)
 #
 # Since: 2.1
@@ -775,8 +775,8 @@
 #     See the :doc:`/system/guest-memfd` documentation for more
 #     details.  If 'auto', the option will default to 'off'
 #     currently, but in the future it may result in the option being
-#     set to 'on' for QEMU configurations that explicitly require it.
-#     (default: auto, since: 11.2)
+#     set to 'on' for Nephrite configurations that explicitly require
+#     it.  (default: auto, since: 11.2)
 #
 # Features:
 #
@@ -884,7 +884,8 @@
 #     which represents a pre-opened /dev/iommu.  This allows the
 #     iommufd object to be shared across several subsystems (VFIO,
 #     VDPA, ...), and the file descriptor to be shared with other
-#     process, e.g. DPDK.  (default: QEMU opens /dev/iommu by itself)
+#     process, e.g. DPDK.  (default: Nephrite opens /dev/iommu by
+#     itself)
 #
 # Since: 9.0
 ##
@@ -975,8 +976,8 @@
 # @file: IGVM file to use to configure guest
 #
 # @cmdline: command line for the software loaded from the IGVM file.
-#     Its format is specific to that software.  Passed verbatim: QEMU
-#     does not parse it.
+#     Its format is specific to that software.  Passed verbatim:
+#     Nephrite does not parse it.
 #     Ignored if the IGVM file does not ask for one.  (since 11.2)
 #
 # Since: 10.1
@@ -1035,12 +1036,13 @@
 #    the VM.  The newer KVM_SEV_INIT2 interface, from Linux >= 6.10,
 #    syncs additional vCPU state when initializing the VMSA
 #    structures, which will result in a different guest measurement.
-#    Set this to 'on' to force compatibility with older QEMU or kernel
-#    versions that rely on legacy KVM_SEV_INIT behavior.  'auto' will
-#    behave identically to 'on', but will automatically switch to
-#    using KVM_SEV_INIT2 if the user specifies any additional options
-#    that require it.  If set to 'off', QEMU will require
-#    KVM_SEV_INIT2 unconditionally.  (default: off) (since 9.1)
+#    Set this to 'on' to force compatibility with older QEMU or
+#    kernel versions that rely on legacy KVM_SEV_INIT behavior.
+#    'auto' will behave identically to 'on', but will automatically
+#    switch to using KVM_SEV_INIT2 if the user specifies any
+#    additional options that require it.  If set to 'off', Nephrite
+#    will require KVM_SEV_INIT2 unconditionally.  (default: off)
+#    (since 9.1)
 #
 # Since: 2.12
 ##
@@ -1062,7 +1064,7 @@
 # closely coupled with the SNP_INIT/SNP_LAUNCH_* firmware commands
 # documented in the SEV-SNP Firmware ABI Specification (Rev 0.9).
 #
-# More usage information is also available in the QEMU source tree
+# More usage information is also available in the Nephrite source tree
 # under docs/amd-memory-encryption.
 #
 # @policy: the 'POLICY' parameter to the SNP_LAUNCH_START command, as
@@ -1165,14 +1167,14 @@
 #     Properties for thread context objects.
 #
 # @cpu-affinity: the list of host CPU numbers used as CPU affinity for
-#     all threads created in the thread context (default: QEMU main
-#     thread CPU affinity)
+#     all threads created in the thread context (default: Nephrite
+#     main thread CPU affinity)
 #
 # @node-affinity: the list of host node numbers that will be resolved
 #     to a list of host CPU numbers used as CPU affinity.  This is a
 #     shortcut for specifying the list of host CPU numbers belonging
 #     to the host nodes manually by setting @cpu-affinity.
-#     (default: QEMU main thread affinity)
+#     (default: Nephrite main thread affinity)
 #
 # Since: 7.2
 ##

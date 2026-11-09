@@ -23,10 +23,10 @@
 #
 # @auto: If cylinder/heads/sizes are passed, choose between none and
 #     LBA depending on the size of the disk.  If they are not passed,
-#     choose none if QEMU can guess that the disk had 16 or fewer
-#     heads, large if QEMU can guess that the disk had 131072 or fewer
-#     tracks across all heads (i.e. cylinders*heads<131072), otherwise
-#     LBA.
+#     choose none if Nephrite can guess that the disk had 16 or fewer
+#     heads, large if Nephrite can guess that the disk had 131072 or
+#     fewer tracks across all heads (i.e. cylinders*heads<131072),
+#     otherwise LBA.
 #
 # @none: The physical disk geometry is equal to the logical geometry.
 #
@@ -597,7 +597,7 @@
 
 ##
 # @x-qemu-io:
-#     Run a qemu-io command on a block device.
+#     Run a nephrite-io command on a block device.
 #
 # Take either a block backend name or a qdev ID to identify the
 # device.
@@ -608,7 +608,7 @@
 # @qdev: the qdev ID of the block device to run the
 #     command on.
 #
-# @command: the qemu-io command string to execute.
+# @command: the nephrite-io command string to execute.
 #
 # Features:
 #

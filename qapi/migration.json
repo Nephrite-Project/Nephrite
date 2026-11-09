@@ -442,8 +442,9 @@
 #
 # @events: generate events for each migration state change (since 2.4)
 #
-# @auto-converge: If enabled, QEMU will automatically throttle down
-#     the guest to speed up convergence of RAM migration.  (since 1.6)
+# @auto-converge: If enabled, Nephrite will automatically throttle
+#     down the guest to speed up convergence of RAM migration.  (since
+#     1.6)
 #
 # @postcopy-ram: Start executing on the migration target before all of
 #     RAM has been migrated, pulling the remaining pages along as
@@ -456,8 +457,8 @@
 #     on secondary side, this process is called COarse-Grain LOck
 #     Stepping (COLO) for Non-stop Service.  (since 2.8)
 #
-# @release-ram: if enabled, QEMU will free the migrated ram pages on
-#     the source during postcopy-ram migration.  (since 2.9)
+# @release-ram: if enabled, Nephrite will free the migrated ram pages
+#     on the source during postcopy-ram migration.  (since 2.9)
 #
 # @return-path: If enabled, migration will use the return path even
 #     for precopy.  (since 2.10)
@@ -468,8 +469,8 @@
 #
 # @multifd: Use more than one fd for migration (since 4.0)
 #
-# @dirty-bitmaps: If enabled, QEMU will migrate named dirty bitmaps.
-#     (since 2.12)
+# @dirty-bitmaps: If enabled, Nephrite will migrate named dirty
+#     bitmaps.  (since 2.12)
 #
 # @postcopy-blocktime: Calculate downtime for postcopy live migration
 #     (since 3.0)
@@ -478,8 +479,9 @@
 #     block devices (and thus take locks) immediately at the end of
 #     migration.  (since 3.0)
 #
-# @x-ignore-shared: If enabled, QEMU will not migrate shared memory
-#     that is accessible on the destination machine.  (since 4.0)
+# @x-ignore-shared: If enabled, Nephrite will not migrate shared
+#     memory that is accessible on the destination machine.  (since
+#     4.0)
 #
 # @validate-uuid: Send the UUID of the source to allow the destination
 #     to ensure it is the same.  (since 4.2)
@@ -491,7 +493,7 @@
 #
 # @zero-copy-send: Controls behavior on sending memory pages on
 #     migration.  When true, enables a zero-copy mechanism for sending
-#     memory pages, if host supports it.  Requires that QEMU be
+#     memory pages, if host supports it.  Requires that Nephrite be
 #     permitted to use locked memory for guest RAM pages.  (since 7.1)
 #
 # @postcopy-preempt: If enabled, the migration process will allow
@@ -623,12 +625,12 @@
 # @normal: the original form of migration.  (since 8.2)
 #
 # @cpr-reboot: The `migrate` command stops the VM and saves state to
-#     the URI.  After quitting QEMU, the user resumes by running QEMU
-#     -incoming.
+#     the URI.  After quitting Nephrite, the user resumes by running
+#     Nephrite -incoming.
 #
-#     This mode allows the user to quit QEMU, optionally update and
-#     reboot the OS, and restart QEMU.  If the user reboots, the URI
-#     must persist across the reboot, such as by using a file.
+#     This mode allows the user to quit Nephrite, optionally update
+#     and reboot the OS, and restart Nephrite.  If the user reboots,
+#     the URI must persist across the reboot, such as by using a file.
 #
 #     Unlike normal mode, the use of certain local storage options
 #     does not block the migration, but the user must not modify the
@@ -636,7 +638,7 @@
 #
 #     This mode supports VFIO devices provided the user first puts the
 #     guest in the suspended runstate, such as by issuing
-#     `guest-suspend-ram` to the QEMU guest agent.
+#     `guest-suspend-ram` to the Nephrite guest agent.
 #
 #     Best performance is achieved when the memory backend is shared
 #     and the @x-ignore-shared migration capability is set, but this
@@ -650,30 +652,30 @@
 #     (since 8.2)
 #
 # @cpr-transfer: This mode allows the user to transfer a guest to a
-#     new QEMU instance on the same host with minimal guest pause
+#     new Nephrite instance on the same host with minimal guest pause
 #     time by preserving guest RAM in place.
 #
 #     Devices and their pinned pages are also preserved for VFIO and
 #     IOMMUFD.  (since 10.1)
 #
-#     The user starts new QEMU on the same host as old QEMU, with
-#     command-line arguments to create the same machine, plus the
+#     The user starts new Nephrite on the same host as old Nephrite,
+#     with command-line arguments to create the same machine, plus the
 #     -incoming option for the main migration channel, like normal
 #     live migration.  In addition, the user adds a second -incoming
 #     option with channel type "cpr".  This CPR channel must support
 #     file descriptor transfer with SCM_RIGHTS, i.e. it must be a UNIX
 #     domain socket.
 #
-#     To initiate CPR, the user issues a migrate command to old QEMU,
-#     adding a second migration channel of type "cpr" in the channels
-#     argument.  Old QEMU stops the VM, saves state to the migration
-#     channels, and enters the postmigrate state.  Execution resumes
-#     in new QEMU.
+#     To initiate CPR, the user issues a migrate command to old
+#     Nephrite, adding a second migration channel of type "cpr" in the
+#     channels argument.  Old Nephrite stops the VM, saves state to
+#     the migration channels, and enters the postmigrate state.
+#     Execution resumes in new Nephrite.
 #
-#     New QEMU reads the CPR channel before opening a monitor, hence
-#     the CPR channel cannot be specified in the list of channels for
-#     a `migrate-incoming` command.  It may only be specified on the
-#     command line.
+#     New Nephrite reads the CPR channel before opening a monitor,
+#     hence the CPR channel cannot be specified in the list of
+#     channels for a `migrate-incoming` command.  It may only be
+#     specified on the command line.
 #
 #     The main channel address cannot be a file type, and for an
 #     inet socket, the port cannot be 0 (meaning dynamically choose
@@ -684,9 +686,9 @@
 #     with the '-machine aux-ram-share=on' option.
 #
 #     When using -incoming defer, you must issue the `migrate` command
-#     to old QEMU before issuing any monitor commands to new QEMU.
-#     However, new QEMU does not open and read the migration stream
-#     until you issue the `migrate-incoming` command.
+#     to old Nephrite before issuing any monitor commands to new
+#     Nephrite.  However, new Nephrite does not open and read the
+#     migration stream until you issue the `migrate-incoming` command.
 #
 #     (since 10.0)
 #
@@ -697,15 +699,16 @@
 #     in place.  Devices and their pinned pages are also preserved for
 #     VFIO and IOMMUFD.
 #
-#     Old QEMU starts new QEMU by exec'ing the command specified by
-#     the @cpr-exec-command parameter.  The command may be a direct
-#     invocation of new QEMU, or may be a wrapper that exec's the new
-#     QEMU binary.
+#     Old Nephrite starts new Nephrite by exec'ing the command
+#     specified by the @cpr-exec-command parameter.  The command may
+#     be a direct invocation of new Nephrite, or may be a wrapper that
+#     exec's the new Nephrite binary.
 #
-#     Because old QEMU terminates when new QEMU starts, one cannot
-#     stream data between the two, so the channel must be a type, such
-#     as a file, that accepts all data before old QEMU exits.
-#     Otherwise, old QEMU may quietly block writing to the channel.
+#     Because old Nephrite terminates when new Nephrite starts, one
+#     cannot stream data between the two, so the channel must be a
+#     type, such as a file, that accepts all data before old Nephrite
+#     exits.  Otherwise, old Nephrite may quietly block writing to the
+#     channel.
 #
 #     Memory-backend objects must have the share=on attribute, but
 #     memory-backend-epc is not supported.  The VM must be started
@@ -883,15 +886,15 @@
 #     must be for a 'client' endpoint, while for the incoming side the
 #     credentials must be for a 'server' endpoint.  Setting this to a
 #     non-empty string enables TLS for all migrations.  An empty
-#     string means that QEMU will use plain text mode for migration,
-#     rather than TLS.  This is the default.  (Since 2.7)
+#     string means that Nephrite will use plain text mode for
+#     migration, rather than TLS.  This is the default.  (Since 2.7)
 #
 # @tls-hostname: migration target's hostname for validating the
-#     server's x509 certificate identity.  If empty, QEMU will use the
-#     hostname from the migration URI, if any.  A non-empty value is
-#     required when using x509 based TLS credentials and the migration
-#     URI does not include a hostname, such as fd: or exec: based
-#     migration.  (Since 2.7)
+#     server's x509 certificate identity.  If empty, Nephrite will use
+#     the hostname from the migration URI, if any.  A non-empty value
+#     is required when using x509 based TLS credentials and the
+#     migration URI does not include a hostname, such as fd: or exec:
+#     based migration.  (Since 2.7)
 #
 #     Note: empty value works only since 2.9.
 #
@@ -908,9 +911,9 @@
 #     migration can use during switchover phase, in bytes per
 #     second.  **Note:** this does not limit the bandwidth during
 #     switchover, but only for calculations when making decisions to
-#     switch over.  By default, this value is zero, which means QEMU
-#     will estimate the bandwidth automatically.  This can be set
-#     when the estimated value is not accurate, while the user is
+#     switch over.  By default, this value is zero, which means
+#     Nephrite will estimate the bandwidth automatically.  This can be
+#     set when the estimated value is not accurate, while the user is
 #     able to guarantee such bandwidth is available when switching
 #     over.  When specified correctly, this can make the switchover
 #     decision much more accurate.  (Since 8.2)
@@ -991,9 +994,9 @@
 #     only has effect if the @mapped-ram capability is enabled.
 #     (Since 9.1)
 #
-# @cpr-exec-command: Command to start the new QEMU process when @mode
-#     is @cpr-exec.  The first list element is the program's filename,
-#     the remainder its arguments.  (Since 10.2)
+# @cpr-exec-command: Command to start the new Nephrite process when
+#     @mode is @cpr-exec.  The first list element is the program's
+#     filename, the remainder its arguments.  (Since 10.2)
 #
 # @x-rdma-chunk-size: RDMA memory registration chunk size in bytes.
 #     Default is 1MiB.  Must be a power of 2 in the range
@@ -1003,13 +1006,13 @@
 #
 # @local: Permit the use of optimizations for local migration.  This
 #     must only be set when either both the source and destination
-#     QEMU processes are directly connected with a UNIX domain socket
-#     as the migration channel (to enable use of file descriptor
-#     passing) or cpr-exec migration mode is enabled (this way file
-#     descriptors are inherited by new process).  Individual device
-#     backends may need additional configuration flags set to enable
-#     local migration optimizations.  This will be documented against
-#     the device backends where it applies.  (Since 11.2)
+#     Nephrite processes are directly connected with a UNIX domain
+#     socket as the migration channel (to enable use of file
+#     descriptor passing) or cpr-exec migration mode is enabled (this
+#     way file descriptors are inherited by new process).  Individual
+#     device backends may need additional configuration flags set to
+#     enable local migration optimizations.  This will be documented
+#     against the device backends where it applies.  (Since 11.2)
 #
 # Features:
 #
@@ -1231,7 +1234,7 @@
 
 ##
 # @x-colo-lost-heartbeat:
-#     Tell QEMU that heartbeat is lost, request it to do takeover
+#     Tell Nephrite that heartbeat is lost, request it to do takeover
 #     procedures.  If this command is sent to the PVM, the Primary
 #     side will exit COLO mode.  If sent to the Secondary, the
 #     Secondary side will run failover work, then takes over server
@@ -1450,8 +1453,8 @@
 
 ##
 # @migrate-incoming:
-#     Start an incoming migration.  QEMU must have been started with
-#     -incoming defer.
+#     Start an incoming migration.  Nephrite must have been started
+#     with -incoming defer.
 #
 # @uri: The Uniform Resource Identifier identifying the source or
 #     address to listen on
@@ -1472,7 +1475,7 @@
 #        stay compatible with -incoming and the format of the uri is
 #        already exposed above libvirt.
 #
-#     2. QEMU must be started with -incoming defer to allow
+#     2. Nephrite must be started with -incoming defer to allow
 #        `migrate-incoming` to be used.
 #
 #     3. The uri format is the same as for -incoming
@@ -1528,8 +1531,8 @@
 #     data.  See `xen-save-devices-state`.txt for a description of the
 #     binary format.
 #
-# @live: Optional argument to ask QEMU to treat this command as part
-#     of a live migration.  Default to true.  (since 2.11)
+# @live: Optional argument to ask Nephrite to treat this command as
+#     part of a live migration.  Default to true.  (since 2.11)
 #
 # Since: 1.1
 #
@@ -1715,10 +1718,10 @@
 # @UNPLUG_PRIMARY:
 #     Emitted from source side of a migration when migration state is
 #     WAIT_UNPLUG.  Device was unplugged by guest operating system.
-#     Device resources in QEMU are kept on standby to be able to
+#     Device resources in Nephrite are kept on standby to be able to
 #     re-plug it in case of migration failure.
 #
-# @device-id: QEMU device id of the unplugged device
+# @device-id: Nephrite device id of the unplugged device
 #
 # Since: 4.2
 #

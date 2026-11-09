@@ -1,10 +1,10 @@
 # -*- Mode: Python -*-
 # vim: filetype=python
 
-# Note that modules are shared with the QEMU main schema under the assumption
-# that the storage daemon schema is a subset of the main schema. For the shared
-# modules, no code is generated here, but we reuse the code files generated
-# from the main schema.
+# Note that modules are shared with the Nephrite main schema under the
+# assumption that the storage daemon schema is a subset of the main schema.
+# For the shared modules, no code is generated here, but we reuse the code
+# files generated from the main schema.
 #
 # If you wish to extend the storage daemon schema to contain things that are
 # not in the main schema, be aware that array types of types defined in shared
@@ -18,8 +18,8 @@
 # Introduction
 # ************
 #
-# This manual describes the commands and events supported by the QEMU
-# storage daemon QMP.
+# This manual describes the commands and events supported by the
+# Nephrite storage daemon QMP.
 #
 # For locating a particular item, please see the `qapi-qsd-index`.
 #

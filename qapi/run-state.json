@@ -12,7 +12,7 @@
 # @RunState:
 #     An enumeration of VM run states.
 #
-# @debug: QEMU is running on a debugger
+# @debug: Nephrite is running on a debugger
 #
 # @finish-migrate: guest is paused to finish the migration process
 #
@@ -20,7 +20,7 @@
 #     that this state does not tell whether the machine will start at
 #     the end of the migration.  This depends on the command-line -S
 #     option and any invocation of `stop` or `cont` that has happened
-#     since QEMU was started.
+#     since Nephrite was started.
 #
 # @internal-error: An internal error that prevents further guest
 #     execution has occurred
@@ -32,7 +32,7 @@
 #
 # @postmigrate: guest is paused following a successful 'migrate'
 #
-# @prelaunch: QEMU was started with -S and guest has not started
+# @prelaunch: Nephrite was started with -S and guest has not started
 #
 # @restore-vm: guest is paused to restore VM state
 #
@@ -90,7 +90,7 @@
 #     hypercalls on s390 that are used during kexec/kdump/boot
 #
 # @snapshot-load: A snapshot is being loaded by the record & replay
-#     subsystem.  This value is used only within QEMU.  It doesn't
+#     subsystem.  This value is used only within Nephrite.  It doesn't
 #     occur in QMP.  (since 7.2)
 ##
 { 'enum': 'ShutdownCause',
@@ -131,19 +131,19 @@
 ##
 # @SHUTDOWN:
 #     Emitted when the virtual machine has shut down, indicating that
-#     QEMU is about to exit.
+#     Nephrite is about to exit.
 #
 # @guest: If true, the shutdown was triggered by a guest request (such
 #     as a guest-initiated ACPI shutdown request or other
 #     hardware-specific action) rather than a host request (such as
-#     sending QEMU a SIGINT).  (since 2.10)
+#     sending Nephrite a SIGINT).  (since 2.10)
 #
 # @reason: The `ShutdownCause` which resulted in the `SHUTDOWN`.
 #     (since 4.0)
 #
 # .. note:: If the command-line option ``-no-shutdown`` has been
-#    specified, QEMU will not exit, and a `STOP` event will eventually
-#    follow the `SHUTDOWN` event.
+#    specified, Nephrite will not exit, and a `STOP` event will
+#    eventually follow the `SHUTDOWN` event.
 #
 # Since: 0.12
 #
@@ -236,7 +236,7 @@
 #     saved on disk, for example, S4 state, which is sometimes called
 #     hibernate state
 #
-# .. note:: QEMU shuts down (similar to event `SHUTDOWN`) when
+# .. note:: Nephrite shuts down (similar to event `SHUTDOWN`) when
 #    entering this state.
 #
 # Since: 1.2
@@ -316,7 +316,7 @@
 
 ##
 # @RebootAction:
-#     Possible QEMU actions upon guest reboot
+#     Possible Nephrite actions upon guest reboot
 #
 # @reset: Reset the VM
 #
@@ -330,7 +330,7 @@
 
 ##
 # @ShutdownAction:
-#     Possible QEMU actions upon guest shutdown
+#     Possible Nephrite actions upon guest shutdown
 #
 # @poweroff: Shutdown the VM and exit
 #
@@ -649,8 +649,8 @@
 # @MemoryFailureRecipient:
 #     Hardware memory failure occurs, handled by recipient.
 #
-# @hypervisor: memory failure at QEMU process address space.  (none
-#     guest memory, but used by QEMU itself).
+# @hypervisor: memory failure at Nephrite process address space.
+#     (none guest memory, but used by Nephrite itself).
 #
 # @guest: memory failure at guest memory,
 #
@@ -662,18 +662,19 @@
 
 ##
 # @MemoryFailureAction:
-#     Actions taken by QEMU in response to a hardware memory failure.
+#     Actions taken by Nephrite in response to a hardware memory
+#     failure.
 #
 # @ignore: the memory failure could be ignored.  This will only be the
 #     case for action-optional failures.
 #
 # @inject: memory failure occurred in guest memory, the guest enabled
-#     MCE handling mechanism, and QEMU could inject the MCE into the
-#     guest successfully.
+#     MCE handling mechanism, and Nephrite could inject the MCE into
+#     the guest successfully.
 #
 # @fatal: the failure is unrecoverable.  This occurs for
 #     action-required failures if the recipient is the hypervisor;
-#     QEMU will exit.
+#     Nephrite will exit.
 #
 # @reset: the failure is unrecoverable but confined to the guest.
 #     This occurs if the recipient is a guest guest which is not ready

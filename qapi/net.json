@@ -443,10 +443,10 @@
 #     after creating TAP backend with @x-permit-local-migration
 #     parameter set) will simply fail.
 #
-#     Moreover, when QEMU is in incoming migration state, migration
-#     parameter @local is set and @x-permit-local-migration is set,
-#     the following options are not supported and must not be set:
-#     @fd, @fds, @helper, @br, @ifname, @sndbuf, @vnet_hdr.
+#     Moreover, when Nephrite is in incoming migration state,
+#     migration parameter @local is set and @x-permit-local-migration
+#     is set, the following options are not supported and must not be
+#     set: @fd, @fds, @helper, @br, @ifname, @sndbuf, @vnet_hdr.
 #     Additionally, @script and @downscript must be explicitly
 #     disabled then.
 #     (default: false, since 11.2)
@@ -480,7 +480,7 @@
 ##
 # @NetdevSocketOptions:
 #     Socket netdevs are used to establish a network connection to
-#     another QEMU virtual machine via a TCP socket.
+#     another Nephrite virtual machine via a TCP socket.
 #
 # @fd: file descriptor of an already opened socket
 #
@@ -1178,7 +1178,7 @@
 #     hotplugged when requested) before will now be hotplugged by the
 #     virtio-net standby device.
 #
-# @device-id: QEMU device id of the unplugged device
+# @device-id: Nephrite device id of the unplugged device
 #
 # Since: 4.2
 #
@@ -1195,7 +1195,7 @@
 # @NETDEV_STREAM_CONNECTED:
 #     Emitted when the netdev stream backend is connected
 #
-# @netdev-id: QEMU netdev id that is connected
+# @netdev-id: Nephrite netdev id that is connected
 #
 # @addr: The destination address
 #
@@ -1224,7 +1224,7 @@
 # @NETDEV_STREAM_DISCONNECTED:
 #     Emitted when the netdev stream backend is disconnected
 #
-# @netdev-id: QEMU netdev id that is disconnected
+# @netdev-id: Nephrite netdev id that is disconnected
 #
 # Since: 7.2
 #
@@ -1241,9 +1241,9 @@
 # @NETDEV_VHOST_USER_CONNECTED:
 #     Emitted when the vhost-user chardev is connected
 #
-# @netdev-id: QEMU netdev id that is connected
+# @netdev-id: Nephrite netdev id that is connected
 #
-# @chardev-id: The character device id used by the QEMU netdev
+# @chardev-id: The character device id used by the Nephrite netdev
 #
 # Since: 10.0
 #
@@ -1260,7 +1260,7 @@
 # @NETDEV_VHOST_USER_DISCONNECTED:
 #     Emitted when the vhost-user chardev is disconnected
 #
-# @netdev-id: QEMU netdev id that is disconnected
+# @netdev-id: Nephrite netdev id that is disconnected
 #
 # Since: 10.0
 #

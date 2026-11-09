@@ -7,8 +7,8 @@
 # UEFI Variable Store
 # *******************
 #
-# The QEMU efi variable store implementation (hw/uefi/) uses this to
-# store non-volatile variables in json format on disk.
+# The Nephrite efi variable store implementation (hw/uefi/) uses this
+# to store non-volatile variables in json format on disk.
 #
 # This is an existing format already supported by (at least) two other
 # projects, specifically https://gitlab.com/kraxel/virt-firmware and

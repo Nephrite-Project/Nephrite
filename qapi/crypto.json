@@ -467,7 +467,7 @@
 #
 # @dir: the path of the directory that contains the credential files
 #
-# @endpoint: whether the QEMU network backend that uses the
+# @endpoint: whether the Nephrite network backend that uses the
 #     credentials will be acting as a client or as a server
 #     (default: client)
 #

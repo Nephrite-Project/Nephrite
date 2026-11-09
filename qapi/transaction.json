@@ -205,13 +205,13 @@
 # to use for the new snapshot, and the format.  The default format, if
 # not specified, is qcow2.
 #
-# Each new snapshot defaults to being created by QEMU (wiping any
+# Each new snapshot defaults to being created by Nephrite (wiping any
 # contents if the file already exists), but it is also possible to
 # reuse an externally-created file.  In the latter case, you should
 # ensure that the new image file has the same contents as the current
-# one; QEMU cannot perform any meaningful check.  Typically this is
-# achieved by using the current image file as the backing file for the
-# new image.
+# one; Nephrite cannot perform any meaningful check.  Typically this
+# is achieved by using the current image file as the backing file for
+# the new image.
 #
 # On failure, the original disks pre-snapshot attempt will be used.
 #
@@ -220,9 +220,10 @@
 # exists, the request will be rejected.  Only some image formats
 # support it, for example, qcow2, and rbd,
 #
-# On failure, QEMU will try delete the newly created internal snapshot
-# in the transaction.  When an I/O error occurs during deletion, the
-# user needs to fix it later with qemu-img or other command.
+# On failure, Nephrite will try delete the newly created internal
+# snapshot in the transaction.  When an I/O error occurs during
+# deletion, the user needs to fix it later with nephrite-img or other
+# command.
 #
 # @actions: List of `TransactionAction`; information needed for the
 #     respective operations.

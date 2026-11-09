@@ -46,7 +46,7 @@
 # @QCryptodevBackendType:
 #     The crypto device backend type
 #
-# @builtin: the QEMU builtin support
+# @builtin: the Nephrite builtin support
 #
 # @vhost-user: vhost-user
 #

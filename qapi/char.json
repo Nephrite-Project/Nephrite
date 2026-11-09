@@ -22,8 +22,9 @@
 #     backend (e.g. with the chardev=... option) is in open or closed
 #     state (since 2.1)
 #
-# .. note:: @filename is encoded using the QEMU command line character
-#    device encoding.  See the QEMU man page for details.
+# .. note:: @filename is encoded using the Nephrite command line
+#    character device encoding.  See the Nephrite man page for
+#    details.
 #
 # Since: 0.14
 ##
@@ -326,7 +327,7 @@
 #     Configuration info for stdio chardevs.
 #
 # @signal: Allow signals (such as SIGINT triggered by ^C) be delivered
-#     to QEMU.  Default: true.
+#     to Nephrite.  Default: true.
 #
 # Since: 1.5
 ##
@@ -437,7 +438,7 @@
 
 ##
 # @ChardevQemuVDAgent:
-#     Configuration info for QEMU vdagent implementation.
+#     Configuration info for Nephrite vdagent implementation.
 #
 # @mouse: enable/disable mouse, default is enabled.
 #
@@ -649,7 +650,7 @@
 ##
 # @ChardevQemuVDAgentWrapper:
 #
-# @data: Configuration info for QEMU vdagent implementation
+# @data: Configuration info for Nephrite vdagent implementation
 #
 # Since: 6.1
 ##

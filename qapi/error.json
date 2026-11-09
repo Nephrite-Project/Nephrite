@@ -9,7 +9,7 @@
 
 ##
 # @QapiErrorClass:
-#     QEMU error classes
+#     Nephrite error classes
 #
 # @GenericError: this is used for errors that don't require a specific
 #     error class.  This should be the default case for most errors

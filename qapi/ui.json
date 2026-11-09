@@ -107,7 +107,7 @@
 #    way to coordinate server time with client time.  It is not
 #    recommended to use the absolute time version of the @time
 #    parameter unless you're sure you are on the same machine as the
-#    QEMU instance.
+#    Nephrite instance.
 #
 # Since: 7.0
 ##
@@ -1436,7 +1436,7 @@
 #
 # @none: No user interface or video output display.  The guest will
 #     still see an emulated graphics card, but its output will not be
-#     displayed to the QEMU user.
+#     displayed to the Nephrite user.
 #
 # @gtk: The GTK user interface.
 #
@@ -1447,17 +1447,17 @@
 #     Spice.  (Since 3.1)
 #
 # @curses: Display video output via curses.  For graphics device
-#     models which support a text mode, QEMU can display this output
-#     using a curses/ncurses interface.  Nothing is displayed when the
-#     graphics device is in graphical mode or if the graphics device
-#     does not support a text mode.  Generally only the VGA device
-#     models support text mode.
+#     models which support a text mode, Nephrite can display this
+#     output using a curses/ncurses interface.  Nothing is displayed
+#     when the graphics device is in graphical mode or if the graphics
+#     device does not support a text mode.  Generally only the VGA
+#     device models support text mode.
 #
 # @cocoa: The Cocoa user interface.
 #
 # @spice-app: Set up a Spice server and run the default associated
 #     application to connect to it.  The server will redirect the
-#     serial console and QEMU monitors.  (Since 4.0)
+#     serial console and Nephrite monitors.  (Since 4.0)
 #
 # @dbus: Start a D-Bus service for the display.  (Since 7.0)
 #
@@ -1481,12 +1481,12 @@
 # @DisplayOptions:
 #     Display (user interface) options.
 #
-# @type: Which `DisplayType` QEMU should use.
+# @type: Which `DisplayType` Nephrite should use.
 #
 # @full-screen: Start user interface in fullscreen mode
 #     (default: off).
 #
-# @window-close: Allow to quit QEMU with window close button
+# @window-close: Allow to quit Nephrite with window close button
 #     (default: on).
 #
 # @show-cursor: Force showing the mouse cursor (default: off).

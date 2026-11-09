@@ -2,8 +2,8 @@
 # vim: filetype=python
 
 ##
-# This manual describes the commands supported by the QEMU Guest Agent
-# Protocol.
+# This manual describes the commands supported by the Nephrite Guest
+# Agent Protocol.
 #
 # For locating  a particular item, please see the `qapi-qga-index`.
 #
@@ -93,9 +93,9 @@
 #
 # In cases where a partial stale response was previously received by
 # the client, this cannot always be done reliably.  One particular
-# scenario being if qemu-ga responses are fed character-by-character
-# into a JSON parser.  In these situations, using
-# `guest-sync-delimited` may be optimal.
+# scenario being if nephrite-ga responses are fed
+# character-by-character into a JSON parser.  In these situations,
+# using `guest-sync-delimited` may be optimal.
 #
 # For clients that fetch responses line by line and convert them to
 # JSON objects, `guest-sync` should be sufficient, but note that in
@@ -563,16 +563,16 @@
 # - manual write into sysfs
 #
 # IMPORTANT: `guest-suspend-ram` requires working wakeup support in
-# QEMU.  You should check QMP command `query-current-machine` returns
-# wakeup-suspend-support: true before issuing this command.  Failure
-# in doing so can result in a suspended guest that QEMU will not be
-# able to awaken, forcing the user to power cycle the guest to bring
-# it back.
+# Nephrite.  You should check QMP command `query-current-machine`
+# returns wakeup-suspend-support: true before issuing this command.
+# Failure in doing so can result in a suspended guest that Nephrite
+# will not be able to awaken, forcing the user to power cycle the
+# guest to bring it back.
 #
 # This command does NOT return a response on success.  There are two
 # options to check for success:
 #
-# 1. Wait for the `SUSPEND` QMP event from QEMU
+# 1. Wait for the `SUSPEND` QMP event from Nephrite
 # 2. Issue the `query-status` QMP command to confirm the VM status is
 #    "suspended"
 #
@@ -598,16 +598,16 @@
 # - pm-utils (via pm-suspend-hybrid)
 #
 # IMPORTANT: `guest-suspend-hybrid` requires working wakeup support in
-# QEMU.  You should check QMP command `query-current-machine` returns
-# wakeup-suspend-support: true before issuing this command.  Failure
-# in doing so can result in a suspended guest that QEMU will not be
-# able to awaken, forcing the user to power cycle the guest to bring
-# it back.
+# Nephrite.  You should check QMP command `query-current-machine`
+# returns wakeup-suspend-support: true before issuing this command.
+# Failure in doing so can result in a suspended guest that Nephrite
+# will not be able to awaken, forcing the user to power cycle the
+# guest to bring it back.
 #
 # This command does NOT return a response on success.  There are two
 # options to check for success:
 #
-# 1. Wait for the `SUSPEND` QMP event from QEMU
+# 1. Wait for the `SUSPEND` QMP event from Nephrite
 # 2. Issue the `query-status` QMP command to confirm the VM status is
 #    "suspended"
 #

@@ -19,8 +19,8 @@
 # @query-qmp-schema:
 #     Command `query-qmp-schema` exposes the QMP wire ABI as an array
 #     of `SchemaInfo`.  This lets QMP clients figure out what commands
-#     and events are available in this QEMU, and their parameters and
-#     results.
+#     and events are available in this Nephrite, and their parameters
+#     and results.
 #
 # The `SchemaInfo` can't reflect all the rules and restrictions that
 # apply to QMP.  It's interface introspection (figuring out what's

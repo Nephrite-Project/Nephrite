@@ -343,7 +343,7 @@
 #     buffer will be used.
 #
 # @opt-mem-alignment: Optimal memory alignment in bytes.  This is the
-#     alignment used for any buffer allocations QEMU performs
+#     alignment used for any buffer allocations Nephrite performs
 #     internally.
 ##
 { 'struct': 'BlockLimitsInfo',
@@ -362,7 +362,7 @@
 
 ##
 # @BlockNodeInfo:
-#     Information about a QEMU image file
+#     Information about a Nephrite image file
 #
 # @filename: name of the image file
 #
@@ -406,8 +406,8 @@
 
 ##
 # @ImageInfo:
-#     Information about a QEMU image file, and potentially its backing
-#     image
+#     Information about a Nephrite image file, and potentially its
+#     backing image
 #
 # @backing-image: info of the backing image
 #
@@ -454,7 +454,7 @@
 
 ##
 # @ImageCheck:
-#     Information about a QEMU image file check
+#     Information about a Nephrite image file check
 #
 # @filename: name of the image file checked
 #
@@ -1585,14 +1585,14 @@
 
 ##
 # @NewImageMode:
-#     An enumeration that tells QEMU how to set the backing file path
-#     in a new image file.
+#     An enumeration that tells Nephrite how to set the backing file
+#     path in a new image file.
 #
-# @existing: QEMU should look for an existing image file.
+# @existing: Nephrite should look for an existing image file.
 #
-# @absolute-paths: QEMU should create a new image with absolute paths
-#     for the backing file.  If there is no backing file available,
-#     the new image will not be backed either.
+# @absolute-paths: Nephrite should create a new image with absolute
+#     paths for the backing file.  If there is no backing file
+#     available, the new image will not be backed either.
 #
 # Since: 1.1
 ##
@@ -1618,8 +1618,8 @@
 #
 # @format: the format of the overlay image, default is 'qcow2'.
 #
-# @mode: whether and how QEMU should create a new image, default is
-#     'absolute-paths'.
+# @mode: whether and how Nephrite should create a new image, default
+#     is 'absolute-paths'.
 ##
 { 'struct': 'BlockdevSnapshotSync',
   'data': { '*device': 'str', '*node-name': 'str',
@@ -1766,8 +1766,8 @@
 # @format: the format of the new destination, default is to probe if
 #     @mode is 'existing', else the format of the source
 #
-# @mode: whether and how QEMU should create a new image, default is
-#     'absolute-paths'.
+# @mode: whether and how Nephrite should create a new image, default
+#     is 'absolute-paths'.
 #
 # Since: 1.6
 ##
@@ -1852,11 +1852,11 @@
 ##
 # @change-backing-file:
 #     Change the backing file in the image file metadata.  This does
-#     not cause QEMU to reopen the image file to reparse the backing
-#     filename (it may, however, perform a reopen to change
+#     not cause Nephrite to reopen the image file to reparse the
+#     backing filename (it may, however, perform a reopen to change
 #     permissions from r/o -> r/w -> r/o, if needed).  The new backing
 #     file string is written into the image file metadata, and the
-#     QEMU internal strings are updated.
+#     Nephrite internal strings are updated.
 #
 # @image-node-name: The name of the block driver state node of the
 #     image to modify.  The "device" argument is used to verify
@@ -1925,14 +1925,14 @@
 #     an error.
 #
 #     This filename is not validated.  If a pathname string is such
-#     that it cannot be resolved by QEMU, that means that subsequent
-#     QMP or HMP commands must use node-names for the image in
-#     question, as filename lookup methods will fail.
+#     that it cannot be resolved by Nephrite, that means that
+#     subsequent QMP or HMP commands must use node-names for the image
+#     in question, as filename lookup methods will fail.
 #
-#     If not specified, QEMU will automatically determine the backing
-#     file string to use, or error out if there is no obvious choice.
-#     Care should be taken when specifying the string, to specify a
-#     valid filename or protocol.  (Since 2.1)
+#     If not specified, Nephrite will automatically determine the
+#     backing file string to use, or error out if there is no obvious
+#     choice.  Care should be taken when specifying the string, to
+#     specify a valid filename or protocol.  (Since 2.1)
 #
 # @backing-mask-protocol: If true, replace any protocol mentioned in
 #     the 'backing file format' with 'raw', rather than storing the
@@ -2128,7 +2128,7 @@
 #
 # @id: Block graph node identifier.  This @id is generated only for
 #     `x-debug-query-block-graph` and does not relate to any other
-#     identifiers in QEMU.
+#     identifiers in Nephrite.
 #
 # @type: Type of graph node.  Can be one of block-backend, block-job
 #     or block-driver-state.
@@ -2270,8 +2270,8 @@
 #     repair broken Quorum files.  By default, @device is replaced,
 #     although implicitly created filters on it are kept.  (Since 2.1)
 #
-# @mode: whether and how QEMU should create a new image, default is
-#     'absolute-paths'.
+# @mode: whether and how Nephrite should create a new image, default
+#     is 'absolute-paths'.
 #
 # @speed: the maximum speed, in bytes per second
 #
@@ -2912,15 +2912,15 @@
 # @backing-file: The backing file string to write into the top image.
 #     This filename is not validated.
 #
-#     If a pathname string is such that it cannot be resolved by QEMU,
-#     that means that subsequent QMP or HMP commands must use
-#     node-names for the image in question, as filename lookup methods
-#     will fail.
+#     If a pathname string is such that it cannot be resolved by
+#     Nephrite, that means that subsequent QMP or HMP commands must
+#     use node-names for the image in question, as filename lookup
+#     methods will fail.
 #
-#     If not specified, QEMU will automatically determine the backing
-#     file string to use, or error out if there is no obvious choice.
-#     Care should be taken when specifying the string, to specify a
-#     valid filename or protocol.  (Since 2.1)
+#     If not specified, Nephrite will automatically determine the
+#     backing file string to use, or error out if there is no obvious
+#     choice.  Care should be taken when specifying the string, to
+#     specify a valid filename or protocol.  (Since 2.1)
 #
 # @backing-mask-protocol: If true, replace any protocol mentioned in
 #     the 'backing file format' with 'raw', rather than storing the
@@ -3264,7 +3264,7 @@
 # @BlockdevAioOptions:
 #     Selects the AIO backend to handle I/O requests
 #
-# @threads: Use QEMU's thread pool
+# @threads: Use Nephrite's thread pool
 #
 # @native: Use native AIO backend (only Linux and Windows)
 #
@@ -3371,7 +3371,7 @@
 #     that the driver will open the image read-only at first,
 #     dynamically reopen the image file read-write when the first
 #     writer is attached to the node and reopen read-only when the
-#     last writer is detached.  This allows giving QEMU write
+#     last writer is detached.  This allows giving Nephrite write
 #     permissions only on demand when an operation actually needs
 #     write access.
 #
@@ -3438,7 +3438,7 @@
 # @namespace: namespace number of the device, starting from 1.
 #
 # Note that the PCI @device must have been unbound from any host
-# kernel driver before instructing QEMU to add the blockdev.
+# kernel driver before instructing Nephrite to add the blockdev.
 #
 # Since: 2.12
 ##
@@ -3536,10 +3536,10 @@
 ##
 # @Qcow2OverlapCheckFlags:
 #     Structure of flags for each metadata structure.  Setting a field
-#     to 'true' makes QEMU guard that Qcow2 format structure against
-#     unintended overwriting.  See Qcow2 format specification for
-#     detailed information on these structures.  The default value is
-#     chosen according to the template given.
+#     to 'true' makes Nephrite guard that Qcow2 format structure
+#     against unintended overwriting.  See Qcow2 format specification
+#     for detailed information on these structures.  The default value
+#     is chosen according to the template given.
 #
 # @template: Specifies a template mode which can be adjusted using the
 #     other flags, defaults to 'cached'
@@ -4383,10 +4383,10 @@
 #     An enumeration of replication modes.
 #
 # @primary: Primary mode, the vm's state will be sent to secondary
-#     QEMU.
+#     Nephrite.
 #
 # @secondary: Secondary mode, receive the vm's state from primary
-#     QEMU.
+#     Nephrite.
 #
 # Since: 2.9
 ##
@@ -4754,7 +4754,7 @@
 #     case, the default value does not work and the option must be
 #     specified explicitly.
 #
-# @auto-read-only: if true and @read-only is false, QEMU may
+# @auto-read-only: if true and @read-only is false, Nephrite may
 #     automatically decide not to open the image read-write as
 #     requested, but fall back to read-only instead (and switch
 #     between the modes later), e.g. depending on whether the image
@@ -5003,7 +5003,8 @@
 ##
 # @blockdev-set-active:
 #     Activate or deactivate a block device.  Use this to manage the
-#     handover of block devices on migration with qemu-storage-daemon.
+#     handover of block devices on migration with
+#     nephrite-storage-daemon.
 #
 # Activating a node automatically activates all of its child nodes
 # first.  Deactivating a node automatically deactivates any of its
@@ -5408,7 +5409,7 @@
 #
 # @block-state-zero: Force use of payload blocks of type 'ZERO'.
 #     Non-standard, but default.  Do not set to 'off' when using
-#     'qemu-img convert' with subformat=dynamic.
+#     'nephrite-img convert' with subformat=dynamic.
 #
 # Since: 2.12
 ##
@@ -5842,7 +5843,7 @@
 
 ##
 # @PreallocMode:
-#     Preallocation mode of QEMU image file
+#     Preallocation mode of Nephrite image file
 #
 # @off: no preallocation
 #

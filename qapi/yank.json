@@ -45,7 +45,7 @@
 ##
 # @YankInstance:
 #     A yank instance can be yanked with the `yank` qmp command to
-#     recover from a hanging QEMU.
+#     recover from a hanging Nephrite.
 #
 # @type: yank instance type
 #
@@ -70,7 +70,7 @@
 
 ##
 # @yank:
-#     Try to recover from hanging QEMU by yanking the specified
+#     Try to recover from hanging Nephrite by yanking the specified
 #     instances.  See `YankInstance` for more information.
 #
 # @instances: the instances to be yanked

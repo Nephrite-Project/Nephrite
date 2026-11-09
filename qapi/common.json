@@ -24,7 +24,7 @@
 # @OnOffAuto:
 #     An enumeration of three options: on, off, and auto
 #
-# @auto: QEMU selects the value between on and off
+# @auto: Nephrite selects the value between on and off
 #
 # @on: Enabled
 #

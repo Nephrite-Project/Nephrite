@@ -15,7 +15,7 @@
 
 ##
 # @SysEmuTarget:
-#     The comprehensive enumeration of QEMU system emulation
+#     The comprehensive enumeration of Nephrite system emulation
 #     ("softmmu") targets.  Run "./configure --help" in the project
 #     root directory, and look for the \*-softmmu targets near the
 #     "--target-list" option.  The individual target constants are not
@@ -30,8 +30,8 @@
 # @hexagon: since 11.0
 #
 # .. note:: The resulting QMP strings can be appended to the
-#    "qemu-system-" prefix to produce the corresponding QEMU
-#    executable name.  This is true even for "qemu-system-x86_64".
+#    "nephrite-system-" prefix to produce the corresponding Nephrite
+#    executable name.  This is true even for "nephrite-system-x86_64".
 #
 # Since: 3.0
 ##
@@ -84,8 +84,8 @@
 #
 # @props: properties associated with a virtual CPU, e.g. the socket id
 #
-# @target: the QEMU system emulation target, which determines which
-#     additional fields will be listed (since 3.0)
+# @target: the Nephrite system emulation target, which determines
+#     which additional fields will be listed (since 3.0)
 #
 # Since: 2.12
 ##
@@ -174,7 +174,7 @@
 #     the machine type and false otherwise (since 4.1)
 #
 # @deprecated: if true, the machine type is deprecated and may be
-#     removed in future versions of QEMU according to the QEMU
+#     removed in future versions of Nephrite according to its
 #     deprecation policy (since 4.1)
 #
 # @default-cpu-type: default CPU model typename if none is requested
@@ -273,7 +273,7 @@
 
 ##
 # @QemuTargetInfo:
-#     Information on the target configuration built into the QEMU
+#     Information on the target configuration built into the Nephrite
 #     binary.
 #
 # @arch: the target architecture
@@ -285,7 +285,7 @@
 
 ##
 # @query-target:
-#     Return information about the target for this QEMU
+#     Return information about the target for this Nephrite
 #
 # Since: 1.2
 ##
@@ -881,7 +881,7 @@
 #
 # @prealloc: whether memory was preallocated
 #
-# @share: whether memory is private to QEMU or shared (since 6.1)
+# @share: whether memory is private to Nephrite or shared (since 6.1)
 #
 # @reserve: whether swap space (or huge pages) was reserved if
 #     applicable.  This corresponds to the user configuration and not
@@ -1733,7 +1733,7 @@
 ##
 # @SMPConfiguration:
 #     Schema for CPU topology configuration.  A missing value lets
-#     QEMU figure out a suitable value based on the ones that are
+#     Nephrite figure out a suitable value based on the ones that are
 #     provided.
 #
 # The members other than @cpus and @maxcpus define a topology of
@@ -2117,8 +2117,8 @@
 #
 # The result returned by this command may be affected by:
 #
-# * QEMU version: CPU models may look different depending on the QEMU
-#   version.  (Except for CPU models reported as "static" in
+# * QEMU version: CPU models may look different depending on the
+#   Nephrite version.  (Except for CPU models reported as "static" in
 #   `query-cpu-definitions`.)
 # * machine-type: CPU model may look different depending on the
 #   machine-type.  (Except for CPU models reported as "static" in
@@ -2171,8 +2171,8 @@
 #
 # The result returned by this command may be affected by:
 #
-# * QEMU version: CPU models may look different depending on the QEMU
-#   version.  (Except for CPU models reported as "static" in
+# * QEMU version: CPU models may look different depending on the
+#   Nephrite version.  (Except for CPU models reported as "static" in
 #   `query-cpu-definitions`.)
 # * machine-type: CPU model may look different depending on the
 #   machine-type.  (Except for CPU models reported as "static" in
@@ -2232,15 +2232,15 @@
 #     Expands a given CPU model, @model, (or a combination of CPU
 #     model + additional options) to different granularities,
 #     specified by @type, allowing tooling to get an understanding
-#     what a specific CPU model looks like in QEMU under a certain
+#     what a specific CPU model looks like in Nephrite under a certain
 #     configuration.
 #
 # This interface can be used to query the "host" CPU model.
 #
 # The data returned by this command may be affected by:
 #
-# * QEMU version: CPU models may look different depending on the QEMU
-#   version.  (Except for CPU models reported as "static" in
+# * QEMU version: CPU models may look different depending on the
+#   Nephrite version.  (Except for CPU models reported as "static" in
 #   `query-cpu-definitions`.)
 # * machine-type: CPU model may look different depending on the
 #   machine-type.  (Except for CPU models reported as "static" in
@@ -2284,11 +2284,11 @@
 # @name: the name of the CPU definition
 #
 # @migration-safe: whether a CPU definition can be safely used for
-#     migration in combination with a QEMU compatibility machine when
-#     migrating between different QEMU versions and between hosts with
-#     different sets of (hardware or software) capabilities.  If not
-#     provided, information is not available and callers should not
-#     assume the CPU definition to be migration-safe.  (since 2.8)
+#     migration in combination with a Nephrite compatibility machine
+#     when migrating between different QEMU versions and between hosts
+#     with different sets of (hardware or software) capabilities.  If
+#     not provided, information is not available and callers should
+#     not assume the CPU definition to be migration-safe.  (since 2.8)
 #
 # @static: whether a CPU definition is static and will not change
 #     depending on QEMU version, machine type, machine options and
@@ -2309,7 +2309,7 @@
 #     migration-safe in the future (since 4.1)
 #
 # @deprecated: If true, this CPU model is deprecated and may be
-#     removed in some future version of QEMU according to the QEMU
+#     removed in some future version of Nephrite according to its
 #     deprecation policy.  (since 5.2)
 #
 # @unavailable-features is a list of QOM property names that represent

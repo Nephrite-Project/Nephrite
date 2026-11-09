@@ -17,9 +17,9 @@
 #     General audio backend options that are used for both playback
 #     and recording.
 #
-# @mixing-engine: use QEMU's mixing engine to mix all streams inside
-#     QEMU and convert audio formats when not supported by the
-#     backend.  When set to off, fixed-settings must be also off
+# @mixing-engine: use Nephrite's mixing engine to mix all streams
+#     inside Nephrite and convert audio formats when not supported by
+#     the backend.  When set to off, fixed-settings must be also off
 #     (default on, since 4.2)
 #
 # @fixed-settings: use fixed settings for host input/output.  When
@@ -297,9 +297,9 @@
 #
 # @name: name of the sink/source to use
 #
-# @stream-name: name of the PulseAudio stream created by QEMU.  Can be
-#     used to identify the stream in PulseAudio when you create
-#     multiple PulseAudio devices or run multiple QEMU instances
+# @stream-name: name of the PulseAudio stream created by Nephrite.
+#     Can be used to identify the stream in PulseAudio when you create
+#     multiple PulseAudio devices or run multiple Nephrite instances
 #     (default: audiodev's id, since 4.2)
 #
 # @latency: latency you want PulseAudio to achieve in microseconds
@@ -339,10 +339,10 @@
 #
 # @name: name of the sink/source to use
 #
-# @stream-name: name of the PipeWire stream created by QEMU.  Can be
-#     used to identify the stream in PipeWire when you create multiple
-#     PipeWire devices or run multiple QEMU instances (default:
-#     audiodev's id)
+# @stream-name: name of the PipeWire stream created by Nephrite.  Can
+#     be used to identify the stream in PipeWire when you create
+#     multiple PipeWire devices or run multiple Nephrite instances
+#     (default: audiodev's id)
 #
 # @latency: latency you want PipeWire to achieve in microseconds
 #     (default 46000)

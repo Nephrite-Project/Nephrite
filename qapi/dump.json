@@ -61,7 +61,7 @@
 # @paging: if true, do paging to get guest's memory mapping.  This
 #     allows using gdb to process the core file.
 #
-#     **Important**: this option can make QEMU allocate several
+#     **Important**: this option can make Nephrite allocate several
 #     gigabytes of RAM.  This can happen for a large guest, or a
 #     malicious guest pretending to be large.
 #

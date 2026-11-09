@@ -146,7 +146,7 @@
 
 ##
 # @quit:
-#     Request graceful QEMU process termination.
+#     Request graceful Nephrite process termination.
 #
 # While every attempt is made to send the QMP response before
 # terminating, this is not guaranteed.  When using this interface, a
@@ -183,7 +183,7 @@
 # @id: Name of the monitor
 #
 # @mode: Selects the monitor mode (default: readline in the system
-#     emulator, control in qemu-storage-daemon)
+#     emulator, control in nephrite-storage-daemon)
 #
 # @pretty: Enables pretty printing (QMP only)
 #
