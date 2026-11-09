@@ -171,7 +171,7 @@ fi
 # some defaults, based on the host environment
 
 # default parameters
-container_registry="registry.gitlab.com/qemu-project/qemu"
+container_registry=""
 cpu=""
 cross_compile="no"
 cross_prefix=""

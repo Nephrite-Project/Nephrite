@@ -67,6 +67,9 @@ Names and packaging
   custom-runner jobs that they started, its Travis and Coverity Scan
   configurations, and the GitHub workflow that closed every pull request.
   Pushing a version tag releases it on GitHub, with its source tarball.
+* Container builds use no registry unless ``REGISTRY`` or configure's
+  ``--container-registry`` names one; QEMU's pulled their layers from QEMU's
+  GitLab registry.
 * The source tarball has every crate of the Rust workspace, which
   ``scripts/make-release`` takes from their wraps; QEMU lists the crates by
   hand, and its list had fallen behind them, so that building its tarball

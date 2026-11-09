@@ -14,7 +14,6 @@ meson_options_help() {
   printf "%s\n" '                           command to build/run containers'
   printf "%s\n" '  --container-registry=VALUE'
   printf "%s\n" '                           container registry to cache from'
-  printf "%s\n" '                           [registry.gitlab.com/qemu-project/qemu]'
   printf "%s\n" '  --datadir=VALUE          Data file directory [share]'
   printf "%s\n" '  --disable-containers     use containers to cross compile tcg tests'
   printf "%s\n" '  --disable-coroutine-pool coroutine freelist (better performance)'

@@ -513,12 +513,17 @@ is executed.
 Registry
 ~~~~~~~~
 
-The QEMU project has a container registry hosted by GitLab at
-``registry.gitlab.com/qemu-project/qemu`` which will automatically be
-used to pull in pre-built layers. This avoids unnecessary strain on
-the distro archives created by multiple developers running the same
-container build steps over and over again. This can be overridden
-locally by using the ``NOCACHE`` build option:
+Builds can pull pre-built layers from a container registry, which spares
+the distro archives the strain of many developers running the same
+container build steps over and over again. None is used unless the
+``REGISTRY`` build option or configure's ``--container-registry`` option
+names one:
+
+.. code::
+
+   make docker-image-debian-arm64-cross REGISTRY=registry.example.com/images
+
+The ``NOCACHE`` build option builds an image without any cached layers:
 
 .. code::
 
