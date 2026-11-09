@@ -43,7 +43,7 @@ riscv32_cross_prefix := $(call find-cross-prefix,riscv32)
 riscv64_cross_prefix := $(call find-cross-prefix,riscv64)
 
 # tag our firmware builds
-FIRMWARE_EXTRAVERSION = -prebuilt.qemu.org
+FIRMWARE_EXTRAVERSION = -nephrite
 
 #
 # EfiRom utility is shipped with edk2 / tianocore, in BaseTools/
