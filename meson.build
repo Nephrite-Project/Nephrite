@@ -3839,7 +3839,7 @@ stub_ss = stub_ss.apply({})
 
 util_ss.add_all(trace_ss)
 util_ss = util_ss.apply({})
-libqemuutil = static_library('qemuutil',
+libqemuutil = static_library('nephriteutil',
                              build_by_default: false,
                              sources: util_ss.sources() + stub_ss.sources() + genh,
                              dependencies: [util_ss.dependencies(), libm, threads, glib, socket, malloc, rt, pixman, opengl])
@@ -4139,7 +4139,7 @@ hwcore = declare_dependency(objects: libhwcore.extract_all_objects(recursive: fa
 common_ss.add(hwcore)
 
 audio_ss = audio_ss.apply({})
-libaudio = static_library('qemuaudio', audio_ss.sources() + genh,
+libaudio = static_library('nephriteaudio', audio_ss.sources() + genh,
                           dependencies: [audio_ss.dependencies()],
                           build_by_default: false)
 
@@ -4480,7 +4480,7 @@ foreach target : target_dirs
     lib_deps += dep.partial_dependency(compile_args: true, includes: true)
   endforeach
 
-  lib = static_library('qemu-' + target,
+  lib = static_library('nephrite-' + target,
                  sources: arch_srcs + genh,
                  dependencies: lib_deps,
                  objects: objects,
@@ -4589,7 +4589,7 @@ multi_target_link_args += enable_modules ? ['@block.syms', '@qemu.syms'] : []
 if get_option('plugins')
   install_headers('include/plugins/qemu-plugin.h', subdir: 'nephrite')
   if host_os == 'windows'
-    # On windows, we want to deliver the qemu_plugin_api.lib file in the qemu installer,
+    # On windows, we want to deliver the nephrite_plugin_api.lib file in the installer,
     # so that plugin authors can compile against it.
     install_data(win32_qemu_plugin_api, install_dir: 'lib')
   endif

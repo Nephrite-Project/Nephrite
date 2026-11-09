@@ -28,7 +28,7 @@ DeviceState *qdev_find_recursive(BusState *bus, const char *id)
 
 /*
  * Provide the monitor stubs locally so that the linker does not
- * pull stubs/monitor-core.c.o from libqemuutil.a (which would
+ * pull stubs/monitor-core.c.o from libnephriteutil.a (which would
  * bring a conflicting qapi_event_emit definition).
  */
 Monitor *monitor_cur(void)

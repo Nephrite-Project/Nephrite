@@ -33,6 +33,11 @@ Names and packaging
   the directory where Nephrite looks for the modules of an upgraded
   installation (``/var/run/nephrite``), so that its helpers run next to
   QEMU's.
+* The build's static libraries take Nephrite's name
+  (``libnephriteutil.a``, ``libnephrite-<target>.a``, and the like), as
+  does the import library that Windows plugins link against,
+  ``libnephrite_plugin_api.a``, whose delay-loaded imports name
+  ``nephrite.exe``.
 * ``scripts/qemu-binfmt-conf.sh`` registers Nephrite's user-mode programs
   as the interpreters of binfmt_misc's ``qemu-<cpu>`` entries, whose names
   stay QEMU's so that QEMU's and Nephrite's emulators do not both register

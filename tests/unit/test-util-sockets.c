@@ -66,7 +66,7 @@ int monitor_get_fd(Monitor *mon, const char *fdname, Error **errp)
 }
 
 /*
- * Syms of stubs in libqemuutil.a are discarded at .o file
+ * Syms of stubs in libnephriteutil.a are discarded at .o file
  * granularity.  To replace monitor_get_fd() and monitor_cur(), we
  * must ensure that we also replace any other symbol that is used in
  * the binary and would be taken from the same stub object file,

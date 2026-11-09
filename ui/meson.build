@@ -48,7 +48,7 @@ libui_sources = files(
 if pixman.found()
   libui_sources += files('cp437.c', 'vt100.c')
 endif
-libui = static_library('qemuui', libui_sources + genh,
+libui = static_library('nephriteui', libui_sources + genh,
   dependencies: [pixman, spice_headers],
   build_by_default: false)
 ui = declare_dependency(objects: libui.extract_all_objects(recursive: false), dependencies: [pixman])

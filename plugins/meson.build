@@ -31,15 +31,15 @@ if host_os == 'windows'
   # available in qemu
   win32_plugin_def = configure_file(
     input: qemu_plugin_symbols,
-    output: 'qemu_plugin_api.def',
+    output: 'nephrite_plugin_api.def',
     capture: true,
     command: [python, '-c', 'import fileinput, re; print("EXPORTS", end=""); [print(re.sub(r"[{};]", "", line), end="") for line in fileinput.input()]', '@INPUT@'])
 
   # then use dlltool to assemble a delaylib.
-  # The delaylib will have an "imaginary" name (qemu.exe), that is used by the
+  # The delaylib will have an "imaginary" name (nephrite.exe), that is used by the
   # linker file we add with plugins (win32_linker.c) to identify that we want
   # to find missing symbols in current program.
-  win32_qemu_plugin_api_link_flags = ['-Lplugins', '-lqemu_plugin_api']
+  win32_qemu_plugin_api_link_flags = ['-Lplugins', '-lnephrite_plugin_api']
   if meson.get_compiler('c').get_id() == 'clang'
     if host_machine.cpu() == 'x86_64'
       dlltool_target = 'i386:x86-64'
@@ -50,17 +50,17 @@ if host_os == 'windows'
     endif
     # With LLVM/lld, delaylib is specified at link time (-delayload)
     dlltool = find_program('llvm-dlltool', required: true)
-    dlltool_cmd = [dlltool, '-m', dlltool_target,'-d', '@INPUT@', '-l', '@OUTPUT@', '-D', 'qemu.exe']
-    win32_qemu_plugin_api_link_flags += ['-Wl,-delayload=qemu.exe']
+    dlltool_cmd = [dlltool, '-m', dlltool_target,'-d', '@INPUT@', '-l', '@OUTPUT@', '-D', 'nephrite.exe']
+    win32_qemu_plugin_api_link_flags += ['-Wl,-delayload=nephrite.exe']
   else
     # With gcc/ld, delay lib is built with a specific delay parameter.
     dlltool = find_program('dlltool', required: true)
     dlltool_cmd = [dlltool, '--input-def', '@INPUT@',
-                   '--output-delaylib', '@OUTPUT@', '--dllname', 'qemu.exe']
+                   '--output-delaylib', '@OUTPUT@', '--dllname', 'nephrite.exe']
   endif
   win32_qemu_plugin_api = configure_file(
     input: win32_plugin_def,
-    output: 'libqemu_plugin_api.a',
+    output: 'libnephrite_plugin_api.a',
     command: dlltool_cmd
   )
   win32_qemu_plugin_api_lib = static_library('win32_qemu_plugin_api',

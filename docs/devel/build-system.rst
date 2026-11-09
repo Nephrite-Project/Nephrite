@@ -296,7 +296,7 @@ Module sourcesets:
     modules += { 'hw-display': hw_display_modules }
 
 Utility sourcesets:
-  All binaries link with a static library ``libqemuutil.a``.  This library
+  All binaries link with a static library ``libnephriteutil.a``.  This library
   is built from several sourcesets; most of them however host generated
   code, and the only two of general interest are ``util_ss`` and ``stub_ss``.
 
