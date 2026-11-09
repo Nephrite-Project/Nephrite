@@ -420,6 +420,13 @@ Behaviour changes
 * TCG's IA32_ARCH_CAPABILITIES has only the bits that hold for TCG,
   which is free of the issues they report; CPU models' other bits are
   dropped with a warning.
+* Register dumps (``info registers``, ``-d cpu``, and KVM's error reports)
+  group the registers in blocks a blank line apart, each block's columns
+  lined up on their equals signs, and keep within 79 columns: 64-bit
+  registers come three to a row, the system registers at the width of the
+  mode, EFLAGS with all its status and control flags, the opmask registers
+  as K0 to K7, and the code bytes 20 to a row. Scripts that read QEMU's
+  layout need changes.
 
 
 Known deviations and limits
