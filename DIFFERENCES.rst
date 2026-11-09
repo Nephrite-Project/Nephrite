@@ -225,6 +225,8 @@ Intel VMX, which QEMU's TCG does not have:
   that of an implicit locked access, with the instruction's debug traps
   pending, and bit 26 of the exit reasons of VM exits during such an
   instruction.
+* SMIs in VMX non-root operation record in the state-save area whether
+  EPT was enabled and, where it was, EPTP (SDM Vol. 3C, 34.14.1).
 * Register dumps show VMX operation: root or non-root, the VMXON region,
   and the current VMCS.
 
