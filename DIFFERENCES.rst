@@ -116,8 +116,9 @@ with fixes, among them:
   each package; Windows NT 4.0 used to run on one processor of a
   multi-core package.
 
-The images say ``-qemu-rebios`` in their version. What ReBIOS's SeaBIOS
-adds for ReBIOS itself is built only into its CSM images, not into these.
+The images say ``-nephrite`` in their version, which SeaBIOS's banner
+shows. What ReBIOS's SeaBIOS adds for ReBIOS itself is built only into its
+CSM images, not into these.
 
 
 New x86 features (TCG)
