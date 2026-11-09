@@ -3895,7 +3895,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_8000_0001_ECX] =
             CPUID_EXT3_LAHF_LM | CPUID_EXT3_SVM,
         .xlevel = 0x8000000A,
-        .model_id = "QEMU Virtual CPU version " QEMU_HW_VERSION,
+        .model_id = "Nephrite Virtual CPU version " QEMU_HW_VERSION,
     },
     {
         .name = "phenom",
@@ -4026,7 +4026,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_1_ECX] =
             CPUID_EXT_SSE3,
         .xlevel = 0x80000004,
-        .model_id = "QEMU Virtual CPU version " QEMU_HW_VERSION,
+        .model_id = "Nephrite Virtual CPU version " QEMU_HW_VERSION,
     },
     {
         .name = "kvm32",
@@ -4158,7 +4158,7 @@ static const X86CPUDefinition builtin_x86_defs[] = {
         .features[FEAT_8000_0001_EDX] =
             CPUID_EXT2_MMXEXT | CPUID_EXT2_3DNOW | CPUID_EXT2_3DNOWEXT,
         .xlevel = 0x80000008,
-        .model_id = "QEMU Virtual CPU version " QEMU_HW_VERSION,
+        .model_id = "Nephrite Virtual CPU version " QEMU_HW_VERSION,
     },
     {
         .name = "n270",
@@ -7845,7 +7845,7 @@ static void max_x86_cpu_initfn(Object *obj)
     }
     if (!env->cpuid_model[0]) {
         object_property_set_str(OBJECT(cpu), "model-id",
-                                "QEMU TCG CPU version " QEMU_HW_VERSION,
+                                "Nephrite TCG CPU version " QEMU_HW_VERSION,
                                 &error_abort);
     }
 #ifndef CONFIG_USER_ONLY

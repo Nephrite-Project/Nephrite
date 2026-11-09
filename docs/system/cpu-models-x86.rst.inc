@@ -400,7 +400,7 @@ configuration, with host passthrough recommended if live migration is
 not needed.
 
 ``qemu32``, ``qemu64``
-    QEMU Virtual CPU version 2.5+ (32 & 64 bit variants)
+    Nephrite Virtual CPU version 2.5+ (32 & 64 bit variants)
 
 ``qemu64`` is used for x86_64 guests and ``qemu32`` is used for i686
 guests, when no ``-cpu`` argument is given to QEMU, or no ``<cpu>`` is
