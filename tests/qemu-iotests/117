@@ -65,7 +65,7 @@ _send_qemu_cmd $QEMU_HANDLE \
 
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
-       'arguments': { 'command-line': 'qemu-io format \"write -P 42 0 64k\"' } }" \
+       'arguments': { 'command-line': 'nephrite-io format \"write -P 42 0 64k\"' } }" \
     'return'
 
 _send_qemu_cmd $QEMU_HANDLE \

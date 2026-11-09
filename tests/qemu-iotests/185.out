@@ -17,7 +17,7 @@ Formatting 'TEST_DIR/t.qcow2.mid', fmt=qcow2 cluster_size=65536 extended_l2=off 
 {"return": {}}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io disk "write 0 4M"' } }
+                      'nephrite-io disk "write 0 4M"' } }
 wrote 4194304/4194304 bytes at offset 0
 4 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}

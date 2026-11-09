@@ -545,9 +545,9 @@ void hmp_qemu_io(MonitorHMP *hmp, const QDict *qdict)
     const char *command = qdict_get_str(qdict, "command");
     Error *err = NULL;
 
-    qmp_x_qemu_io(qdev ? NULL : device,
-                  qdev ? device : NULL,
-                  command, &err);
+    qmp_x_nephrite_io(qdev ? NULL : device,
+                      qdev ? device : NULL,
+                      command, &err);
     hmp_handle_error(hmp, err);
 }
 

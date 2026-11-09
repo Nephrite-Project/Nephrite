@@ -103,7 +103,7 @@ with iotests.FilePath('base.img') as base_img_path, \
 
     # Trigger COR
     log(vm.qmp('human-monitor-command',
-               command_line='qemu-io node0 "read 0 64M"'))
+               command_line='nephrite-io node0 "read 0 64M"'))
 
     vm.shutdown()
 

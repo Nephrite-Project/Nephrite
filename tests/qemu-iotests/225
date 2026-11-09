@@ -85,7 +85,7 @@ qemu_comm_method=monitor \
     _launch_qemu -blockdev "$base_opts" -blockdev "$overlay_opts"
 
 # Should not return an error
-_send_qemu_cmd $QEMU_HANDLE 'qemu-io overlay "read 0 512"' 'ops'
+_send_qemu_cmd $QEMU_HANDLE 'nephrite-io overlay "read 0 512"' 'ops'
 
 _cleanup_qemu
 
@@ -98,7 +98,7 @@ qemu_comm_method=monitor \
     _launch_qemu -blockdev "$not_base_opts" -blockdev "$overlay_opts"
 
 # Should fail (gracefully)
-_send_qemu_cmd $QEMU_HANDLE 'qemu-io overlay "read 0 512"' 'failed'
+_send_qemu_cmd $QEMU_HANDLE 'nephrite-io overlay "read 0 512"' 'failed'
 
 _cleanup_qemu
 
@@ -120,7 +120,7 @@ qemu_comm_method=monitor \
     _launch_qemu -blockdev "$not_vmdk_opts" -blockdev "$overlay_opts"
 
 # Should fail (gracefully)
-_send_qemu_cmd $QEMU_HANDLE 'qemu-io overlay "read 0 512"' 'failed'
+_send_qemu_cmd $QEMU_HANDLE 'nephrite-io overlay "read 0 512"' 'failed'
 
 _cleanup_qemu
 

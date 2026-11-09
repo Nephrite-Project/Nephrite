@@ -4,7 +4,7 @@ QA output created by write-zeroes-unmap
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -z 0 1m"
+(nephrite) nephrite-io none0 "write -z 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -14,7 +14,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -zu 0 1m"
+(nephrite) nephrite-io none0 "write -zu 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -24,7 +24,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -P 0 0 1m"
+(nephrite) nephrite-io none0 "write -P 0 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -34,7 +34,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -zu 0 1m"
+(nephrite) nephrite-io none0 "write -zu 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -44,7 +44,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -P 0 0 1m"
+(nephrite) nephrite-io none0 "write -P 0 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -54,7 +54,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -P 0 0 1m"
+(nephrite) nephrite-io none0 "write -P 0 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -64,7 +64,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -z 0 1m"
+(nephrite) nephrite-io none0 "write -z 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -74,7 +74,7 @@ wrote 1048576/1048576 bytes at offset 0
 
 Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1048576
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io none0 "write -zu 0 1m"
+(nephrite) nephrite-io none0 "write -zu 0 1m"
 wrote 1048576/1048576 bytes at offset 0
 1 MiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit

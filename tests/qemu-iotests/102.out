@@ -18,6 +18,6 @@ wrote 65536/65536 bytes at offset 0
 QEMU X.Y.Z monitor - type 'help' for more information
 (nephrite)
 Image resized.
-(nephrite) qemu-io drv0 map
+(nephrite) nephrite-io drv0 map
 64 KiB (0x10000) bytes     allocated at offset 0 bytes (0x0)
 *** done

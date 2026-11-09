@@ -154,13 +154,13 @@ info block backing-file"
 check_cache_all
 
 echo
-echo "--- Change cache modes with reopen (qemu-io command, flags) ---"
+echo "--- Change cache modes with reopen (nephrite-io command, flags) ---"
 echo
 
 # This one actually changes the cache mode with the reopen. For this test, the
 # new cache mode is specified in the flags, not as an option.
 
-hmp_cmds='qemu-io none0 "reopen -c none"
+hmp_cmds='nephrite-io none0 "reopen -c none"
 info block none0
 info block image
 info block file
@@ -170,13 +170,13 @@ info block backing-file'
 check_cache_all
 
 echo
-echo "--- Change cache modes with reopen (qemu-io command, options) ---"
+echo "--- Change cache modes with reopen (nephrite-io command, options) ---"
 echo
 
 # This one actually changes the cache mode with the reopen. For this test, the
 # new cache mode is specified as an option, not in the flags.
 
-hmp_cmds='qemu-io none0 "reopen -o cache.direct=on"
+hmp_cmds='nephrite-io none0 "reopen -o cache.direct=on"
 info block none0
 info block image
 info block file
@@ -192,7 +192,7 @@ echo
 # This checks that the original image doesn't inherit from the snapshot
 
 hmp_cmds="snapshot_blkdev -n none0 $TEST_IMG.snap $IMGFMT
-qemu-io none0 \"reopen -c none\"
+nephrite-io none0 \"reopen -c none\"
 info block none0
 info block image
 info block file
@@ -212,7 +212,7 @@ echo
 # BDS initialised with the json: pseudo-protocol, but still have it inherit
 # options from its parent node.
 
-hmp_cmds="qemu-io none0 \"reopen -o cache.direct=on,cache.no-flush=on\"
+hmp_cmds="nephrite-io none0 \"reopen -o cache.direct=on,cache.no-flush=on\"
 info block none0
 info block image
 info block blkdebug
@@ -294,13 +294,13 @@ info block backing-file"
 check_cache_all_separate
 
 echo
-echo "--- Change cache modes with reopen (qemu-io command, flags) ---"
+echo "--- Change cache modes with reopen (nephrite-io command, flags) ---"
 echo
 
 # This one actually changes the cache mode with the reopen. For this test, the
 # new cache mode is specified as flags, not as option.
 
-hmp_cmds='qemu-io blk "reopen -c none"
+hmp_cmds='nephrite-io blk "reopen -c none"
 info block image
 info block file
 info block backing
@@ -320,7 +320,7 @@ echo
 echo "--- Basic reopen ---"
 echo
 
-hmp_cmds='qemu-io none0 "reopen -o backing.cache.direct=on"
+hmp_cmds='nephrite-io none0 "reopen -o backing.cache.direct=on"
 info block none0
 info block image
 info block file
@@ -339,9 +339,9 @@ echo
 # TODO Implement node-name support for 'qemu-io' HMP command for -c
 # Can use only -o to access child node options for now
 
-hmp_cmds="qemu-io none0 \"reopen -o file.cache.direct=off,file.cache.no-flush=off\"
-qemu-io none0 \"reopen -o backing.file.cache.direct=off,backing.file.cache.no-flush=on\"
-qemu-io none0 \"reopen -c none\"
+hmp_cmds="nephrite-io none0 \"reopen -o file.cache.direct=off,file.cache.no-flush=off\"
+nephrite-io none0 \"reopen -o backing.file.cache.direct=off,backing.file.cache.no-flush=on\"
+nephrite-io none0 \"reopen -c none\"
 info block image
 info block file
 info block backing

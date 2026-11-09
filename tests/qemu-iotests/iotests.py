@@ -955,20 +955,20 @@ class VM(qtest.QEMUQtestMachine):
                     use_log: bool = False, qdev: bool = False) -> QMPMessage:
         """Write to a given drive using an HMP command"""
         d = '-d ' if qdev else ''
-        return self.hmp(f'qemu-io {d}{drive} "{cmd}"', use_log=use_log)
+        return self.hmp(f'nephrite-io {d}{drive} "{cmd}"', use_log=use_log)
 
     def qmp_qemu_io(self, drive: str, cmd: str,
                     use_log: bool = False, qdev: bool = False) -> str:
-        """Write to a given drive using the x-qemu-io QMP command"""
+        """Write to a given drive using the x-nephrite-io QMP command"""
         kwargs: Dict[str, Any] = {'command': cmd}
         if qdev:
             kwargs['qdev'] = drive
         else:
             kwargs['device'] = drive
         if use_log:
-            res = self.qmp_log('x-qemu-io', **kwargs)
+            res = self.qmp_log('x-nephrite-io', **kwargs)
         else:
-            res = self.qmp('x-qemu-io', **kwargs)
+            res = self.qmp('x-nephrite-io', **kwargs)
         return res.get('error', {}).get('desc', '')
 
     def flatten_qmp_object(self, obj, output=None, basestr=''):

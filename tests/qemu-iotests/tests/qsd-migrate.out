@@ -5,9 +5,9 @@ Launching destination QSD...
 Launching destination VM...
 
 Test I/O on the source
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"write -P 0x11 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"write -P 0x11 0 4k\""}}
 {"return": ""}
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
 {"return": ""}
 
 Starting migration...
@@ -20,9 +20,9 @@ Starting migration...
 
 Pre-switchover: Reconfigure QSD instances
 {"return": {}}
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
 {"return": ""}
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"read 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"read 0 4k\""}}
 {"return": ""}
 {"return": {}}
 
@@ -31,11 +31,11 @@ Completing migration...
 {"return": {}}
 
 Test I/O on the destination
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"read -P 0x11 0 4k\""}}
 {"return": ""}
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"write -P 0x22 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"write -P 0x22 0 4k\""}}
 {"return": ""}
-{"execute": "human-monitor-command", "arguments": {"command-line": "qemu-io -d virtio0/virtio-backend \"read -P 0x22 0 4k\""}}
+{"execute": "human-monitor-command", "arguments": {"command-line": "nephrite-io -d virtio0/virtio-backend \"read -P 0x22 0 4k\""}}
 {"return": ""}
 
 Done

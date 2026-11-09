@@ -13,7 +13,7 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=65536
                       'file': 'protocol' } }
 {"return": {}}
 { 'execute': 'human-monitor-command',
-       'arguments': { 'command-line': 'qemu-io format "write -P 42 0 64k"' } }
+       'arguments': { 'command-line': 'nephrite-io format "write -P 42 0 64k"' } }
 wrote 65536/65536 bytes at offset 0
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}

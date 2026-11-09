@@ -140,7 +140,7 @@ run_qemu <<EOF
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-debug "read 0 512"'
+        "command-line": 'nephrite-io drive0-debug "read 0 512"'
     }
 }
 { "execute": "quit" }
@@ -175,7 +175,7 @@ run_qemu <<EOF
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-verify "read 0 512"'
+        "command-line": 'nephrite-io drive0-verify "read 0 512"'
     }
 }
 { "execute": "quit" }
@@ -210,7 +210,7 @@ run_qemu <<EOF
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-verify "read 0 512"'
+        "command-line": 'nephrite-io drive0-verify "read 0 512"'
     }
 }
 { "execute": "quit" }
@@ -249,17 +249,17 @@ run_qemu <<EOF
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-debug "read 0 512"'
+        "command-line": 'nephrite-io drive0-debug "read 0 512"'
     }
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-debug "write 0 512"'
+        "command-line": 'nephrite-io drive0-debug "write 0 512"'
     }
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-debug "read 0 512"'
+        "command-line": 'nephrite-io drive0-debug "read 0 512"'
     }
 }
 { "execute": "quit" }

@@ -463,56 +463,56 @@ wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 Testing: -drive file=TEST_DIR/t.qcow2,if=none,id=drive0 -snapshot
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file=TEST_DIR/t.qcow2,snapshot=on,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file.filename=TEST_DIR/t.qcow2,driver=qcow2,snapshot=on,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file.filename=TEST_DIR/t.qcow2,driver=qcow2,if=none,id=drive0 -snapshot
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file=file:TEST_DIR/t.qcow2,if=none,id=drive0 -snapshot
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file=file:TEST_DIR/t.qcow2,snapshot=on,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file=TEST_DIR/t.qcow2,if=none,id=drive0 -snapshot
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
 
 Testing: -drive file=TEST_DIR/t.qcow2,snapshot=on,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -521,7 +521,7 @@ read 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 Testing: -drive file=TEST_DIR/t.qcow2,snapshot=off,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x22 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x22 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) quit
@@ -530,7 +530,7 @@ read 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 Testing: -drive file=TEST_DIR/t.qcow2,snapshot=on,if=none,id=drive0
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io drive0 "write -P 0x33 0 4k"
+(nephrite) nephrite-io drive0 "write -P 0x33 0 4k"
 wrote 4096/4096 bytes at offset 0
 4 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) commit drive0

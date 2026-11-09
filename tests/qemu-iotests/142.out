@@ -184,7 +184,7 @@ cache.no-flush=on on backing-file
     Cache mode:       writeback
     Cache mode:       writeback, ignore flushes
 
---- Change cache modes with reopen (qemu-io command, flags) ---
+--- Change cache modes with reopen (nephrite-io command, flags) ---
 
 cache.direct=on on none0
     Cache mode:       writeback, direct
@@ -260,7 +260,7 @@ cache.no-flush=on on backing-file
     Cache mode:       writeback, direct
     Cache mode:       writeback, direct, ignore flushes
 
---- Change cache modes with reopen (qemu-io command, options) ---
+--- Change cache modes with reopen (nephrite-io command, options) ---
 
 cache.direct=on on none0
     Cache mode:       writeback, direct
@@ -586,7 +586,7 @@ cache.no-flush=on on backing-file
     Cache mode:       writeback
     Cache mode:       writeback, ignore flushes
 
---- Change cache modes with reopen (qemu-io command, flags) ---
+--- Change cache modes with reopen (nephrite-io command, flags) ---
 
 cache.direct=on on blk
     Cache mode:       writeback, direct

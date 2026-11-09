@@ -73,11 +73,11 @@ class TestReopenFile(QMPTestCase):
         # Do some I/O to the image to see whether it still works
         # (Pattern verification will be checked by tearDown())
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io format "write -P 42 0 64k"')
+                             command_line='nephrite-io format "write -P 42 0 64k"')
         self.assert_qmp(result, 'return', '')
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io format "read -P 42 0 64k"')
+                             command_line='nephrite-io format "read -P 42 0 64k"')
         self.assert_qmp(result, 'return', '')
 
 

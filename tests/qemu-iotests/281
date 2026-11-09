@@ -274,7 +274,7 @@ class TestYieldingAndTimers(iotests.QMPTestCase):
         self.create_nbd_export()
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io nbd "write 0 512"')
+                             command_line='nephrite-io nbd "write 0 512"')
         self.assert_qmp(result, 'return', '')
 
         # Reconnect is done, so the reconnect delay timer should be gone.
@@ -304,7 +304,7 @@ class TestYieldingAndTimers(iotests.QMPTestCase):
         # connection hopefully will yield here.  When it is resumed, it must
         # then be resumed in the I/O thread's AioContext.
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io nbd "read 0 128K"')
+                             command_line='nephrite-io nbd "read 0 128K"')
         self.assert_qmp(result, 'return', '')
 
     def create_nbd_export(self):

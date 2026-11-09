@@ -83,9 +83,9 @@ echo === Write something on the source ===
 echo
 
 silent=
-_send_qemu_cmd $src 'qemu-io disk "write -P 0x55 0 64k"' "(nephrite)"
+_send_qemu_cmd $src 'nephrite-io disk "write -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $src "" "ops/sec"
-_send_qemu_cmd $src 'qemu-io disk "read -P 0x55 0 64k"' "(nephrite)"
+_send_qemu_cmd $src 'nephrite-io disk "read -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $src "" "ops/sec"
 
 echo
@@ -127,9 +127,9 @@ echo
 # of the node name, which would create a new BlockBackend and not test whether
 # the guest has the necessary permissions to access the image now
 silent=
-_send_qemu_cmd $dest 'qemu-io disk "read -P 0x55 0 64k"' "(nephrite)"
+_send_qemu_cmd $dest 'nephrite-io disk "read -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $dest "" "ops/sec"
-_send_qemu_cmd $dest 'qemu-io disk "write -P 0x66 1M 64k"' "(nephrite)"
+_send_qemu_cmd $dest 'nephrite-io disk "write -P 0x66 1M 64k"' "(nephrite)"
 _send_qemu_cmd $dest "" "ops/sec"
 
 echo

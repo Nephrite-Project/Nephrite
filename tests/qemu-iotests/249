@@ -67,7 +67,7 @@ echo '=== Send a write command to a drive opened in read-only mode (1)'
 echo
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
-       'arguments': {'command-line': 'qemu-io none0 \"aio_write 0 2k\"'}}" \
+       'arguments': {'command-line': 'nephrite-io none0 \"aio_write 0 2k\"'}}" \
     'return'
 
 echo
@@ -84,7 +84,7 @@ echo '=== Send a write command to a drive opened in read-only mode (2)'
 echo
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
-       'arguments': {'command-line': 'qemu-io none0 \"aio_write 0 2k\"'}}" \
+       'arguments': {'command-line': 'nephrite-io none0 \"aio_write 0 2k\"'}}" \
     'return'
 
 echo
@@ -104,7 +104,7 @@ echo '=== Send a write command to a drive opened in read-only mode (3)'
 echo
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
-       'arguments': {'command-line': 'qemu-io none0 \"aio_write 0 2k\"'}}" \
+       'arguments': {'command-line': 'nephrite-io none0 \"aio_write 0 2k\"'}}" \
     'return'
 
 _cleanup_qemu

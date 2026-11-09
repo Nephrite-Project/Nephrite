@@ -32,15 +32,15 @@ class TestMirrorDiscard(iotests.QMPTestCase):
         self.vm.launch()
 
     def test_background_discard(self):
-        self.vm.cmd('x-qemu-io', device='drive0',
+        self.vm.cmd('x-nephrite-io', device='drive0',
                     command='write -q -P 0xab 0 192k')
 
         # Check discard works before mirror_top is inserted, then restore data.
-        self.vm.cmd('x-qemu-io', device='drive0',
+        self.vm.cmd('x-nephrite-io', device='drive0',
                     command='discard -q 64k 64k')
-        self.vm.cmd('x-qemu-io', device='drive0',
+        self.vm.cmd('x-nephrite-io', device='drive0',
                     command='read -q -P 0x00 64k 64k')
-        self.vm.cmd('x-qemu-io', device='drive0',
+        self.vm.cmd('x-nephrite-io', device='drive0',
                     command='write -q -P 0xab 64k 64k')
 
         self.vm.cmd('blockdev-mirror', job_id='mirror', device='drive0',
@@ -49,7 +49,7 @@ class TestMirrorDiscard(iotests.QMPTestCase):
         self.pause_job('mirror')
 
         # Use the backend so the request passes through mirror_top to src.
-        self.vm.cmd('x-qemu-io', device='drive0',
+        self.vm.cmd('x-nephrite-io', device='drive0',
                     command='discard -q 64k 64k')
         checks = (
             'read -q -P 0x00 64k 64k',
@@ -57,7 +57,7 @@ class TestMirrorDiscard(iotests.QMPTestCase):
             'read -q -P 0xab 128k 64k',
         )
         for command in checks:
-            self.vm.cmd('x-qemu-io', device='drive0', command=command)
+            self.vm.cmd('x-nephrite-io', device='drive0', command=command)
 
         self.vm.cmd('block-job-resume', device='mirror')
         self.complete_and_wait('mirror', wait_ready=False)

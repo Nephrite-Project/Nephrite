@@ -80,7 +80,7 @@ _send_qemu_cmd $QEMU_HANDLE \
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"write -P 3 128k 128k\"' } }" \
+                      'nephrite-io source \"write -P 3 128k 128k\"' } }" \
     'return'
 
 # Create target image
@@ -105,7 +105,7 @@ _send_qemu_cmd $QEMU_HANDLE \
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"write -P 4 192k 64k\"' } }" \
+                      'nephrite-io source \"write -P 4 192k 64k\"' } }" \
     'return'
 
 # Copy source backing chain to the target before completing the job
@@ -134,25 +134,25 @@ echo
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"read -P 1 0k 64k\"' } }" \
+                      'nephrite-io source \"read -P 1 0k 64k\"' } }" \
     'return'
 
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"read -P 2 64k 64k\"' } }" \
+                      'nephrite-io source \"read -P 2 64k 64k\"' } }" \
     'return'
 
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"read -P 3 128k 64k\"' } }" \
+                      'nephrite-io source \"read -P 3 128k 64k\"' } }" \
     'return'
 
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source \"read -P 4 192k 64k\"' } }" \
+                      'nephrite-io source \"read -P 4 192k 64k\"' } }" \
     'return'
 
 echo

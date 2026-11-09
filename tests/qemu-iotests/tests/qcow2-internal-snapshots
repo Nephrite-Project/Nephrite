@@ -64,11 +64,11 @@ echo "=== Write some data, take a snapshot and overwrite part of it ==="
 echo
 
 {
-    echo 'qemu-io disk0 "write -P0x11 0 1M"'
+    echo 'nephrite-io disk0 "write -P0x11 0 1M"'
     # Give qemu some time to boot before saving the VM state
     sleep 0.5
     echo "savevm snap0"
-    echo 'qemu-io disk0 "write -P0x22 0 512k"'
+    echo 'nephrite-io disk0 "write -P0x22 0 512k"'
     echo "quit"
 } | _qemu
 
@@ -82,18 +82,18 @@ echo
 
 {
     # -loadvm reverted the write from the previous QEMU instance
-    echo 'qemu-io disk0 "read -P0x11 0 1M"'
+    echo 'nephrite-io disk0 "read -P0x11 0 1M"'
 
     # Verify that it works without restarting QEMU, too
-    echo 'qemu-io disk0 "write -P0x33 512k 512k"'
+    echo 'nephrite-io disk0 "write -P0x33 512k 512k"'
     echo "loadvm snap0"
-    echo 'qemu-io disk0 "read -P0x11 0 1M"'
+    echo 'nephrite-io disk0 "read -P0x11 0 1M"'
 
     # Verify COW by writing a partial cluster
-    echo 'qemu-io disk0 "write -P0x33 63k 2k"'
-    echo 'qemu-io disk0 "read -P0x11 0 63k"'
-    echo 'qemu-io disk0 "read -P0x33 63k 2k"'
-    echo 'qemu-io disk0 "read -P0x11 65k 63k"'
+    echo 'nephrite-io disk0 "write -P0x33 63k 2k"'
+    echo 'nephrite-io disk0 "read -P0x11 0 63k"'
+    echo 'nephrite-io disk0 "read -P0x33 63k 2k"'
+    echo 'nephrite-io disk0 "read -P0x11 65k 63k"'
 
     # Take a second snapshot
     echo "savevm snap1"
@@ -124,9 +124,9 @@ echo
 {
     # The active layer stays unaffected by deleting the snapshot
     echo "delvm snap1"
-    echo 'qemu-io disk0 "read -P0x11 0 63k"'
-    echo 'qemu-io disk0 "read -P0x33 63k 2k"'
-    echo 'qemu-io disk0 "read -P0x11 65k 63k"'
+    echo 'nephrite-io disk0 "read -P0x11 0 63k"'
+    echo 'nephrite-io disk0 "read -P0x33 63k 2k"'
+    echo 'nephrite-io disk0 "read -P0x11 65k 63k"'
 
     echo "quit"
 } | _qemu

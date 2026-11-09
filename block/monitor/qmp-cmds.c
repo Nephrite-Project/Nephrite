@@ -7,8 +7,8 @@
 #include "qapi/error.h"
 #include "qemu-io.h"
 
-void qmp_x_qemu_io(const char *device, const char *qdev,
-                   const char *command, Error **errp)
+void qmp_x_nephrite_io(const char *device, const char *qdev,
+                       const char *command, Error **errp)
 {
     BlockBackend *blk = NULL;
     BlockBackend *local_blk = NULL;

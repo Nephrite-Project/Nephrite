@@ -97,7 +97,7 @@ class TestMirrorReadyCancelError(iotests.QMPTestCase):
         # Write something so will not leave the job immediately, but
         # flush first (which will fail, thanks to blkdebug)
         res = self.vm.qmp('human-monitor-command',
-                          command_line='qemu-io mirror-top "write -P 2 0 64k"')
+                          command_line='nephrite-io mirror-top "write -P 2 0 64k"')
         self.assert_qmp(res, 'return', '')
 
         # Drain status change events

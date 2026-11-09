@@ -86,11 +86,11 @@ class TestCbwError(iotests.QMPTestCase):
         })
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io cbw "write 0 1M"')
+                             command_line='nephrite-io cbw "write 0 1M"')
         write_res = result['return']
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io access "read 0 1M"')
+                             command_line='nephrite-io access "read 0 1M"')
         read_res = result['return']
 
         self.vm.shutdown()
@@ -149,11 +149,11 @@ class TestCbwError(iotests.QMPTestCase):
         })
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io cbw "write 0 1M"')
+                             command_line='nephrite-io cbw "write 0 1M"')
         write_res = result['return']
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io access "read 0 1M"')
+                             command_line='nephrite-io access "read 0 1M"')
         read_res = result['return']
 
         self.vm.shutdown()
@@ -267,16 +267,16 @@ read 1048576/1048576 bytes at offset 0
         })
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io cbw "write 0 512K"')
+                             command_line='nephrite-io cbw "write 0 512K"')
         write1_res = result['return']
 
         # We need second write to trigger throttling
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io cbw "write 512K 512K"')
+                             command_line='nephrite-io cbw "write 512K 512K"')
         write2_res = result['return']
 
         result = self.vm.qmp('human-monitor-command',
-                             command_line='qemu-io access "read 0 1M"')
+                             command_line='nephrite-io access "read 0 1M"')
         read_res = result['return']
 
         self.vm.shutdown()

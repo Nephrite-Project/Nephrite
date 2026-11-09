@@ -7,11 +7,11 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=67108864
 === Write something on the source ===
 
 QEMU X.Y.Z monitor - type 'help' for more information
-(nephrite) qemu-io disk "write -P 0x55 0 64k"
+(nephrite) nephrite-io disk "write -P 0x55 0 64k"
 wrote 65536/65536 bytes at offset 0
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) 
-(nephrite) qemu-io disk "read -P 0x55 0 64k"
+(nephrite) nephrite-io disk "read -P 0x55 0 64k"
 read 65536/65536 bytes at offset 0
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 
@@ -20,11 +20,11 @@ read 65536/65536 bytes at offset 0
 
 === Do some I/O on the destination ===
 
-(nephrite) qemu-io disk "read -P 0x55 0 64k"
+(nephrite) nephrite-io disk "read -P 0x55 0 64k"
 read 65536/65536 bytes at offset 0
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 (nephrite) 
-(nephrite) qemu-io disk "write -P 0x66 1M 64k"
+(nephrite) nephrite-io disk "write -P 0x66 1M 64k"
 wrote 65536/65536 bytes at offset 1048576
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 

@@ -106,6 +106,9 @@ Names and packaging
   46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
   Nephrite's name, such as ``Nephrite PS/2 Mouse``.
+* The monitor's command that runs a ``nephrite-io`` command on a block
+  device is ``nephrite-io``, and QMP's is ``x-nephrite-io``, where QEMU's
+  are ``qemu-io`` and ``x-qemu-io``.
 * ``xen-event-list`` and ``info xen-event-list`` give ``nephrite`` as the
   remote domain of the Xen event channels bound to the emulator, where
   QEMU's give ``qemu``.

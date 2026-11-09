@@ -46,7 +46,7 @@ _make_test_img 64M
 
 echo "{'execute': 'qmp_capabilities'}
       {'execute': 'human-monitor-command',
-       'arguments': {'command-line': 'qemu-io drv \"write -P 42 0 64k\"'}}
+       'arguments': {'command-line': 'nephrite-io drv \"write -P 42 0 64k\"'}}
       {'execute': 'quit'}" \
     | $QEMU -qmp stdio -nographic -nodefaults \
             -drive id=drv,if=none,file="$TEST_IMG",driver=raw,file.driver=$IMGFMT \

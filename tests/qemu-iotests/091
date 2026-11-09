@@ -75,8 +75,8 @@ echo === VM 1: Migrate from VM1 to VM2  ===
 echo
 
 silent=yes
-_send_qemu_cmd $h1 'qemu-io disk "write -P 0x22 0 4M"' "(nephrite)"
-echo "vm1: qemu-io disk write complete"
+_send_qemu_cmd $h1 'nephrite-io disk "write -P 0x22 0 4M"' "(nephrite)"
+echo "vm1: nephrite-io disk write complete"
 _send_qemu_cmd $h1 "migrate \"exec: cat > '${MIG_FIFO}'\"" "(nephrite)"
 echo "vm1: live migration started"
 qemu_cmd_repeat=20 _send_qemu_cmd $h1 "info migrate" "completed"
@@ -86,13 +86,13 @@ echo
 echo === VM 2: Post-migration, write to disk, verify running ===
 echo
 
-_send_qemu_cmd $h2 'qemu-io disk "write 4M 1M"' "(nephrite)"
-echo "vm2: qemu-io disk write complete"
+_send_qemu_cmd $h2 'nephrite-io disk "write 4M 1M"' "(nephrite)"
+echo "vm2: nephrite-io disk write complete"
 qemu_cmd_repeat=20 _send_qemu_cmd $h2 "info status" "running"
 echo "vm2: qemu process running successfully"
 
 echo "vm2: flush io, and quit"
-_send_qemu_cmd $h2 'qemu-io disk flush' "(nephrite)"
+_send_qemu_cmd $h2 'nephrite-io disk flush' "(nephrite)"
 _send_qemu_cmd $h2 'quit' ""
 _send_qemu_cmd $h1 'quit' ""
 

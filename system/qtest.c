@@ -824,7 +824,7 @@ static void qtest_process_command(CharFrontend *chr, gchar **words)
         io_dev = words[1];
         io_cmd = g_strjoinv(" ", &words[2]);
 
-        qmp_x_qemu_io(io_dev, NULL, io_cmd, &err);
+        qmp_x_nephrite_io(io_dev, NULL, io_cmd, &err);
         qtest_sendf(chr, err ? "FAIL %s\n" : "OK\n",
                     err ? error_get_pretty(err) : NULL);
         error_free(err);

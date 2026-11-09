@@ -9,13 +9,13 @@ Formatting 'TEST_DIR/t.IMGFMT', fmt=IMGFMT size=1073741824
 
 === VM 1: Migrate from VM1 to VM2 ===
 
-vm1: qemu-io disk write complete
+vm1: nephrite-io disk write complete
 vm1: live migration started
 vm1: live migration completed
 
 === VM 2: Post-migration, write to disk, verify running ===
 
-vm2: qemu-io disk write complete
+vm2: nephrite-io disk write complete
 vm2: qemu process running successfully
 vm2: flush io, and quit
 Check image pattern

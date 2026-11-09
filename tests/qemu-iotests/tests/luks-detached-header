@@ -268,25 +268,25 @@ class TestDetachedLUKSHeader(QMPTestCase):
         # Normal LUKS disk
         result = self.vm.qmp_log(
             "human-monitor-command",
-            command_line='qemu-io luks-1-format "write -P 40 0 64k"',
+            command_line='nephrite-io luks-1-format "write -P 40 0 64k"',
         )
         self.assert_qmp(result, "return", "")
 
         result = self.vm.qmp_log(
             "human-monitor-command",
-            command_line='qemu-io luks-1-format "read -P 40 0 64k"',
+            command_line='nephrite-io luks-1-format "read -P 40 0 64k"',
         )
         self.assert_qmp(result, "return", "")
 
         # Detached LUKS header with raw payload
-        cmd = 'qemu-io luks-2-payload-raw-format "write -P 41 0 64k"'
+        cmd = 'nephrite-io luks-2-payload-raw-format "write -P 41 0 64k"'
         result = self.vm.qmp(
             "human-monitor-command",
             command_line=cmd
         )
         self.assert_qmp(result, "return", "")
 
-        cmd = 'qemu-io luks-2-payload-raw-format "read -P 41 0 64k"'
+        cmd = 'nephrite-io luks-2-payload-raw-format "read -P 41 0 64k"'
         result = self.vm.qmp(
             "human-monitor-command",
             command_line=cmd
@@ -294,14 +294,14 @@ class TestDetachedLUKSHeader(QMPTestCase):
         self.assert_qmp(result, "return", "")
 
         # Detached LUKS header with qcow2 payload
-        cmd = 'qemu-io luks-3-payload-qcow2-format "write -P 42 0 64k"'
+        cmd = 'nephrite-io luks-3-payload-qcow2-format "write -P 42 0 64k"'
         result = self.vm.qmp(
             "human-monitor-command",
             command_line=cmd
         )
         self.assert_qmp(result, "return", "")
 
-        cmd = 'qemu-io luks-3-payload-qcow2-format "read -P 42 0 64k"'
+        cmd = 'nephrite-io luks-3-payload-qcow2-format "read -P 42 0 64k"'
         result = self.vm.qmp(
             "human-monitor-command",
             command_line=cmd

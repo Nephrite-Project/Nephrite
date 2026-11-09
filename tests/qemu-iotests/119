@@ -45,7 +45,7 @@ _make_test_img 64M
 # This should not crash
 echo "{'execute': 'qmp_capabilities'}
       {'execute': 'human-monitor-command',
-       'arguments': {'command-line': 'qemu-io drv \"read -P 0 0 64k\"'}}
+       'arguments': {'command-line': 'nephrite-io drv \"read -P 0 0 64k\"'}}
       {'execute': 'quit'}" \
     | $QEMU -nographic -drive id=drv,if=none,file="$TEST_IMG",driver=nbd \
             -qmp stdio -nodefaults \

@@ -138,7 +138,7 @@ run_qemu <<EOF
 }
 { "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io drive0-quorum "read -P 0x32 0 $size"'
+        "command-line": 'nephrite-io drive0-quorum "read -P 0x32 0 $size"'
     }
 }
 { "execute": "quit" }
@@ -200,7 +200,7 @@ run_qemu \
 {
     "execute": "human-monitor-command",
     "arguments": {
-        "command-line": 'qemu-io -d quorum-drive "read -P 0x32 0 $size"'
+        "command-line": 'nephrite-io -d quorum-drive "read -P 0x32 0 $size"'
     }
 }
 { "execute": "quit" }

@@ -16,7 +16,7 @@ Formatting 'TEST_DIR/t.IMGFMT.overlay', fmt=IMGFMT size=1048576 backing_file=TES
 {"return": {}}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "write -P 3 128k 128k"' } }
+                      'nephrite-io source "write -P 3 128k 128k"' } }
 wrote 131072/131072 bytes at offset 131072
 128 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}
@@ -33,7 +33,7 @@ Formatting 'TEST_DIR/t.IMGFMT.target.overlay', fmt=IMGFMT size=1048576 backing_f
 {"timestamp": {"seconds":  TIMESTAMP, "microseconds":  TIMESTAMP}, "event": "BLOCK_JOB_READY", "data": {"device": "source", "len": 131072, "offset": 131072, "speed": 0, "type": "mirror"}}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "write -P 4 192k 64k"' } }
+                      'nephrite-io source "write -P 4 192k 64k"' } }
 wrote 65536/65536 bytes at offset 196608
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}
@@ -48,25 +48,25 @@ wrote 65536/65536 bytes at offset 196608
 
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "read -P 1 0k 64k"' } }
+                      'nephrite-io source "read -P 1 0k 64k"' } }
 read 65536/65536 bytes at offset 0
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "read -P 2 64k 64k"' } }
+                      'nephrite-io source "read -P 2 64k 64k"' } }
 read 65536/65536 bytes at offset 65536
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "read -P 3 128k 64k"' } }
+                      'nephrite-io source "read -P 3 128k 64k"' } }
 read 65536/65536 bytes at offset 131072
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}
 { 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io source "read -P 4 192k 64k"' } }
+                      'nephrite-io source "read -P 4 192k 64k"' } }
 read 65536/65536 bytes at offset 196608
 64 KiB, X ops; XX:XX:XX.X (XXX YYY/sec and XXX ops/sec)
 {"return": ""}

@@ -65,7 +65,7 @@ _send_qemu_cmd $QEMU_HANDLE \
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
+                      'nephrite-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
     "return"
 
 _cleanup_qemu
@@ -93,7 +93,7 @@ sleep 0.5
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
+                      'nephrite-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
     "return"
 
 _cleanup_qemu
@@ -126,7 +126,7 @@ sleep 0.5
 _send_qemu_cmd $QEMU_HANDLE \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
+                      'nephrite-io none0 \"reopen -o backing.detect-zeroes=on\"' } }" \
     "return"
 
 _cleanup_qemu

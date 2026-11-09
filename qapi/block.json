@@ -596,7 +596,7 @@
   'allow-preconfig': true }
 
 ##
-# @x-qemu-io:
+# @x-nephrite-io:
 #     Run a nephrite-io command on a block device.
 #
 # Take either a block backend name or a qdev ID to identify the
@@ -618,12 +618,12 @@
 #
 # .. qmp-example::
 #
-#     -> { "execute": "x-qemu-io",
+#     -> { "execute": "x-nephrite-io",
 #          "arguments": { "device": "virtio0",
 #                         "command": "read 0 512" } }
 #     <- { "return": {} }
 ##
-{ 'command': 'x-qemu-io',
+{ 'command': 'x-nephrite-io',
   'data': { '*device': 'str',
             '*qdev': 'str',
             'command': 'str' },

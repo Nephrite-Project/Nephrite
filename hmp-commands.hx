@@ -1671,18 +1671,18 @@ SRST
 ERST
 
     {
-        .name       = "qemu-io",
+        .name       = "nephrite-io",
         .args_type  = "qdev:-d,device:B,command:s",
         .params     = "[-d] [device] \"[command]\"",
-        .help       = "run a qemu-io command on a block device\n\t\t\t"
+        .help       = "run a nephrite-io command on a block device\n\t\t\t"
                       "-d: [device] is a device ID rather than a "
                       "drive ID or node name",
         .cmd        = hmp_qemu_io,
     },
 
 SRST
-``qemu-io`` *device* *command*
-  Executes a qemu-io command on the given block device.
+``nephrite-io`` *device* *command*
+  Executes a nephrite-io command on the given block device.
 ERST
 
     {

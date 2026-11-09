@@ -74,8 +74,8 @@ $QEMU_IMG resize --shrink --image-opts \
     "driver=raw,file.driver=file,file.filename=$TEST_IMG,file.locking=off" \
     $((5 * 64 * 1024))
 
-_send_qemu_cmd $QEMU_HANDLE 'qemu-io drv0 map' 'allocated' \
-    | sed -e 's/^(nephrite).*qemu-io drv0 map...$/(nephrite) qemu-io drv0 map/'
+_send_qemu_cmd $QEMU_HANDLE 'nephrite-io drv0 map' 'allocated' \
+    | sed -e 's/^(nephrite).*nephrite-io drv0 map...$/(nephrite) nephrite-io drv0 map/'
 _send_qemu_cmd $QEMU_HANDLE 'quit' ''
 
 # success, all done

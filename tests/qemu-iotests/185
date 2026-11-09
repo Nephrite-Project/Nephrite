@@ -80,7 +80,7 @@ _send_qemu_cmd $h \
 _send_qemu_cmd $h \
     "{ 'execute': 'human-monitor-command',
        'arguments': { 'command-line':
-                      'qemu-io disk \"write 0 4M\"' } }" \
+                      'nephrite-io disk \"write 0 4M\"' } }" \
     "return"
 
 _send_qemu_cmd $h \
@@ -305,7 +305,7 @@ wait_for_job_and_quit() {
     echo '--- Writing data to the virtio-blk device ---'
 
     for ofs in $(seq 0 $step $((size - step))); do
-        qemu_io_cmd="qemu-io -d vblk/virtio-backend "
+        qemu_io_cmd="nephrite-io -d vblk/virtio-backend "
         qemu_io_cmd+="\\\"aio_write $ofs $cluster_size\\\""
 
         # Do not include these requests in the reference output
