@@ -1062,18 +1062,18 @@
       .. _dbus-chardev-fqdn:
 
       Here are some known reserved kind names (the ``org.nephrite`` prefix is
-      reserved by QEMU):
+      reserved by Nephrite):
 
-      org.qemu.console.serial.0
+      org.nephrite.console.serial.0
         A serial console stream.
 
-      org.qemu.monitor.hmp.0
+      org.nephrite.monitor.hmp.0
         A QEMU HMP human monitor.
 
-      org.qemu.monitor.qmp.0
+      org.nephrite.monitor.qmp.0
         A QEMU QMP monitor.
 
-      org.qemu.usbredir
+      org.nephrite.usbredir
         A usbredir stream.
   -->
   <interface name="org.nephrite.Display1.Chardev">

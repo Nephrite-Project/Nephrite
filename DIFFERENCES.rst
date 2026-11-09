@@ -31,7 +31,10 @@ Names and packaging
   interfaces under ``org.nephrite`` (``org.nephrite.Display1``,
   ``org.nephrite.VMState1``, and ``org.nephrite.Vnc1``, with their objects
   under ``/org/nephrite``), and the display owns the bus name
-  ``org.nephrite``, where QEMU's use ``org.qemu``.
+  ``org.nephrite``, where QEMU's use ``org.qemu``. The chardevs that the
+  SPICE and D-Bus displays offer their clients take names under it too,
+  such as ``org.nephrite.monitor.hmp.0`` and
+  ``org.nephrite.console.serial.0``.
 * PSK TLS clients send the username ``nephrite`` unless they are given
   one, where QEMU's send ``qemu``.
 * Taps run ``<sysconfdir>/nephrite-ifup`` and ``nephrite-ifdown`` by

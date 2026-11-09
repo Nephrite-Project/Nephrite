@@ -74,16 +74,16 @@ static bool vc_chr_open(Chardev *chr, ChardevBackend *backend, Error **errp)
     bool ok;
 
     if (strstart(chr->label, "serial", NULL)) {
-        fqdn = "org.qemu.console.serial.0";
+        fqdn = "org.nephrite.console.serial.0";
     } else if (strstart(chr->label, "parallel", NULL)) {
-        fqdn = "org.qemu.console.parallel.0";
+        fqdn = "org.nephrite.console.parallel.0";
     } else if (strstart(chr->label, "compat_monitor", NULL)) {
-        fqdn = "org.qemu.monitor.hmp.0";
+        fqdn = "org.nephrite.monitor.hmp.0";
     }
 
     be = chr_spice_backend_new();
     be->u.spiceport.data->fqdn = fqdn ?
-        g_strdup(fqdn) : g_strdup_printf("org.qemu.console.%s", chr->label);
+        g_strdup(fqdn) : g_strdup_printf("org.nephrite.console.%s", chr->label);
     ok = vc->parent_init(chr, be, errp);
     qapi_free_ChardevBackend(be);
     return ok;
@@ -198,12 +198,12 @@ static void spice_app_display_init(DisplayState *ds, DisplayOptions *opts)
     GError *err = NULL;
     gchar *uri;
 
-    be->u.spiceport.data->fqdn = g_strdup("org.qemu.monitor.qmp.0");
-    qemu_chardev_new("org.qemu.monitor.qmp", TYPE_CHARDEV_SPICEPORT,
+    be->u.spiceport.data->fqdn = g_strdup("org.nephrite.monitor.qmp.0");
+    qemu_chardev_new("org.nephrite.monitor.qmp", TYPE_CHARDEV_SPICEPORT,
                      be, NULL, &error_abort);
     qopts = qemu_opts_create(qemu_find_opts("mon"),
                              NULL, 0, &error_fatal);
-    qemu_opt_set(qopts, "chardev", "org.qemu.monitor.qmp", &error_abort);
+    qemu_opt_set(qopts, "chardev", "org.nephrite.monitor.qmp", &error_abort);
     qemu_opt_set(qopts, "mode", "control", &error_abort);
 
     qapi_free_ChardevBackend(be);

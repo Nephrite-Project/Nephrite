@@ -105,7 +105,7 @@ struct VirtIOSerialPort {
     /*
      * This name is sent to the guest and exported via sysfs.
      * The guest could create symlinks based on this information.
-     * The name is in the reverse fqdn format, like org.qemu.console.0
+     * The name is in the reverse fqdn format, like org.nephrite.console.0
      */
     char *name;
 

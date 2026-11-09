@@ -138,7 +138,7 @@ Options
 
   Chardev type name to expose as a VNC text console. This option may be given
   multiple times to expose several chardevs. When not specified, the defaults
-  ``org.qemu.console.serial.0`` and ``org.qemu.monitor.hmp.0`` are used.
+  ``org.nephrite.console.serial.0`` and ``org.nephrite.monitor.hmp.0`` are used.
 
 .. option:: -N, --no-vt
 

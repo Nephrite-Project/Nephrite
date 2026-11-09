@@ -546,9 +546,9 @@ dbus_vc_parse(QemuOpts *opts, ChardevBackend *backend,
 
     if (name == NULL) {
         if (g_str_has_prefix(id, "compat_monitor")) {
-            name = "org.qemu.monitor.hmp.0";
+            name = "org.nephrite.monitor.hmp.0";
         } else if (g_str_has_prefix(id, "serial")) {
-            name = "org.qemu.console.serial.0";
+            name = "org.nephrite.console.serial.0";
         } else {
             name = "";
         }

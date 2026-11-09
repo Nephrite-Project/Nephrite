@@ -58,8 +58,8 @@ out:
 
 /* Default chardevs to expose as VNC text consoles */
 static const char * const default_names[] = {
-    "org.qemu.console.serial.0",
-    "org.qemu.monitor.hmp.0",
+    "org.nephrite.console.serial.0",
+    "org.nephrite.monitor.hmp.0",
     NULL,
 };
 
