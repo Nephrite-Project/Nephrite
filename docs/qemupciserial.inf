@@ -1,8 +1,8 @@
-; qemupciserial.inf for QEMU, based on MSPORTS.INF
+; qemupciserial.inf for Nephrite, based on MSPORTS.INF
 
 ; The driver itself is shipped with Windows (serial.sys).  This is
 ; just an inf file to tell windows which pci id the serial pci card
-; emulated by qemu has, and to apply a name tag to it which windows
+; emulated by Nephrite has, and to apply a name tag to it which windows
 ; will show in the device manager.
 
 ; Installing the driver: Go to device manager.  You should find a "pci
@@ -96,7 +96,7 @@ HKR,Child0003,VaryingResourceMap,1,00, 18,00,00,00, 08,00,00,00
 HKR,Child0003,ResourceMap,1,02
 
 [Strings]
-QEMU="QEMU"
-QEMU-PCI_SERIAL_1_PORT="1x QEMU PCI Serial Card"
-QEMU-PCI_SERIAL_2_PORT="2x QEMU PCI Serial Card"
-QEMU-PCI_SERIAL_4_PORT="4x QEMU PCI Serial Card"
+QEMU="Nephrite"
+QEMU-PCI_SERIAL_1_PORT="1x Nephrite PCI Serial Card"
+QEMU-PCI_SERIAL_2_PORT="2x Nephrite PCI Serial Card"
+QEMU-PCI_SERIAL_4_PORT="4x Nephrite PCI Serial Card"

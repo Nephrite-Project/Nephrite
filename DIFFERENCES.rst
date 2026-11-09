@@ -120,6 +120,8 @@ Names and packaging
   ``NEPHRITE_CPU``, ``NEPHRITE_MODULE_DIR``, the smartcard devices' debug
   variables, SDL's logging hint, and the state that CPR passes across an
   exec.
+* ``docs/qemupciserial.inf`` names the PCI serial cards after Nephrite in
+  Windows's Device Manager, such as ``1x Nephrite PCI Serial Card``.
 * VNC's and SPICE's SASL authentication take the application name
   ``nephrite``, so that their configuration is
   ``/etc/sasl2/nephrite.conf``, of which ``nephrite.sasl`` is a sample.
