@@ -782,9 +782,9 @@ static int megasas_ctrl_get_info(MegasasState *s, MegasasCmd *cmd)
 
     memcpy(info.product_name, base_class->product_name, 24);
     snprintf(info.serial_number, 32, "%s", s->hba_serial);
-    snprintf(info.package_version, 0x60, "%s-QEMU", QEMU_HW_VERSION);
+    snprintf(info.package_version, 0x60, "%s-Nephrite", QEMU_HW_VERSION);
     memcpy(info.image_component[0].name, "APP", 3);
-    snprintf(info.image_component[0].version, 10, "%s-QEMU",
+    snprintf(info.image_component[0].version, 10, "%s-Nephrite",
              base_class->product_version);
     memcpy(info.image_component[0].build_date, "Apr  1 2014", 11);
     memcpy(info.image_component[0].build_time, "12:34:56", 8);

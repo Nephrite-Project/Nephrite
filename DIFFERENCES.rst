@@ -80,6 +80,11 @@ Names and packaging
 * Version and help texts, window titles and menus, the names that VNC,
   D-Bus, SPICE, and audio clients show, and the monitor's banner and
   prompt say Nephrite.
+* The product names that guests show for emulated disks and drives, such
+  as ``Nephrite HARDDISK`` and ``Nephrite DVD-ROM`` on IDE, ``Nephrite
+  DISK`` and ``Nephrite CD-ROM`` on SCSI, and ``Nephrite NVMe Ctrl``, name
+  Nephrite; vendor identifiers, such as the SCSI vendor ``QEMU``, stay
+  QEMU's.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, and
   the fw_cfg signature.

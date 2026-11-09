@@ -2635,7 +2635,7 @@ static void scsi_hd_realize(SCSIDevice *dev, Error **errp)
     s->qdev.blocksize = s->qdev.conf.logical_block_size;
     s->qdev.type = TYPE_DISK;
     if (!s->product) {
-        s->product = g_strdup("QEMU HARDDISK");
+        s->product = g_strdup("Nephrite DISK");
     }
     scsi_realize(&s->qdev, errp);
 }
@@ -2662,7 +2662,7 @@ static void scsi_cd_realize(SCSIDevice *dev, Error **errp)
     s->qdev.type = TYPE_ROM;
     s->features |= 1 << SCSI_DISK_F_REMOVABLE;
     if (!s->product) {
-        s->product = g_strdup("QEMU CD-ROM");
+        s->product = g_strdup("Nephrite CD-ROM");
     }
     scsi_realize(&s->qdev, errp);
 }

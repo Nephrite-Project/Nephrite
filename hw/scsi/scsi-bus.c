@@ -697,7 +697,7 @@ static bool scsi_target_emulate_inquiry(SCSITargetReq *r)
         r->buf[4] = r->len - 5; /* Additional Length = (Len - 1) - 4 */
         r->buf[7] = 0x10 | (r->req.bus->info->tcq ? 0x02 : 0); /* Sync, TCQ.  */
         memcpy(&r->buf[8], "QEMU    ", 8);
-        memcpy(&r->buf[16], "QEMU TARGET     ", 16);
+        memcpy(&r->buf[16], "Nephrite TARGET ", 16);
         pstrcpy((char *) &r->buf[32], 4, QEMU_HW_VERSION);
     }
     return true;

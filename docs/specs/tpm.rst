@@ -401,7 +401,7 @@ after entering the menu with 'ESC'.
 .. code-block:: console
 
   Select boot device:
-  1. DVD/CD [ata1-0: QEMU DVD-ROM ATAPI-4 DVD/CD]
+  1. DVD/CD [ata1-0: Nephrite DVD-ROM ATAPI-4 DVD/CD]
   [...]
   5. Legacy option rom
 
