@@ -596,15 +596,15 @@ sub git_upstream_branch {
 	return undef if ((which("git") eq "") || !(-e "$gitroot"));
 
 	my $url_regex =
-		qr{(?:gitlab\.com[/: ]qemu-project|github\.com[/: ]qemu)/qemu(?:\.git)?$}i;
+		qr{github\.com[/: ]Nephrite-Project/Nephrite(?:\.git)?$}i;
 
-	# Scan configured remotes for the upstream repository
+	# Scan configured remotes for Nephrite's repository
 	my $output = `git remote -v 2>/dev/null`;
 	for my $line (split(/\n/, $output)) {
 		if ($line =~ /^\s*(\S+)\s+(\S+)\s+\(fetch\)/) {
 			my ($remote, $url) = ($1, $2);
 			if ($url =~ $url_regex) {
-				my $ref = "$remote/master";
+				my $ref = "$remote/trunk";
 				`git rev-parse --verify --quiet $ref 2>/dev/null`;
 				if ($? == 0) {
 					$git_upstream_branch_cached = $ref;

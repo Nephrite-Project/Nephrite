@@ -98,7 +98,8 @@ Names and packaging
   processes.
 * QEMU's code of conduct, conflict resolution, and code provenance
   policies are not Nephrite's, which has none of its own yet.
-* ``scripts/checkpatch.pl`` accepts trailers that credit AI tools and no
+* ``scripts/checkpatch.pl`` accepts trailers that credit AI tools, checks
+  ``Fixes:`` tags against Nephrite's trunk instead of QEMU's master, and no
   longer asks about ``MAINTAINERS``, and ``AGENTS.md`` gives agents
   Nephrite's guidelines instead of QEMU's.
 
