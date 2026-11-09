@@ -51,7 +51,7 @@ class Aarch64Raspi4Machine(LinuxKernelTest):
         console_pattern = 'Kernel command line: %s' % kernel_command_line
         self.wait_for_console_pattern(console_pattern)
         # When USB is enabled we can look for this
-        # console_pattern = 'Product: QEMU USB Keyboard'
+        # console_pattern = 'Product: Nephrite USB Keyboard'
         # self.wait_for_console_pattern(console_pattern)
         console_pattern = 'Waiting for root device'
         self.wait_for_console_pattern(console_pattern)

@@ -53,7 +53,7 @@ class ArmRaspi2Machine(LinuxKernelTest):
 
         console_pattern = 'Kernel command line: %s' % kernel_command_line
         self.wait_for_console_pattern(console_pattern)
-        self.wait_for_console_pattern('Product: QEMU USB Keyboard')
+        self.wait_for_console_pattern('Product: Nephrite USB Keyboard')
 
     def test_arm_raspi2_uart0(self):
         self.do_test_arm_raspi2(0)

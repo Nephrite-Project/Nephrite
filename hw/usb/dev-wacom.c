@@ -64,7 +64,7 @@ enum {
 };
 
 static const USBDescStrings desc_strings = {
-    [STR_MANUFACTURER]     = "QEMU",
+    [STR_MANUFACTURER]     = "Nephrite",
     [STR_PRODUCT]          = "Wacom PenPartner",
     [STR_SERIALNUMBER]     = "1",
 };
@@ -236,14 +236,14 @@ static inline int int_clamp(int val, int vmin, int vmax)
 static void usb_wacom_register_input_handler(USBWacomState *s, bool absolute)
 {
     static const QemuInputHandler usb_wacom_abs_handler = {
-        .name  = "QEMU PenPartner tablet",
+        .name  = "Nephrite PenPartner tablet",
         .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
         .event = usb_wacom_input_event,
         .sync  = usb_wacom_input_sync,
     };
 
     static const QemuInputHandler usb_wacom_rel_handler = {
-        .name  = "QEMU PenPartner tablet",
+        .name  = "Nephrite PenPartner tablet",
         .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_REL,
         .event = usb_wacom_input_event,
         .sync  = usb_wacom_input_sync,
@@ -462,7 +462,7 @@ static void usb_wacom_class_init(ObjectClass *klass, const void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     USBDeviceClass *uc = USB_DEVICE_CLASS(klass);
 
-    uc->product_desc   = "QEMU PenPartner Tablet";
+    uc->product_desc   = "Nephrite PenPartner Tablet";
     uc->usb_desc       = &desc_wacom;
     uc->realize        = usb_wacom_realize;
     uc->handle_reset   = usb_wacom_handle_reset;
@@ -470,7 +470,7 @@ static void usb_wacom_class_init(ObjectClass *klass, const void *data)
     uc->handle_data    = usb_wacom_handle_data;
     uc->unrealize      = usb_wacom_unrealize;
     set_bit(DEVICE_CATEGORY_INPUT, dc->categories);
-    dc->desc = "QEMU PenPartner Tablet";
+    dc->desc = "Nephrite PenPartner Tablet";
     dc->vmsd = &vmstate_usb_wacom;
 }
 

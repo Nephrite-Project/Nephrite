@@ -35,7 +35,7 @@ enum {
 
 static const USBDescStrings desc_strings = {
     [STR_MANUFACTURER]     = "canokeys.org",
-    [STR_PRODUCT]          = "CanoKey QEMU",
+    [STR_PRODUCT]          = "CanoKey Nephrite",
     [STR_SERIALNUMBER]     = "0"
 };
 
@@ -305,7 +305,7 @@ static void canokey_class_init(ObjectClass *klass, const void *data)
     DeviceClass *dc = DEVICE_CLASS(klass);
     USBDeviceClass *uc = USB_DEVICE_CLASS(klass);
 
-    uc->product_desc   = "CanoKey QEMU";
+    uc->product_desc   = "CanoKey Nephrite";
     uc->usb_desc       = &desc_canokey;
     uc->handle_reset   = canokey_handle_reset;
     uc->handle_control = canokey_handle_control;
@@ -313,7 +313,7 @@ static void canokey_class_init(ObjectClass *klass, const void *data)
     uc->handle_attach  = usb_desc_attach;
     uc->realize        = canokey_realize;
     uc->unrealize      = canokey_unrealize;
-    dc->desc           = "CanoKey QEMU";
+    dc->desc           = "CanoKey Nephrite";
     device_class_set_props(dc, canokey_properties);
     set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }

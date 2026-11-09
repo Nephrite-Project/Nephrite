@@ -170,7 +170,7 @@ enum {
 };
 
 static const USBDescStrings desc_strings = {
-    [STR_MANUFACTURER] = "QEMU",
+    [STR_MANUFACTURER] = "Nephrite",
     [STR_PRODUCT]      = "USB Attached SCSI HBA",
     [STR_SERIALNUMBER] = "27842",
     [STR_CONFIG_HIGH]  = "High speed config (usb 2.0)",

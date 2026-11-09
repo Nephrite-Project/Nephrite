@@ -43,7 +43,7 @@ class AST2600Machine(AspeedTest):
     def do_ast2600_usb_ehci_test(self):
         exec_command_and_wait_for_pattern(self,
             'lsusb',
-            'QEMU QEMU USB Keyboard')
+            'Nephrite Nephrite USB Keyboard')
 
     def test_arm_ast2600_evb_sdk(self):
         self.set_machine('ast2600-evb')

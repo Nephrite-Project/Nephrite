@@ -124,7 +124,7 @@ class AST2x00MachineSDK(QemuSystemTest):
     def do_ast2700_usb_ehci_test(self):
         exec_command_and_wait_for_pattern(self,
             'lsusb',
-            'QEMU QEMU USB Keyboard')
+            'Nephrite Nephrite USB Keyboard')
 
     def start_ast2700_test(self, name, bus_id):
         num_cpu = 4
