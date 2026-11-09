@@ -11,7 +11,7 @@
      to do so via this separate XML.
      -->
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
-<feature name="org.qemu.gdb.arm.vfp-sysregs">
+<feature name="org.nephrite.gdb.arm.vfp-sysregs">
   <reg name="fpsid" bitsize="32" type="int" group="float"/>
   <reg name="fpexc" bitsize="32" type="int" group="float"/>
 </feature>

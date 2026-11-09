@@ -320,7 +320,7 @@ static GDBFeature *arm_gen_dynamic_sysreg_feature(CPUState *cs, int base_reg)
 
     gdb_feature_builder_init(&param.builder,
                              &cpu->dyn_sysreg_feature.desc,
-                             "org.qemu.gdb.arm.sys.regs",
+                             "org.nephrite.gdb.arm.sys.regs",
                              "system-registers.xml",
                              base_reg);
     cpu->dyn_sysreg_feature.data.cpregs.keys = g_new(uint32_t, num_regs);

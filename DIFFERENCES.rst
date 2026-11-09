@@ -35,6 +35,9 @@ Names and packaging
   SPICE and D-Bus displays offer their clients take names under it too,
   such as ``org.nephrite.monitor.hmp.0`` and
   ``org.nephrite.console.serial.0``.
+* The gdbstub's own register features, which GDB shows as they come, are
+  named under ``org.nephrite`` (``org.nephrite.gdb.arm.sys.regs``,
+  ``org.nephrite.gdb.arm.vfp-sysregs``, and ``org.nephrite.power.spr``).
 * PSK TLS clients send the username ``nephrite`` unless they are given
   one, where QEMU's send ``qemu``.
 * Taps run ``<sysconfdir>/nephrite-ifup`` and ``nephrite-ifdown`` by
