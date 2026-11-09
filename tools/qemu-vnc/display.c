@@ -351,7 +351,7 @@ setup_display_listener(ConsoleData *cd)
 
     {
         const gchar *ifaces[] = {
-            "org.qemu.Display1.Listener.Unix.Map", NULL
+            "org.nephrite.Display1.Listener.Unix.Map", NULL
         };
         g_object_set(iface, "interfaces", ifaces, NULL);
     }

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <node>
   <!--
-      org.qemu.Display1.VM:
+      org.nephrite.Display1.VM:
 
-      This interface is implemented on ``/org/qemu/Display1/VM``.
+      This interface is implemented on ``/org/nephrite/Display1/VM``.
   -->
-  <interface name="org.qemu.Display1.VM">
+  <interface name="org.nephrite.Display1.VM">
     <!--
         Name:
 
@@ -23,7 +23,7 @@
     <!--
         ConsoleIDs:
 
-        The list of consoles available on ``/org/qemu/Display1/Console_$id``.
+        The list of consoles available on ``/org/nephrite/Display1/Console_$id``.
     -->
     <property name="ConsoleIDs" type="au" access="read"/>
 
@@ -31,7 +31,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/VM object, and can be used to detect
+        /org/nephrite/Display1/VM object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -43,21 +43,21 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Console:
+      org.nephrite.Display1.Console:
 
-      This interface is implemented on ``/org/qemu/Display1/Console_$id``. You
+      This interface is implemented on ``/org/nephrite/Display1/Console_$id``. You
       may discover available consoles through introspection or with the
-      :dbus:prop:`org.qemu.Display1.VM.ConsoleIDs` property.
+      :dbus:prop:`org.nephrite.Display1.VM.ConsoleIDs` property.
 
       A console is attached to a video device head. It may be "Graphic" or
       "Text" (see :dbus:prop:`Type` and other properties).
 
       Interactions with a console may be done with
-      :dbus:iface:`org.qemu.Display1.Keyboard`,
-      :dbus:iface:`org.qemu.Display1.Mouse` and
-      :dbus:iface:`org.qemu.Display1.MultiTouch` interfaces when available.
+      :dbus:iface:`org.nephrite.Display1.Keyboard`,
+      :dbus:iface:`org.nephrite.Display1.Mouse` and
+      :dbus:iface:`org.nephrite.Display1.MultiTouch` interfaces when available.
   -->
-  <interface name="org.qemu.Display1.Console">
+  <interface name="org.nephrite.Display1.Console">
     <!--
         RegisterListener:
         @listener: a Unix socket FD, for peer-to-peer D-Bus communication.
@@ -68,7 +68,7 @@
         Multiple listeners may be registered simultaneously.
 
         The listener is expected to implement the
-        :dbus:iface:`org.qemu.Display1.Listener` interface.
+        :dbus:iface:`org.nephrite.Display1.Listener` interface.
     -->
     <method name="RegisterListener">
       <?if $(env.HOST_OS) == windows?>
@@ -93,7 +93,7 @@
 
         .. seealso::
 
-           :dbus:iface:`org.qemu.Display1.UIInfo` which supports a superset of these properties.
+           :dbus:iface:`org.nephrite.Display1.UIInfo` which supports a superset of these properties.
     -->
     <method name="SetUIInfo">
       <arg name="width_mm" type="q" direction="in"/>
@@ -150,7 +150,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        ``/org/qemu/Display1/Console_$id`` object, and can be used to detect the
+        ``/org/nephrite/Display1/Console_$id`` object, and can be used to detect the
         capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -162,13 +162,13 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Keyboard:
+      org.nephrite.Display1.Keyboard:
 
       This interface is optionally implemented on
-      ``/org/qemu/Display1/Console_$id`` (see
-      :dbus:iface:`~org.qemu.Display1.Console`).
+      ``/org/nephrite/Display1/Console_$id`` (see
+      :dbus:iface:`~org.nephrite.Display1.Console`).
   -->
-  <interface name="org.qemu.Display1.Keyboard">
+  <interface name="org.nephrite.Display1.Keyboard">
     <!--
         Press:
         @keycode: QEMU key number (xtkbd + special re-encoding of high bit)
@@ -202,11 +202,11 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Mouse:
+      org.nephrite.Display1.Mouse:
 
       This interface is optionally implemented on
-      ``/org/qemu/Display1/Console_$id`` (see
-      :dbus:iface:`~org.qemu.Display1.Console` documentation).
+      ``/org/nephrite/Display1/Console_$id`` (see
+      :dbus:iface:`~org.nephrite.Display1.Console` documentation).
 
       .. _dbus-button-values:
 
@@ -220,7 +220,7 @@
         Side       = 5
         Extra      = 6
   -->
-  <interface name="org.qemu.Display1.Mouse">
+  <interface name="org.nephrite.Display1.Mouse">
     <!--
         Press:
         @button: :ref:`button value<dbus-button-values>`.
@@ -278,10 +278,10 @@
   </interface>
 
   <!--
-      org.qemu.Display1.MultiTouch:
+      org.nephrite.Display1.MultiTouch:
 
-      This interface in implemented on ``/org/qemu/Display1/Console_$id`` (see
-      :dbus:iface:`~org.qemu.Display1.Console` documentation).
+      This interface in implemented on ``/org/nephrite/Display1/Console_$id`` (see
+      :dbus:iface:`~org.nephrite.Display1.Console` documentation).
 
       .. _dbus-kind-values:
 
@@ -292,7 +292,7 @@
         End         = 2
         Cancel      = 3
   -->
-  <interface name="org.qemu.Display1.MultiTouch">
+  <interface name="org.nephrite.Display1.MultiTouch">
     <!--
         SendEvent:
         @kind: The touch event kind
@@ -318,13 +318,13 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Listener:
+      org.nephrite.Display1.Listener:
 
       This client-side interface must be available on
-      ``/org/qemu/Display1/Listener`` when registering the peer-to-peer
-      connection with :dbus:meth:`~org.qemu.Display1.Console.Register`.
+      ``/org/nephrite/Display1/Listener`` when registering the peer-to-peer
+      connection with :dbus:meth:`~org.nephrite.Display1.Console.Register`.
   -->
-  <interface name="org.qemu.Display1.Listener">
+  <interface name="org.nephrite.Display1.Listener">
     <!--
         Scanout:
         @width: display width, in pixels.
@@ -462,7 +462,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/Listener object, and can be used to detect
+        /org/nephrite/Display1/Listener object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -474,14 +474,14 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Listener.Unix.Map:
+      org.nephrite.Display1.Listener.Unix.Map:
 
       This optional client-side interface can complement
-      org.qemu.Display1.Listener on ``/org/qemu/Display1/Listener`` for
+      org.nephrite.Display1.Listener on ``/org/nephrite/Display1/Listener`` for
       Unix-specific shared memory scanouts.
   -->
   <?if $(env.HOST_OS) != windows?>
-  <interface name="org.qemu.Display1.Listener.Unix.Map">
+  <interface name="org.nephrite.Display1.Listener.Unix.Map">
     <!--
         ScanoutMap:
         @handle: the shared map FD.
@@ -521,14 +521,14 @@
   <?endif?>
 
   <!--
-      org.qemu.Display1.Listener.Win32.Map:
+      org.nephrite.Display1.Listener.Win32.Map:
 
       This optional client-side interface can complement
-      org.qemu.Display1.Listener on ``/org/qemu/Display1/Listener`` for Windows
+      org.nephrite.Display1.Listener on ``/org/nephrite/Display1/Listener`` for Windows
       specific shared memory scanouts.
   -->
   <?if $(env.HOST_OS) == windows?>
-  <interface name="org.qemu.Display1.Listener.Win32.Map">
+  <interface name="org.nephrite.Display1.Listener.Win32.Map">
     <!--
         ScanoutMap:
         @handle: the shared file mapping handle value (not a file handle)
@@ -568,13 +568,13 @@
   <?endif?>
 
   <!--
-      org.qemu.Display1.Listener.Win32.D3d11:
+      org.nephrite.Display1.Listener.Win32.D3d11:
 
       This optional client-side interface can complement
-      org.qemu.Display1.Listener on ``/org/qemu/Display1/Listener`` for Windows
+      org.nephrite.Display1.Listener on ``/org/nephrite/Display1/Listener`` for Windows
       specific Direct3D texture sharing of the scanouts.
   -->
-  <interface name="org.qemu.Display1.Listener.Win32.D3d11">
+  <interface name="org.nephrite.Display1.Listener.Win32.D3d11">
     <!--
         ScanoutTexture2d:
         @handle: the NT handle for the shared texture (to be opened back with ID3D11Device1::OpenSharedResource1).
@@ -619,14 +619,14 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Listener.Unix.ScanoutDMABUF2:
+      org.nephrite.Display1.Listener.Unix.ScanoutDMABUF2:
 
       This optional client-side interface can complement
-      org.qemu.Display1.Listener on ``/org/qemu/Display1/Listener`` for
+      org.nephrite.Display1.Listener on ``/org/nephrite/Display1/Listener`` for
       Unix-specific DMABUF scanout setup which support multi plane.
   -->
   <?if $(env.HOST_OS) != windows?>
-  <interface name="org.qemu.Display1.Listener.Unix.ScanoutDMABUF2">
+  <interface name="org.nephrite.Display1.Listener.Unix.ScanoutDMABUF2">
     <!--
         ScanoutDMABUF2:
         @dmabuf: DMABUF file descriptor of each plane.
@@ -664,10 +664,10 @@
   <?endif?>
 
   <!--
-      org.qemu.Display1.Clipboard:
+      org.nephrite.Display1.Clipboard:
 
       This interface must be implemented by both the client and the server on
-      ``/org/qemu/Display1/Clipboard`` to support clipboard sharing between
+      ``/org/nephrite/Display1/Clipboard`` to support clipboard sharing between
       the client and the guest.
 
       Once :dbus:meth:`Register`'ed, method calls may be sent and received in both
@@ -695,7 +695,7 @@
       the one coming from the client should have higher priority, and the client
       should gain clipboard grab ownership.
   -->
-  <interface name="org.qemu.Display1.Clipboard">
+  <interface name="org.nephrite.Display1.Clipboard">
     <!--
         Register:
 
@@ -763,7 +763,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/Clipboard object, and can be used to detect
+        /org/nephrite/Display1/Clipboard object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -775,11 +775,11 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Audio:
+      org.nephrite.Display1.Audio:
 
-      Audio backend may be available on ``/org/qemu/Display1/Audio``.
+      Audio backend may be available on ``/org/nephrite/Display1/Audio``.
   -->
-  <interface name="org.qemu.Display1.Audio">
+  <interface name="org.nephrite.Display1.Audio">
     <!--
         RegisterOutListener:
         @listener: a Unix socket FD, for peer-to-peer D-Bus communication.
@@ -789,7 +789,7 @@
         Multiple listeners may be registered simultaneously.
 
         The listener is expected to implement the
-        :dbus:iface:`org.qemu.Display1.AudioOutListener` interface.
+        :dbus:iface:`org.nephrite.Display1.AudioOutListener` interface.
     -->
     <method name="RegisterOutListener">
       <?if $(env.HOST_OS) == windows?>
@@ -810,7 +810,7 @@
         Multiple listeners may be registered simultaneously.
 
         The listener is expected to implement the
-        :dbus:iface:`org.qemu.Display1.AudioInListener` interface.
+        :dbus:iface:`org.nephrite.Display1.AudioInListener` interface.
     -->
     <method name="RegisterInListener">
       <?if $(env.HOST_OS) == windows?>
@@ -838,7 +838,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/Audio object, and can be used to detect
+        /org/nephrite/Display1/Audio object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -850,13 +850,13 @@
   </interface>
 
   <!--
-      org.qemu.Display1.AudioOutListener:
+      org.nephrite.Display1.AudioOutListener:
 
       This client-side interface must be available on
-      ``/org/qemu/Display1/AudioOutListener`` when registering the peer-to-peer
-      connection with :dbus:meth:`~org.qemu.Display1.Audio.RegisterOutListener`.
+      ``/org/nephrite/Display1/AudioOutListener`` when registering the peer-to-peer
+      connection with :dbus:meth:`~org.nephrite.Display1.Audio.RegisterOutListener`.
   -->
-  <interface name="org.qemu.Display1.AudioOutListener">
+  <interface name="org.nephrite.Display1.AudioOutListener">
     <!--
         Init:
         @id: the stream ID.
@@ -938,7 +938,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/AudioOutListener object, and can be used to detect
+        /org/nephrite/Display1/AudioOutListener object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -950,13 +950,13 @@
   </interface>
 
   <!--
-      org.qemu.Display1.AudioInListener:
+      org.nephrite.Display1.AudioInListener:
 
       This client-side interface must be available on
-      ``/org/qemu/Display1/AudioInListener`` when registering the peer-to-peer
-      connection with :dbus:meth:`~org.qemu.Display1.Audio.RegisterInListener`.
+      ``/org/nephrite/Display1/AudioInListener`` when registering the peer-to-peer
+      connection with :dbus:meth:`~org.nephrite.Display1.Audio.RegisterInListener`.
   -->
-  <interface name="org.qemu.Display1.AudioInListener">
+  <interface name="org.nephrite.Display1.AudioInListener">
     <!--
         Init:
         @id: the stream ID.
@@ -1040,7 +1040,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        /org/qemu/Display1/AudioInListener object, and can be used to detect
+        /org/nephrite/Display1/AudioInListener object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -1052,16 +1052,16 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Chardev:
+      org.nephrite.Display1.Chardev:
 
-      Character devices may be available on ``/org/qemu/Display1/Chardev_$id``.
+      Character devices may be available on ``/org/nephrite/Display1/Chardev_$id``.
 
       They may be used for different kind of streams, which are identified via
       their FQDN :dbus:prop:`Name`.
 
       .. _dbus-chardev-fqdn:
 
-      Here are some known reserved kind names (the ``org.qemu`` prefix is
+      Here are some known reserved kind names (the ``org.nephrite`` prefix is
       reserved by QEMU):
 
       org.qemu.console.serial.0
@@ -1076,7 +1076,7 @@
       org.qemu.usbredir
         A usbredir stream.
   -->
-  <interface name="org.qemu.Display1.Chardev">
+  <interface name="org.nephrite.Display1.Chardev">
     <!--
         Register:
         @stream: a Unix FD to redirect the stream to.
@@ -1135,7 +1135,7 @@
         Interfaces:
 
         This property lists extra interfaces provided by the
-        ``/org/qemu/Display1/Chardev_$i`` object, and can be used to detect
+        ``/org/nephrite/Display1/Chardev_$i`` object, and can be used to detect
         the capabilities with which they are communicating.
 
         Unlike the standard D-Bus Introspectable interface, querying this
@@ -1147,14 +1147,14 @@
   </interface>
 
   <!--
-      org.qemu.Display1.Chardev.VCEncoding:
+      org.nephrite.Display1.Chardev.VCEncoding:
 
       Provides encoding information for virtual console chardevs.
 
       This interface is present on chardev objects that are virtual
       consoles, and exposes the character encoding used by the guest.
   -->
-  <interface name="org.qemu.Display1.Chardev.VCEncoding">
+  <interface name="org.nephrite.Display1.Chardev.VCEncoding">
     <!--
         Encoding:
 
@@ -1165,13 +1165,13 @@
   </interface>
 
   <!--
-      org.qemu.Display1.UIInfo:
+      org.nephrite.Display1.UIInfo:
 
       This interface is implemented on
-      ``/org/qemu/Display1/Console_$id`` (see
-      :dbus:iface:`~org.qemu.Display1.Console`).
+      ``/org/nephrite/Display1/Console_$id`` (see
+      :dbus:iface:`~org.nephrite.Display1.Console`).
   -->
-  <interface name="org.qemu.Display1.UIInfo">
+  <interface name="org.nephrite.Display1.UIInfo">
     <!--
         Supported:
 

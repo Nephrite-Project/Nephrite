@@ -142,7 +142,7 @@ if dbus_daemon.found() and gdbus_codegen.found()
                                 output: [ 'dbus-vmstate1.h', 'dbus-vmstate1.c'],
                                 input: meson.project_source_root() / 'backends/dbus-vmstate1.xml',
                                 command: [gdbus_codegen, '@INPUT@',
-                                          '--interface-prefix', 'org.qemu',
+                                          '--interface-prefix', 'org.nephrite',
                                           '--output-directory', meson.current_build_dir(),
                                           '--generate-c-code', '@BASENAME@']).to_list()
 else

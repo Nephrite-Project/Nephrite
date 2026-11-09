@@ -2311,7 +2311,7 @@ SRST
         If no audio backend is specified and the dbus display backend is
         specified, the dbus audio backend is used by default.
 
-        The connection is registered with the "org.qemu" name (and queued when
+        The connection is registered with the "org.nephrite" name (and queued when
         already owned).
 
         ``addr=<dbusaddr>`` : D-Bus bus address to connect to.

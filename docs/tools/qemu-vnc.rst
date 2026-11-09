@@ -45,7 +45,7 @@ Options
 .. option:: -n NAME, --bus-name=NAME
 
   D-Bus bus name of the QEMU instance to connect to. The default is
-  ``org.qemu``. When a custom ``--dbus-address`` is given without a bus name,
+  ``org.nephrite``. When a custom ``--dbus-address`` is given without a bus name,
   peer-to-peer D-Bus is used.
 
 .. option:: -W, --wait

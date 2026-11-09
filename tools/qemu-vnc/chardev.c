@@ -124,13 +124,13 @@ void chardev_setup(const char * const *chardev_names,
         }
 
         iface = g_dbus_object_get_interface(
-            obj, "org.qemu.Display1.Chardev");
+            obj, "org.nephrite.Display1.Chardev");
         if (!iface) {
             continue;
         }
 
         enc_iface = g_dbus_object_get_interface(
-            obj, "org.qemu.Display1.Chardev.VCEncoding");
+            obj, "org.nephrite.Display1.Chardev.VCEncoding");
         if (enc_iface) {
             const char *enc_str =
                 qemu_dbus_display1_chardev_vcencoding_get_encoding(

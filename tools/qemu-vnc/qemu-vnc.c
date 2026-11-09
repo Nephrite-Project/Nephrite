@@ -47,13 +47,13 @@ dbus_display_get_proxy_type(GDBusObjectManagerClient *manager,
         const char *iface;
         GType (*get_type)(void);
     } types[] = {
-        { "org.qemu.Display1.Clipboard",
+        { "org.nephrite.Display1.Clipboard",
           qemu_dbus_display1_clipboard_proxy_get_type },
-        { "org.qemu.Display1.Audio",
+        { "org.nephrite.Display1.Audio",
           qemu_dbus_display1_audio_proxy_get_type },
-        { "org.qemu.Display1.Chardev",
+        { "org.nephrite.Display1.Chardev",
           qemu_dbus_display1_chardev_proxy_get_type },
-        { "org.qemu.Display1.Chardev.VCEncoding",
+        { "org.nephrite.Display1.Chardev.VCEncoding",
           qemu_dbus_display1_chardev_vcencoding_proxy_get_type },
     };
 
@@ -279,7 +279,7 @@ setup_dbus_connection(int dbus_p2p_fd, const char *dbus_address,
     } else {
         bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
         if (!*bus_name) {
-            *bus_name = g_strdup("org.qemu");
+            *bus_name = g_strdup("org.nephrite");
         }
     }
 
@@ -423,7 +423,7 @@ main(int argc, char *argv[])
         { "dbus-p2p-fd", 'p', 0, G_OPTION_ARG_INT, &dbus_p2p_fd,
           "D-Bus peer-to-peer socket file descriptor", "FD" },
         { "bus-name", 'n', 0, G_OPTION_ARG_STRING, &bus_name,
-          "D-Bus bus name (default: org.qemu)", "NAME" },
+          "D-Bus bus name (default: org.nephrite)", "NAME" },
         { "wait", 'W', 0, G_OPTION_ARG_NONE, &wait_for_owner,
           "Wait for the D-Bus name to appear", NULL },
         { "vnc-addr", 'l', 0, G_OPTION_ARG_STRING, &vnc_addr,
@@ -480,7 +480,7 @@ main(int argc, char *argv[])
     context = g_option_context_new(NULL);
     g_option_context_set_summary(context,
         "Standalone VNC server connecting to a QEMU instance via the\n"
-        "D-Bus display interface (org.qemu.Display1).");
+        "D-Bus display interface (org.nephrite.Display1).");
     g_option_context_add_main_entries(context, entries, NULL);
     if (!g_option_context_parse(context, &argc, &argv, &err)) {
         error_report("Option parsing failed: %s", err->message);

@@ -220,7 +220,9 @@ test_dbus_console_setup_listener(TestDBusConsoleRegister *test, bool with_map)
         g_dbus_object_skeleton_add_interface(listener,
                                              G_DBUS_INTERFACE_SKELETON(iface_map));
         g_object_set(iface, "interfaces",
-            (const gchar *[]) { "org.qemu.Display1.Listener.Unix.Map", NULL },
+            (const gchar *[]) {
+                "org.nephrite.Display1.Listener.Unix.Map", NULL
+            },
             NULL);
 #endif
     }
@@ -290,7 +292,7 @@ test_dbus_console_register(QTestState *qts, GDBusConnection *conn,
             conn,
             G_DBUS_PROXY_FLAGS_NONE,
             NULL,
-            "/org/qemu/Display1/Console_0",
+            "/org/nephrite/Display1/Console_0",
             NULL,
             &err));
     g_assert_no_error(err);
@@ -452,7 +454,7 @@ test_dbus_display_keyboard(void)
             conn,
             G_DBUS_PROXY_FLAGS_NONE,
             NULL,
-            "/org/qemu/Display1/Console_0",
+            "/org/nephrite/Display1/Console_0",
             NULL,
             &err));
     g_assert_no_error(err);

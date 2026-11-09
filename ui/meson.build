@@ -132,7 +132,7 @@ if dbus_display
                                 command: [gdbus_codegen, '@INPUT@',
                                           '--glib-min-required', '2.64',
                                           '--output-directory', meson.current_build_dir(),
-                                          '--interface-prefix', 'org.qemu.',
+                                          '--interface-prefix', 'org.nephrite.',
                                           '--c-namespace', 'QemuDBus',
                                           '--generate-c-code', '@BASENAME@'])
   dbus_display1_h = declare_dependency(dependencies: [gio],

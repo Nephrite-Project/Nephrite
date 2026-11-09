@@ -73,17 +73,17 @@ Depending on the use case, you may choose different scenarios:
    - Complex to manager distinct UIDs needed for each VM
 
 For example, to allow only ``qemu`` user to talk to ``qemu-helper``
-``org.qemu.Helper1`` service, a dbus-daemon policy may contain:
+``org.nephrite.Helper1`` service, a dbus-daemon policy may contain:
 
 .. code:: xml
 
   <policy user="qemu">
-     <allow send_destination="org.qemu.Helper1"/>
-     <allow receive_sender="org.qemu.Helper1"/>
+     <allow send_destination="org.nephrite.Helper1"/>
+     <allow receive_sender="org.nephrite.Helper1"/>
   </policy>
 
   <policy user="qemu-helper">
-     <allow own="org.qemu.Helper1"/>
+     <allow own="org.nephrite.Helper1"/>
   </policy>
 
 
@@ -101,8 +101,8 @@ When implementing new D-Bus interfaces, it is recommended to follow
 the "D-Bus API Design Guidelines":
 https://dbus.freedesktop.org/doc/dbus-api-design.html
 
-The "org.qemu.*" prefix is reserved for services implemented &
-distributed by the QEMU project.
+The "org.nephrite.*" prefix is reserved for services implemented &
+distributed by the Nephrite project.
 
 QEMU Interfaces
 ===============

@@ -335,7 +335,7 @@ void clipboard_setup(GDBusObjectManager *manager, GDBusConnection *bus)
 
     iface = g_dbus_object_manager_get_interface(
         manager, DBUS_DISPLAY1_ROOT "/Clipboard",
-        "org.qemu.Display1.Clipboard");
+        "org.nephrite.Display1.Clipboard");
     if (!iface) {
         return;
     }

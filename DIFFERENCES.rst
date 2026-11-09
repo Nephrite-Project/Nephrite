@@ -27,6 +27,11 @@ Names and packaging
   tapsets and probes (``nephrite.*``), and the plugin header
   (``include/nephrite/qemu-plugin.h``) are Nephrite's too, so that
   Nephrite and QEMU install side by side.
+* The D-Bus display, the D-Bus VMState helpers, and ``nephrite-vnc`` serve
+  interfaces under ``org.nephrite`` (``org.nephrite.Display1``,
+  ``org.nephrite.VMState1``, and ``org.nephrite.Vnc1``, with their objects
+  under ``/org/nephrite``), and the display owns the bus name
+  ``org.nephrite``, where QEMU's use ``org.qemu``.
 * PSK TLS clients send the username ``nephrite`` unless they are given
   one, where QEMU's send ``qemu``.
 * Taps run ``<sysconfdir>/nephrite-ifup`` and ``nephrite-ifdown`` by

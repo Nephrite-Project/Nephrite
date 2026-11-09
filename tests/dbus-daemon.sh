@@ -62,17 +62,17 @@ write_config()
      <deny send_destination="org.freedesktop.DBus"
            send_interface="org.freedesktop.systemd1.Activator"/>
 
-    <allow own="org.qemu"/>
-    <allow send_destination="org.qemu"/>
-    <allow receive_sender="org.qemu"/>
+    <allow own="org.nephrite"/>
+    <allow send_destination="org.nephrite"/>
+    <allow receive_sender="org.nephrite"/>
 
-    <allow own="org.qemu.VMState1"/>
-    <allow send_destination="org.qemu.VMState1"/>
-    <allow receive_sender="org.qemu.VMState1"/>
+    <allow own="org.nephrite.VMState1"/>
+    <allow send_destination="org.nephrite.VMState1"/>
+    <allow receive_sender="org.nephrite.VMState1"/>
 
-    <allow own="org.qemu.vnc"/>
-    <allow send_destination="org.qemu.vnc"/>
-    <allow receive_sender="org.qemu.vnc"/>
+    <allow own="org.nephrite.vnc"/>
+    <allow send_destination="org.nephrite.vnc"/>
+    <allow receive_sender="org.nephrite.vnc"/>
 
   </policy>
 

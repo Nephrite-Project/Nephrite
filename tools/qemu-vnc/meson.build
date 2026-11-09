@@ -6,7 +6,7 @@ qemu_vnc1 = custom_target('qemu-vnc1 gdbus-codegen',
                            command: [gdbus_codegen, '@INPUT@',
                                      '--glib-min-required', '2.64',
                                      '--output-directory', meson.current_build_dir(),
-                                     '--interface-prefix', 'org.qemu.',
+                                     '--interface-prefix', 'org.nephrite.',
                                      '--c-namespace', 'Qemu',
                                      '--generate-c-code', '@BASENAME@'])
 

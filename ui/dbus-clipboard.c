@@ -238,7 +238,7 @@ dbus_clipboard_register(
             connection,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             g_dbus_method_invocation_get_sender(invocation),
-            "/org/qemu/Display1/Clipboard",
+            "/org/nephrite/Display1/Clipboard",
             NULL,
             &err);
     if (!dpy->clipboard_proxy) {

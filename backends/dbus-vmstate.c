@@ -50,7 +50,7 @@ static const GDBusPropertyInfo * const vmstate_property_info_pointers[] = {
 
 static const GDBusInterfaceInfo vmstate1_interface_info = {
     -1,
-    (char *) "org.qemu.VMState1",
+    (char *) "org.nephrite.VMState1",
     (GDBusMethodInfo **) NULL,
     (GDBusSignalInfo **) NULL,
     (GDBusPropertyInfo **) &vmstate_property_info_pointers,
@@ -93,7 +93,8 @@ dbus_get_proxies(DBusVMState *self, GError **err)
     proxies = g_hash_table_new_full(g_str_hash, g_str_equal,
                                     g_free, g_object_unref);
 
-    names = qemu_dbus_get_queued_owners(self->bus, "org.qemu.VMState1", &error);
+    names = qemu_dbus_get_queued_owners(self->bus, "org.nephrite.VMState1",
+                                        &error);
     if (!names) {
         g_set_error(err, G_IO_ERROR, G_IO_ERROR_FAILED, "%s",
                     error_get_pretty(error));
@@ -110,8 +111,8 @@ dbus_get_proxies(DBusVMState *self, GError **err)
         proxy = g_dbus_proxy_new_sync(self->bus, G_DBUS_PROXY_FLAGS_NONE,
                     (GDBusInterfaceInfo *) &vmstate1_interface_info,
                     names[i],
-                    "/org/qemu/VMState1",
-                    "org.qemu.VMState1",
+                    "/org/nephrite/VMState1",
+                    "org.nephrite.VMState1",
                     NULL, err);
         if (!proxy) {
             if (err != NULL && *err != NULL) {

@@ -7,7 +7,7 @@ on a QEMU D-Bus bus. (refer to the :doc:`dbus` document for
 some recommendations on D-Bus usage)
 
 Upon migration, QEMU will go through the queue of
-``org.qemu.VMState1`` D-Bus name owners and query their ``Id``. It
+``org.nephrite.VMState1`` D-Bus name owners and query their ``Id``. It
 must be unique among the helpers.
 
 It will then save arbitrary data of each Id to be transferred in the

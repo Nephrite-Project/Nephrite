@@ -81,7 +81,7 @@ void vnc_dbus_client_connected(const char *host, const char *service,
     c->id = next_client_id++;
     c->host = g_strdup(host);
     c->service = g_strdup(service);
-    c->path = g_strdup_printf("/org/qemu/Vnc1/Client_%u", c->id);
+    c->path = g_strdup_printf("/org/nephrite/Vnc1/Client_%u", c->id);
 
     c->skeleton = QEMU_VNC1_CLIENT_SKELETON(qemu_vnc1_client_skeleton_new());
     qemu_vnc1_client_set_host(QEMU_VNC1_CLIENT(c->skeleton), host);
@@ -314,7 +314,7 @@ void vnc_dbus_setup(GDBusConnection *bus)
     const char *auth_str = "none";
     const char *vencrypt_str = "";
 
-    obj_manager = g_dbus_object_manager_server_new("/org/qemu/Vnc1");
+    obj_manager = g_dbus_object_manager_server_new("/org/nephrite/Vnc1");
 
     server_skeleton = QEMU_VNC1_SERVER_SKELETON(
         qemu_vnc1_server_skeleton_new());
@@ -347,7 +347,7 @@ void vnc_dbus_setup(GDBusConnection *bus)
     g_signal_connect(server_skeleton, "handle-add-client",
                      G_CALLBACK(on_add_client), NULL);
 
-    server_obj = g_dbus_object_skeleton_new("/org/qemu/Vnc1/Server");
+    server_obj = g_dbus_object_skeleton_new("/org/nephrite/Vnc1/Server");
     g_dbus_object_skeleton_add_interface(
         server_obj, G_DBUS_INTERFACE_SKELETON(server_skeleton));
     g_dbus_object_manager_server_export(obj_manager, server_obj);
@@ -357,7 +357,7 @@ void vnc_dbus_setup(GDBusConnection *bus)
     if (g_dbus_connection_get_flags(bus)
         & G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION) {
         g_bus_own_name_on_connection(
-            bus, "org.qemu.vnc",
+            bus, "org.nephrite.vnc",
             G_BUS_NAME_OWNER_FLAGS_NONE,
             NULL, NULL, NULL, NULL);
     }

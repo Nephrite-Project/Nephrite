@@ -23,7 +23,7 @@
 /* in msec */
 #define DBUS_DEFAULT_TIMEOUT 1000
 
-#define DBUS_DISPLAY1_ROOT "/org/qemu/Display1"
+#define DBUS_DISPLAY1_ROOT "/org/nephrite/Display1"
 
 #define DBUS_DISPLAY_ERROR (dbus_display_error_quark())
 GQuark dbus_display_error_quark(void);

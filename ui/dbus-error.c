@@ -25,9 +25,10 @@
 #include "dbus.h"
 
 static const GDBusErrorEntry dbus_display_error_entries[] = {
-    { DBUS_DISPLAY_ERROR_FAILED, "org.qemu.Display1.Error.Failed" },
-    { DBUS_DISPLAY_ERROR_INVALID, "org.qemu.Display1.Error.Invalid" },
-    { DBUS_DISPLAY_ERROR_UNSUPPORTED, "org.qemu.Display1.Error.Unsupported" },
+    { DBUS_DISPLAY_ERROR_FAILED, "org.nephrite.Display1.Error.Failed" },
+    { DBUS_DISPLAY_ERROR_INVALID, "org.nephrite.Display1.Error.Invalid" },
+    { DBUS_DISPLAY_ERROR_UNSUPPORTED,
+      "org.nephrite.Display1.Error.Unsupported" },
 };
 
 G_STATIC_ASSERT(G_N_ELEMENTS(dbus_display_error_entries) ==

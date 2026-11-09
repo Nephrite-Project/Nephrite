@@ -46,8 +46,8 @@ create_server_proxy(GDBusConnection *bus_conn, GError **errp)
     return qemu_vnc1_server_proxy_new_sync(
         bus_conn,
         G_DBUS_PROXY_FLAGS_NONE,
-        "org.qemu.vnc",
-        "/org/qemu/Vnc1/Server",
+        "org.nephrite.vnc",
+        "/org/nephrite/Vnc1/Server",
         NULL, errp);
 }
 
@@ -167,7 +167,7 @@ spawn_qemu_vnc_bus_full(const char *dbus_addr, const char *sock_path,
     g_ptr_array_add(argv, (gpointer)"--dbus-address");
     g_ptr_array_add(argv, (gpointer)dbus_addr);
     g_ptr_array_add(argv, (gpointer)"--bus-name");
-    g_ptr_array_add(argv, (gpointer)"org.qemu");
+    g_ptr_array_add(argv, (gpointer)"org.nephrite");
     g_ptr_array_add(argv, (gpointer)"--vnc-addr");
     g_ptr_array_add(argv, (gpointer)vnc_addr);
 
@@ -237,7 +237,7 @@ setup_dbus_test_full(DbusTest *dt, const char *const *vnc_extra_args)
                                                  vnc_extra_args);
 
     /*
-     * Wait for the org.qemu.vnc bus name to appear, which indicates
+     * Wait for the org.nephrite.vnc bus name to appear, which indicates
      * qemu-vnc has fully initialized (connected to QEMU, set up the
      * display, exported its D-Bus interfaces, and opened the VNC
      * socket).
@@ -247,7 +247,7 @@ setup_dbus_test_full(DbusTest *dt, const char *const *vnc_extra_args)
         gboolean appeared = FALSE;
 
         watch_id = g_bus_watch_name_on_connection(
-            dt->bus_conn, "org.qemu.vnc",
+            dt->bus_conn, "org.nephrite.vnc",
             G_BUS_NAME_WATCHER_FLAGS_NONE,
             name_appeared_cb, NULL, &appeared, NULL);
         timeout_id = g_timeout_add_seconds(10, timeout_cb, NULL);
@@ -263,7 +263,7 @@ setup_dbus_test_full(DbusTest *dt, const char *const *vnc_extra_args)
 
         if (!appeared) {
             g_test_fail();
-            g_test_message("Timed out waiting for org.qemu.vnc bus name");
+            g_test_message("Timed out waiting for org.nephrite.vnc bus name");
             return false;
         }
     }
@@ -478,7 +478,7 @@ test_dbus_vnc_client_lifecycle(void)
     client_proxy = qemu_vnc1_client_proxy_new_sync(
         dt.bus_conn,
         G_DBUS_PROXY_FLAGS_NONE,
-        "org.qemu.vnc",
+        "org.nephrite.vnc",
         ldata.client_path,
         NULL, &err);
     g_assert_no_error(err);

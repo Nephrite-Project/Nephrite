@@ -343,4 +343,4 @@ kerneldoc_srctree = os.path.join(qemu_docdir, '..')
 hxtool_srctree = os.path.join(qemu_docdir, '..')
 qapidoc_srctree = os.path.join(qemu_docdir, '..')
 dbusdoc_srctree = os.path.join(qemu_docdir, '..')
-dbus_index_common_prefix = ["org.qemu."]
+dbus_index_common_prefix = ["org.nephrite."]

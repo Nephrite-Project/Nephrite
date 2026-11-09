@@ -573,14 +573,14 @@ dbus_audio_register_listener(AudioMixengBackend *s,
             listener_conn,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             NULL,
-            "/org/qemu/Display1/AudioOutListener",
+            "/org/nephrite/Display1/AudioOutListener",
             NULL,
             &err)) :
         G_OBJECT(qemu_dbus_display1_audio_in_listener_proxy_new_sync(
             listener_conn,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             NULL,
-            "/org/qemu/Display1/AudioInListener",
+            "/org/nephrite/Display1/AudioInListener",
             NULL,
             &err));
     if (!listener) {

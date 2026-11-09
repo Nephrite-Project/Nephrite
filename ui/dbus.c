@@ -318,7 +318,7 @@ dbus_display_complete(UserCreatable *uc, Error **errp)
 
     if (dd->bus) {
         g_dbus_object_manager_server_set_connection(dd->server, dd->bus);
-        g_bus_own_name_on_connection(dd->bus, "org.qemu",
+        g_bus_own_name_on_connection(dd->bus, "org.nephrite",
                                      G_BUS_NAME_OWNER_FLAGS_NONE,
                                      NULL, NULL, NULL, NULL);
     }

@@ -1113,7 +1113,7 @@ dbus_display_listener_setup_d3d11(DBusDisplayListener *ddl)
     g_autoptr(GError) err = NULL;
 
     if (!dbus_display_listener_implements(ddl,
-            "org.qemu.Display1.Listener.Win32.D3d11")) {
+            "org.nephrite.Display1.Listener.Win32.D3d11")) {
         return;
     }
 
@@ -1125,7 +1125,7 @@ dbus_display_listener_setup_d3d11(DBusDisplayListener *ddl)
         qemu_dbus_display1_listener_win32_d3d11_proxy_new_sync(ddl->conn,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             NULL,
-            "/org/qemu/Display1/Listener",
+            "/org/nephrite/Display1/Listener",
             NULL,
             &err);
     if (!ddl->d3d11_proxy) {
@@ -1142,7 +1142,7 @@ dbus_display_listener_setup_shared_map(DBusDisplayListener *ddl)
 
 #ifdef WIN32
     if (!dbus_display_listener_implements(
-            ddl, "org.qemu.Display1.Listener.Win32.Map")) {
+            ddl, "org.nephrite.Display1.Listener.Win32.Map")) {
         return;
     }
 
@@ -1154,7 +1154,7 @@ dbus_display_listener_setup_shared_map(DBusDisplayListener *ddl)
         qemu_dbus_display1_listener_win32_map_proxy_new_sync(ddl->conn,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             NULL,
-            "/org/qemu/Display1/Listener",
+            "/org/nephrite/Display1/Listener",
             NULL,
             &err);
     if (!ddl->map_proxy) {
@@ -1165,12 +1165,12 @@ dbus_display_listener_setup_shared_map(DBusDisplayListener *ddl)
     ddl->can_share_map = true;
 #else /* !WIN32 */
     if (!dbus_display_listener_implements(
-            ddl, "org.qemu.Display1.Listener.Unix.Map")) {
+            ddl, "org.nephrite.Display1.Listener.Unix.Map")) {
         return;
     }
     ddl->map_proxy = qemu_dbus_display1_listener_unix_map_proxy_new_sync(
         ddl->conn, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START, NULL,
-        "/org/qemu/Display1/Listener", NULL, &err);
+        "/org/nephrite/Display1/Listener", NULL, &err);
     if (!ddl->map_proxy) {
         g_debug("Failed to setup Unix map proxy: %s", err->message);
         return;
@@ -1186,13 +1186,13 @@ static void dbus_display_listener_setup_scanout_dmabuf_v2(DBusDisplayListener *d
     g_autoptr(GError) err = NULL;
 
     if (!dbus_display_listener_implements(
-            ddl, "org.qemu.Display1.Listener.Unix.ScanoutDMABUF2")) {
+            ddl, "org.nephrite.Display1.Listener.Unix.ScanoutDMABUF2")) {
         return;
     }
     ddl->scanout_dmabuf_v2_proxy =
         qemu_dbus_display1_listener_unix_scanout_dmabuf2_proxy_new_sync(
             ddl->conn, G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START, NULL,
-            "/org/qemu/Display1/Listener", NULL, &err);
+            "/org/nephrite/Display1/Listener", NULL, &err);
     if (!ddl->scanout_dmabuf_v2_proxy) {
         g_debug("Failed to setup Unix scanout dmabuf v2 proxy: %s", err->message);
         return;
@@ -1285,7 +1285,7 @@ dbus_display_listener_new(const char *bus_name,
         qemu_dbus_display1_listener_proxy_new_sync(conn,
             G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
             NULL,
-            "/org/qemu/Display1/Listener",
+            "/org/nephrite/Display1/Listener",
             NULL,
             &err);
     if (!ddl->proxy) {

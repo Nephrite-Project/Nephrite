@@ -111,7 +111,7 @@ get_connection(Test *test, guint *ownid)
         G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT,
         NULL, NULL, &err);
     g_assert_no_error(err);
-    *ownid = g_bus_own_name_on_connection(c, "org.qemu.VMState1",
+    *ownid = g_bus_own_name_on_connection(c, "org.nephrite.VMState1",
                                           G_BUS_NAME_OWNER_FLAGS_NONE,
                                           named_cb, named_cb, wait, g_free);
     if (!wait->named) {
@@ -129,8 +129,8 @@ get_server(GDBusConnection *conn, TestServer *s, const TestServerId *id)
     GDBusObjectManagerServer *os;
 
     s->id = id;
-    os = g_dbus_object_manager_server_new("/org/qemu");
-    sk = g_dbus_object_skeleton_new("/org/qemu/VMState1");
+    os = g_dbus_object_manager_server_new("/org/nephrite");
+    sk = g_dbus_object_skeleton_new("/org/nephrite/VMState1");
 
     v = VMSTATE1_SKELETON(vmstate1_skeleton_new());
     g_object_set(v, "id", id->name, NULL);

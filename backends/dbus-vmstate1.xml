@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <!--
-      org.qemu.VMState1:
+      org.nephrite.VMState1:
 
       This interface must be implemented at the object path
-      ``/org/qemu/VMState1`` to support helper migration.
+      ``/org/nephrite/VMState1`` to support helper migration.
   -->
-  <interface name="org.qemu.VMState1">
+  <interface name="org.nephrite.VMState1">
 
     <!--
         Id:

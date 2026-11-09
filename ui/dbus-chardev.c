@@ -55,7 +55,7 @@ dbus_display_chardev_export(DBusDisplay *dpy, DBusChardev *chr)
         sk, G_DBUS_INTERFACE_SKELETON(chr->iface));
     if (chr->iface_vc_encoding) {
         const char *interfaces[] = {
-            "org.qemu.Display1.Chardev.VCEncoding",
+            "org.nephrite.Display1.Chardev.VCEncoding",
             NULL
         };
         g_dbus_object_skeleton_add_interface(

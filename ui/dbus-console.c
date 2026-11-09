@@ -642,10 +642,10 @@ dbus_display_console_new(DBusDisplay *display, QemuConsole *con)
     DBusDisplayConsole *ddc;
     int idx, i;
     const char *interfaces[] = {
-        "org.qemu.Display1.Keyboard",
-        "org.qemu.Display1.Mouse",
-        "org.qemu.Display1.MultiTouch",
-        "org.qemu.Display1.UIInfo",
+        "org.nephrite.Display1.Keyboard",
+        "org.nephrite.Display1.Mouse",
+        "org.nephrite.Display1.MultiTouch",
+        "org.nephrite.Display1.UIInfo",
         NULL
     };
 

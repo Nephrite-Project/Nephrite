@@ -4,12 +4,12 @@
  -->
 <node>
   <!--
-      org.qemu.Vnc1.Server:
+      org.nephrite.Vnc1.Server:
 
-      This interface is implemented on ``/org/qemu/Vnc1/Server``.
+      This interface is implemented on ``/org/nephrite/Vnc1/Server``.
       It provides management and monitoring of the VNC server.
   -->
-  <interface name="org.qemu.Vnc1.Server">
+  <interface name="org.nephrite.Vnc1.Server">
     <!--
         Name:
 
@@ -123,7 +123,7 @@
     <!--
         Leaving:
         @reason: A human-readable reason for shutting down (e.g.
-                 "D-Bus peer org.qemu vanished").
+                 "D-Bus peer org.nephrite vanished").
 
         Emitted when the VNC server is shutting down cleanly.
         Clients should expect the connection to close shortly after.
@@ -134,12 +134,12 @@
   </interface>
 
   <!--
-      org.qemu.Vnc1.Client:
+      org.nephrite.Vnc1.Client:
 
-      This interface is implemented on ``/org/qemu/Vnc1/Client_$id``.
+      This interface is implemented on ``/org/nephrite/Vnc1/Client_$id``.
       It exposes information about a connected VNC client.
   -->
-  <interface name="org.qemu.Vnc1.Client">
+  <interface name="org.nephrite.Vnc1.Client">
     <!--
         Host:
 

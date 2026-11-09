@@ -277,7 +277,7 @@ void audio_setup(GDBusObjectManager *manager)
 
     iface = g_dbus_object_manager_get_interface(
         manager, DBUS_DISPLAY1_ROOT "/Audio",
-        "org.qemu.Display1.Audio");
+        "org.nephrite.Display1.Audio");
     if (!iface) {
         return;
     }
