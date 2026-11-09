@@ -30,6 +30,9 @@ Names and packaging
 * User mode looks for the guest's libraries under
   ``/usr/gnemul/nephrite-<cpu>`` unless configure's ``--interp-prefix``
   says otherwise, where QEMU's look under ``/usr/gnemul/qemu-<cpu>``.
+* The system emulators search ``share/nephrite-firmware`` for firmware
+  unless configure's ``--firmwarepath`` says otherwise, where QEMU's
+  search ``share/qemu-firmware``.
 * The D-Bus display, the D-Bus VMState helpers, and ``nephrite-vnc`` serve
   interfaces under ``org.nephrite`` (``org.nephrite.Display1``,
   ``org.nephrite.VMState1``, and ``org.nephrite.Vnc1``, with their objects
