@@ -98,7 +98,8 @@ Names and packaging
   (``Nephrite Virtual CPU version 2.5+``, and ``Nephrite TCG CPU version
   2.5+`` for TCG's ``max``), user mode's ``/proc/cpuinfo``, vvfat's
   default volume label, ``NEPHRITE``, and the boot loader name that
-  Multiboot kernels get, ``nephrite``. Vendor
+  Multiboot kernels get, ``nephrite``, as well as the partition name that
+  sPAPR's virtual SCSI adapters report. Vendor
   identifiers, such as the SCSI vendor ``QEMU`` and the USB vendor ID
   46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
