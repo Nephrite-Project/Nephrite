@@ -36,15 +36,20 @@ Nephrite next to QEMU
 
 Nephrite installs next to QEMU without overwriting any of its files. Its
 programs are ``nephrite-system-x86_64``, ``nephrite-img``,
-``nephrite-nbd``, and so on, with QEMU's options and interfaces, and it keeps
-its data, modules, configuration, documentation, man pages, translations,
-icons, and plugin header under names of its own: ``share/nephrite``,
-``/etc/nephrite``, and the like.
+``nephrite-nbd``, and so on, with QEMU's options, and it keeps its data,
+modules, configuration, documentation, man pages, translations, icons, and
+plugin header under names of its own: ``share/nephrite``,
+``/etc/nephrite``, and the like. The interfaces that carry the program's
+name carry Nephrite's: environment variables such as ``NEPHRITE_LD_PREFIX``,
+D-Bus names under ``org.nephrite``, the guest agent's
+``org.nephrite.guest_agent.0`` channel, and the ``nephrite`` member of the
+version that QMP reports.
 
-Guests see the same machines as under QEMU. The names and IDs of devices,
-firmware interfaces, and protocols that guests, drivers, and management
-tools depend on are QEMU's: the "QEMU" models of disks and CPUs, the
-fw_cfg signature, PCI IDs, and QMP.
+Guests see the same machines as under QEMU, with Nephrite in place of QEMU
+in the names that they display, such as those of disks, USB devices, and
+processors. What guests and drivers identify devices and firmware
+interfaces by stays QEMU's: PCI and USB IDs, ACPI and SMBIOS IDs, and the
+fw_cfg signature.
 
 
 Versions
@@ -78,17 +83,18 @@ Nephrite builds as QEMU does:
   make install
 
 ``configure --help`` lists the options; ``make install`` installs under
-``/usr/local`` unless ``configure --prefix`` says otherwise. QEMU's build
-documentation, ``docs/devel/build-system.rst``, applies to Nephrite too.
+``/usr/local`` unless ``configure --prefix`` says otherwise.
+``docs/devel/build-system.rst`` documents the build system.
 
 
 Documentation
 =============
 
-The ``docs/`` folder holds QEMU's documentation, kept up to date with
-Nephrite's changes; ``configure --enable-docs`` builds it with `Sphinx
-<https://www.sphinx-doc.org/en/master/>`_. Where it names QEMU's programs,
-Nephrite's have the same names with ``nephrite`` in place of ``qemu``.
+The ``docs/`` folder holds Nephrite's documentation, which comes from
+QEMU's; ``configure --enable-docs`` builds it with `Sphinx
+<https://www.sphinx-doc.org/en/master/>`_. The versions that it names, such
+as those of machine types and of deprecated and removed features, are
+QEMU's.
 
 
 Bugs and contributions
