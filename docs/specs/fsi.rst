@@ -77,7 +77,7 @@ The implementation appears as following in the qemu device tree:
 
 .. code-block:: console
 
-  (qemu) info qtree
+  (nephrite) info qtree
   bus: main-system-bus
     type System
     ...

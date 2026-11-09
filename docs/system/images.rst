@@ -52,7 +52,7 @@ Use ``loadvm`` to restore a VM snapshot and ``delvm`` to remove a VM
 snapshot. ``info snapshots`` lists the available snapshots with their
 associated information::
 
-   (qemu) info snapshots
+   (nephrite) info snapshots
    Snapshot devices: hda
    Snapshot list (from hda):
    ID        TAG                 VM SIZE                DATE       VM CLOCK

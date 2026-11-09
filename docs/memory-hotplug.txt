@@ -41,8 +41,8 @@ Two monitor commands are used to hotplug memory:
 For example, the following commands add another 1GB to the guest
 discussed earlier:
 
-  (qemu) object_add memory-backend-ram,id=mem1,size=1G
-  (qemu) device_add pc-dimm,id=dimm1,memdev=mem1
+  (nephrite) object_add memory-backend-ram,id=mem1,size=1G
+  (nephrite) device_add pc-dimm,id=dimm1,memdev=mem1
 
 Using the file backend
 ----------------------
@@ -55,8 +55,8 @@ For example, assuming that the host has 1GB hugepages available in
 the /mnt/hugepages-1GB directory, a 1GB hugepage could be hotplugged
 into the guest from the previous section with the following commands:
 
-  (qemu) object_add memory-backend-file,id=mem1,size=1G,mem-path=/mnt/hugepages-1GB
-  (qemu) device_add pc-dimm,id=dimm1,memdev=mem1
+  (nephrite) object_add memory-backend-file,id=mem1,size=1G,mem-path=/mnt/hugepages-1GB
+  (nephrite) device_add pc-dimm,id=dimm1,memdev=mem1
 
 It's also possible to start a guest with memory cold-plugged into the
 hotpluggable memory slots. This might seem counterintuitive at first,
@@ -89,5 +89,5 @@ Two monitor commands are used to hot unplug memory:
 For example, assuming that the pc-dimm device with id "dimm1" exists, and its memory
 backend is "mem1", the following commands tries to remove it.
 
-  (qemu) device_del dimm1
-  (qemu) object_del mem1
+  (nephrite) device_del dimm1
+  (nephrite) object_del mem1

@@ -470,8 +470,8 @@ block-backup
 
 Formatting 'TEST_DIR/t.IMGFMT.copy', fmt=IMGFMT size=4294968832
 QEMU X.Y.Z monitor - type 'help' for more information
-(qemu) drive_backup -n disk TEST_DIR/t.IMGFMT.copy
-(qemu) info block-jobs
+(nephrite) drive_backup -n disk TEST_DIR/t.IMGFMT.copy
+(nephrite) info block-jobs
 No active jobs
 === IO: pattern 195
 read 512/512 bytes at offset 3221194240

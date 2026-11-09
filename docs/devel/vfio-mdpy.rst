@@ -77,7 +77,7 @@ monitor:
         -display gtk,gl=on \
         -monitor stdio
 
-Then at the ``(qemu)`` prompt:
+Then at the ``(nephrite)`` prompt:
 
 .. code-block:: none
 

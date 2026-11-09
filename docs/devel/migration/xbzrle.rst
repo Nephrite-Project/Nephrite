@@ -96,23 +96,23 @@ Usage
 
 1. Verify the destination QEMU version is able to decode the new format::
 
-    (qemu) info migrate_capabilities
+    (nephrite) info migrate_capabilities
     xbzrle: off
     ...
 
 2. Activate xbzrle on both source and destination::
 
-    (qemu) migrate_set_capability xbzrle on
+    (nephrite) migrate_set_capability xbzrle on
 
 3. Set the XBZRLE cache size - the cache size is in MBytes and should be a
    power of 2. The cache default value is 64 MBytes (on source only)::
 
-    (qemu) migrate_set_parameter xbzrle-cache-size 256m
+    (nephrite) migrate_set_parameter xbzrle-cache-size 256m
 
 4. Start outgoing migration::
 
-    (qemu) migrate -d tcp:destination.host:4444
-    (qemu) info migrate
+    (nephrite) migrate -d tcp:destination.host:4444
+    (nephrite) info migrate
     capabilities: xbzrle: on
     Migration status: active
     transferred ram: A kbytes

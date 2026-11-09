@@ -40,5 +40,5 @@ If the Barrier server is stopped QEMU needs to be reconnected manually,
 by removing and re-adding the input-barrier object, for instance
 with the help of the HMP monitor::
 
-    (qemu) object_del barrier0
-    (qemu) object_add input-barrier,id=barrier0,name=VM-1
+    (nephrite) object_del barrier0
+    (nephrite) object_add input-barrier,id=barrier0,name=VM-1

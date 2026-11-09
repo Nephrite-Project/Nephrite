@@ -216,7 +216,7 @@ for each CPU :
 
 ::
 
-   (qemu) info pic
+   (nephrite) info pic
    CPU[0000]:   QW   NSR CPPR IPB LSMFB ACK# INC AGE PIPR  W2
    CPU[0000]: USER    00   00  00    00   00  00  00   00  00000000
    CPU[0000]:   OS    00   ff  00    00   ff  00  ff   ff  80000400

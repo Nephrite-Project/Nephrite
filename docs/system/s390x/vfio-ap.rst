@@ -606,7 +606,7 @@ action.
 
 To hot plug a vfio-ap device, use the QEMU ``device_add`` command::
 
-    (qemu) device_add vfio-ap,sysfsdev="$path-to-mdev",id="$id"
+    (nephrite) device_add vfio-ap,sysfsdev="$path-to-mdev",id="$id"
 
 Where the ``$path-to-mdev`` value specifies the absolute path to a mediated
 device to which AP resources to be used by the guest have been assigned.
@@ -633,7 +633,7 @@ or a prior hot plug action.
 
 To hot unplug a vfio-ap device, use the QEMU ``device_del`` command::
 
-    (qemu) device_del "$id"
+    (nephrite) device_del "$id"
 
 Where ``$id`` is the same id that was specified at device creation.
 

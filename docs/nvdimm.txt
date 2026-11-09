@@ -117,8 +117,8 @@ accomplished by two monitor commands "object_add" and "device_add".
 For example, the following commands add another 4GB vNVDIMM device to
 the guest:
 
- (qemu) object_add memory-backend-file,id=mem2,share=on,mem-path=new_nvdimm.img,size=4G
- (qemu) device_add nvdimm,id=nvdimm2,memdev=mem2
+ (nephrite) object_add memory-backend-file,id=mem2,share=on,mem-path=new_nvdimm.img,size=4G
+ (nephrite) device_add nvdimm,id=nvdimm2,memdev=mem2
 
 Note:
 

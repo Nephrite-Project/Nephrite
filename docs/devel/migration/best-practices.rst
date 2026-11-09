@@ -12,8 +12,8 @@ Example usage:
 .. code-block:: shell
 
   $ qemu-system-x86_64 -display none -monitor stdio
-  (qemu) migrate "exec:cat > mig"
-  (qemu) q
+  (nephrite) migrate "exec:cat > mig"
+  (nephrite) q
   $ ./scripts/analyze-migration.py -f mig
   {
     "ram (3)": {

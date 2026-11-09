@@ -51,8 +51,8 @@ sn_name=abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz
 # This way, we get a number with a decimal point.
 qemu_comm_method=monitor _launch_qemu -m 512 "$TEST_IMG"
 
-_send_qemu_cmd $QEMU_HANDLE "savevm $sn_name" '(qemu)'
-_send_qemu_cmd $QEMU_HANDLE 'quit' '(qemu)'
+_send_qemu_cmd $QEMU_HANDLE "savevm $sn_name" '(nephrite)'
+_send_qemu_cmd $QEMU_HANDLE 'quit' '(nephrite)'
 wait=yes _cleanup_qemu
 
 # Check that all fields are separated by spaces.

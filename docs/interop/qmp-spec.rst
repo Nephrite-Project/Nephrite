@@ -408,7 +408,7 @@ control.  For example, a qemu-kvm specific monitor command would be:
 
 ::
 
-    (qemu) __org.linux-kvm_enable_irqchip
+    (nephrite) __org.linux-kvm_enable_irqchip
 
 Downstream must not change the `server greeting`_ other than
 to offer additional capabilities.  But see below for why even that is

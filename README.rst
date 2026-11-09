@@ -44,7 +44,7 @@ icons, and plugin header under names of its own: ``share/nephrite``,
 Guests see the same machines as under QEMU. The names and IDs of devices,
 firmware interfaces, and protocols that guests, drivers, and management
 tools depend on are QEMU's: the "QEMU" models of disks and CPUs, the
-fw_cfg signature, PCI IDs, QMP, and the monitor's ``(qemu)`` prompt.
+fw_cfg signature, PCI IDs, and QMP.
 
 
 Versions

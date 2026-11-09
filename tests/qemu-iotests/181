@@ -83,9 +83,9 @@ echo === Write something on the source ===
 echo
 
 silent=
-_send_qemu_cmd $src 'qemu-io disk "write -P 0x55 0 64k"' "(qemu)"
+_send_qemu_cmd $src 'qemu-io disk "write -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $src "" "ops/sec"
-_send_qemu_cmd $src 'qemu-io disk "read -P 0x55 0 64k"' "(qemu)"
+_send_qemu_cmd $src 'qemu-io disk "read -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $src "" "ops/sec"
 
 echo
@@ -96,12 +96,12 @@ echo
 # switch to postcopy
 # Enable postcopy-ram capability both on source and destination
 silent=yes
-_send_qemu_cmd $dest 'migrate_set_capability postcopy-ram on' "(qemu)"
+_send_qemu_cmd $dest 'migrate_set_capability postcopy-ram on' "(nephrite)"
 
 qemu_error_no_exit=yes success_or_failure=yes \
-    _send_qemu_cmd $dest '' "(qemu)" "Postcopy is not supported"
+    _send_qemu_cmd $dest '' "(nephrite)" "Postcopy is not supported"
 if [ ${QEMU_STATUS[$dest]} -lt 0 ]; then
-    _send_qemu_cmd $dest '' "(qemu)"
+    _send_qemu_cmd $dest '' "(nephrite)"
 
     _send_qemu_cmd $src 'quit' ""
     _send_qemu_cmd $dest 'quit' ""
@@ -110,14 +110,14 @@ if [ ${QEMU_STATUS[$dest]} -lt 0 ]; then
     _notrun 'Postcopy is not supported'
 fi
 
-_send_qemu_cmd $src 'migrate_set_parameter max-bandwidth 4k' "(qemu)"
-_send_qemu_cmd $src 'migrate_set_capability postcopy-ram on' "(qemu)"
-_send_qemu_cmd $src "migrate -d unix:${MIG_SOCKET}" "(qemu)"
-_send_qemu_cmd $src 'migrate_start_postcopy' "(qemu)"
+_send_qemu_cmd $src 'migrate_set_parameter max-bandwidth 4k' "(nephrite)"
+_send_qemu_cmd $src 'migrate_set_capability postcopy-ram on' "(nephrite)"
+_send_qemu_cmd $src "migrate -d unix:${MIG_SOCKET}" "(nephrite)"
+_send_qemu_cmd $src 'migrate_start_postcopy' "(nephrite)"
 
 QEMU_COMM_TIMEOUT=1 qemu_cmd_repeat=10 silent=yes \
     _send_qemu_cmd $src "info migrate" "completed\|failed"
-silent=yes _send_qemu_cmd $src "" "(qemu)"
+silent=yes _send_qemu_cmd $src "" "(nephrite)"
 
 echo
 echo === Do some I/O on the destination ===
@@ -127,9 +127,9 @@ echo
 # of the node name, which would create a new BlockBackend and not test whether
 # the guest has the necessary permissions to access the image now
 silent=
-_send_qemu_cmd $dest 'qemu-io disk "read -P 0x55 0 64k"' "(qemu)"
+_send_qemu_cmd $dest 'qemu-io disk "read -P 0x55 0 64k"' "(nephrite)"
 _send_qemu_cmd $dest "" "ops/sec"
-_send_qemu_cmd $dest 'qemu-io disk "write -P 0x66 1M 64k"' "(qemu)"
+_send_qemu_cmd $dest 'qemu-io disk "write -P 0x66 1M 64k"' "(nephrite)"
 _send_qemu_cmd $dest "" "ops/sec"
 
 echo

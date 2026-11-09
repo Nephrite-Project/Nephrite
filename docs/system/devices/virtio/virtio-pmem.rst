@@ -50,8 +50,8 @@ pmem device can be added via 'device_add'.
 For example, the following commands add another 4GB virtio pmem device to
 the guest::
 
- (qemu) object_add memory-backend-file,id=mem2,share=on,mem-path=virtio_pmem2.img,size=4G
- (qemu) device_add virtio-pmem-pci,id=virtio_pmem2,memdev=mem2
+ (nephrite) object_add memory-backend-file,id=mem2,share=on,mem-path=virtio_pmem2.img,size=4G
+ (nephrite) device_add virtio-pmem-pci,id=virtio_pmem2,memdev=mem2
 
 Guest Data Persistence
 ----------------------

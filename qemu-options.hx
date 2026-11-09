@@ -6712,7 +6712,7 @@ SRST
 
         ::
 
-            (qemu) qom-set /objects/iothread1 poll-max-ns 100000
+            (nephrite) qom-set /objects/iothread1 poll-max-ns 100000
 ERST
 
 

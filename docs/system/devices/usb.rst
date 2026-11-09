@@ -243,8 +243,8 @@ specify some unique id which you can use to refer to the device.
 You can then use ``device_del`` to unplug the device later.
 For example::
 
-        (qemu) device_add usb-tablet,bus=usb-bus.0,port=1,id=my-tablet
-        (qemu) device_del my-tablet
+        (nephrite) device_add usb-tablet,bus=usb-bus.0,port=1,id=my-tablet
+        (nephrite) device_del my-tablet
 
 Hotplugging USB storage
 ~~~~~~~~~~~~~~~~~~~~~~~

@@ -117,7 +117,7 @@ else
 fi
 
 TEST_IMG="$TEST_IMG.copy" _make_test_img $image_size
-_send_qemu_cmd $h "drive_backup -n disk ${TEST_IMG}.copy" "(qemu)" \
+_send_qemu_cmd $h "drive_backup -n disk ${TEST_IMG}.copy" "(nephrite)" \
     | _filter_imgfmt
 
 silent=y qemu_cmd_repeat=20 _send_qemu_cmd $h "info block-jobs" "No active jobs"

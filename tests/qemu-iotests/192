@@ -66,9 +66,9 @@ else
     QEMU_COMM_TIMEOUT=1
 fi
 
-_send_qemu_cmd $h "nbd_server_start unix:$SOCK_DIR/nbd" "(qemu)"
-_send_qemu_cmd $h "nbd_server_add -w drive0" "(qemu)"
-_send_qemu_cmd $h "q" "(qemu)"
+_send_qemu_cmd $h "nbd_server_start unix:$SOCK_DIR/nbd" "(nephrite)"
+_send_qemu_cmd $h "nbd_server_add -w drive0" "(nephrite)"
+_send_qemu_cmd $h "q" "(nephrite)"
 
 # success, all done
 echo "*** done"

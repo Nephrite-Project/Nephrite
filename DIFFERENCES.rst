@@ -53,14 +53,13 @@ Names and packaging
 * Nephrite has its own logo, a green chip, in its icons, windows,
   documentation, and installers.
 * Version and help texts, window titles and menus, the names that VNC,
-  D-Bus, SPICE, and audio clients show, and the monitor's banner say
-  Nephrite.
+  D-Bus, SPICE, and audio clients show, and the monitor's banner and
+  prompt say Nephrite.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, the
-  fw_cfg signature, QMP and its ``qemu`` version member, the monitor's
-  ``(qemu)`` prompt, SASL's ``qemu`` application name, ``QEMU_*``
-  environment variables, and the guest agent's protocol, state directory,
-  and Windows service and VSS provider.
+  fw_cfg signature, QMP and its ``qemu`` version member, SASL's ``qemu``
+  application name, ``QEMU_*`` environment variables, and the guest
+  agent's protocol, state directory, and Windows service and VSS provider.
 * The documentation's text is QEMU's; its front page says so, and its
   examples run Nephrite's programs.
 * QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and

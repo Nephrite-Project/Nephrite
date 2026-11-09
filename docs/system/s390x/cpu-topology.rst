@@ -116,7 +116,7 @@ New CPUs can be plugged using the device_add hmp command as in:
 
 .. code-block:: bash
 
-  (qemu) device_add gen16b-s390x-cpu,core-id=9
+  (nephrite) device_add gen16b-s390x-cpu,core-id=9
 
 The placement of the CPU is derived from the core-id as described above.
 
@@ -124,7 +124,7 @@ The topology can of course also be fully defined:
 
 .. code-block:: bash
 
-    (qemu) device_add gen16b-s390x-cpu,drawer-id=1,book-id=1,socket-id=2,core-id=1
+    (nephrite) device_add gen16b-s390x-cpu,drawer-id=1,book-id=1,socket-id=2,core-id=1
 
 
 Examples
@@ -143,7 +143,7 @@ A new CPUs can be plugged using the device_add hmp command as before:
 
 .. code-block:: bash
 
-  (qemu) device_add gen16b-s390x-cpu,core-id=9
+  (nephrite) device_add gen16b-s390x-cpu,core-id=9
 
 The core-id defines the placement of the core in the topology by
 starting with core 0 in socket 0 up to maxcpus.

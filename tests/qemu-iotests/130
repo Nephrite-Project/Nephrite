@@ -61,8 +61,8 @@ echo
 
 # Test that a backing file isn't written
 _launch_qemu -drive id=testdisk,file="$TEST_IMG",backing.file.filename="$TEST_IMG.base"
-_send_qemu_cmd $QEMU_HANDLE "commit testdisk" "(qemu)"
-_send_qemu_cmd $QEMU_HANDLE '' '(qemu)'
+_send_qemu_cmd $QEMU_HANDLE "commit testdisk" "(nephrite)"
+_send_qemu_cmd $QEMU_HANDLE '' '(nephrite)'
 _cleanup_qemu
 _img_info | _filter_img_info
 
@@ -70,8 +70,8 @@ _img_info | _filter_img_info
 # command line, that backing file is retained, with the right format
 _make_test_img -F raw -b "$TEST_IMG.orig" 64M
 _launch_qemu -drive id=testdisk,file="$TEST_IMG",backing.file.filename="$TEST_IMG.base",backing.driver=$IMGFMT
-_send_qemu_cmd $QEMU_HANDLE "commit testdisk" "(qemu)"
-_send_qemu_cmd $QEMU_HANDLE '' '(qemu)'
+_send_qemu_cmd $QEMU_HANDLE "commit testdisk" "(nephrite)"
+_send_qemu_cmd $QEMU_HANDLE '' '(nephrite)'
 _cleanup_qemu
 _img_info | _filter_img_info
 

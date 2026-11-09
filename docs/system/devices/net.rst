@@ -115,14 +115,14 @@ By default, passt will be started in the socket-based mode.
 .. parsed-literal::
    |qemu_system| [...OPTIONS...] -nic passt
 
-   (qemu) info network
+   (nephrite) info network
    e1000e.0: index=0,type=nic,model=e1000e,macaddr=52:54:00:12:34:56
     \ #net071: index=0,type=passt,stream,connected to pid 24846
 
 .. parsed-literal::
    |qemu_system| [...OPTIONS...] -net nic -net passt,tcp-ports=10001,udp-ports=10001
 
-   (qemu) info network
+   (nephrite) info network
    hub 0
     \ hub0port1: #net136: index=0,type=passt,stream,connected to pid 25204
     \ hub0port0: e1000e.0: index=0,type=nic,model=e1000e,macaddr=52:54:00:12:34:56
@@ -130,7 +130,7 @@ By default, passt will be started in the socket-based mode.
 .. parsed-literal::
    |qemu_system| [...OPTIONS...] -netdev passt,id=netdev0 -device virtio-net,mac=9a:2b:2c:2d:2e:2f,id=virtio0,netdev=netdev0
 
-   (qemu) info network
+   (nephrite) info network
    virtio0: index=0,type=nic,model=virtio-net-pci,macaddr=9a:2b:2c:2d:2e:2f
     \ netdev0: index=0,type=passt,stream,connected to pid 25428
 
@@ -140,7 +140,7 @@ select the virtio-net device:
 .. parsed-literal::
    |qemu_system| [...OPTIONS...] -nic passt,model=virtio,vhost-user=on
 
-   (qemu) info network
+   (nephrite) info network
    virtio-net-pci.0: index=0,type=nic,model=virtio-net-pci,macaddr=52:54:00:12:34:56
     \ #net006: index=0,type=passt,vhost-user,connected to pid 25731
 
@@ -224,7 +224,7 @@ Start QEMU with the ``-incoming`` parameter:
 
 Then in the source guest monitor the migration can be started::
 
-   (qemu) migrate tcp:localhost:4444
+   (nephrite) migrate tcp:localhost:4444
 
 A separate passt-repair instance must be started for every migration. In the case of a failed migration, passt-repair also needs to be restarted before trying
 again.

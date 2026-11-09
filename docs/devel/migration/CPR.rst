@@ -75,14 +75,14 @@ Example 1
   -object memory-backend-file,id=ram0,size=4G,mem-path=/dev/dax0.0,align=2M,share=on -m 4G
   ...
 
-  (qemu) info status
+  (nephrite) info status
   VM status: running
-  (qemu) migrate_set_parameter mode cpr-reboot
-  (qemu) migrate_set_capability x-ignore-shared on
-  (qemu) migrate -d file:vm.state
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-reboot
+  (nephrite) migrate_set_capability x-ignore-shared on
+  (nephrite) migrate -d file:vm.state
+  (nephrite) info status
   VM status: paused (postmigrate)
-  (qemu) quit
+  (nephrite) quit
 
   ### optionally update kernel and reboot
   # systemctl kexec
@@ -90,12 +90,12 @@ Example 1
   ...
 
   # qemu-kvm ... -incoming defer
-  (qemu) info status
+  (nephrite) info status
   VM status: paused (inmigrate)
-  (qemu) migrate_set_parameter mode cpr-reboot
-  (qemu) migrate_set_capability x-ignore-shared on
-  (qemu) migrate_incoming file:vm.state
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-reboot
+  (nephrite) migrate_set_capability x-ignore-shared on
+  (nephrite) migrate_incoming file:vm.state
+  (nephrite) info status
   VM status: running
 
 Example 2: VFIO
@@ -109,19 +109,19 @@ Example 2: VFIO
   -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
   ...
 
-  (qemu) info status
+  (nephrite) info status
   VM status: running
 
   # echo '{"execute":"guest-suspend-ram"}' | ncat --send-only -U qga.sock
 
-  (qemu) info status
+  (nephrite) info status
   VM status: paused (suspended)
-  (qemu) migrate_set_parameter mode cpr-reboot
-  (qemu) migrate_set_capability x-ignore-shared on
-  (qemu) migrate -d file:vm.state
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-reboot
+  (nephrite) migrate_set_capability x-ignore-shared on
+  (nephrite) migrate -d file:vm.state
+  (nephrite) info status
   VM status: paused (postmigrate)
-  (qemu) quit
+  (nephrite) quit
 
   ### optionally update kernel and reboot
   # systemctl kexec
@@ -129,15 +129,15 @@ Example 2: VFIO
   ...
 
   # qemu-kvm ... -incoming defer
-  (qemu) info status
+  (nephrite) info status
   VM status: paused (inmigrate)
-  (qemu) migrate_set_parameter mode cpr-reboot
-  (qemu) migrate_set_capability x-ignore-shared on
-  (qemu) migrate_incoming file:vm.state
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-reboot
+  (nephrite) migrate_set_capability x-ignore-shared on
+  (nephrite) migrate_incoming file:vm.state
+  (nephrite) info status
   VM status: paused (suspended)
-  (qemu) system_wakeup
-  (qemu) info status
+  (nephrite) system_wakeup
+  (nephrite) info status
   VM status: running
 
 Caveats
@@ -256,7 +256,7 @@ brevity.
                "path": "cpr.sock" }}]}}
 
                                         QEMU 10.0.50 monitor
-                                        (qemu) info status
+                                        (nephrite) info status
                                         VM status: running
 
   {"execute": "query-status"}
@@ -305,11 +305,11 @@ commands to new QEMU.
                "path": "cpr.sock" }}]}}
 
                                         QEMU 10.0.50 monitor
-                                        (qemu) info status
+                                        (nephrite) info status
                                         VM status: paused (inmigrate)
-                                        (qemu) device_add pcie-root-port
-                                        (qemu) migrate_incoming tcp:0:44444
-                                        (qemu) info status
+                                        (nephrite) device_add pcie-root-port
+                                        (nephrite) migrate_incoming tcp:0:44444
+                                        (nephrite) info status
                                         VM status: running
 
   {"execute": "query-status"}
@@ -392,13 +392,13 @@ cpr-exec-command.
   ...
 
   QEMU 10.2.50 monitor - type 'help' for more information
-  (qemu) info status
+  (nephrite) info status
   VM status: running
-  (qemu) migrate_set_parameter mode cpr-exec
-  (qemu) migrate_set_parameter cpr-exec-command qemu-kvm ... -incoming file:vm.state
-  (qemu) migrate -d file:vm.state
-  (qemu) QEMU 10.2.50 monitor - type 'help' for more information
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-exec
+  (nephrite) migrate_set_parameter cpr-exec-command qemu-kvm ... -incoming file:vm.state
+  (nephrite) migrate -d file:vm.state
+  (nephrite) QEMU 10.2.50 monitor - type 'help' for more information
+  (nephrite) info status
   VM status: running
 
 Example 2: incoming defer
@@ -412,16 +412,16 @@ Example 2: incoming defer
   ...
 
   QEMU 10.2.50 monitor - type 'help' for more information
-  (qemu) info status
+  (nephrite) info status
   VM status: running
-  (qemu) migrate_set_parameter mode cpr-exec
-  (qemu) migrate_set_parameter cpr-exec-command qemu-kvm ... -incoming defer
-  (qemu) migrate -d file:vm.state
-  (qemu) QEMU 10.2.50 monitor - type 'help' for more information
-  (qemu) info status
+  (nephrite) migrate_set_parameter mode cpr-exec
+  (nephrite) migrate_set_parameter cpr-exec-command qemu-kvm ... -incoming defer
+  (nephrite) migrate -d file:vm.state
+  (nephrite) QEMU 10.2.50 monitor - type 'help' for more information
+  (nephrite) info status
   status: paused (inmigrate)
-  (qemu) migrate_incoming file:vm.state
-  (qemu) info status
+  (nephrite) migrate_incoming file:vm.state
+  (nephrite) info status
   VM status: running
 
 Caveats

@@ -81,7 +81,7 @@ _filter_qemu_io()
 # replace occurrences of QEMU_PROG with "qemu"
 _filter_qemu()
 {
-    gsed -e "s#\\(^\\|(qemu) \\)$(basename $QEMU_PROG):#\1QEMU_PROG:#" \
+    gsed -e "s#\\(^\\|(nephrite) \\)$(basename $QEMU_PROG):#\1QEMU_PROG:#" \
         -e 's#^QEMU [0-9]\+\.[0-9]\+\.[0-9]\+ monitor#QEMU X.Y.Z monitor#' \
         -e 's#^Nephrite [0-9]\+\.[0-9]\+\.[0-9]\+ monitor#QEMU X.Y.Z monitor#' \
         -e $'s#\r##' # QEMU monitor uses \r\n line endings
@@ -106,7 +106,7 @@ _filter_qmp()
 # readline makes HMP command strings so long that git complains
 _filter_hmp()
 {
-    gsed -e $'s/^\\((qemu) \\)\\?.*\e\\[D/\\1/g' \
+    gsed -e $'s/^\\((nephrite) \\)\\?.*\e\\[D/\\1/g' \
         -e $'s/\e\\[K//g'
 }
 

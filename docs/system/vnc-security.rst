@@ -45,9 +45,9 @@ the password all clients will be rejected.
 .. parsed-literal::
 
    |qemu_system| [...OPTIONS...] -vnc :1,password=on -monitor stdio
-   (qemu) change vnc password
+   (nephrite) change vnc password
    Password: ********
-   (qemu)
+   (nephrite)
 
 .. _vnc_005fsec_005fcertificate:
 
@@ -105,9 +105,9 @@ authentication to provide two layers of authentication for clients.
    |qemu_system| [...OPTIONS...] \
      -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server,verify-peer=on \
      -vnc :1,tls-creds=tls0,password=on -monitor stdio
-   (qemu) change vnc password
+   (nephrite) change vnc password
    Password: ********
-   (qemu)
+   (nephrite)
 
 .. _vnc_005fsec_005fsasl:
 

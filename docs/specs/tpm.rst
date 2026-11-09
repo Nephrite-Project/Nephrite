@@ -471,8 +471,8 @@ monitor in the 2nd terminal:
 
 .. code-block:: console
 
-  (qemu) migrate "exec:cat > testvm.bin"
-  (qemu) quit
+  (nephrite) migrate "exec:cat > testvm.bin"
+  (nephrite) quit
 
 At this point a file called ``testvm.bin`` should exists and the swtpm
 and QEMU processes should have ended.

@@ -75,7 +75,7 @@ is allocated a CID at launch at which it is reachable. A specific CID can
 be requested with ``-accel nitro,enclave-cid=<N>`` (0 lets the hypervisor
 choose). The assigned CID is readable from the vsock bridge device::
 
-    (qemu) qom-get /machine/peripheral/nitro-vsock enclave-cid
+    (nephrite) qom-get /machine/peripheral/nitro-vsock enclave-cid
 
 EIF Image Format
 ^^^^^^^^^^^^^^^^

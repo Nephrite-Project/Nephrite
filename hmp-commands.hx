@@ -236,7 +236,7 @@ SRST
   ``change`` *diskdevice* [-f] *filename* [*format* [*read-only-mode*]]
     Change the medium for a removable disk device to point to *filename*. eg::
 
-      (qemu) change ide1-cd0 /path/to/some.iso
+      (nephrite) change ide1-cd0 /path/to/some.iso
 
     ``-f``
       forces the operation even if the guest has locked the tray.
@@ -261,7 +261,7 @@ SRST
     is not supplied, the monitor will prompt for it to be entered. VNC
     passwords are only significant up to 8 letters. eg::
 
-      (qemu) change vnc password
+      (nephrite) change vnc password
       Password: ********
 
 ERST
@@ -505,7 +505,7 @@ SRST
 
   Dump 10 instructions at the current instruction pointer::
 
-    (qemu) x/10i $eip
+    (nephrite) x/10i $eip
     0x90107063:  ret
     0x90107064:  sti
     0x90107065:  lea    0x0(%esi,1),%esi
@@ -519,7 +519,7 @@ SRST
 
   Dump 80 16 bit values at the start of the video memory::
 
-    (qemu) xp/80hx 0xb8000
+    (nephrite) xp/80hx 0xb8000
     0x000b8000: 0x0b50 0x0b6c 0x0b65 0x0b78 0x0b38 0x0b36 0x0b2f 0x0b42
     0x000b8010: 0x0b6f 0x0b63 0x0b68 0x0b73 0x0b20 0x0b56 0x0b47 0x0b41
     0x000b8020: 0x0b42 0x0b69 0x0b6f 0x0b73 0x0b20 0x0b63 0x0b75 0x0b72

@@ -144,7 +144,7 @@ void monitor_hmp_read_command(MonitorHMP *hmp, int show_prompt)
         return;
     }
 
-    readline_start(hmp->rs, "(qemu) ", 0, monitor_command_cb, NULL);
+    readline_start(hmp->rs, "(nephrite) ", 0, monitor_command_cb, NULL);
     if (show_prompt) {
         readline_show_prompt(hmp->rs);
     }
