@@ -264,7 +264,7 @@ static void usage(const char *cmd)
 QEMU_COPYRIGHT "\n"
 "\n"
 "  -c, --config=PATH configuration file path (default is\n"
-"                    %s/nephrite-ga.conf\n"
+"                    %s\n"
 "                    unless overridden by the QGA_CONF environment variable)\n"
 "  -m, --method      transport method: one of unix-listen, virtio-serial,\n"
 "                    isa-serial, or vsock-listen (virtio-serial is the default)\n"

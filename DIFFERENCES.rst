@@ -409,6 +409,11 @@ Memory and KVM:
   indexes' entries for the same virtual address, which may map other RAM,
   as SVM guest mode's do; guests ran stale copies of code they had changed.
 
+Tools:
+
+* The guest agent's help names its default configuration file once, where
+  QEMU's appends the file's name to the full path.
+
 
 Behaviour changes
 =================
