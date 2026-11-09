@@ -104,6 +104,9 @@ Names and packaging
   46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
   Nephrite's name, such as ``Nephrite PS/2 Mouse``.
+* ``xen-event-list`` and ``info xen-event-list`` give ``nephrite`` as the
+  remote domain of the Xen event channels bound to the emulator, where
+  QEMU's give ``qemu``.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, and
   the fw_cfg signature.

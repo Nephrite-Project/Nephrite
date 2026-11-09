@@ -2308,7 +2308,7 @@ EvtchnInfoList *qmp_xen_event_list(Error **errp)
         info->type = p->type;
         if (p->type == EVTCHNSTAT_interdomain) {
             info->remote_domain = g_strdup(p->u.interdomain.to_qemu ?
-                                           "qemu" : "loopback");
+                                           "nephrite" : "loopback");
             info->target = p->u.interdomain.port;
         } else {
             info->target = p->u.val; /* pirq# or virq# */

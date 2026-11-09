@@ -413,7 +413,7 @@
 #                 "pending": false,
 #                 "port": 1,
 #                 "vcpu": 1,
-#                 "remote-domain": "qemu",
+#                 "remote-domain": "nephrite",
 #                 "masked": false,
 #                 "type": "interdomain",
 #                 "target": 1
