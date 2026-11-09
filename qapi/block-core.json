@@ -3458,7 +3458,7 @@
 #
 # @label: set the volume label, limited to 11 bytes.  FAT16 and FAT32
 #     traditionally have some restrictions on labels, which are
-#     ignored by most operating systems.  Defaults to "QEMU VVFAT".
+#     ignored by most operating systems.  Defaults to "NEPHRITE".
 #     (since 2.4)
 #
 # @rw: whether to allow write operations (default: false)

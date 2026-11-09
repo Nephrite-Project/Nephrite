@@ -175,7 +175,7 @@ class TestVVFatDriver(QMPTestCase):
             self.write_sectors,
         )
         self.assertEqual(fat16.boot_sector.bytes_per_sector, 512)
-        self.assertEqual(fat16.boot_sector.volume_label, "QEMU VVFAT")
+        self.assertEqual(fat16.boot_sector.volume_label, "NEPHRITE")
 
     def test_read_root_directory(self):
         """
