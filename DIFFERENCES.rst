@@ -28,11 +28,11 @@ Names and packaging
   (``include/nephrite/qemu-plugin.h``) are Nephrite's too, so that
   Nephrite and QEMU install side by side.
 * The systemd units in ``contrib/systemd`` start Nephrite's programs, and
-  those of the persistent reservation and RAPL MSR helpers are named
-  after Nephrite, as are the helpers' default sockets and PID files and
-  the directory where Nephrite looks for the modules of an upgraded
-  installation (``/var/run/nephrite``), so that its helpers run next to
-  QEMU's.
+  those of the guest agent and the persistent reservation and RAPL MSR
+  helpers are named after Nephrite, as are the helpers' default sockets
+  and PID files and the directory where Nephrite looks for the modules of
+  an upgraded installation (``/var/run/nephrite``), so that its helpers
+  run next to QEMU's.
 * The build's static libraries take Nephrite's name
   (``libnephriteutil.a``, ``libnephrite-<target>.a``, and the like), as
   does the import library that Windows plugins link against,
@@ -47,10 +47,13 @@ Names and packaging
   Nephrite is based on. Its programs, and QMP's ``package`` member, show
   both ("Nephrite emulator version 0.1.0, based on QEMU 11.1.50"), and
   QMP's version member is ``nephrite``, with Nephrite's version, where
-  QEMU's is ``qemu``. QEMU's version stays alone where guests and
-  management tools depend on it: the machine types, the guest agent's
-  ``guest-info``, and the version of the guest agent's Windows
-  installer, which replaces QEMU's agent in place.
+  QEMU's is ``qemu``. The machine types keep QEMU's versions.
+* The guest agent serves the ``org.nephrite.guest_agent.0`` channel, reads
+  ``nephrite-ga.conf``, and keeps its PID file, its Windows state
+  directory, service, and event source, and its VSS provider under
+  Nephrite's names, with COM and VSS identities of their own. Its Windows
+  installer is a product of its own, which installs next to QEMU's agent,
+  and ``guest-info`` reports Nephrite's version.
 * Nephrite's release tags are ``v0.1.0`` and on. QEMU has tags of the
   same names for its old releases, so Nephrite's repository holds none
   of QEMU's tags; a clone that fetches QEMU's history must leave them
@@ -63,9 +66,8 @@ Names and packaging
   prompt say Nephrite.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, the
-  fw_cfg signature, SASL's ``qemu`` application name, ``QEMU_*``
-  environment variables, and the guest agent's protocol, state directory,
-  and Windows service and VSS provider.
+  fw_cfg signature, SASL's ``qemu`` application name, and ``QEMU_*``
+  environment variables.
 * The documentation's text is QEMU's; its front page says so, and its
   examples run Nephrite's programs.
 * QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and
@@ -517,6 +519,3 @@ Known deviations and limits
 * Under KVM, masking A20 has no effect, as in QEMU; port 92h and the
   keyboard controller do not OR their A20 gates as the chipset does, the
   last write wins.
-* The Windows guest agent's installer registers QEMU's service and VSS
-  provider names, so Nephrite's and QEMU's agents do not install side by
-  side in one guest.

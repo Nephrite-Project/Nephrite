@@ -15,12 +15,12 @@
   <Product
     Name="Nephrite guest agent"
     Id="*"
-    UpgradeCode="{EB6B8302-C06E-4BEC-ADAC-932C68A3A98D}"
+    UpgradeCode="{051D1EC6-335B-44C1-ACBC-8E7A5DC7A1BF}"
     Manufacturer="$(var.QEMU_GA_MANUFACTURER)"
     Version="$(var.QEMU_GA_VERSION)"
     Language="1033">
     <?if $(var.Arch) = 32 ?>
-    <Condition Message="Error: 32-bit version of Qemu GA can not be installed on 64-bit Windows.">NOT VersionNT64</Condition>
+    <Condition Message="Error: 32-bit version of the Nephrite guest agent can not be installed on 64-bit Windows.">NOT VersionNT64</Condition>
     <?endif?>
     <Package
       Manufacturer="$(var.QEMU_GA_MANUFACTURER)"
@@ -29,34 +29,34 @@
       Compressed="yes"
       InstallScope="perMachine"
       />
-    <Media Id="1" Cabinet="qemu_ga.$(var.QEMU_GA_VERSION).cab" EmbedCab="yes" />
+    <Media Id="1" Cabinet="nephrite_ga.$(var.QEMU_GA_VERSION).cab" EmbedCab="yes" />
     <Property Id="WHSLogo">1</Property>
     <?ifdef var.InstallVss?>
     <Property Id="VSSOPTION_VALUE" Value="#1">
       <RegistrySearch Id="VssOptionSearch"
                       Root="HKLM"
-                      Key="System\CurrentControlSet\Services\QEMU Guest Agent VSS Provider"
+                      Key="System\CurrentControlSet\Services\Nephrite Guest Agent VSS Provider"
                       Name="VssOption"
                       Type="raw" />
     </Property>
     <?endif?>
     <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
     <MajorUpgrade
-      DowngradeErrorMessage="Error: A newer version of QEMU guest agent is already installed."
+      DowngradeErrorMessage="Error: A newer version of the Nephrite guest agent is already installed."
       />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="$(var.GaProgramFilesFolder)" Name="QEMU Guest Agent">
-        <Directory Id="qemu_ga_directory" Name="Qemu-ga">
-          <Component Id="qemu_ga" Guid="{908B7199-DE2A-4DC6-A8D0-27A5AE444FEA}">
+      <Directory Id="$(var.GaProgramFilesFolder)" Name="Nephrite Guest Agent">
+        <Directory Id="qemu_ga_directory" Name="Nephrite-ga">
+          <Component Id="qemu_ga" Guid="{2E194083-BC7B-4A9A-A73D-CF59FDF9F514}">
             <File Id="qemu_ga.exe" Name="nephrite-ga.exe" Source="$(var.BUILD_DIR)/qga/nephrite-ga.exe" KeyPath="yes" DiskId="1"/>
             <ServiceInstall
               Id="ServiceInstaller"
               Type="ownProcess"
               Vital="yes"
-              Name="QEMU-GA"
-              DisplayName="QEMU Guest Agent"
-              Description="QEMU Guest Agent"
+              Name="nephrite-ga"
+              DisplayName="Nephrite Guest Agent"
+              Description="Nephrite Guest Agent"
               Start="auto"
               Account="LocalSystem"
               ErrorControl="ignore"
@@ -64,78 +64,78 @@
               Arguments="-d --retry-path"
               >
             </ServiceInstall>
-            <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="QEMU-GA" Wait="yes" />
+            <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="nephrite-ga" Wait="yes" />
           </Component>
           <?ifdef var.InstallVss?>
-          <Component Id="libstdc++_6_lib" Guid="{55E737B5-9127-4A11-9FC3-A29367714574}">
+          <Component Id="libstdc++_6_lib" Guid="{6868B8C0-8A4B-45A5-AAF3-27C4FCB222A3}">
             <File Id="libstdc++-6.lib" Name="libstdc++-6.dll" Source="$(var.BIN_DIR)/libstdc++-6.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="qga_vss_dll" Guid="{CB19C453-FABB-4BB1-ABAB-6B74F687BFBB}">
+          <Component Id="qga_vss_dll" Guid="{BFD3E462-831F-42FE-A007-2527A168265A}">
             <File Id="qga_vss.dll" Name="qga-vss.dll" Source="$(var.BUILD_DIR)/qga/vss-win32/qga-vss.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="qga_vss_tlb" Guid="{D8D584B1-59C2-4FB7-A91F-636FF7BFA66E}">
+          <Component Id="qga_vss_tlb" Guid="{B44678A6-9314-407B-833D-A4B825500D3D}">
             <File Id="qga_vss.tlb" Name="qga-vss.tlb" Source="$(var.BUILD_DIR)/qga/vss-win32/qga-vss.tlb" KeyPath="yes" DiskId="1"/>
           </Component>
           <?endif?>
           <?if $(var.Arch) = "32"?>
-          <Component Id="gspawn-helper-console" Guid="{446185B3-87BE-43D2-96B8-0FEFD9E8696D}">
+          <Component Id="gspawn-helper-console" Guid="{375B634C-B910-4E08-8565-E2E37E1DA086}">
             <File Id="gspawn-win32-helper-console.exe" Name="gspawn-win32-helper-console.exe" Source="$(var.BIN_DIR)/gspawn-win32-helper-console.exe" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="gspawn-helper" Guid="{CD67A5A3-2DB1-4DA1-A67A-8D71E797B466}">
+          <Component Id="gspawn-helper" Guid="{C3F446EB-8EBD-4DEF-88E0-95DA728D5046}">
             <File Id="gspawn-win32-helper.exe" Name="gspawn-win32-helper.exe" Source="$(var.BIN_DIR)/gspawn-win32-helper-console.exe" KeyPath="yes" DiskId="1"/>
           </Component>
           <?endif?>
           <?if $(var.Arch) = "64"?>
-          <Component Id="gspawn-helper-console" Guid="{9E615A9F-349A-4992-A5C2-C10BAD173660}">
+          <Component Id="gspawn-helper-console" Guid="{1AEED398-C624-4664-BC41-4B25B7B51B74}">
             <File Id="gspawn-win64-helper-console.exe" Name="gspawn-win64-helper-console.exe" Source="$(var.BIN_DIR)/gspawn-win64-helper-console.exe" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="gspawn-helper" Guid="{D201AD22-1846-4E4F-B6E1-C7A908ED2457}">
+          <Component Id="gspawn-helper" Guid="{7CE45F5C-FE07-4EC5-AF7D-A6E605D786A3}">
             <File Id="gspawn-win64-helper.exe" Name="gspawn-win64-helper.exe" Source="$(var.BIN_DIR)/gspawn-win64-helper-console.exe" KeyPath="yes" DiskId="1"/>
           </Component>
           <?endif?>
-          <Component Id="iconv" Guid="{35EE3558-D34B-4F0A-B8BD-430FF0775246}">
+          <Component Id="iconv" Guid="{7EB36926-8DB4-45B3-8C23-39A0DB89917D}">
             <File Id="iconv.dll" Name="iconv.dll" Source="$(var.BIN_DIR)/iconv.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="libgcc_arch_lib" Guid="{ADD4D07D-4515-4AB6-AF3E-C904961B4BB0}">
+          <Component Id="libgcc_arch_lib" Guid="{2D5EA005-4D24-4AAC-8018-912208B3FB42}">
             <File Id="libgcc_arch_lib" Name="$(var.ArchLib)" Source="$(var.BIN_DIR)/$(var.ArchLib)" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="libglib" Guid="{D31BFD83-2773-4B65-B45A-E0D2ADA58679}">
+          <Component Id="libglib" Guid="{7DB4A9FA-D7D5-4A92-97ED-6A9BCA3ACC68}">
             <File Id="libglib_2.0_0.dll" Name="libglib-2.0-0.dll" Source="$(var.BIN_DIR)/libglib-2.0-0.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="libintl" Guid="{A641BC2D-A907-4A94-9149-F30ED430878F}">
+          <Component Id="libintl" Guid="{DFD5DF12-1A0B-4DE9-BD30-2C490DA834FE}">
             <File Id="libintl_8.dll" Name="libintl-8.dll" Source="$(var.BIN_DIR)/libintl-8.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="libssp" Guid="{7880087B-02B4-4EF6-A5D3-D18F8E3D90E1}">
+          <Component Id="libssp" Guid="{FB211410-02ED-46B9-8BD5-F73287C976F5}">
             <File Id="libssp_0.dll" Name="libssp-0.dll" Source="$(var.BIN_DIR)/libssp-0.dll" KeyPath="yes" DiskId="1"/>
           </Component>
-          <Component Id="libwinpthread" Guid="{6C117C78-0F47-4B07-8F34-6BEE11643829}">
+          <Component Id="libwinpthread" Guid="{744DE749-1E34-4090-8DD2-EEA1EB51BB92}">
             <File Id="libwinpthread_1.dll" Name="libwinpthread-1.dll" Source="$(var.BIN_DIR)/libwinpthread-1.dll" KeyPath="yes" DiskId="1"/>
           </Component>
           <?if $(var.LIBPCRE) = "libpcre1"?>
-            <Component Id="libpcre" Guid="{7A86B45E-A009-489A-A849-CE3BACF03CD0}">
+            <Component Id="libpcre" Guid="{1CE66615-26B1-44B3-AAE2-44A319C7FBFC}">
               <File Id="libpcre_1.dll" Name="libpcre-1.dll" Source="$(var.BIN_DIR)/libpcre-1.dll" KeyPath="yes" DiskId="1"/>
             </Component>
           <?else?>
-            <Component Id="libpcre" Guid="{F92A3804-B59C-419D-8F29-99A30352C156}">
+            <Component Id="libpcre" Guid="{F5079194-4564-4AC5-BE3D-A9D2B664DAAA}">
               <File Id="libpcre2_8_0.dll" Name="libpcre2-8-0.dll" Source="$(var.BIN_DIR)/libpcre2-8-0.dll" KeyPath="yes" DiskId="1"/>
             </Component>
           <?endif?>
-          <Component Id="registry_entries" Guid="{62A2D9E2-B22F-410C-8E41-A0D9E653B944}">
+          <Component Id="registry_entries" Guid="{7459408A-8C56-4259-9C38-8098375891C1}">
             <RegistryKey Root="HKLM"
-                         Key="Software\$(var.QEMU_GA_MANUFACTURER)\$(var.QEMU_GA_DISTRO)\Tools\QemuGA">
-              <RegistryValue Type="string" Name="ProductID" Value="fb0a0d66-c7fb-4e2e-a16b-c4a3bfe8d13b" />
+                         Key="Software\$(var.QEMU_GA_MANUFACTURER)\$(var.QEMU_GA_DISTRO)\Tools\NephriteGA">
+              <RegistryValue Type="string" Name="ProductID" Value="23df4cc1-c4a2-4e9f-8676-f59709811d38" />
               <RegistryValue Type="string" Name="Version" Value="$(var.QEMU_GA_VERSION)" />
             </RegistryKey>
             <RegistryKey Root="HKLM"
-                         Key="System\CurrentControlSet\Services\EventLog\Application\qemu-ga">
+                         Key="System\CurrentControlSet\Services\EventLog\Application\nephrite-ga">
               <RegistryValue Type="integer" Name="TypesSupported" Value="7" />
               <RegistryValue Type="string" Name="EventMessageFile" Value="[qemu_ga_directory]nephrite-ga.exe" />
             </RegistryKey>
           </Component>
           <?ifdef var.InstallVss?>
-          <Component Id="vss_registry_option" Guid="{75166af0-cdc9-423f-9a30-50bb59342b9b}">
+          <Component Id="vss_registry_option" Guid="{1F30D73A-7105-4833-BAA6-49EECA2DC9A5}">
             <RegistryKey Root="HKLM"
-                         Key="System\CurrentControlSet\Services\QEMU Guest Agent VSS Provider">
+                         Key="System\CurrentControlSet\Services\Nephrite Guest Agent VSS Provider">
               <!-- Type="string" so MSI resolves [VSSOPTION_VALUE]; the "#N" raw format produces a REG_DWORD. -->
               <RegistryValue Type="string" Name="VssOption" Value="[VSSOPTION_VALUE]" KeyPath="yes" />
             </RegistryKey>
@@ -175,7 +175,7 @@
     </CustomAction>
     <?endif?>
 
-    <Feature Id="QEMUFeature" Title="QEMU Guest Agent" Level="1">
+    <Feature Id="QEMUFeature" Title="Nephrite Guest Agent" Level="1">
       <ComponentRef Id="qemu_ga" />
       <?ifdef var.InstallVss?>
       <ComponentRef Id="libstdc++_6_lib" />

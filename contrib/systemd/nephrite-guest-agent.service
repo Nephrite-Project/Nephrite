@@ -1,7 +1,7 @@
 [Unit]
 Description=Nephrite Guest Agent
-BindTo=dev-virtio\x2dports-org.qemu.guest_agent.0.device
-After=dev-virtio\x2dports-org.qemu.guest_agent.0.device
+BindTo=dev-virtio\x2dports-org.nephrite.guest_agent.0.device
+After=dev-virtio\x2dports-org.nephrite.guest_agent.0.device
 
 [Service]
 ExecStart=-/usr/bin/nephrite-ga

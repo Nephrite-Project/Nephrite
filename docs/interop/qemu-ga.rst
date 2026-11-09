@@ -1,17 +1,17 @@
 .. _qemu-ga:
 
-QEMU Guest Agent
-================
+Nephrite Guest Agent
+====================
 
 Synopsis
 --------
 
-**qemu-ga** [*OPTIONS*]
+**nephrite-ga** [*OPTIONS*]
 
 Description
 -----------
 
-The QEMU Guest Agent is a daemon intended to be run within virtual
+The Nephrite Guest Agent is a daemon intended to be run within virtual
 machines. It allows the hypervisor host to perform various operations
 in the guest, such as:
 
@@ -24,8 +24,8 @@ in the guest, such as:
 - set user's password
 - ...
 
-qemu-ga will read a system configuration file on startup (located at
-|CONFDIR|\ ``/qemu-ga.conf`` by default), then parse remaining
+nephrite-ga will read a system configuration file on startup (located at
+|CONFDIR|\ ``/nephrite-ga.conf`` by default), then parse remaining
 configuration options on the command line. For the same key, the last
 option wins, but the lists accumulate (see below for configuration
 file format).
@@ -47,11 +47,11 @@ declares.
 Options
 -------
 
-.. program:: qemu-ga
+.. program:: nephrite-ga
 
 .. option:: -c, --config=PATH
 
-  Configuration file path (the default is |CONFDIR|\ ``/qemu-ga.conf``,
+  Configuration file path (the default is |CONFDIR|\ ``/nephrite-ga.conf``,
   unless overridden by the QGA_CONF environment variable)
 
 .. option:: -m, --method=METHOD
@@ -62,7 +62,7 @@ Options
 .. option:: -p, --path=PATH
 
   Device/socket path (the default for virtio-serial is
-  ``/dev/virtio-ports/org.qemu.guest_agent.0``,
+  ``/dev/virtio-ports/org.nephrite.guest_agent.0``,
   the default for isa-serial is ``/dev/ttyS0``). Socket addresses for
   vsock-listen are written as ``<cid>:<port>``.
 
@@ -72,7 +72,7 @@ Options
 
 .. option:: -f, --pidfile=PATH
 
-  Specify pid file (default is ``/var/run/qemu-ga.pid``).
+  Specify pid file (default is ``/var/run/nephrite-ga.pid``).
 
 .. option:: -F, --fsfreeze-hook=PATH
 
@@ -112,7 +112,7 @@ Options
 
 .. option:: -D, --dump-conf
 
-  Dump the configuration in a format compatible with ``qemu-ga.conf``
+  Dump the configuration in a format compatible with ``nephrite-ga.conf``
   and exit.
 
 .. option:: -h, --help
@@ -123,19 +123,19 @@ Files
 -----
 
 
-The syntax of the ``qemu-ga.conf`` configuration file follows the
+The syntax of the ``nephrite-ga.conf`` configuration file follows the
 Desktop Entry Specification, here is a quick summary: it consists of
 groups of key-value pairs, interspersed with comments.
 
 ::
 
-    # qemu-ga configuration sample
+    # nephrite-ga configuration sample
     [general]
     daemonize = 0
-    pidfile = /var/run/qemu-ga.pid
+    pidfile = /var/run/nephrite-ga.pid
     verbose = 0
     method = virtio-serial
-    path = /dev/virtio-ports/org.qemu.guest_agent.0
+    path = /dev/virtio-ports/org.nephrite.guest_agent.0
     statedir = /var/run
 
 The list of keys follows the command line options:

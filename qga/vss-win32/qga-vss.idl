@@ -2,7 +2,7 @@ import "oaidl.idl";
 import "ocidl.idl";
 
 [
-    uuid(103B8142-6CE5-48A7-BDE1-794D3192FCF1),
+    uuid(48A314F0-86C5-45A4-B861-2EC078A25F5F),
     version(1.0),
     helpstring("QGAVSSProvider Type Library")
 ]
@@ -10,7 +10,7 @@ library QGAVSSHWProviderLib
 {
     importlib("stdole2.tlb");
     [
-        uuid(6E6A3492-8D4D-440C-9619-5E5D0CC31CA8),
+        uuid(265A213C-1A25-4970-BFCE-E55829BD0C0C),
         helpstring("QGAVSSProvider Class")
     ]
     coclass QGAVSSHWProvider

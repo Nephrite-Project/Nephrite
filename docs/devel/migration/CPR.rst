@@ -106,7 +106,7 @@ Example 2: VFIO
   -object memory-backend-file,id=ram0,size=4G,mem-path=/dev/dax0.0,align=2M,share=on -m 4G
   -device vfio-pci, ...
   -chardev socket,id=qga0,path=qga.sock,server=on,wait=off
-  -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0
+  -device virtserialport,chardev=qga0,name=org.nephrite.guest_agent.0
   ...
 
   (nephrite) info status

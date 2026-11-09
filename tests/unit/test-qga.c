@@ -65,7 +65,8 @@ fixture_setup(TestFixture *fixture, gconstpointer data, gchar **envp)
 
     path = g_build_filename(fixture->test_dir, "sock", NULL);
     cwd = g_get_current_dir();
-    cmd = g_strdup_printf("%s%cqga%cqemu-ga -m unix-listen -t %s -p %s %s %s",
+    cmd = g_strdup_printf("%s%cqga%cnephrite-ga -m unix-listen -t %s -p %s "
+                          "%s %s",
                           cwd, G_DIR_SEPARATOR, G_DIR_SEPARATOR,
                           fixture->test_dir, path,
                           qtest_verbose("qga") ? "-v" : "",
@@ -289,7 +290,7 @@ static void test_qga_info(gconstpointer fix)
 
     val = qdict_get_qdict(ret, "return");
     version = qdict_get_try_str(val, "version");
-    g_assert_cmpstr(version, ==, QEMU_VERSION);
+    g_assert_cmpstr(version, ==, NEPHRITE_VERSION);
 }
 
 static void test_qga_get_vcpus(gconstpointer fix)
@@ -727,7 +728,7 @@ static void test_qga_config(gconstpointer data)
     gsize n;
 
     cwd = g_get_current_dir();
-    cmd = g_strdup_printf("%s%cqga%cqemu-ga -D",
+    cmd = g_strdup_printf("%s%cqga%cnephrite-ga -D",
                           cwd, G_DIR_SEPARATOR, G_DIR_SEPARATOR);
     g_shell_parse_argv(cmd, NULL, &argv, &error);
     g_assert_no_error(error);
@@ -760,12 +761,12 @@ static void test_qga_config(gconstpointer data)
 
     str = g_key_file_get_string(kf, "general", "path", &error);
     g_assert_no_error(error);
-    g_assert_cmpstr(str, ==, "/path/to/org.qemu.guest_agent.0");
+    g_assert_cmpstr(str, ==, "/path/to/org.nephrite.guest_agent.0");
     g_free(str);
 
     str = g_key_file_get_string(kf, "general", "pidfile", &error);
     g_assert_no_error(error);
-    g_assert_cmpstr(str, ==, "/var/foo/qemu-ga.pid");
+    g_assert_cmpstr(str, ==, "/var/foo/nephrite-ga.pid");
     g_free(str);
 
     str = g_key_file_get_string(kf, "general", "statedir", &error);
@@ -1065,15 +1066,15 @@ static void test_qga_guest_get_osinfo(gconstpointer data)
 
     str = qdict_get_try_str(val, "id");
     g_assert_nonnull(str);
-    g_assert_cmpstr(str, ==, "qemu-ga-test");
+    g_assert_cmpstr(str, ==, "nephrite-ga-test");
 
     str = qdict_get_try_str(val, "name");
     g_assert_nonnull(str);
-    g_assert_cmpstr(str, ==, "QEMU-GA");
+    g_assert_cmpstr(str, ==, "Nephrite-GA");
 
     str = qdict_get_try_str(val, "pretty-name");
     g_assert_nonnull(str);
-    g_assert_cmpstr(str, ==, "QEMU Guest Agent test");
+    g_assert_cmpstr(str, ==, "Nephrite Guest Agent test");
 
     str = qdict_get_try_str(val, "version");
     g_assert_nonnull(str);

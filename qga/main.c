@@ -43,22 +43,23 @@
 
 #ifndef _WIN32
 #ifdef CONFIG_BSD
-#define QGA_VIRTIO_PATH_DEFAULT "/dev/vtcon/org.qemu.guest_agent.0"
+#define QGA_VIRTIO_PATH_DEFAULT "/dev/vtcon/org.nephrite.guest_agent.0"
 #else /* CONFIG_BSD */
-#define QGA_VIRTIO_PATH_DEFAULT "/dev/virtio-ports/org.qemu.guest_agent.0"
+#define QGA_VIRTIO_PATH_DEFAULT "/dev/virtio-ports/org.nephrite.guest_agent.0"
 #endif /* CONFIG_BSD */
 #define QGA_SERIAL_PATH_DEFAULT "/dev/ttyS0"
 #define QGA_STATE_RELATIVE_DIR  "run"
 #else
-#define QGA_VIRTIO_PATH_DEFAULT "\\\\.\\Global\\org.qemu.guest_agent.0"
-#define QGA_STATE_RELATIVE_DIR  "qemu-ga"
+#define QGA_VIRTIO_PATH_DEFAULT "\\\\.\\Global\\org.nephrite.guest_agent.0"
+#define QGA_STATE_RELATIVE_DIR  "nephrite-ga"
 #define QGA_SERIAL_PATH_DEFAULT "COM1"
 #endif
 #ifdef CONFIG_FSFREEZE
 #define QGA_FSFREEZE_HOOK_DEFAULT CONFIG_QEMU_CONFDIR "/fsfreeze-hook"
 #endif
 #define QGA_SENTINEL_BYTE 0xFF
-#define QGA_CONF_DEFAULT CONFIG_QEMU_CONFDIR G_DIR_SEPARATOR_S "qemu-ga.conf"
+#define QGA_CONF_DEFAULT \
+    CONFIG_QEMU_CONFDIR G_DIR_SEPARATOR_S "nephrite-ga.conf"
 #define QGA_RETRY_INTERVAL 5
 
 static struct {
@@ -162,7 +163,8 @@ init_dfl_pathnames(void)
     g_assert(dfl_pathnames.state_dir == NULL);
     g_assert(dfl_pathnames.pidfile == NULL);
     dfl_pathnames.state_dir = g_build_filename(state, QGA_STATE_RELATIVE_DIR, NULL);
-    dfl_pathnames.pidfile = g_build_filename(state, QGA_STATE_RELATIVE_DIR, "qemu-ga.pid", NULL);
+    dfl_pathnames.pidfile = g_build_filename(state, QGA_STATE_RELATIVE_DIR,
+                                             "nephrite-ga.pid", NULL);
 }
 
 static void quit_handler(int sig)
@@ -262,7 +264,7 @@ static void usage(const char *cmd)
 QEMU_COPYRIGHT "\n"
 "\n"
 "  -c, --config=PATH configuration file path (default is\n"
-"                    %s/qemu-ga.conf\n"
+"                    %s/nephrite-ga.conf\n"
 "                    unless overridden by the QGA_CONF environment variable)\n"
 "  -m, --method      transport method: one of unix-listen, virtio-serial,\n"
 "                    isa-serial, or vsock-listen (virtio-serial is the default)\n"
@@ -296,7 +298,7 @@ QEMU_COPYRIGHT "\n"
 "                    use \"--block-rpcs=help\" to list available RPCs)\n"
 "  -a, --allow-rpcs  comma-separated list of RPCs to enable (no spaces,\n"
 "                    use \"--allow-rpcs=help\" to list available RPCs)\n"
-"  -D, --dump-conf   dump a qemu-ga config file based on current config\n"
+"  -D, --dump-conf   dump a nephrite-ga config file based on current config\n"
 "                    options / command-line parameters to stdout\n"
 "  -r, --retry-path  attempt re-opening path if it's unavailable or closed\n"
 "                    due to an error which may be recoverable in the future\n"
@@ -1463,7 +1465,7 @@ static GAState *initialize_agent(GAConfig *config, int socket_activation)
     s->load_avg_event = INVALID_HANDLE_VALUE;
     s->load_avg_pdh_query = NULL;
 
-    s->event_log = RegisterEventSource(NULL, "qemu-ga");
+    s->event_log = RegisterEventSource(NULL, "nephrite-ga");
     if (!s->event_log) {
         g_autofree gchar *errmsg = g_win32_error_message(GetLastError());
         g_critical("unable to register event source: %s", errmsg);
@@ -1695,7 +1697,7 @@ int main(int argc, char **argv)
 
     socket_activation = check_socket_activation();
     if (socket_activation > 1) {
-        g_critical("qemu-ga only supports listening on one socket");
+        g_critical("nephrite-ga only supports listening on one socket");
         goto end;
     }
     if (socket_activation) {

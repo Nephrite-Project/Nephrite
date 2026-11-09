@@ -76,7 +76,7 @@ struct GuestAgentInfo *qmp_guest_info(Error **errp)
 {
     GuestAgentInfo *info = g_new0(GuestAgentInfo, 1);
 
-    info->version = g_strdup(QEMU_VERSION);
+    info->version = g_strdup(NEPHRITE_VERSION);
     qmp_for_each_command(&ga_commands, qmp_command_info, info);
     return info;
 }

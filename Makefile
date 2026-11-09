@@ -326,7 +326,7 @@ help:
 ifneq ($(filter msi, $(ninja-targets)),)
 	@echo  'Windows targets:'
 	$(call print-help,installer,Build NSIS-based installer for QEMU)
-	$(call print-help,msi,Build MSI-based installer for qemu-ga)
+	$(call print-help,msi,Build MSI-based installer for nephrite-ga)
 	@echo  ''
 endif
 	$(call print-help,$(MAKE) [targets],(quiet build, default))
