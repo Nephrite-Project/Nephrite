@@ -1032,7 +1032,7 @@ static void sunmouse_sync(DeviceState *dev)
 }
 
 static const QemuInputHandler sunmouse_handler = {
-    .name  = "QEMU Sun Mouse",
+    .name  = "Nephrite Sun Mouse",
     .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_REL,
     .event = sunmouse_handle_event,
     .sync  = sunmouse_sync,

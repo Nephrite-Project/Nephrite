@@ -1236,7 +1236,7 @@ static const VMStateDescription vmstate_ps2_mouse = {
 };
 
 static const QemuInputHandler ps2_keyboard_handler = {
-    .name  = "QEMU PS/2 Keyboard",
+    .name  = "Nephrite PS/2 Keyboard",
     .mask  = INPUT_EVENT_MASK_KEY,
     .event = ps2_keyboard_event,
 };
@@ -1256,7 +1256,7 @@ static void ps2_kbd_unrealize(DeviceState *dev)
 }
 
 static const QemuInputHandler ps2_mouse_handler = {
-    .name  = "QEMU PS/2 Mouse",
+    .name  = "Nephrite PS/2 Mouse",
     .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_REL,
     .event = ps2_mouse_event,
     .sync  = ps2_mouse_sync,

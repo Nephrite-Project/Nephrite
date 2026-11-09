@@ -285,7 +285,7 @@ static void nextkbd_event(DeviceState *dev, QemuConsole *src,
 }
 
 static const QemuInputHandler nextkbd_handler = {
-    .name  = "QEMU NeXT Keyboard",
+    .name  = "Nephrite NeXT Keyboard",
     .mask  = INPUT_EVENT_MASK_KEY,
     .event = nextkbd_event,
 };

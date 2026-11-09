@@ -506,20 +506,20 @@ void hid_free(HIDState *hs)
 }
 
 static const QemuInputHandler hid_keyboard_handler = {
-    .name  = "QEMU HID Keyboard",
+    .name  = "Nephrite HID Keyboard",
     .mask  = INPUT_EVENT_MASK_KEY,
     .event = hid_keyboard_event,
 };
 
 static const QemuInputHandler hid_mouse_handler = {
-    .name  = "QEMU HID Mouse",
+    .name  = "Nephrite HID Mouse",
     .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_REL,
     .event = hid_pointer_event,
     .sync  = hid_pointer_sync,
 };
 
 static const QemuInputHandler hid_tablet_handler = {
-    .name  = "QEMU HID Tablet",
+    .name  = "Nephrite HID Tablet",
     .mask  = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
     .event = hid_pointer_event,
     .sync  = hid_pointer_sync,

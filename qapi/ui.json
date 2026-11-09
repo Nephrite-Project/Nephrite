@@ -796,13 +796,13 @@
 #     -> { "execute": "query-mice" }
 #     <- { "return": [
 #              {
-#                 "name":"QEMU Microsoft Mouse",
+#                 "name":"Nephrite Microsoft Mouse",
 #                 "index":0,
 #                 "current":false,
 #                 "absolute":false
 #              },
 #              {
-#                 "name":"QEMU PS/2 Mouse",
+#                 "name":"Nephrite PS/2 Mouse",
 #                 "index":1,
 #                 "current":true,
 #                 "absolute":true
