@@ -1,16 +1,13 @@
 .. _development_process:
 
-QEMU Community Processes
-------------------------
+Development Practices
+---------------------
 
-Notes about how to interact with the community and how and where to submit patches.
+Notes about the coding style, secure coding, and Rust.
 
 .. toctree::
    :maxdepth: 2
 
-   code-of-conduct
-   conflict-resolution
    style
-   code-provenance
    secure-coding-practices
    rust

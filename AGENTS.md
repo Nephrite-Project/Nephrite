@@ -1,9 +1,8 @@
 # Agent Guidelines for Nephrite
 
 Nephrite is a fork of QEMU that accepts contributions made with AI tools,
-which QEMU declines (see `README.rst`). QEMU's policy in
-`docs/devel/code-provenance.rst` governs contributions to QEMU, not to
-Nephrite.
+which QEMU declines (see `README.rst`). QEMU's code provenance policy
+governs contributions to QEMU, not to Nephrite.
 
 ## Contributions
 

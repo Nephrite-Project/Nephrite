@@ -79,6 +79,8 @@ Names and packaging
   configurations, ``scripts/gitdm``, and the documentation of QEMU's patch
   submission, pull request, trivial patch, maintainer, and stable
   processes.
+* QEMU's code of conduct, conflict resolution, and code provenance
+  policies are not Nephrite's, which has none of its own yet.
 * ``scripts/checkpatch.pl`` accepts trailers that credit AI tools and no
   longer asks about ``MAINTAINERS``, and ``AGENTS.md`` gives agents
   Nephrite's guidelines instead of QEMU's.

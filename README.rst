@@ -11,8 +11,8 @@ Why a fork
 ==========
 
 Nephrite exists because QEMU does not accept contributions made with AI
-tools. QEMU's code provenance policy (``docs/devel/code-provenance.rst``)
-says:
+tools. QEMU's `code provenance policy
+<https://www.qemu.org/docs/master/devel/code-provenance.html>`_ says:
 
     Current QEMU project policy is to DECLINE any contributions which are
     believed to include or derive from AI generated content. This includes
