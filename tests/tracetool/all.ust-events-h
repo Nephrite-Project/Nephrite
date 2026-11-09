@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #undef TRACEPOINT_PROVIDER
-#define TRACEPOINT_PROVIDER qemu
+#define TRACEPOINT_PROVIDER nephrite
 
 #undef TRACEPOINT_INCLUDE
 #define TRACEPOINT_INCLUDE "./trace-ust.h"
@@ -31,7 +31,7 @@
 #endif
 
 TRACEPOINT_EVENT(
-   qemu,
+   nephrite,
    test_blah,
    TP_ARGS(void *, context, const char *, filename),
    TP_FIELDS(
@@ -41,7 +41,7 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_EVENT(
-   qemu,
+   nephrite,
    test_wibble,
    TP_ARGS(void *, context, int, value),
    TP_FIELDS(

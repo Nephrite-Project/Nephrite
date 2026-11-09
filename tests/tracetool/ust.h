@@ -20,20 +20,20 @@ extern uint8_t _TRACE_TEST_WIBBLE_DSTATE;
 
 
 #define TRACE_TEST_BLAH_BACKEND_DSTATE() ( \
-    tracepoint_enabled(qemu, test_blah) || \
+    tracepoint_enabled(nephrite, test_blah) || \
     false)
 
 static inline void trace_test_blah(void *context, const char *filename)
 {
-    tracepoint(qemu, test_blah, context, filename);
+    tracepoint(nephrite, test_blah, context, filename);
 }
 
 #define TRACE_TEST_WIBBLE_BACKEND_DSTATE() ( \
-    tracepoint_enabled(qemu, test_wibble) || \
+    tracepoint_enabled(nephrite, test_wibble) || \
     false)
 
 static inline void trace_test_wibble(void *context, int value)
 {
-    tracepoint(qemu, test_wibble, context, value);
+    tracepoint(nephrite, test_wibble, context, value);
 }
 #endif /* TRACE_TESTSUITE_GENERATED_TRACERS_H */

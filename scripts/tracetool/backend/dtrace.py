@@ -90,7 +90,7 @@ def generate_rs(event, group):
     if args:
         args = ', ' + args
 
-    out(f'    ::trace::probe!(qemu, {event.name}{args});')
+    out(f'    ::trace::probe!(nephrite, {event.name}{args});')
 
 
 def generate_rs_backend_dstate(event, group):

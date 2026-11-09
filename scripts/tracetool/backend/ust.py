@@ -35,11 +35,11 @@ def generate_h(event, group):
     if len(event.args) > 0:
         argnames = ", " + argnames
 
-    out('    tracepoint(qemu, %(name)s%(tp_args)s);',
+    out('    tracepoint(nephrite, %(name)s%(tp_args)s);',
         name=event.name,
         tp_args=argnames)
 
 
 def generate_h_backend_dstate(event, group):
-    out('    tracepoint_enabled(qemu, %(name)s) || \\',
+    out('    tracepoint_enabled(nephrite, %(name)s) || \\',
         name=event.name)

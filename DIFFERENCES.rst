@@ -24,7 +24,9 @@ Names and packaging
   named ``nephrite`` (``share/nephrite``, ``lib/nephrite``,
   ``/etc/nephrite``, ``share/doc/nephrite``); the man pages, translations
   (the ``nephrite`` gettext domain), icons, desktop entry, systemtap
-  tapsets and probes (``nephrite.*``), and the plugin header
+  tapsets and probes (``nephrite.*``), the UST and DTrace providers of
+  trace events (``nephrite``, so that LTTng's events are
+  ``nephrite:<event>``), and the plugin header
   (``include/nephrite/qemu-plugin.h``) are Nephrite's too, so that
   Nephrite and QEMU install side by side.
 * User mode looks for the guest's libraries under

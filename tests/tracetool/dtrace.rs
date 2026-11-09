@@ -44,7 +44,7 @@ pub fn trace_test_blah_enabled() -> bool
 #[allow(dead_code)]
 pub fn trace_test_blah(_context: *mut (), _filename: &std::ffi::CStr)
 {
-    ::trace::probe!(qemu, test_blah, _context, _filename.as_ptr());
+    ::trace::probe!(nephrite, test_blah, _context, _filename.as_ptr());
 }
 
 #[inline(always)]
@@ -59,6 +59,6 @@ pub fn trace_test_wibble_enabled() -> bool
 #[allow(dead_code)]
 pub fn trace_test_wibble(_context: *mut (), _value: std::ffi::c_int)
 {
-    ::trace::probe!(qemu, test_wibble, _context, _value);
+    ::trace::probe!(nephrite, test_wibble, _context, _value);
 }
 

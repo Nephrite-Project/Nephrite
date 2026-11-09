@@ -323,7 +323,7 @@ Create tracing session::
 
 Enable events::
 
-    lttng enable-event qemu:g_malloc -u
+    lttng enable-event nephrite:g_malloc -u
 
 Where the events can either be a comma-separated list of events, or "-a" to
 enable all tracepoint events. Start and stop tracing as needed::

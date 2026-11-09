@@ -25,7 +25,7 @@ def generate(events, backend, group):
         '/* SPDX-License-Identifier: GPL-2.0-or-later */',
         '',
         '#undef TRACEPOINT_PROVIDER',
-        '#define TRACEPOINT_PROVIDER qemu',
+        '#define TRACEPOINT_PROVIDER nephrite',
         '',
         '#undef TRACEPOINT_INCLUDE',
         '#define TRACEPOINT_INCLUDE "./%s"' % include,
@@ -58,7 +58,7 @@ def generate(events, backend, group):
     for e in events:
         if len(e.args) > 0:
             out('TRACEPOINT_EVENT(',
-                '   qemu,',
+                '   nephrite,',
                 '   %(name)s,',
                 '   TP_ARGS(%(args)s),',
                 '   TP_FIELDS(',
@@ -91,7 +91,7 @@ def generate(events, backend, group):
 
         else:
             out('TRACEPOINT_EVENT(',
-                '   qemu,',
+                '   nephrite,',
                 '   %(name)s,',
                 '   TP_ARGS(void),',
                 '   TP_FIELDS()',
