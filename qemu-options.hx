@@ -64,7 +64,7 @@ SRST
     version 2.9.0, the 2.9.0 version must support the "pc-i440fx-2.8"
     and "pc-q35-2.8" machines too. To allow users live migrating VMs to
     skip multiple intermediate releases when upgrading, new releases of
-    QEMU will support machine types from many previous versions.
+    Nephrite will support machine types from many previous versions.
 
     Supported machine properties are:
 
@@ -720,7 +720,7 @@ SRST
 
     A timeout could be passed to bios, guest will pause for rb\_timeout
     ms when boot failed, then reboot. If rb\_timeout is '-1', guest will
-    not reboot, qemu passes '-1' to bios by default. Currently Seabios
+    not reboot, Nephrite passes '-1' to bios by default. Currently Seabios
     for X86 system support it.
 
     Do strict boot via ``strict=on`` as far as firmware/BIOS supports
@@ -916,7 +916,7 @@ SRST
 ``-audiodev [driver=]driver,id=id[,prop=value[,...]]``
     Adds a new audio backend driver identified by id.
 
-    If no audio backend is specified, QEMU will attempt to select a
+    If no audio backend is specified, Nephrite will attempt to select a
     default one. The ``-display`` option may influence which backend is
     selected.
 
@@ -931,7 +931,7 @@ SRST
         -audiodev alsa,id=example,out.channels=1 # leaves in.channels unspecified
 
     NOTE: parameter validation is known to be incomplete, in many cases
-    specifying an invalid option causes QEMU to print an error message
+    specifying an invalid option causes Nephrite to print an error message
     and continue emulation without sound.
 
     Valid global options are:
@@ -944,7 +944,7 @@ SRST
         microseconds. Default is 10000 (10 ms).
 
     ``in|out.mixing-engine=on|off``
-        Use QEMU's mixing engine to mix all streams inside QEMU and
+        Use Nephrite's mixing engine to mix all streams inside Nephrite and
         convert audio formats when not supported by the backend. When
         off, fixed-settings must be off too. Note that disabling this
         option means that the selected backend must support multiple
@@ -1213,9 +1213,9 @@ SRST
     option to reconnect to the simulator if the connection is lost. Note
     that if this is not used carefully, it can be a security issue, as
     the interface has the ability to send resets, NMIs, and power off
-    the VM. It's best if QEMU makes a connection to an external
+    the VM. It's best if Nephrite makes a connection to an external
     simulator running on a secure port on localhost, so neither the
-    simulator nor QEMU is exposed to any outside network.
+    simulator nor Nephrite is exposed to any outside network.
 
     See the "lanserv/README.vm" file in the OpenIPMI library for more
     details on the external interface.
@@ -1279,7 +1279,7 @@ SRST
         4-level IOMMU page tables.
 
     Please also refer to the wiki page for general scenarios of VT-d
-    emulation in QEMU: https://wiki.qemu.org/Features/VT-d.
+    emulation in Nephrite: https://wiki.qemu.org/Features/VT-d.
 
 ``-device virtio-iommu-pci[,option=...]``
     This is only supported by ``-machine q35`` (x86_64) and ``-machine virt`` (ARM).
@@ -1308,7 +1308,7 @@ SRST
     set. When accel=on and these properties are set to auto, the value is
     derived from the host SMMUv3 capabilities via IOMMU_GET_HW_INFO. With
     accel=on, this requires at least one cold-plugged vfio-pci device; if
-    none is present at machine init, QEMU will abort.
+    none is present at machine init, Nephrite will abort.
 
     If accel=off, auto values resolve to the non-accel defaults given below.
 
@@ -1403,15 +1403,15 @@ DEFHEADING()
 DEFHEADING(Block device options:)
 
 SRST
-The QEMU block device handling options have a long history and
+The Nephrite block device handling options have a long history and
 have gone through several iterations as the feature set and complexity
-of the block layer have grown. Many online guides to QEMU often
+of the block layer have grown. Many online guides to Nephrite often
 reference older and deprecated options, which can lead to confusion.
 
 The most explicit way to describe disks is to use a combination of
 ``-device`` to specify the hardware device and ``-blockdev`` to
 describe the backend. The device defines what the guest sees and the
-backend describes how QEMU handles the data. It is the only guaranteed
+backend describes how Nephrite handles the data. It is the only guaranteed
 stable interface for describing block devices and as such is
 recommended for management tools and scripting.
 
@@ -1422,7 +1422,7 @@ need updating to work with the modern blockdev forms.
 
 Older options like ``-hda`` are essentially macros which expand into
 ``-drive`` options for various drive interfaces. The original forms
-bake in a lot of assumptions from the days when QEMU was emulating a
+bake in a lot of assumptions from the days when Nephrite was emulating a
 legacy PC, they are not recommended for modern configurations.
 
 ERST
@@ -1506,7 +1506,7 @@ SRST
 
             If no node name is specified, it is automatically generated.
             The generated node name is not intended to be predictable
-            and changes between QEMU invocations. For the top level, an
+            and changes between Nephrite invocations. For the top level, an
             explicit node name must be specified.
 
         ``read-only``
@@ -1518,18 +1518,18 @@ SRST
             option must be specified explicitly.
 
         ``auto-read-only``
-            If ``auto-read-only=on`` is set, QEMU may fall back to
+            If ``auto-read-only=on`` is set, Nephrite may fall back to
             read-only usage even when ``read-only=off`` is requested, or
             even switch between modes as needed, e.g. depending on
             whether the image file is writable or whether a writing user
             is attached to the node.
 
         ``force-share``
-            Override the image locking system of QEMU by forcing the
+            Override the image locking system of Nephrite by forcing the
             node to utilize weaker shared access for permissions where
             it would normally request exclusive access. When there is
             the potential for multiple instances to have the same file
-            open (whether this invocation of QEMU is the first or the
+            open (whether this invocation of Nephrite is the first or the
             second instance), both instances must permit shared access
             for the second instance to succeed at opening the file.
 
@@ -1538,12 +1538,12 @@ SRST
         ``cache.direct``
             The host page cache can be avoided with ``cache.direct=on``.
             This will attempt to do disk IO directly to the guest's
-            memory. QEMU may still perform an internal copy of the data.
+            memory. Nephrite may still perform an internal copy of the data.
 
         ``cache.no-flush``
             In case you don't care about data integrity over host
             failures, you can use ``cache.no-flush=on``. This option
-            tells QEMU that it never needs to write any data to the disk
+            tells Nephrite that it never needs to write any data to the disk
             but can instead keep things in cache. If anything goes
             wrong, like your host losing power, the disk storage getting
             disconnected accidentally, etc. your image will most
@@ -1793,8 +1793,8 @@ SRST
     ``werror=action,rerror=action``
         Specify which action to take on write and read errors. Valid
         actions are: "ignore" (ignore the error and try to continue),
-        "stop" (pause QEMU), "report" (report the error to the guest),
-        "enospc" (pause QEMU only if the host disk is full; report the
+        "stop" (pause Nephrite), "report" (report the error to the guest),
+        "enospc" (pause Nephrite only if the host disk is full; report the
         error to the guest otherwise). The default setting is
         ``werror=enospc`` and ``rerror=report``.
 
@@ -1844,7 +1844,7 @@ SRST
     For such guests, you should consider using ``cache.writeback=off``.
     This means that the host page cache will be used to read and write
     data, but write notification will be sent to the guest only after
-    QEMU has made sure to flush each write to the disk. Be aware that
+    Nephrite has made sure to flush each write to the disk. Be aware that
     this has a major impact on performance.
 
     When using the ``-snapshot`` option, unsafe caching is always used.
@@ -1938,7 +1938,7 @@ SRST
     chapter in the System Emulation Users Guide).
 
     .. warning::
-       snapshot is incompatible with ``-blockdev`` (instead use qemu-img
+       snapshot is incompatible with ``-blockdev`` (instead use nephrite-img
        to manually create snapshot images to attach to your blockdev).
        If you have mixed ``-blockdev`` and ``-drive`` declarations you
        can use the 'snapshot' property on your drive declarations
@@ -1964,7 +1964,7 @@ SRST
     Define a new file system device. Valid options are:
 
     ``local``
-        Accesses to the filesystem are done by QEMU.
+        Accesses to the filesystem are done by Nephrite.
 
     ``synth``
         Synthetic filesystem, only used by QTests.
@@ -1981,7 +1981,7 @@ SRST
         Supported security models are "passthrough", "mapped-xattr",
         "mapped-file" and "none". In "passthrough" security model, files
         are stored using the same credentials as they are created on the
-        guest. This requires QEMU to run as root. In "mapped-xattr"
+        guest. This requires Nephrite to run as root. In "mapped-xattr"
         security model, some of the file attributes like uid, gid, mode
         bits and link target are stored as file attributes. For
         "mapped-file" these attributes are stored in the hidden
@@ -2080,7 +2080,7 @@ SRST
     The general form of pass-through file system options are:
 
     ``local``
-        Accesses to the filesystem are done by QEMU.
+        Accesses to the filesystem are done by Nephrite.
 
     ``synth``
         Synthetic filesystem, only used by QTests.
@@ -2097,7 +2097,7 @@ SRST
         Supported security models are "passthrough", "mapped-xattr",
         "mapped-file" and "none". In "passthrough" security model, files
         are stored using the same credentials as they are created on the
-        guest. This requires QEMU to run as root. In "mapped-xattr"
+        guest. This requires Nephrite to run as root. In "mapped-xattr"
         security model, some of the file attributes like uid, gid, mode
         bits and link target are stored as file attributes. For
         "mapped-file" these attributes are stored in the hidden
@@ -2158,7 +2158,7 @@ SRST
         ``warn`` : virtfs 9p expects only one device to be shared with
         the same export. If however more than one device is shared and
         accessed via the same 9p export then only a warning message is
-        logged (once) by qemu on host side. No further action is performed
+        logged (once) by Nephrite on host side. No further action is performed
         in this case that would prevent file ID collisions on guest. This
         could thus lead to severe misbehaviours in this case like wrong
         files being accessed and data corruption on the exported tree.
@@ -2232,7 +2232,7 @@ SRST
 
     ``tablet``
         Pointer device that uses absolute coordinates (like a
-        touchscreen). This means QEMU is able to report the mouse
+        touchscreen). This means Nephrite is able to report the mouse
         position without having to grab the mouse. Also overrides the
         PS/2 mouse emulation when activated.
 
@@ -2301,9 +2301,9 @@ SRST
     for type are
 
     ``spice-app[,gl=on|off]``
-        Start QEMU as a Spice server and launch the default Spice client
+        Start Nephrite as a Spice server and launch the default Spice client
         application. The Spice server will redirect the serial consoles
-        and QEMU monitors. (Since 4.0)
+        and Nephrite monitors. (Since 4.0)
 
     ``dbus``
         Export the display over D-Bus interfaces. (Since 7.0)
@@ -2334,7 +2334,7 @@ SRST
 
         ``show-cursor=on|off`` :  Force showing the mouse cursor
 
-        ``window-close=on|off`` : Allow to quit qemu with window close button
+        ``window-close=on|off`` : Allow to quit Nephrite with window close button
 
     ``gtk``
         Display video output in a GTK window. This interface provides
@@ -2356,7 +2356,7 @@ SRST
 
         ``show-cursor=on|off`` :  Force showing the mouse cursor
 
-        ``window-close=on|off`` : Allow to quit qemu with window close button
+        ``window-close=on|off`` : Allow to quit Nephrite with window close button
 
         ``show-menubar=on|off`` : Display the main window menubar, defaults to "on"
 
@@ -2365,7 +2365,7 @@ SRST
 
     ``curses[,charset=<encoding>]``
         Display video output via curses. For graphics device models
-        which support a text mode, QEMU can display this output using a
+        which support a text mode, Nephrite can display this output using a
         curses/ncurses interface. Nothing is displayed when the graphics
         device is in graphical mode or if the graphics device does not
         support a text mode. Generally only the VGA device models
@@ -2410,7 +2410,7 @@ SRST
     ``none``
         Do not display video output. The guest will still see an
         emulated graphics card, but its output will not be displayed to
-        the QEMU user. This option differs from the -nographic option in
+        the Nephrite user. This option differs from the -nographic option in
         that it only affects what is done with video output; -nographic
         also changes the destination of the serial and parallel port
         data.
@@ -2421,13 +2421,13 @@ DEF("nographic", 0, QEMU_OPTION_nographic,
     QEMU_ARCH_ALL)
 SRST
 ``-nographic``
-    Normally, if QEMU is compiled with graphical window support, it
-    displays output such as guest graphics, guest console, and the QEMU
+    Normally, if Nephrite is compiled with graphical window support, it
+    displays output such as guest graphics, guest console, and the Nephrite
     monitor in a window. With this option, you can totally disable
-    graphical output so that QEMU is a simple command line application.
+    graphical output so that Nephrite is a simple command line application.
     The emulated serial port is redirected on the console and muxed with
     the monitor (unless redirected elsewhere explicitly). Therefore, you
-    can still use QEMU to debug a Linux kernel with a serial console.
+    can still use Nephrite to debug a Linux kernel with a serial console.
     Use C-a h for help on switching between the console and monitor.
 ERST
 
@@ -2479,7 +2479,7 @@ SRST
         The exact choice of authentication method used is controlled
         from the system / user's SASL configuration file for the 'nephrite'
         service. This is typically found in /etc/sasl2/nephrite.conf. If
-        running QEMU as an unprivileged user, an environment variable
+        running Nephrite as an unprivileged user, an environment variable
         SASL\_CONF\_PATH can be used to make it search alternate
         locations for the service config. While some SASL auth methods
         can also provide data encryption (eg GSSAPI), it is recommended
@@ -2635,9 +2635,9 @@ DEF("vnc", HAS_ARG, QEMU_OPTION_vnc ,
 #endif
 SRST
 ``-vnc display[,option[,option[,...]]]``
-    Normally, if QEMU is compiled with graphical window support, it
-    displays output such as guest graphics, guest console, and the QEMU
-    monitor in a window. With this option, you can have QEMU listen on
+    Normally, if Nephrite is compiled with graphical window support, it
+    displays output such as guest graphics, guest console, and the Nephrite
+    monitor in a window. With this option, you can have Nephrite listen on
     VNC display display and redirect the VGA display over the VNC
     session. It is very useful to enable the usb tablet device when
     using this option (option ``-device usb-tablet``). When using the
@@ -2645,7 +2645,7 @@ SRST
     layout if you are not using en-us. Valid syntax for the display is
 
     ``to=L``
-        With this option, QEMU will try next available VNC displays,
+        With this option, Nephrite will try next available VNC displays,
         until the number L, if the originally defined "-vnc display" is
         not available, e.g. port 5900+display is already used by another
         application. By default, to=0.
@@ -2738,7 +2738,7 @@ SRST
         server. The exact choice of authentication method used is
         controlled from the system / user's SASL configuration file for
         the 'nephrite' service. This is typically found in
-        /etc/sasl2/nephrite.conf. If running QEMU as an unprivileged user,
+        /etc/sasl2/nephrite.conf. If running Nephrite as an unprivileged user,
         an environment variable SASL\_CONF\_PATH can be used to make it
         search alternate locations for the service config. While some
         SASL auth methods can also provide data encryption (eg GSSAPI),
@@ -2791,7 +2791,7 @@ SRST
         specify -shared disconnect everybody else. 'ignore' completely
         ignores the shared flag and allows everybody connect
         unconditionally. Doesn't conform to the rfb spec but is
-        traditional QEMU behavior.
+        traditional Nephrite behavior.
 
     ``key-delay-ms``
         Set keyboard delay, for key down and key up events, in
@@ -2846,7 +2846,7 @@ SRST
     files, including all ACPI headers (possible overridden by other
     options). For data=, only data portion of the table is used, all
     header information is specified in the command line. If a SLIC table
-    is supplied to QEMU, then the SLIC's oem\_id and oem\_table\_id
+    is supplied to Nephrite, then the SLIC's oem\_id and oem\_table\_id
     fields will override the same in the RSDT and the FADT (a.k.a.
     FACP), in order to ensure the field matches required by the
     Microsoft SLIC spec and the ACPI spec.
@@ -3255,9 +3255,9 @@ SRST
         passt. ``quiet=on`` is passed as ``--quiet`` to passt.
 
     ``vhost-user=on|off``
-        By default, ``vhost-user=off`` and QEMU uses the stream network
+        By default, ``vhost-user=off`` and Nephrite uses the stream network
         backend to communicate with passt. If ``vhost-user=on``, passt is
-        started with ``--vhost-user`` and QEMU uses the vhost-user network
+        started with ``--vhost-user`` and Nephrite uses the vhost-user network
         backend to communicate with passt.
 
     ``@mtu``
@@ -3440,7 +3440,7 @@ SRST
         server. The TFTP client on the guest must be configured in
         binary mode (use the command ``bin`` of the Unix TFTP client).
         The built-in TFTP server is read-only; it does not implement any
-        command for writing files. QEMU will not write to this directory.
+        command for writing files. Nephrite will not write to this directory.
 
     ``tftp-server-name=name``
         In BOOTP reply, broadcast name as the "TFTP server name"
@@ -3477,7 +3477,7 @@ SRST
         requests pre-caching of the mapping, which speeds up the initial
         connection on some Windows versions. ``#NOFNR`` is necessary for
         Windows NT 3.1 to tell it not to send NBNS query packets that
-        QEMU does not handle, and is harmlessly ignored on other versions.
+        Nephrite does not handle, and is harmlessly ignored on other versions.
 
         The ``LMHOSTS`` file may be in different locations depending on
         the Windows version:
@@ -3535,7 +3535,7 @@ SRST
         can be given multiple times.
 
         You can either use a chardev directly and have that one used
-        throughout QEMU's lifetime, like in the following example:
+        throughout Nephrite's lifetime, like in the following example:
 
         .. parsed-literal::
 
@@ -3544,7 +3544,7 @@ SRST
             |qemu_system| -nic user,guestfwd=tcp:10.0.2.100:1234-tcp:10.10.1.1:4321
 
         Or you can execute a command on every TCP connection established
-        by the guest, so that QEMU behaves similar to an inetd process
+        by the guest, so that Nephrite behaves similar to an inetd process
         for that virtual server:
 
         .. parsed-literal::
@@ -3567,7 +3567,7 @@ SRST
     execution now, but in a future version it will be treated as a
     plain file name.
 
-    If running QEMU as an unprivileged user, use the network helper
+    If running Nephrite as an unprivileged user, use the network helper
     to configure the TAP interface and attach it to the bridge.
     The default network helper executable is
     ``/path/to/nephrite-bridge-helper`` and the default bridge device is
@@ -3622,9 +3622,9 @@ SRST
 
 ``-netdev socket,id=id[,fd=h][,listen=[host]:port][,connect=host:port]``
     This host network backend can be used to connect the guest's network
-    to another QEMU virtual machine using a TCP socket connection. If
-    ``listen`` is specified, QEMU waits for incoming connections on port
-    (host is optional). ``connect`` is used to connect to another QEMU
+    to another Nephrite virtual machine using a TCP socket connection. If
+    ``listen`` is specified, Nephrite waits for incoming connections on port
+    (host is optional). ``connect`` is used to connect to another Nephrite
     instance using the ``listen`` option. ``fd``\ =h specifies an
     already opened TCP socket.
 
@@ -3643,11 +3643,11 @@ SRST
 
 ``-netdev socket,id=id[,fd=h][,mcast=maddr:port[,localaddr=addr]]``
     Configure a socket host network backend to share the guest's network
-    traffic with another QEMU virtual machines using a UDP multicast
-    socket, effectively making a bus for every QEMU with same multicast
+    traffic with another Nephrite virtual machines using a UDP multicast
+    socket, effectively making a bus for every Nephrite with same multicast
     address maddr and port. NOTES:
 
-    1. Several QEMU can be running on different hosts and share same bus
+    1. Several Nephrite can be running on different hosts and share same bus
        (assuming correct multicast setup for these hosts).
 
     2. mcast support is compatible with User Mode Linux (argument
@@ -3692,7 +3692,7 @@ SRST
                          -netdev socket,id=n1,mcast=239.192.168.1:1102,localaddr=1.2.3.4
 
 ``-netdev stream,id=str[,server=on|off],addr.type=inet,addr.host=host,addr.port=port[,to=maxport][,numeric=on|off][,keep-alive=on|off][,mptcp=on|off][,addr.ipv4=on|off][,addr.ipv6=on|off][,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a TCP/IP socket.
+    Configure a network backend to connect to another Nephrite virtual machine or a proxy using a TCP/IP socket.
 
     ``server=on|off``
         if ``on`` create a server socket
@@ -3736,7 +3736,7 @@ SRST
                       -netdev stream,id=net0,server=off,addr.type=inet,addr.host=localhost,addr.port=1234,reconnect-ms=5000
 
 ``-netdev stream,id=str[,server=on|off],addr.type=unix,addr.path=path[,abstract=on|off][,tight=on|off][,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a stream oriented unix domain socket.
+    Configure a network backend to connect to another Nephrite virtual machine or a proxy using a stream oriented unix domain socket.
 
     ``server=on|off``
         if ``on`` create a server socket
@@ -3780,7 +3780,7 @@ SRST
                       -netdev stream,id=net0,server=off,addr.type=unix,addr.path=/tmp/qemu0,reconnect-ms=5000
 
 ``-netdev stream,id=str[,server=on|off],addr.type=fd,addr.str=file-descriptor[,reconnect-ms=milliseconds]``
-    Configure a network backend to connect to another QEMU virtual machine or a proxy using a stream oriented socket file descriptor.
+    Configure a network backend to connect to another Nephrite virtual machine or a proxy using a stream oriented socket file descriptor.
 
     ``server=on|off``
         if ``on`` create a server socket
@@ -3828,7 +3828,7 @@ SRST
         File descriptor to use to send packets
 
 ``-netdev dgram,id=str,local.type=inet,local.host=addr,local.port=port[,remote.type=inet,remote.host=addr,remote.port=port]``
-    Configure a network backend to connect to another QEMU virtual
+    Configure a network backend to connect to another Nephrite virtual
     machine or a proxy using a datagram oriented unix domain socket.
 
     ``local.host=addr,local.port=port``
@@ -3851,7 +3851,7 @@ SRST
                       -netdev dgram,id=net0,local.type=inet,local.host=localhost,local.port=1235,remote.type=inet,remote.host=localhost,remote.port=1234
 
 ``-netdev dgram,id=str,local.type=unix,local.path=path[,remote.type=unix,remote.path=path]``
-    Configure a network backend to connect to another QEMU virtual
+    Configure a network backend to connect to another Nephrite virtual
     machine or a proxy using a datagram oriented unix socket.
 
     ``local.path=path``
@@ -3874,7 +3874,7 @@ SRST
                       -netdev dgram,id=net0,local.type=unix,local.path=/tmp/qemu1,remote.type=unix,remote.path=/tmp/qemu0
 
 ``-netdev dgram,id=str,local.type=fd,local.str=file-descriptor``
-    Configure a network backend to connect to another QEMU virtual
+    Configure a network backend to connect to another Nephrite virtual
     machine or a proxy using a datagram oriented socket file descriptor.
 
     ``local.str=file-descriptor``
@@ -3953,7 +3953,7 @@ SRST
     on host and listening for incoming connections on socketpath. Use
     GROUP groupname and MODE octalmode to change default ownership and
     permissions for communication port. This option is only available if
-    QEMU has been compiled with vde support enabled.
+    Nephrite has been compiled with vde support enabled.
 
     Example:
 
@@ -4017,7 +4017,7 @@ SRST
     For the 'inhibit' option set to 'on' used together with 'map-path' it is
     expected that the XDP program with the socket map is already loaded on
     the networking device and the map pinned into BPF file system.  The path
-    to the pinned map is then passed to QEMU which then creates the file
+    to the pinned map is then passed to Nephrite which then creates the file
     descriptors and inserts them into the existing socket map.
 
     .. parsed-literal::
@@ -4059,7 +4059,7 @@ SRST
 ``-netdev hubport,id=id,hubid=hubid[,netdev=nd]``
     Create a hub port on the emulated hub with ID hubid.
 
-    The hubport netdev lets you connect a NIC to a QEMU emulated hub
+    The hubport netdev lets you connect a NIC to a Nephrite emulated hub
     instead of a single netdev. Alternatively, you can also connect the
     hubport to another netdev with ID nd by using the ``netdev=nd``
     option.
@@ -4077,7 +4077,7 @@ SRST
     can specify the number v of MSI-X vectors that the card should have;
     this option currently only affects virtio cards; set v = 0 to
     disable MSI-X. If no ``-net`` option is specified, a single NIC is
-    created. QEMU can emulate several different models of network card.
+    created. Nephrite can emulate several different models of network card.
     Use ``-net nic,model=help`` for a list of available devices for your
     target.
 
@@ -4154,15 +4154,15 @@ The general form of a character device option is:
     A character device may be used in multiplexing mode by multiple
     front-ends. Specify ``mux=on`` to enable this mode. A multiplexer is
     a "1:N" device, and here the "1" end is your specified chardev
-    backend, and the "N" end is the various parts of QEMU that can talk
+    backend, and the "N" end is the various parts of Nephrite that can talk
     to a chardev. If you create a chardev with ``id=myid`` and
-    ``mux=on``, QEMU will create a multiplexer with your specified ID,
+    ``mux=on``, Nephrite will create a multiplexer with your specified ID,
     and you can then configure multiple front ends to use that chardev
     ID for their input/output. Up to four different front ends can be
     connected to a single multiplexed chardev. (Without multiplexing
     enabled, a chardev can only be used by a single front end.) For
     instance you could use this to allow a single stdio chardev to be
-    used by two serial ports and the QEMU monitor:
+    used by two serial ports and the Nephrite monitor:
 
     ::
 
@@ -4173,7 +4173,7 @@ The general form of a character device option is:
 
     You can have more than one multiplexer in a system configuration;
     for instance you could have a TCP port multiplexed between UART 0
-    and UART 1, and stdio multiplexed between the QEMU monitor and a
+    and UART 1, and stdio multiplexed between the Nephrite monitor and a
     parallel port:
 
     ::
@@ -4193,11 +4193,11 @@ The general form of a character device option is:
     Note that some other command line options may implicitly create
     multiplexed character backends; for instance ``-serial mon:stdio``
     creates a multiplexed stdio backend connected to the serial port and
-    the QEMU monitor, and ``-nographic`` also multiplexes the console
+    the Nephrite monitor, and ``-nographic`` also multiplexes the console
     and the monitor to stdio.
 
     If you need to aggregate data in the opposite direction (where one
-    QEMU frontend interface receives input and output from multiple
+    Nephrite frontend interface receives input and output from multiple
     backend chardev devices), please refer to the paragraph below
     regarding chardev ``hub`` aggregator device configuration.
 
@@ -4220,7 +4220,7 @@ The available backends are:
 
     ``server=on|off`` specifies that the socket shall be a listening socket.
 
-    ``wait=on|off`` specifies that QEMU should not block waiting for a client
+    ``wait=on|off`` specifies that Nephrite should not block waiting for a client
     to connect to a listening socket.
 
     ``telnet=on|off`` specifies that traffic on the socket should interpret
@@ -4230,7 +4230,7 @@ The available backends are:
     communication.
 
     ``reconnect-ms`` sets the timeout for reconnecting on non-server
-    sockets when the remote end goes away. qemu will delay this many
+    sockets when the remote end goes away. Nephrite will delay this many
     milliseconds and then attempt to reconnect. Zero disables reconnecting,
     and is the default.
 
@@ -4259,7 +4259,7 @@ The available backends are:
         number or a service name. ``port`` is required.
 
         ``to`` is only relevant to listening sockets. If it is
-        specified, and ``port`` cannot be bound, QEMU will attempt to
+        specified, and ``port`` cannot be bound, Nephrite will attempt to
         bind to subsequent ports up to and including ``to`` until it
         succeeds. ``to`` must be specified as a port number.
 
@@ -4296,7 +4296,7 @@ The available backends are:
     If neither is specified the device may use either protocol.
 
 ``-chardev msmouse,id=id``
-    Forward QEMU's emulated msmouse events to the guest. ``msmouse``
+    Forward Nephrite's emulated msmouse events to the guest. ``msmouse``
     does not take any options.
 
 ``-chardev hub,id=id,chardevs.0=id[,chardevs.N=id]``
@@ -4325,7 +4325,7 @@ The available backends are:
        -device virtconsole,chardev=hub0 \
        -vnc 0.0.0.0:0
 
-    Once QEMU starts VNC client and any TTY emulator can be used to
+    Once Nephrite starts VNC client and any TTY emulator can be used to
     control a single hvc console:
 
     ::
@@ -4340,7 +4340,7 @@ The available backends are:
     and hub devices is not supported as well.
 
 ``-chardev vc,id=id[[,width=width][,height=height]][[,cols=cols][,rows=rows]][,encoding=ENCODING]``
-    Connect to a QEMU text console. The implementation and supported feature
+    Connect to a Nephrite text console. The implementation and supported feature
     set depend on the selected display backend.
 
     - The GTK backend uses libvte for the emulation and display (when available).
@@ -4349,7 +4349,7 @@ The available backends are:
 
     - spice-app backend exports it as a Spice port.
 
-    In other cases, QEMU uses its own emulated VT100, and ``vc`` may optionally be
+    In other cases, Nephrite uses its own emulated VT100, and ``vc`` may optionally be
     given a specific size.
 
     ``width`` and ``height`` specify the width and height respectively
@@ -4387,14 +4387,14 @@ The available backends are:
 
     On other hosts, 2 pipes will be created called ``path.in`` and
     ``path.out``. Data written to ``path.in`` will be received by the
-    guest. Data written by the guest can be read from ``path.out``. QEMU
+    guest. Data written by the guest can be read from ``path.out``. Nephrite
     will not create these fifos, and requires them to be present.
 
     ``path`` forms part of the pipe path as described above. ``path`` is
     required.
 
 ``-chardev console,id=id``
-    Send traffic from the guest to QEMU's standard output. ``console``
+    Send traffic from the guest to Nephrite's standard output. ``console``
     does not take any options.
 
     ``console`` is only available on Windows hosts.
@@ -4412,22 +4412,22 @@ The available backends are:
 
     ``pty`` is not available on Windows hosts.
 
-    If ``path`` is specified, QEMU will create a symbolic link at
+    If ``path`` is specified, Nephrite will create a symbolic link at
     that location which points to the new PTY device.
 
     This avoids having to make QMP or HMP monitor queries to find out
     what the new PTY device path is.
 
-    Note that while QEMU will remove the symlink when it exits
+    Note that while Nephrite will remove the symlink when it exits
     gracefully, it will not do so in case of crashes or on certain
     startup errors. It is recommended that the user checks and removes
-    the symlink after QEMU terminates to account for this.
+    the symlink after Nephrite terminates to account for this.
 
 ``-chardev stdio,id=id[,signal=on|off]``
-    Connect to standard input and standard output of the QEMU process.
+    Connect to standard input and standard output of the Nephrite process.
 
     ``signal`` controls if signals are enabled on the terminal, that
-    includes exiting QEMU with the key sequence Control-c. This option
+    includes exiting Nephrite with the key sequence Control-c. This option
     is enabled by default, use ``signal=off`` to disable it.
 
 ``-chardev braille,id=id``
@@ -4508,7 +4508,7 @@ The available backends are:
 
     ``cancel-path`` specifies the path to the host TPM device's sysfs
     entry allowing for cancellation of an ongoing TPM command.
-    ``cancel-path`` is optional and by default QEMU will search for the
+    ``cancel-path`` is optional and by default Nephrite will search for the
     sysfs entry to use.
 
     Some notes about using the host's TPM with the passthrough driver:
@@ -4556,7 +4556,7 @@ DEFHEADING()
 
 DEFHEADING(Boot Image or Kernel specific:)
 SRST
-There are broadly 4 ways you can boot a system with QEMU.
+There are broadly 4 ways you can boot a system with Nephrite.
 
  - specify a firmware and let it control finding a kernel
  - specify a firmware and pass a hint to the kernel to boot
@@ -4752,7 +4752,7 @@ SRST
     ``insecure-input=crash``
         Crash on insecure configuration requests
 
-    Limitation: an insecure configuration is one where QEMU does
+    Limitation: an insecure configuration is one where Nephrite does
     not provide a security boundary to protect against malicious
     usage / untrusted data. Covers only user creatable QOM types
     for devices, machine types and accelerators. Implicitly created
@@ -4780,7 +4780,7 @@ SRST
     included as part of the fw\_cfg item data. To insert contents with
     embedded NUL characters, you have to use the file parameter.
 
-    The fw\_cfg entries are passed by QEMU through to the guest.
+    The fw\_cfg entries are passed by Nephrite through to the guest.
 
     Example:
 
@@ -4826,16 +4826,16 @@ SRST
     ``pty[:path]``
         [Linux only] Pseudo TTY (a new PTY is automatically allocated).
 
-        If ``path`` is specified, QEMU will create a symbolic link at
+        If ``path`` is specified, Nephrite will create a symbolic link at
         that location which points to the new PTY device.
 
         This avoids having to make QMP or HMP monitor queries to find
         out what the new PTY device path is.
 
-        Note that while QEMU will remove the symlink when it exits
+        Note that while Nephrite will remove the symlink when it exits
         gracefully, it will not do so in case of crashes or on certain
         startup errors. It is recommended that the user checks and
-        removes the symlink after QEMU terminates to account for this.
+        removes the symlink after Nephrite terminates to account for this.
 
     ``none``
         No device is allocated. Note that for machine types which
@@ -4880,21 +4880,21 @@ SRST
         specified src\_port a random port is automatically chosen.
 
         If you just want a simple readonly console you can use
-        ``netcat`` or ``nc``, by starting QEMU with:
+        ``netcat`` or ``nc``, by starting Nephrite with:
         ``-serial udp::4555`` and nc as: ``nc -u -l -p 4555``. Any time
-        QEMU writes something to that port it will appear in the
+        Nephrite writes something to that port it will appear in the
         netconsole session.
 
         If you plan to send characters back via netconsole or you want
-        to stop and start QEMU a lot of times, you should have QEMU use
+        to stop and start Nephrite a lot of times, you should have Nephrite use
         the same source port each time by using something like ``-serial
-        udp::4555@:4556`` to QEMU. Another approach is to use a patched
+        udp::4555@:4556`` to Nephrite. Another approach is to use a patched
         version of netcat which can listen to a TCP port and send and
         receive characters via udp. If you have a patched version of
         netcat which activates telnet remote echo and single char
         transfer, then you can use the following options to set up a
         netcat redirector to allow telnet on port 5555 to access the
-        QEMU port.
+        Nephrite port.
 
         ``QEMU Options:``
             -serial udp::4555@:4556
@@ -4909,7 +4909,7 @@ SRST
         The TCP Net Console has two modes of operation. It can send the
         serial I/O to a location or wait for a connection from a
         location. By default the TCP Net Console is sent to host at the
-        port. If you use the ``server=on`` option QEMU will wait for a client
+        port. If you use the ``server=on`` option Nephrite will wait for a client
         socket application to connect to the port before continuing,
         unless the ``wait=on|off`` option was specified. The ``nodelay=on|off``
         option disables the Nagle buffering algorithm. The ``reconnect-ms``
@@ -4958,7 +4958,7 @@ SRST
         ``-serial mon:telnet::4444,server=on,wait=off``
 
         When the monitor is multiplexed to stdio in this way, Ctrl+C
-        will not terminate QEMU any more but will be passed to the guest
+        will not terminate Nephrite any more but will be passed to the guest
         instead.
 
     ``braille``
@@ -5033,7 +5033,7 @@ DEF("mon", HAS_ARG, QEMU_OPTION_mon, \
 SRST
 ``-mon [chardev=]name[,mode=readline|control][,pretty=on|off]``
     Set up a monitor connected to the chardev ``name``.
-    QEMU supports two monitors: the Human Monitor Protocol
+    Nephrite supports two monitors: the Human Monitor Protocol
     (HMP; for human interaction), and the QEMU Monitor Protocol
     (QMP; a JSON RPC-style protocol).
     The default is HMP; ``mode=control`` selects QMP instead.
@@ -5075,7 +5075,7 @@ DEF("pidfile", HAS_ARG, QEMU_OPTION_pidfile, \
     "-pidfile file   write PID to 'file'\n", QEMU_ARCH_ALL)
 SRST
 ``-pidfile file``
-    Store the QEMU process PID in file. It is useful if you launch QEMU
+    Store the Nephrite process PID in file. It is useful if you launch Nephrite
     from a script.
 ERST
 
@@ -5084,7 +5084,7 @@ DEF("preconfig", 0, QEMU_OPTION_preconfig, \
     QEMU_ARCH_ALL)
 SRST
 ``--preconfig``
-    Pause QEMU for interactive configuration before the machine is
+    Pause Nephrite for interactive configuration before the machine is
     created, which allows querying and configuring properties that will
     affect machine initialization. Use QMP command 'x-exit-preconfig' to
     exit the preconfig state and move to the next state (i.e. run guest
@@ -5102,7 +5102,7 @@ ERST
 
 DEF("overcommit", HAS_ARG, QEMU_OPTION_overcommit,
     "-overcommit [mem-lock=on|off|on-fault][cpu-pm=on|off]\n"
-    "                run qemu with overcommit hints\n"
+    "                run Nephrite with overcommit hints\n"
     "                mem-lock=on|off|on-fault controls memory lock support (default: off)\n"
     "                cpu-pm=on|off controls cpu power management (default: off)\n",
     QEMU_ARCH_ALL)
@@ -5110,15 +5110,15 @@ SRST
 ``-overcommit mem-lock=on|off|on-fault``
   \ 
 ``-overcommit cpu-pm=on|off``
-    Run qemu with hints about host resource overcommit. The default is
+    Run Nephrite with hints about host resource overcommit. The default is
     to assume that host overcommits all resources.
 
-    Locking qemu and guest memory can be enabled via ``mem-lock=on``
+    Locking Nephrite and guest memory can be enabled via ``mem-lock=on``
     or ``mem-lock=on-fault`` (disabled by default). This works when
     host memory is not overcommitted and reduces the worst-case latency for
     guest. The on-fault option is better for reducing the memory footprint
     since it makes allocations lazy, but the pages still get locked in place
-    once faulted by the guest or QEMU. Note that the two options are mutually
+    once faulted by the guest or Nephrite. Note that the two options are mutually
     exclusive.
 
     Guest ability to manage power state of host cpus (increasing latency
@@ -5137,10 +5137,10 @@ DEF("gdb", HAS_ARG, QEMU_OPTION_gdb, \
 SRST
 ``-gdb dev``
     Accept a gdb connection on device dev (see the :ref:`GDB usage` chapter
-    in the System Emulation Users Guide). Note that this option does not pause QEMU
-    execution -- if you want QEMU to not start the guest until you
+    in the System Emulation Users Guide). Note that this option does not pause Nephrite
+    execution -- if you want Nephrite to not start the guest until you
     connect with gdb and issue a ``continue`` command, you will need to
-    also pass the ``-S`` option to QEMU.
+    also pass the ``-S`` option to Nephrite.
 
     The most usual configuration is to listen on a local TCP socket::
 
@@ -5148,7 +5148,7 @@ SRST
 
     but you can specify other backends; UDP, pseudo TTY, or even stdio
     are all reasonable use cases. For example, a stdio connection
-    allows you to start QEMU from within gdb and establish the
+    allows you to start Nephrite from within gdb and establish the
     connection via a pipe:
 
     .. parsed-literal::
@@ -5249,7 +5249,7 @@ SRST
 
 ``-xen-attach``
     Attach to existing xen domain. libxl will use this when starting
-    QEMU (XEN only). Restrict set of available xen operations to
+    Nephrite (XEN only). Restrict set of available xen operations to
     specified domain id (XEN only).
 ERST
 
@@ -5264,7 +5264,7 @@ DEF("no-shutdown", 0, QEMU_OPTION_no_shutdown, \
     "-no-shutdown    stop before shutdown\n", QEMU_ARCH_ALL)
 SRST
 ``-no-shutdown``
-    Don't exit QEMU on guest shutdown, but instead only stop the
+    Don't exit Nephrite on guest shutdown, but instead only stop the
     emulation. This allows for instance switching to monitor to commit
     changes to the disk image.
 ERST
@@ -5281,7 +5281,7 @@ DEF("action", HAS_ARG, QEMU_OPTION_action,
     QEMU_ARCH_ALL)
 SRST
 ``-action event=action``
-    The action parameter serves to modify QEMU's default behavior when
+    The action parameter serves to modify Nephrite's default behavior when
     certain guest events occur. It provides a generic method for specifying the
     same behaviors that are modified by the ``-no-reboot`` and ``-no-shutdown``
     parameters.
@@ -5309,10 +5309,10 @@ DEF("daemonize", 0, QEMU_OPTION_daemonize, \
 #endif
 SRST
 ``-daemonize``
-    Daemonize the QEMU process after initialization. QEMU will not
+    Daemonize the Nephrite process after initialization. Nephrite will not
     detach from standard IO until it is ready to receive connections on
     any of its devices. This option is a useful way for external
-    programs to launch QEMU without having to cope with initialization
+    programs to launch Nephrite without having to cope with initialization
     race conditions.
 ERST
 
@@ -5414,7 +5414,7 @@ DEF("watchdog-action", HAS_ARG, QEMU_OPTION_watchdog_action, \
     QEMU_ARCH_ALL)
 SRST
 ``-watchdog-action action``
-    The action controls what QEMU will do when the watchdog timer
+    The action controls what Nephrite will do when the watchdog timer
     expires. The default is ``reset`` (forcefully reset the guest).
     Other possible actions are: ``shutdown`` (attempt to gracefully
     shutdown the guest), ``poweroff`` (forcefully poweroff the guest),
@@ -5523,7 +5523,7 @@ DEF("nodefaults", 0, QEMU_OPTION_nodefaults, \
     "-nodefaults     don't create default devices\n", QEMU_ARCH_ALL)
 SRST
 ``-nodefaults``
-    Don't create default devices. Normally, QEMU sets the default
+    Don't create default devices. Normally, Nephrite sets the default
     devices like serial port, parallel port, virtual console, monitor
     device, VGA adapter, floppy and CD-ROM drive and others. The
     ``-nodefaults`` option will disable all those default devices.
@@ -5539,12 +5539,12 @@ SRST
 
     ::
 
-        qemu-system-sparc -prom-env 'auto-boot?=false' \
+        nephrite-system-sparc -prom-env 'auto-boot?=false' \
          -prom-env 'boot-device=sd(0,2,0):d' -prom-env 'boot-args=linux single'
 
     ::
 
-        qemu-system-ppc -prom-env 'auto-boot?=false' \
+        nephrite-system-ppc -prom-env 'auto-boot?=false' \
          -prom-env 'boot-device=hd:2,\yaboot' \
          -prom-env 'boot-args=conf=hd:2,\yaboot.conf'
 ERST
@@ -5578,7 +5578,7 @@ SRST
       should only be used with a trusted guest OS.
 
     ``target=native|gdb|auto``
-        Defines where the semihosting calls will be addressed, to QEMU
+        Defines where the semihosting calls will be addressed, to Nephrite
         (``native``) or to GDB (``gdb``). The default is ``auto``, which
         means ``gdb`` during debug sessions and ``native`` otherwise.
 
@@ -5641,7 +5641,7 @@ DEF("readconfig", HAS_ARG, QEMU_OPTION_readconfig,
 SRST
 ``-readconfig file``
     Read device configuration from file. This approach is useful when
-    you want to spawn QEMU process with many command line options but
+    you want to spawn Nephrite process with many command line options but
     you don't want to exceed the command line character limit.
 ERST
 
@@ -5651,7 +5651,7 @@ DEF("no-user-config", 0, QEMU_OPTION_nouserconfig,
     QEMU_ARCH_ALL)
 SRST
 ``-no-user-config``
-    The ``-no-user-config`` option makes QEMU not load any of the
+    The ``-no-user-config`` option makes Nephrite not load any of the
     user-provided config files on sysconfdir.
 ERST
 
@@ -5697,31 +5697,31 @@ DEF("run-with", HAS_ARG, QEMU_OPTION_run_with,
     QEMU_ARCH_ALL)
 SRST
 ``-run-with [async-teardown=on|off][,chroot=dir][,exit-with-parent=on|off][,user=username|uid:gid]``
-    Set QEMU process lifecycle options.
+    Set Nephrite process lifecycle options.
 
     ``async-teardown=on`` enables asynchronous teardown. A new process called
     "cleanup/<QEMU_PID>" will be created at startup sharing the address
-    space with the main QEMU process, using clone. It will wait for the
-    main QEMU process to terminate completely, and then exit. This allows
-    QEMU to terminate very quickly even if the guest was huge, leaving the
+    space with the main Nephrite process, using clone. It will wait for the
+    main Nephrite process to terminate completely, and then exit. This allows
+    Nephrite to terminate very quickly even if the guest was huge, leaving the
     teardown of the address space to the cleanup process. Since the cleanup
-    process shares the same cgroups as the main QEMU process, accounting is
+    process shares the same cgroups as the main Nephrite process, accounting is
     performed correctly. This only works if the cleanup process is not
-    forcefully killed with SIGKILL before the main QEMU process has
+    forcefully killed with SIGKILL before the main Nephrite process has
     terminated completely.
 
     ``chroot=dir`` can be used for doing a chroot to the specified directory
     immediately before starting the guest execution. This is especially useful
     in combination with ``user=...``.
 
-    ``exit-with-parent=on`` causes QEMU to exit if the parent process of
-    QEMU exits.  This can be used when QEMU runs a captive appliance,
+    ``exit-with-parent=on`` causes Nephrite to exit if the parent process of
+    Nephrite exits.  This can be used when Nephrite runs a captive appliance,
     where the lifetime of the appliance is scoped to the parent process.
-    In case the parent process crashes, QEMU is still cleaned up.
+    In case the parent process crashes, Nephrite is still cleaned up.
     This only works on Linux, FreeBSD and macOS platforms.
 
     ``user=username`` or ``user=uid:gid`` can be used to drop root privileges
-    before starting guest execution. QEMU will use the ``setuid`` and ``setgid``
+    before starting guest execution. Nephrite will use the ``setuid`` and ``setgid``
     system calls to switch to the specified identity.  Note that the
     ``user=username`` syntax will also apply the full set of supplementary
     groups for the user, whereas the ``user=uid:gid`` will use only the
@@ -5860,8 +5860,8 @@ SRST
         huge page filesystem mount.
 
         The ``share`` boolean option determines whether the memory
-        region is marked as private to QEMU, or shared. The latter
-        allows a co-operating external process to access the QEMU memory
+        region is marked as private to Nephrite, or shared. The latter
+        allows a co-operating external process to access the Nephrite memory
         region.
 
         Setting share=on might affect the ability to configure NUMA
@@ -5870,9 +5870,9 @@ SRST
         source tree for additional details.
 
         Setting the ``discard-data`` boolean option to on indicates that
-        file contents can be destroyed when QEMU exits, to avoid
+        file contents can be destroyed when Nephrite exits, to avoid
         unnecessarily flushing data to the backing file. Note that
-        ``discard-data`` is only an optimization, and QEMU might not
+        ``discard-data`` is only an optimization, and Nephrite might not
         discard file contents if it aborts unexpectedly or is terminated
         using SIGKILL.
 
@@ -5905,9 +5905,9 @@ SRST
             list
 
         The ``align`` option specifies the base address alignment when
-        QEMU mmap(2) ``mem-path``, and accepts common suffixes, eg
+        Nephrite mmap(2) ``mem-path``, and accepts common suffixes, eg
         ``2M``. Some backend store specified by ``mem-path`` requires an
-        alignment different than the default one used by QEMU, eg the
+        alignment different than the default one used by Nephrite, eg the
         device DAX /dev/dax0.0 requires 2M alignment rather than 4K. In
         such cases, users can specify the required alignment via this
         option.
@@ -5919,7 +5919,7 @@ SRST
         The ``pmem`` option specifies whether the backing file specified
         by ``mem-path`` is in host persistent memory that can be
         accessed using the SNIA NVM programming model (e.g. Intel
-        NVDIMM). If ``pmem`` is set to 'on', QEMU will take necessary
+        NVDIMM). If ``pmem`` is set to 'on', Nephrite will take necessary
         operations to guarantee the persistence of its own writes to
         ``mem-path`` (e.g. in vNVDIMM label emulation and live
         migration). Also, we will map the backend-file with MAP\_SYNC
@@ -5942,7 +5942,7 @@ SRST
         we want to have writable RAM in configurations that would
         traditionally create ROM before the ``rom`` option was introduced:
         VM templating, where we want to open a file readonly
-        (``readonly=on``) and mark the memory to be private for QEMU
+        (``readonly=on``) and mark the memory to be private for Nephrite
         (``share=off``). For this use case, we need writable RAM instead
         of ROM, and want to also set ``rom=off``.
 
@@ -5955,7 +5955,7 @@ SRST
 
     ``-object memory-backend-memfd,id=id,merge=on|off,dump=on|off,share=on|off,prealloc=on|off,size=size,host-nodes=host-nodes,policy=default|preferred|bind|interleave,seal=on|off,hugetlb=on|off,hugetlbsize=size``
         Creates an anonymous memory file backend object, which allows
-        QEMU to share the memory with an external process (e.g. when
+        Nephrite to share the memory with an external process (e.g. when
         using vhost-user). The memory is allocated with memfd and
         optional sealing. (Linux only)
 
@@ -5980,7 +5980,7 @@ SRST
 
     ``-object memory-backend-shm,id=id,merge=on|off,dump=on|off,share=on|off,prealloc=on|off,size=size,host-nodes=host-nodes,policy=default|preferred|bind|interleave``
         Creates a POSIX shared memory backend object, which allows
-        QEMU to share the memory with an external process (e.g. when
+        Nephrite to share the memory with an external process (e.g. when
         using vhost-user).
 
         ``memory-backend-shm`` is a more portable and less featureful version
@@ -6008,7 +6008,7 @@ SRST
 
     ``-object rng-builtin,id=id``
         Creates a random number generator backend which obtains entropy
-        from QEMU builtin functions. The ``id`` parameter is a unique ID
+        from Nephrite builtin functions. The ``id`` parameter is a unique ID
         that will be used to reference this entropy backend from the
         ``virtio-rng`` device. By default, the ``virtio-rng`` device
         uses this RNG backend.
@@ -6034,16 +6034,16 @@ SRST
         provide TLS support on network backends. The ``id`` parameter is
         a unique ID which network backends will use to access the
         credentials. The ``endpoint`` is either ``server`` or ``client``
-        depending on whether the QEMU network backend that uses the
+        depending on whether the Nephrite network backend that uses the
         credentials will be acting as a client or as a server. If
         ``verify-peer`` is enabled (the default) then once the handshake
         is completed, the peer credentials will be verified, though this
         is a no-op for anonymous credentials.
 
-        The dir parameter tells QEMU where to find the credential files.
+        The dir parameter tells Nephrite where to find the credential files.
         For server endpoints, this directory may contain a file
         dh-params.pem providing diffie-hellman parameters to use for the
-        TLS server. If the file is missing, QEMU will generate a set of
+        TLS server. If the file is missing, Nephrite will generate a set of
         DH parameters at startup. This is a computationally expensive
         operation that consumes random pool entropy, so it is
         recommended that a persistent set of parameters be generated
@@ -6054,19 +6054,19 @@ SRST
         can be used to provide TLS support on network backends. The
         ``id`` parameter is a unique ID which network backends will use
         to access the credentials. The ``endpoint`` is either ``server``
-        or ``client`` depending on whether the QEMU network backend that
+        or ``client`` depending on whether the Nephrite network backend that
         uses the credentials will be acting as a client or as a server.
         For clients only, ``username`` is the username which will be
         sent to the server. If omitted it defaults to "nephrite".
 
-        The dir parameter tells QEMU where to find the keys file. It is
+        The dir parameter tells Nephrite where to find the keys file. It is
         called "dir/keys.psk" and contains "username:key" pairs. This
         file can most easily be created using the GnuTLS ``psktool``
         program.
 
         For server endpoints, dir may also contain a file dh-params.pem
         providing diffie-hellman parameters to use for the TLS server.
-        If the file is missing, QEMU will generate a set of DH
+        If the file is missing, Nephrite will generate a set of DH
         parameters at startup. This is a computationally expensive
         operation that consumes random pool entropy, so it is
         recommended that a persistent set of parameters be generated up
@@ -6077,17 +6077,17 @@ SRST
         provide TLS support on network backends. The ``id`` parameter is
         a unique ID which network backends will use to access the
         credentials. The ``endpoint`` is either ``server`` or ``client``
-        depending on whether the QEMU network backend that uses the
+        depending on whether the Nephrite network backend that uses the
         credentials will be acting as a client or as a server. If
         ``verify-peer`` is enabled (the default) then once the handshake
         is completed, the peer credentials will be verified. With x509
         certificates, this implies that the clients must be provided
         with valid client certificates too.
 
-        The dir parameter tells QEMU where to find the credential files.
+        The dir parameter tells Nephrite where to find the credential files.
         For server endpoints, this directory may contain a file
         dh-params.pem providing diffie-hellman parameters to use for the
-        TLS server. If the file is missing, QEMU will generate a set of
+        TLS server. If the file is missing, Nephrite will generate a set of
         DH parameters at startup. This is a computationally expensive
         operation that consumes random pool entropy, so it is
         recommended that a persistent set of parameters be generated
@@ -6109,9 +6109,9 @@ SRST
         The priority parameter allows to override the global default
         priority used by gnutls. This can be useful if the system
         administrator needs to use a weaker set of crypto priorities for
-        QEMU without potentially forcing the weakness onto all
+        Nephrite without potentially forcing the weakness onto all
         applications. Or conversely if one wants wants a stronger
-        default for QEMU than for all other applications, they can do
+        default for Nephrite than for all other applications, they can do
         this through this parameter. Its format is a gnutls priority
         string as described at
         https://gnutls.org/manual/html_node/Priority-Strings.html.
@@ -6128,9 +6128,9 @@ SRST
         The ``priority`` parameter allows to override the global default
         priority used by gnutls. This can be useful if the system
         administrator needs to use a weaker set of crypto priorities for
-        QEMU without potentially forcing the weakness onto all
+        Nephrite without potentially forcing the weakness onto all
         applications. Or conversely if one wants wants a stronger
-        default for QEMU than for all other applications, they can do
+        default for Nephrite than for all other applications, they can do
         this through this parameter. Its format is a gnutls priority
         string as described at
         https://gnutls.org/manual/html_node/Priority-Strings.html.
@@ -6144,7 +6144,7 @@ SRST
 
         In the following example, the priority at which the host-side policy
         is retrieved is given by the ``priority`` property.
-        Given that QEMU uses GNUTLS, ``priority=@SYSTEM`` may be used to
+        Given that Nephrite uses GNUTLS, ``priority=@SYSTEM`` may be used to
         refer to /etc/crypto-policies/back-ends/gnutls.config.
 
         .. parsed-literal::
@@ -6314,7 +6314,7 @@ SRST
 
     ``-object cryptodev-backend-builtin,id=id[,queues=queues]``
         Creates a cryptodev backend which executes crypto operations from
-        the QEMU cipher APIs. The id parameter is a unique ID that will
+        the Nephrite cipher APIs. The id parameter is a unique ID that will
         be used to reference this cryptodev backend from the
         ``virtio-crypto`` device. The queues parameter is optional,
         which specify the queue number of cryptodev backend, the default
@@ -6360,7 +6360,7 @@ SRST
         The sensitive data can be provided in raw format (the default),
         or base64. When encoded as JSON, the raw format only supports
         valid UTF-8 characters, so base64 is recommended for sending
-        binary data. QEMU will convert from which ever format is
+        binary data. Nephrite will convert from which ever format is
         provided to the format it needs internally. eg, an RBD password
         can be provided in raw format, even though it will be base64
         encoded when passed onto the RBD sever.
@@ -6383,8 +6383,10 @@ SRST
 
         The simplest secure usage is to provide the secret via a file
 
-        # printf "letmein" > mypasswd.txt # QEMU\_SYSTEM\_MACRO -object
-        secret,id=sec0,file=mypasswd.txt,format=raw
+        .. parsed-literal::
+
+             # printf "letmein" > mypasswd.txt
+             # |qemu_system| -object secret,id=sec0,file=mypasswd.txt,format=raw
 
         For greater security, AES-256-CBC should be used. To illustrate
         usage, consider the openssl command line tool which can encrypt
@@ -6417,7 +6419,7 @@ SRST
              # SECRET=$(printf "letmein" |
                         openssl enc -aes-256-cbc -a -K $KEY -iv $IV)
 
-        When launching QEMU, create a master secret pointing to
+        When launching Nephrite, create a master secret pointing to
         ``key.b64`` and specify that to be used to decrypt the user
         password. Pass the contents of ``iv.b64`` to the second secret
 
@@ -6511,7 +6513,7 @@ SRST
 
         The ``quote-generation-socket`` property specifies the socket address
         of the Quote Generation Service (QGS). QGS is a daemon running on the
-        host. QEMU forwards the <GetQuote> request from TD guest to QGS and
+        host. Nephrite forwards the <GetQuote> request from TD guest to QGS and
         sents the reply (which contains generated QUOTE on success) from QGS
         to guest TD.
 
@@ -6623,7 +6625,7 @@ SRST
 
              # |qemu_system| \\
                  ... \\
-                 -object authz-simple,id=auth0,filename=/etc/qemu/vnc-sasl.acl,refresh=on \\
+                 -object authz-simple,id=auth0,filename=/etc/nephrite/vnc-sasl.acl,refresh=on \\
                  ...
 
     ``-object authz-pam,id=id,service=string``
@@ -6642,18 +6644,18 @@ SRST
 
              # |qemu_system| \\
                  ... \\
-                 -object authz-pam,id=auth0,service=qemu-vnc \\
+                 -object authz-pam,id=auth0,service=nephrite-vnc \\
                  ...
 
         There would then be a corresponding config file for PAM at
-        ``/etc/pam.d/qemu-vnc`` that contains:
+        ``/etc/pam.d/nephrite-vnc`` that contains:
 
         ::
 
             account requisite  pam_listfile.so item=user sense=allow \
-                       file=/etc/qemu/vnc.allow
+                       file=/etc/nephrite/vnc.allow
 
-        Finally the ``/etc/qemu/vnc.allow`` file would contain the list
+        Finally the ``/etc/nephrite/vnc.allow`` file would contain the list
         of x509 distinguished names that are permitted access
 
         ::

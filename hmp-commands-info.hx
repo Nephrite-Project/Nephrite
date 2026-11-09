@@ -21,7 +21,7 @@ HXCOMM "info" documentation entry.
 
 SRST
   ``info version``
-    Show the version of QEMU.
+    Show the version of Nephrite.
 ERST
 
     {
@@ -306,7 +306,7 @@ ERST
 
 SRST
   ``info accelerators``
-    Show which accelerators are compiled into a QEMU binary, and what accelerator
+    Show which accelerators are compiled into a Nephrite binary, and what accelerator
     is in use. For example::
 
         kvm qtest [tcg]

@@ -78,7 +78,7 @@ ERST
 
 SRST
 ``exit_preconfig``
-  This command makes QEMU exit the preconfig state and proceed with
+  This command makes Nephrite exit the preconfig state and proceed with
   VM initialization using configuration data provided on the command line
   and via the QMP monitor during the preconfig state. The command is only
   available during the preconfig state (i.e. when the --preconfig command
@@ -215,7 +215,7 @@ SRST
 ``drive_del`` *device*
   Remove host block device.  The result is that guest generated IO is no longer
   submitted against the host device underlying the disk.  Once a drive has
-  been deleted, the QEMU Block layer returns -EIO which results in IO
+  been deleted, the Nephrite Block layer returns -EIO which results in IO
   errors in the guest for applications that are reading/writing to the device.
   These errors are always reported to the guest, regardless of the drive's error
   actions (drive options rerror, werror).
@@ -1180,7 +1180,7 @@ ERST
                       "new image file will become the new root image.\n\t\t\t"
                       "If format is specified, the snapshot file will\n\t\t\t"
                       "be created in that format.\n\t\t\t"
-                      "The default format is qcow2.  The -n flag requests QEMU\n\t\t\t"
+                      "The default format is qcow2.  The -n flag requests Nephrite\n\t\t\t"
                       "to reuse the image found in new-image-file, instead of\n\t\t\t"
                       "recreating it from scratch.",
         .cmd        = hmp_snapshot_blkdev,
@@ -1211,7 +1211,7 @@ ERST
         .args_type  = "device:B,name:s,id:s?",
         .params     = "device name [id]",
         .help       = "delete an internal snapshot of device.\n\t\t\t"
-                      "If id is specified, qemu will try delete\n\t\t\t"
+                      "If id is specified, Nephrite will try delete\n\t\t\t"
                       "the snapshot matching both id and name.\n\t\t\t"
                       "The format of the image used by device must\n\t\t\t"
                       "support it, such as qcow2.\n\t\t\t",
@@ -1231,9 +1231,9 @@ ERST
                       "migration for a device. The device's contents are\n\t\t\t"
                       "copied to the new image file, including data that\n\t\t\t"
                       "is written after the command is started.\n\t\t\t"
-                      "The -n flag requests QEMU to reuse the image found\n\t\t\t"
+                      "The -n flag requests Nephrite to reuse the image found\n\t\t\t"
                       "in new-image-file, instead of recreating it from scratch.\n\t\t\t"
-                      "The -f flag requests QEMU to copy the whole disk,\n\t\t\t"
+                      "The -f flag requests Nephrite to copy the whole disk,\n\t\t\t"
                       "so that the result does not need a backing file.\n\t\t\t",
         .cmd        = hmp_drive_mirror,
     },
@@ -1251,11 +1251,11 @@ ERST
                       "copy for a device. The device's contents are\n\t\t\t"
                       "copied to the new image file, excluding data that\n\t\t\t"
                       "is written after the command is started.\n\t\t\t"
-                      "The -n flag requests QEMU to reuse the image found\n\t\t\t"
+                      "The -n flag requests Nephrite to reuse the image found\n\t\t\t"
                       "in new-image-file, instead of recreating it from scratch.\n\t\t\t"
-                      "The -f flag requests QEMU to copy the whole disk,\n\t\t\t"
+                      "The -f flag requests Nephrite to copy the whole disk,\n\t\t\t"
                       "so that the result does not need a backing file.\n\t\t\t"
-                      "The -c flag requests QEMU to compress backup data\n\t\t\t"
+                      "The -c flag requests Nephrite to compress backup data\n\t\t\t"
                       "(if the target format supports it).\n\t\t\t",
         .cmd        = hmp_drive_backup,
     },
@@ -1470,7 +1470,7 @@ ERST
     },
 SRST
 ``nbd_server_add`` *device* [ *name* ]
-  Export a block device through QEMU's NBD server, which must be started
+  Export a block device through Nephrite's NBD server, which must be started
   beforehand with ``nbd_server_start``.  The ``-w`` option makes the
   exported device writable too.  The export name is controlled by *name*,
   defaulting to *device*.
@@ -1486,7 +1486,7 @@ ERST
     },
 SRST
 ``nbd_server_remove [-f]`` *name*
-  Stop exporting a block device through QEMU's NBD server, which was
+  Stop exporting a block device through Nephrite's NBD server, which was
   previously started with ``nbd_server_add``.  The ``-f``
   option forces the server to drop the export immediately even if
   clients are connected; otherwise the command fails unless there are no
@@ -1503,7 +1503,7 @@ ERST
     },
 SRST
 ``nbd_server_stop``
-  Stop the QEMU embedded NBD server.
+  Stop the Nephrite embedded NBD server.
 ERST
 
     {
