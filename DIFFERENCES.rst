@@ -96,8 +96,9 @@ Names and packaging
   strings (``Nephrite USB Tablet``), the virtio input devices' names, the
   EDID's monitor name (``Nephrite``), the x86 CPU models' brand strings
   (``Nephrite Virtual CPU version 2.5+``, and ``Nephrite TCG CPU version
-  2.5+`` for TCG's ``max``), user mode's ``/proc/cpuinfo``, and vvfat's
-  default volume label, ``NEPHRITE``. Vendor
+  2.5+`` for TCG's ``max``), user mode's ``/proc/cpuinfo``, vvfat's
+  default volume label, ``NEPHRITE``, and the boot loader name that
+  Multiboot kernels get, ``nephrite``. Vendor
   identifiers, such as the SCSI vendor ``QEMU`` and the USB vendor ID
   46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
