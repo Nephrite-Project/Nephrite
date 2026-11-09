@@ -127,16 +127,6 @@ NBD
 The `QEMU Network Block Device server <qemu-nbd>` is a tool that can be used to
 mount and access QEMU images, providing functionality similar to a loop device.
 
-Mailing List
-------------
-
-This is `where <https://wiki.qemu.org/Contribute/MailingLists>`_ all the
-development happens! Changes are posted as series, that all developers can
-review and share feedback for.
-
-For reporting issues, our `GitLab
-<https://gitlab.com/qemu-project/qemu/-/issues>`_ tracker is the best place.
-
 .. _softmmu:
 
 MMU / softmmu
@@ -177,22 +167,6 @@ to `DynamoRIO <https://dynamorio.org/>`_ or `valgrind <https://valgrind.org/>`_.
 
 One key advantage of QEMU plugins is that they can be used to perform
 architecture agnostic instrumentation.
-
-Patchew
--------
-
-`Patchew <https://patchew.org/QEMU/>`_ is a website that tracks patches on the
-Mailing List.
-
-PR
---
-
-Once a series is reviewed and accepted by a subsystem maintainer, it will be
-included in a PR (Pull Request) that the project maintainer will merge into QEMU
-main branch, after running tests.
-
-The QEMU project doesn't currently expect most developers to directly submit
-pull requests.
 
 QCOW2
 -----

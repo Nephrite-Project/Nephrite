@@ -16,10 +16,6 @@ Those two videos are an excellent introduction to QEMU codebase:
 Subsystems
 ----------
 
-An exhaustive list of subsystems and associated files can be found in the
-`MAINTAINERS <https://gitlab.com/qemu-project/qemu/-/blob/master/MAINTAINERS>`_
-file.
-
 Some of the main QEMU subsystems are:
 
 - `Accelerators<Accelerators>`

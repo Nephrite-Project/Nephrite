@@ -615,14 +615,8 @@ In some cases ``libvirt-ci`` will not know about the OS distro that is
 desired to be tested. Before adding a new OS distro, discuss the proposed
 addition:
 
- * Send a mail to qemu-devel, copying people listed in the
-   MAINTAINERS file for ``Build and test automation``.
-
-   There are limited CI compute resources available to QEMU, so the
-   cost/benefit tradeoff of adding new OS distros needs to be considered.
-
  * File an issue at https://gitlab.com/libvirt/libvirt-ci/-/issues
-   pointing to the qemu-devel mail thread in the archives.
+   describing the addition.
 
    This alerts other people who might be interested in the work
    to avoid duplication, as well as to get feedback from libvirt-ci
@@ -670,8 +664,7 @@ The full list of tests is printed in the ``make docker-help`` help.
 Debugging a Docker test failure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When CI tasks, maintainers or yourself report a Docker test failure, follow the
-below steps to debug it:
+When a Docker test fails, follow the below steps to debug it:
 
 1. Locally reproduce the failure with the reported command line. E.g. run
    ``make docker-test-mingw@fedora-win64-cross J=8``.

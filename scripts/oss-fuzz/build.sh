@@ -41,7 +41,7 @@ OSS_FUZZ_BUILD_DIR="./build-oss-fuzz/"
 EXTRA_CFLAGS="$CFLAGS -U __OPTIMIZE__"
 
 if ! { [ -e "./COPYING" ] &&
-   [ -e "./MAINTAINERS" ] &&
+   [ -e "./NEPHRITE_VERSION" ] &&
    [ -e "./Makefile" ] &&
    [ -d "./docs" ] &&
    [ -e "./VERSION" ] &&

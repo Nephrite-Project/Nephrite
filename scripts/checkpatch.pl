@@ -543,7 +543,7 @@ sub top_of_kernel_tree {
 	my ($root) = @_;
 
 	my @tree_check = (
-		"COPYING", "MAINTAINERS", "Makefile",
+		"COPYING", "NEPHRITE_VERSION", "Makefile",
 		"README.rst", "docs", "VERSION",
 		"linux-user", "system"
 	);
@@ -1516,25 +1516,6 @@ sub process_file_list {
 		      join("\n  ", @acpi_nontestexpected) .
 		      "\n\nfound in the same patch\n");
 	}
-
-	my $sawmaintainers = 0;
-	my @maybemaintainers;
-	foreach my $fileinfo (@fileinfos) {
-		if ($fileinfo->{action} ne "modified" &&
-		    $fileinfo->{filenew} !~ m#^tests/data/acpi/#) {
-			push @maybemaintainers, $fileinfo->{filenew};
-		}
-		if ($fileinfo->{filenew} eq "MAINTAINERS") {
-			$sawmaintainers = 1;
-		}
-	}
-
-	# If we don't see a MAINTAINERS update, prod the user to check
-	if (int(@maybemaintainers) > 0 && !$sawmaintainers) {
-                WARN("added, moved or deleted file(s),"
-		     . " does MAINTAINERS need updating?\n  "
-		     . join("\n  ", @maybemaintainers));
-	}
 }
 
 # Called at the start of processing a diff hunk for a file
@@ -1849,10 +1830,6 @@ sub process {
 			$is_patch = 1;
 		}
 
-		if ($line =~ /^(Author|From): .* via .*<qemu-\w+\@nongnu\.org>/) {
-		    ERROR("Author email address is mangled by the mailing list\n" . $herecurr);
-		}
-
 # Extract author email for trailer checks
 		if ($in_header_lines && $line =~ /^(?:Author|From):\s*(.*)/) {
 			my $author_info = $1;
@@ -2127,7 +2104,7 @@ sub process {
 # tabs are only allowed in assembly source code, and in
 # some scripts we imported from other projects.
 		next if ($realfile =~ /\.(s|S)$/);
-		next if ($realfile =~ /(checkpatch|get_maintainer)\.pl$/);
+		next if ($realfile =~ /checkpatch\.pl$/);
 		next if ($realfile =~ /^target\/hexagon\/imported\/*/);
 
 		if ($rawline =~ /^\+.*\t/) {
@@ -3571,8 +3548,8 @@ sub process {
 	}
 	if ($clean == 0 && $quiet == 0) {
 		print "$vname has style problems, please review.  If any of these errors\n";
-		print "are false positives report them to the maintainer, see\n";
-		print "CHECKPATCH in MAINTAINERS.\n";
+		print "are false positives report them at\n";
+		print "https://github.com/Nephrite-Project/Nephrite/issues.\n";
 	}
 
 	return ($no_warnings ? $clean : $cnt_error == 0);

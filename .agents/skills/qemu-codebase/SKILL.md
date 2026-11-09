@@ -14,11 +14,9 @@ identifies a file, function, subsystem, or commit.
 
 ## Finding the subsystem
 
-For a broad request, use `grep`/`rg` and `MAINTAINERS` to locate
-likely code and subsystem boundaries. Use `scripts/get_maintainer.pl
---nogit -f <path>` when the maintainance status matters.  Read
-`docs/devel/codebase.rst` only when the top-level directory or execution
-mode is unclear.
+For a broad request, use `grep`/`rg` to locate likely code and
+subsystem boundaries. Read `docs/devel/codebase.rst` only when the
+top-level directory or execution mode is unclear.
 
 ## Focused documentation
 

@@ -15,8 +15,8 @@ Nephrite.
   example, Intel's SDM 325462-093 or AMD's APM 24593 rev. 3.45).
 - Name the AI tool in an `Assisted-by:` trailer, such as
   `Assisted-by: Claude:claude-opus-5-5`. The human who submits the change
-  adds their `Signed-off-by:`, as in QEMU
-  (`docs/devel/submitting-a-patch.rst`).
+  adds their `Signed-off-by:`, which certifies the Developer Certificate of
+  Origin (https://developercertificate.org).
 - Every commit must build on its own.
 - List user-visible changes, bug fixes, and deviations from the hardware
   in `DIFFERENCES.rst`.

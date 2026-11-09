@@ -14,9 +14,8 @@ If there are areas that are unclear please reach out either via the
 hopefully we can improve the documentation for future developers.
 
 All developers will want to familiarise themselves with
-:ref:`development_process` and how the community interacts. Please pay
-particular attention to the :ref:`coding-style` and
-:ref:`submitting-a-patch` sections to avoid common pitfalls.
+:ref:`development_process`. Please pay particular attention to the
+:ref:`coding-style` section to avoid common pitfalls.
 
 If you wish to implement a new hardware model you will want to read
 through the :ref:`qom` documentation to understand how QEMU's object

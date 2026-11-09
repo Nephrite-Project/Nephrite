@@ -74,8 +74,14 @@ Names and packaging
   ``scripts/make-release`` takes from their wraps; QEMU lists the crates by
   hand, and its list had fallen behind them, so that building its tarball
   with Rust needed downloads.
-* ``scripts/checkpatch.pl`` accepts trailers that credit AI tools, and
-  ``AGENTS.md`` gives agents Nephrite's guidelines instead of QEMU's.
+* QEMU's mailing-list tooling is gone: ``MAINTAINERS`` and
+  ``scripts/get_maintainer.pl``, the patchew, git-publish, and b4
+  configurations, ``scripts/gitdm``, and the documentation of QEMU's patch
+  submission, pull request, trivial patch, maintainer, and stable
+  processes.
+* ``scripts/checkpatch.pl`` accepts trailers that credit AI tools and no
+  longer asks about ``MAINTAINERS``, and ``AGENTS.md`` gives agents
+  Nephrite's guidelines instead of QEMU's.
 
 
 Firmware
