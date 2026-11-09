@@ -2,7 +2,7 @@
 The memory API
 ==============
 
-The memory API models the memory and I/O buses and controllers of a QEMU
+The memory API models the memory and I/O buses and controllers of a Nephrite
 machine.  It attempts to allow modelling of:
 
 - ordinary RAM
@@ -80,7 +80,7 @@ MemoryRegion):
   You initialize these with memory_region_init_alias().
 
 - reservation region: a reservation region is primarily for debugging.
-  It claims I/O space that is not supposed to be handled by QEMU itself.
+  It claims I/O space that is not supposed to be handled by Nephrite itself.
   The typical use is to track parts of the address space which will be
   handled by the host kernel when KVM is enabled.  You initialize these
   by passing a NULL callback parameter to memory_region_init_io().
@@ -139,7 +139,7 @@ Region lifecycle
 ----------------
 
 A region is created by one of the memory_region_init*() functions and
-attached to an object, which acts as its owner or parent.  QEMU ensures
+attached to an object, which acts as its owner or parent.  Nephrite ensures
 that the owner object remains alive as long as the region is visible to
 the guest, or as long as the region is in use by a virtual CPU or another
 device.  For example, the owner object will not die between an
@@ -187,7 +187,7 @@ therefore also okay to create or destroy alias and container regions
 dynamically during a device's lifetime.
 
 This exceptional usage is valid because aliases and containers only help
-QEMU building the guest's memory map; they are never accessed directly.
+Nephrite building the guest's memory map; they are never accessed directly.
 memory_region_ref and memory_region_unref are never called on aliases
 or containers, and the above situation then cannot happen.  Exploiting
 this exception is rarely necessary, and therefore it is discouraged,

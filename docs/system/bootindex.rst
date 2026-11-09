@@ -1,12 +1,12 @@
 Managing device boot order with bootindex properties
 ====================================================
 
-QEMU can tell QEMU-aware guest firmware (like the x86 PC BIOS)
+Nephrite can tell QEMU-aware guest firmware (like the x86 PC BIOS)
 which order it should look for a bootable OS on which devices.
 A simple way to set this order is to use the ``-boot order=`` option,
 but you can also do this more flexibly, by setting a ``bootindex``
 property on the individual block or net devices you specify
-on the QEMU command line.
+on the Nephrite command line.
 
 The ``bootindex`` properties are used to determine the order in which
 firmware will consider devices for booting the guest OS. If the
@@ -27,7 +27,7 @@ into long-form ``-drive`` and ``-device`` option pairs.
 Example
 -------
 
-Let's assume we have a QEMU machine with two NICs (virtio, e1000) and two
+Let's assume we have a Nephrite machine with two NICs (virtio, e1000) and two
 disks (IDE, virtio):
 
 .. parsed-literal::
@@ -55,7 +55,7 @@ won't retry booting from other disk.  It can still try to boot from
 floppy or net, though. In the case of s390x BIOS, the BIOS will try up to
 8 total devices, any number of which may be disks or virtio-net devices.
 
-Sometimes, firmware cannot map the device path QEMU wants firmware to
+Sometimes, firmware cannot map the device path Nephrite wants firmware to
 boot from to a boot method.  It doesn't happen for devices the firmware
 can natively boot from, but if firmware relies on an option ROM for
 booting, and the same option ROM is used for booting from more then one

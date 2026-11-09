@@ -6,7 +6,7 @@ constructed after its machine model.
 
 It's a minimalist machine type without ``PCI`` nor ``ACPI`` support,
 designed for short-lived guests. microvm also establishes a baseline
-for benchmarking and optimizing both QEMU and guest operating systems,
+for benchmarking and optimizing both Nephrite and guest operating systems,
 since it is optimized for both boot time and footprint.
 
 
@@ -34,7 +34,7 @@ Currently, microvm does *not* support the following features:
 
 - PCI-only devices.
 - Hotplug of any kind.
-- Live migration across QEMU versions.
+- Live migration across Nephrite versions.
 
 
 Using the microvm machine type
@@ -72,7 +72,7 @@ legacy and non-legacy devices. In this example, a VM is created
 without passing any additional machine-specific option, using the
 legacy ``ISA serial`` device as console::
 
-  $ qemu-system-x86_64 -M microvm \
+  $ nephrite-system-x86_64 -M microvm \
      -enable-kvm -cpu host -m 512m -smp 2 \
      -kernel vmlinux -append "earlyprintk=ttyS0 console=ttyS0 root=/dev/vda" \
      -nodefaults -no-user-config -nographic \
@@ -93,7 +93,7 @@ in the guest).
 This is an example of a VM with all optional legacy features
 disabled::
 
-  $ qemu-system-x86_64 \
+  $ nephrite-system-x86_64 \
      -M microvm,x-option-roms=off,pit=off,pic=off,isa-serial=off,rtc=off \
      -enable-kvm -cpu host -m 512m -smp 2 \
      -kernel vmlinux -append "console=hvc0 root=/dev/vda" \
@@ -118,7 +118,7 @@ ACPI register, doesn't have any effect in the VM.
 The recommended way to trigger a guest-initiated shut down is by
 generating a ``triple-fault``, which will cause the VM to initiate a
 reboot. Additionally, if the ``-no-reboot`` argument is present in the
-command line, QEMU will detect this event and terminate its own
+command line, Nephrite will detect this event and terminate its own
 execution gracefully.
 
 Linux does support this mechanism, but by default will only be used

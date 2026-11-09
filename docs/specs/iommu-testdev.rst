@@ -9,7 +9,7 @@ Overview
 IOMMU translation (such as ARM SMMUv3) without requiring firmware or a guest
 OS. Tests can populate IOMMU translation tables with known values and trigger
 DMA operations that flow through the IOMMU translation path. It is **not** a
-faithful PCIe endpoint and must be considered a QEMU-internal test vehicle.
+faithful PCIe endpoint and must be considered a Nephrite-internal test vehicle.
 
 Key Features
 ------------
@@ -98,7 +98,7 @@ Running the qtest
 The SMMUv3 test suite uses this device and covers multiple translation modes::
 
     cd build
-    QTEST_QEMU_BINARY=./qemu-system-aarch64 \\
+    QTEST_QEMU_BINARY=./nephrite-system-aarch64 \\
         ./tests/qtest/iommu-smmuv3-test --tap -k
 
 This test suite exercises:
@@ -110,7 +110,7 @@ This test suite exercises:
 Instantiation
 -------------
 The device is not wired into any board by default. Tests instantiate it
-via QEMU command line::
+via Nephrite command line::
 
     -device iommu-testdev
 

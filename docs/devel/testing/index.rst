@@ -1,7 +1,7 @@
-Testing QEMU
-------------
+Testing Nephrite
+----------------
 
-Details about how to test QEMU.
+Details about how to test Nephrite.
 
 .. toctree::
    :maxdepth: 3

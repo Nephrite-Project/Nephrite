@@ -6,11 +6,11 @@ OPAL firmware. It runs Linux on IBM and OpenPOWER systems and it can
 be used as an hypervisor OS, running KVM guests, or simply as a host
 OS.
 
-The PowerNV QEMU machine tries to emulate a PowerNV system at the
+The PowerNV Nephrite machine tries to emulate a PowerNV system at the
 level of the skiboot firmware, which loads the OS and provides some
 runtime services. Power Systems have a lower firmware (HostBoot) that
 does low level system initialization, like DRAM training. This is
-beyond the scope of what QEMU addresses today.
+beyond the scope of what Nephrite addresses today.
 
 Supported devices
 -----------------
@@ -24,7 +24,7 @@ Supported devices
  * POWER8 PHB3 PCIe Host bridge and POWER9 PHB4 PCIe Host bridge.
  * Simple OCC is an on-chip micro-controller used for power management tasks.
  * iBT device to handle BMC communication, with the internal BMC simulator
-   provided by QEMU or an external BMC such as an Aspeed QEMU machine.
+   provided by Nephrite or an external BMC such as an Aspeed Nephrite machine.
  * PNOR containing the different firmware partitions.
 
 Missing devices
@@ -52,7 +52,7 @@ GitHub <https://github.com/open-power>`_.
 Prebuilt images of ``skiboot`` and ``skiroot`` are made available on the
 `OpenPOWER <https://github.com/open-power/op-build/releases/>`__ site.
 
-QEMU includes a prebuilt image of ``skiboot`` which is updated when a
+Nephrite includes a prebuilt image of ``skiboot`` which is updated when a
 more recent version is required by the models.
 
 Current acceleration status
@@ -75,7 +75,7 @@ Here is a simple setup with one e1000e NIC :
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -m 2G -machine powernv9 -smp 2,cores=2,threads=1 \
+  $ nephrite-system-ppc64 -m 2G -machine powernv9 -smp 2,cores=2,threads=1 \
   -accel tcg,thread=single \
   -device e1000e,netdev=net0,mac=C0:FF:EE:00:00:02,bus=pcie.0,addr=0x0 \
   -netdev user,id=net0,hostfwd=::20022-:22,hostname=pnv \
@@ -101,7 +101,7 @@ on any of the available PCIe slots using command line options such as:
 .. code-block:: bash
 
   -device e1000e,netdev=net0,mac=C0:FF:EE:00:00:02,bus=pcie.0,addr=0x0
-  -netdev bridge,id=net0,helper=/usr/libexec/qemu-bridge-helper,br=virbr0,id=hostnet0
+  -netdev bridge,id=net0,helper=/usr/libexec/nephrite-bridge-helper,br=virbr0,id=hostnet0
 
   -device megasas,id=scsi0,bus=pcie.0,addr=0x0
   -drive file=./ubuntu-ppc64le.qcow2,if=none,id=drive-scsi0-0-0-0,format=qcow2,cache=none
@@ -112,7 +112,7 @@ different PHBs, each with a disk, the second PHB is empty :
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -m 2G -machine powernv9 -smp 2,cores=2,threads=1 -accel tcg,thread=single \
+  $ nephrite-system-ppc64 -m 2G -machine powernv9 -smp 2,cores=2,threads=1 -accel tcg,thread=single \
   -kernel ./zImage.epapr -initrd ./rootfs.cpio.xz -bios ./skiboot.lid \
   \
   -device megasas,id=scsi0,bus=pcie.0,addr=0x0 \
@@ -125,7 +125,7 @@ different PHBs, each with a disk, the second PHB is empty :
   -drive file=./ubuntu-ppc64le.qcow2,if=none,id=drive0,format=qcow2,cache=none \
   -device ide-hd,bus=sata0.0,unit=0,drive=drive0,id=ide,bootindex=1 \
   -device e1000e,netdev=net0,mac=C0:FF:EE:00:00:02,bus=bridge1,addr=0x2 \
-  -netdev bridge,helper=/usr/libexec/qemu-bridge-helper,br=virbr0,id=net0 \
+  -netdev bridge,helper=/usr/libexec/nephrite-bridge-helper,br=virbr0,id=net0 \
   -device nec-usb-xhci,bus=bridge1,addr=0x7 \
   \
   -serial mon:stdio -nographic
@@ -137,7 +137,7 @@ You can also use VIRTIO devices :
   -drive file=./fedora-ppc64le.qcow2,if=none,snapshot=on,id=drive0 \
   -device virtio-blk-pci,drive=drive0,id=blk0,bus=pcie.0 \
   \
-  -netdev tap,helper=/usr/lib/qemu/qemu-bridge-helper,br=virbr0,id=netdev0 \
+  -netdev tap,helper=/usr/lib/nephrite/nephrite-bridge-helper,br=virbr0,id=netdev0 \
   -device virtio-net-pci,netdev=netdev0,id=net0,bus=pcie.1 \
   \
   -fsdev local,id=fsdev0,path=$HOME,security_model=passthrough \
@@ -155,7 +155,7 @@ BMC configuration
 ~~~~~~~~~~~~~~~~~
 
 OpenPOWER systems negotiate the shutdown and reboot with their
-BMC. The QEMU PowerNV machine embeds an IPMI BMC simulator using the
+BMC. The Nephrite PowerNV machine embeds an IPMI BMC simulator using the
 iBT interface and should offer the same power features.
 
 If you want to define your own BMC, use ``-nodefaults`` and specify
@@ -168,7 +168,7 @@ one on the command line :
 The files `palmetto-SDR.bin <http://www.kaod.org/qemu/powernv/palmetto-SDR.bin>`__
 and `palmetto-FRU.bin <http://www.kaod.org/qemu/powernv/palmetto-FRU.bin>`__
 define a Sensor Data Record repository and a Field Replaceable Unit
-inventory for a Palmetto BMC. They can be used to extend the QEMU BMC
+inventory for a Palmetto BMC. They can be used to extend the Nephrite BMC
 simulator.
 
 .. code-block:: bash
@@ -177,7 +177,7 @@ simulator.
   -device isa-ipmi-bt,bmc=bmc0,irq=10
 
 The PowerNV machine can also be run with an external IPMI BMC device
-connected to a remote QEMU machine acting as BMC, using these options
+connected to a remote Nephrite machine acting as BMC, using these options
 :
 
 .. code-block:: bash
@@ -199,7 +199,7 @@ Use a MTD drive to add a PNOR to the machine, and get a NVRAM :
 If no mtd drive is provided, the powernv platform will create a default
 PNOR device using a tiny formatted PNOR in pc-bios/pnv-pnor.bin opened
 read-only (PNOR changes will be persistent across reboots but not across
-invocations of QEMU). If no defaults are used, an erased 128MB PNOR is
+invocations of Nephrite). If no defaults are used, an erased 128MB PNOR is
 provided (which skiboot will probably not recognize since it is not
 formatted).
 

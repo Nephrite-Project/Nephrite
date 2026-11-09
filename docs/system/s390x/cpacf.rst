@@ -118,7 +118,7 @@ query function bit set to 0.
 Protected key support
 ---------------------
 
-The qemu version for protected key support is only a fake provided
+The Nephrite version for protected key support is only a fake provided
 here for developing and testing purpose:
 
 - The protected key is _derived_ from the clear key by xoring the

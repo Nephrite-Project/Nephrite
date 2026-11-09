@@ -8,8 +8,8 @@ the Ascalon-X CPU and other IP from Tenstorrent and CoreLab Technology.
 The Tenstorrent Ascalon-X is a high performance 64-bit RVA23 compliant
 RISC-V CPU.
 
-tt-atlantis QEMU model features
--------------------------------
+tt-atlantis Nephrite model features
+-----------------------------------
 
 * 8-core Ascalon-X CPU Cluster
 * RISC-V compliant Advanced Interrupt Architecture
@@ -19,7 +19,7 @@ tt-atlantis QEMU model features
 Known limitations
 -----------------
 
-The QEMU tt-atlantis machine does not yet model every device on the
+The Nephrite tt-atlantis machine does not yet model every device on the
 real platform. Notably:
 
 * There is no PCI host bridge, so virtio-pci devices cannot be
@@ -33,7 +33,7 @@ Supported software
 
 The Tenstorrent Ascalon CPUs avoid proprietary or non-standard
 extensions, so compatibility with existing software is generally
-good. The QEMU tt-atlantis machine works with upstream OpenSBI
+good. The Nephrite tt-atlantis machine works with upstream OpenSBI
 and Linux with default configurations.
 
 The development board hardware will require some implementation

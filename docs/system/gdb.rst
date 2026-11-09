@@ -3,16 +3,16 @@
 GDB usage
 ---------
 
-QEMU supports working with gdb via gdb's remote-connection facility
+Nephrite supports working with gdb via gdb's remote-connection facility
 (the "gdbstub"). This allows you to debug guest code in the same
 way that you might with a low-level debug facility like JTAG
 on real hardware. You can stop and start the virtual machine,
 examine state like registers and memory, and set breakpoints and
 watchpoints.
 
-In order to use gdb, launch QEMU with the ``-s`` and ``-S`` options.
-The ``-s`` option will make QEMU listen for an incoming connection
-from gdb on TCP port 1234, and ``-S`` will make QEMU not start the
+In order to use gdb, launch Nephrite with the ``-s`` and ``-S`` options.
+The ``-s`` option will make Nephrite listen for an incoming connection
+from gdb on TCP port 1234, and ``-S`` will make Nephrite not start the
 guest until you tell it to from gdb. (If you want to specify which
 TCP port to use or to use something other than TCP for the gdbstub
 connection, use the ``-gdb dev`` option instead of ``-s``. See
@@ -22,13 +22,13 @@ connection, use the ``-gdb dev`` option instead of ``-s``. See
 
    |qemu_system| -s -S -kernel bzImage -drive file=rootdisk.img,format=raw -append "root=/dev/sda"
 
-QEMU will launch but will silently wait for gdb to connect.
+Nephrite will launch but will silently wait for gdb to connect.
 
 Then launch gdb on the 'vmlinux' executable::
 
    > gdb vmlinux
 
-In gdb, connect to QEMU::
+In gdb, connect to Nephrite::
 
    (gdb) target remote localhost:1234
 
@@ -84,10 +84,10 @@ Debugging multicore machines
 
 GDB's abstraction for debugging targets with multiple possible
 parallel flows of execution is a two layer one: it supports multiple
-"inferiors", each of which can have multiple "threads". When the QEMU
-machine has more than one CPU, QEMU exposes each CPU cluster as a
+"inferiors", each of which can have multiple "threads". When the Nephrite
+machine has more than one CPU, Nephrite exposes each CPU cluster as a
 separate "inferior", where each CPU within the cluster is a separate
-"thread". Most QEMU machine types have identical CPUs, so there is a
+"thread". Most Nephrite machine types have identical CPUs, so there is a
 single cluster which has all the CPUs in it.  A few machine types are
 heterogeneous and have multiple clusters: for example the ``sifive_u``
 machine has a cluster with one E51 core and a second cluster with four
@@ -137,7 +137,7 @@ not just those in the cluster you are currently working on::
 Using unix sockets
 ==================
 
-An alternate method for connecting gdb to the QEMU gdbstub is to use
+An alternate method for connecting gdb to the Nephrite gdbstub is to use
 a unix socket (if supported by your operating system). This is useful when
 running several tests in parallel, or if you do not have a known free TCP
 port (e.g. when running automated tests).
@@ -207,7 +207,7 @@ three commands you can query and set the single step behavior:
 Examining physical memory
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Another feature that QEMU gdbstub provides is to toggle the memory GDB
+Another feature that Nephrite gdbstub provides is to toggle the memory GDB
 works with, by default GDB will show the current process memory respecting
 the virtual address translation.
 
@@ -232,7 +232,7 @@ Security considerations
 Connecting to the GDB socket allows running arbitrary code inside the guest;
 in case of the TCG emulation, which is not considered a security boundary, this
 also means running arbitrary code on the host. Additionally, when debugging
-qemu-user, it allows directly downloading any file readable by QEMU from the
+qemu-user, it allows directly downloading any file readable by Nephrite from the
 host.
 
 The GDB socket is not protected by authentication, authorization or encryption.

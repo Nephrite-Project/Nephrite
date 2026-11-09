@@ -14,16 +14,16 @@ versioned machine types since QEMU 11.0. It is disabled by default on older
 machine types and needs to be explicitly enabled with ``--device
 scsi-block,migrate-pr=on,...``.
 
-When migration is enabled, QEMU snoops PERSISTENT RESERVATION OUT commands and
+When migration is enabled, Nephrite snoops PERSISTENT RESERVATION OUT commands and
 tracks the reservation key registered by the guest as well as reservations that
 the guest acquires. This information is migrated along with the guest and the
-destination QEMU submits a PERSISTENT RESERVATION OUT command with the PREEMPT
+destination Nephrite submits a PERSISTENT RESERVATION OUT command with the PREEMPT
 service action to atomically transfer the reservation to the destination before
 the guest starts running on the destination.
 
 The following persistent reservation capabilities reported by the PERSISTENT
 RESERVATION IN command with the REPORT CAPABILITIES service action are masked
-from the guest by QEMU when migration is enabled:
+from the guest by Nephrite when migration is enabled:
 
  * Specify Initiator Ports Capable (SIP_C)
  * All Target Ports Capable (ATC_C)
@@ -37,13 +37,13 @@ capabilities reported to the guest when migration is disabled.
 Limitations
 -----------
 
-QEMU does not remember snooped reservation details across restart, so software
+Nephrite does not remember snooped reservation details across restart, so software
 inside the guest must acquire the reservation after boot in order for live
 migration to work. Similarly, if the reservation is acquired outside the guest
 then it will not live migrate along with the guest.
 
 Snooping only considers the PERSISTENT RESERVATION OUT commands from the guest
-and does not track reservation changes made by other SCSI initiators. QEMU's
+and does not track reservation changes made by other SCSI initiators. Nephrite's
 snooped reservation details can become stale if another SCSI initiator
 makes changes to the reservation.
 

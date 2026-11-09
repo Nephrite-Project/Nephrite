@@ -1,7 +1,7 @@
-QEMU Build System
------------------
+Nephrite Build System
+---------------------
 
-Details about how QEMU's build system works. You will need to understand
+Details about how Nephrite's build system works. You will need to understand
 some of the basics if you are adding new files and targets to the build.
 
 .. toctree::

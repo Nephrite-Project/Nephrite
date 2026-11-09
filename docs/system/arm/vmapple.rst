@@ -4,7 +4,7 @@ VMApple machine emulation
 ========================================================================================
 
 VMApple is the device model that the macOS built-in hypervisor called "Virtualization.framework"
-exposes to Apple Silicon macOS guests. The "vmapple" machine model in QEMU implements the same
+exposes to Apple Silicon macOS guests. The "vmapple" machine model in Nephrite implements the same
 device model, but does not use any code from Virtualization.Framework.
 
 Prerequisites
@@ -37,7 +37,7 @@ Now we also need to trim the aux partition. It contains metadata that we can jus
 How to run
 ----------
 
-Then, we can launch QEMU with the Virtualization.Framework pre-boot environment and the readily
+Then, we can launch Nephrite with the Virtualization.Framework pre-boot environment and the readily
 installed target disk images. I recommend to port forward the VM's ssh and vnc ports to the host
 to get better interactive access into the target system:
 
@@ -48,7 +48,7 @@ to get better interactive access into the target system:
   $ AVPBOOTER="/System/Library/Frameworks/Virtualization.framework/Resources/AVPBooter.vmapple2.bin"
   $ AUX="aux.img.trimmed"
   $ DISK="disk.img"
-  $ qemu-system-aarch64 \
+  $ nephrite-system-aarch64 \
        -serial mon:stdio \
        -m 4G \
        -accel hvf \

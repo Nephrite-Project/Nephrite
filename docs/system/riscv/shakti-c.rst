@@ -57,7 +57,7 @@ Then we can run the UART example using:
 
 .. code-block:: bash
 
-   $ qemu-system-riscv64 -M shakti_c -nographic \
+   $ nephrite-system-riscv64 -M shakti_c -nographic \
       -bios path/to/shakti_sdk_qemu/loopback.shakti
 
 OpenSBI
@@ -74,9 +74,9 @@ We can also run OpenSBI with Test Payload.
    $ make PLATFORM=generic
 
 fw_payload.elf would be generated in build/platform/generic/firmware/fw_payload.elf.
-Boot it using the below qemu command.
+Boot it using the below Nephrite command.
 
 .. code-block:: bash
 
-   $ qemu-system-riscv64 -M shakti_c -nographic \
+   $ nephrite-system-riscv64 -M shakti_c -nographic \
       -bios path/to/fw_payload.elf

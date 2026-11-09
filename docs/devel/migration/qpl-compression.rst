@@ -167,11 +167,11 @@ queues that are enabled and shared mode.
 
   Accessing IAA resources requires ``sudo`` command or ``root`` privileges
   by default. Administrators can modify the IAA device node ownership
-  so that QEMU can use IAA with specified user permissions.
+  so that Nephrite can use IAA with specified user permissions.
 
   For example
 
-  #chown -R qemu /dev/iax
+  #chown -R Nephrite /dev/iax
 
 Shared Virtual Memory(SVM) Introduction
 =======================================
@@ -197,7 +197,7 @@ How To Use QPL Compression In Migration
 
 2 - Configure and enable ``IAA`` devices and work queues via ``accel-config``
 
-3 - Build ``QEMU`` with ``--enable-qpl`` parameter
+3 - Build ``Nephrite`` with ``--enable-qpl`` parameter
 
   E.g. configure --target-list=x86_64-softmmu --enable-kvm ``--enable-qpl``
 
@@ -238,7 +238,7 @@ The example of booting with ``-mem-prealloc`` parameter
 
 .. code-block:: shell
 
-   $qemu-system-x86_64 --enable-kvm -cpu host --mem-prealloc ...
+   $nephrite-system-x86_64 --enable-kvm -cpu host --mem-prealloc ...
 
 
 An example about I/O page fault measurement of destination without

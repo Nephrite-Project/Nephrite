@@ -5,7 +5,7 @@ Glossary
 --------
 
 This section of the manual presents brief definitions of acronyms and terms used
-by QEMU developers.
+by Nephrite developers.
 
 Accelerator
 -----------
@@ -32,17 +32,17 @@ CFI
 ---
 
 Control Flow Integrity is a hardening technique used to prevent exploits
-targeting QEMU by detecting unexpected branches during execution. QEMU `actively
+targeting Nephrite by detecting unexpected branches during execution. Nephrite `actively
 supports<cfi>` being compiled with CFI enabled.
 
 Device
 ------
 
-In QEMU, a device is a piece of hardware visible to the guest. Examples include
+In Nephrite, a device is a piece of hardware visible to the guest. Examples include
 UARTs, PCI controllers, PCI cards, VGA controllers, and many more.
 
-QEMU is able to emulate a CPU, and all the hardware interacting with it,
-including `many devices<device-emulation>`. When QEMU runs a virtual machine
+Nephrite is able to emulate a CPU, and all the hardware interacting with it,
+including `many devices<device-emulation>`. When Nephrite runs a virtual machine
 using a hardware-based accelerator, it is responsible for emulating, using
 software, all devices.
 
@@ -50,15 +50,15 @@ EDK2
 ----
 
 EDK2, as known as `TianoCore <https://www.tianocore.org/>`_, is an open source
-implementation of UEFI standard. QEMU virtual machines that boot a UEFI firmware
+implementation of UEFI standard. Nephrite virtual machines that boot a UEFI firmware
 usually use EDK2.
 
 gdbstub
 -------
 
-QEMU implements a `gdb server <GDB usage>`, allowing gdb to attach to it and
+Nephrite implements a `gdb server <GDB usage>`, allowing gdb to attach to it and
 debug a running virtual machine, or a program in user-mode. This allows
-debugging the guest code that is running inside QEMU.
+debugging the guest code that is running inside Nephrite.
 
 glib2
 -----
@@ -66,13 +66,13 @@ glib2
 `GLib2 <https://docs.gtk.org/glib/>`_ is one of the most important libraries we
 are using through the codebase. It provides many data structures, macros, string
 and thread utilities and portable functions across different OS. It's required
-to build QEMU.
+to build Nephrite.
 
 Guest agent
 -----------
 
-The `QEMU Guest Agent <qemu-ga>` is a daemon intended to be run within virtual
-machines. It provides various services to help QEMU to interact with it.
+The `Nephrite Guest Agent <qemu-ga>` is a daemon intended to be run within virtual
+machines. It provides various services to help Nephrite to interact with it.
 
 .. _guest:
 
@@ -90,17 +90,17 @@ can be ambiguous.
 Host
 ----
 
-Host is the architecture on which QEMU is running on, which is native.
+Host is the architecture on which Nephrite is running on, which is native.
 See also :ref:`guest`.
 
 Hypervisor
 ----------
 
 The formal definition of an hypervisor is a program or API than can be used to
-manage a virtual machine. QEMU is a virtualizer, that interacts with various
+manage a virtual machine. Nephrite is a virtualizer, that interacts with various
 hypervisors.
 
-In the context of QEMU, an hypervisor is an API, provided by the Host OS,
+In the context of Nephrite, an hypervisor is an API, provided by the Host OS,
 allowing to execute virtual machines.  Linux provides a choice of KVM, Xen
 or MSHV; MacOS provides HVF; Windows provides WHPX; NetBSD provides NVMM.
 
@@ -109,23 +109,23 @@ or MSHV; MacOS provides HVF; Windows provides WHPX; NetBSD provides NVMM.
 Machine
 -------
 
-QEMU's system emulation models many different types of hardware. A machine model
+Nephrite's system emulation models many different types of hardware. A machine model
 (sometimes called a board model) is the model of a complete virtual system with
 RAM, one or more CPUs, and various devices. It can be selected with the option
-``-machine`` of qemu-system. Our machine models can be found on this `page
+``-machine`` of nephrite-system. Our machine models can be found on this `page
 <system-targets-ref>`.
 
 Migration
 ---------
 
-QEMU can save and restore the execution of a virtual machine between different
+Nephrite can save and restore the execution of a virtual machine between different
 host systems. This is provided by the :ref:`Migration framework<migration>`.
 
 NBD
 ---
 
-The `QEMU Network Block Device server <qemu-nbd>` is a tool that can be used to
-mount and access QEMU images, providing functionality similar to a loop device.
+The `Nephrite Network Block Device server <qemu-nbd>` is a tool that can be used to
+mount and access Nephrite images, providing functionality similar to a loop device.
 
 .. _softmmu:
 
@@ -133,18 +133,18 @@ MMU / softmmu
 -------------
 
 The Memory Management Unit is responsible for translating virtual addresses to
-physical addresses and managing memory protection. QEMU system mode is named
+physical addresses and managing memory protection. Nephrite system mode is named
 "softmmu" precisely because it implements this in software, including a TLB
 (Translation lookaside buffer), for the guest virtual machine.
 
-QEMU user-mode does not implement a full software MMU, but "simply" translates
+Nephrite user-mode does not implement a full software MMU, but "simply" translates
 virtual addresses by adding a specific offset, and relying on host MMU/OS
 instead.
 
 Monitor / QMP / HMP
 -------------------
 
-The `QEMU Monitor <QEMU monitor>` is a text interface which can be used to interact
+The `Nephrite Monitor <QEMU monitor>` is a text interface which can be used to interact
 with a running virtual machine.
 
 QMP stands for QEMU Monitor Protocol and is a json based interface.
@@ -165,19 +165,19 @@ Plugins
 and user mode. The end goal is to have a similar set of functionality compared
 to `DynamoRIO <https://dynamorio.org/>`_ or `valgrind <https://valgrind.org/>`_.
 
-One key advantage of QEMU plugins is that they can be used to perform
+One key advantage of Nephrite plugins is that they can be used to perform
 architecture agnostic instrumentation.
 
 QCOW2
 -----
 
-QEMU Copy On Write is a disk format developed by QEMU. It provides transparent
+QEMU Copy On Write is a disk format developed by Nephrite. It provides transparent
 compression, automatic extension, and many other advantages over a raw image.
 
 qcow2 is the recommended format to use.
 
-QEMU
-----
+Nephrite
+--------
 
 `QEMU (Quick Emulator) <https://www.qemu.org/>`_ is a generic and open source
 machine emulator and virtualizer.
@@ -186,55 +186,55 @@ QOM
 ---
 
 :ref:`QEMU Object Model <qom>` is an object oriented API used to define
-various devices and hardware in the QEMU codebase.
+various devices and hardware in the Nephrite codebase.
 
 Record/replay
 -------------
 
-:ref:`Record/replay <replay>` is a feature of QEMU allowing to have a
+:ref:`Record/replay <replay>` is a feature of Nephrite allowing to have a
 deterministic and reproducible execution of a virtual machine.
 
 Rust
 ----
 
 `A new programming language <https://www.rust-lang.org/>`_, memory safe by
-default. There is a work in progress to integrate it in QEMU codebase for
+default. There is a work in progress to integrate it in Nephrite codebase for
 various subsystems.
 
 System mode
 -----------
 
-QEMU System mode provides a virtual model of an entire machine (CPU, memory and
+Nephrite System mode provides a virtual model of an entire machine (CPU, memory and
 emulated devices) to run a guest OS. In this mode the CPU may be fully emulated,
 or it may work with a hypervisor such as KVM, Xen or Hypervisor.Framework to
 allow the guest to run directly on the host CPU.
 
-QEMU System mode is called :ref:`softmmu <softmmu>` as well.
+Nephrite System mode is called :ref:`softmmu <softmmu>` as well.
 
 .. _target:
 
 Target
 ------
 
-The term "target" can be ambiguous. In most places in QEMU it is used as a
+The term "target" can be ambiguous. In most places in Nephrite it is used as a
 synonym for :ref:`guest`. For example the code for emulating Arm CPUs is in
 ``target/arm/``. However in the :ref:`TCG subsystem <tcg>` "target" refers to the
-architecture which QEMU is running on, i.e. the :ref:`host`.
+architecture which Nephrite is running on, i.e. the :ref:`host`.
 
 TCG
 ---
 
-TCG is the QEMU `Tiny Code Generator <tcg>`. It is the JIT (just-in-time)
+TCG is the Nephrite `Tiny Code Generator <tcg>`. It is the JIT (just-in-time)
 compiler we use to emulate a guest CPU in software.
 
-It is one of the accelerators supported by QEMU, and supports a lot of
+It is one of the accelerators supported by Nephrite, and supports a lot of
 guest/host architectures.
 
 User mode
 ---------
 
-QEMU User mode can launch processes compiled for one CPU on another CPU. In this
-mode the CPU is always emulated. In this mode, QEMU translate system calls from
+Nephrite User mode can launch processes compiled for one CPU on another CPU. In this
+mode the CPU is always emulated. In this mode, Nephrite translate system calls from
 guest to host kernel. It is available for Linux and BSD.
 
 VirtIO
@@ -242,7 +242,7 @@ VirtIO
 
 VirtIO is an open standard used to define and implement virtual devices with a
 minimal overhead, defining a set of data structures and hypercalls (similar to
-system calls, but targeting an hypervisor, which happens to be QEMU in our
+system calls, but targeting an hypervisor, which happens to be Nephrite in our
 case). It's designed to be more efficient than emulating a real device, by
 minimizing the amount of interactions between a guest VM and its hypervisor.
 
@@ -250,4 +250,4 @@ vhost-user
 ----------
 
 `Vhost-user <vhost_user>` is an interface used to implement VirtIO devices
-outside of QEMU itself.
+outside of Nephrite itself.

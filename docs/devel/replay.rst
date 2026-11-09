@@ -9,14 +9,14 @@ Execution Record/Replay
 Core concepts
 =============
 
-Record/replay functions are used for the deterministic replay of qemu
+Record/replay functions are used for the deterministic replay of Nephrite
 execution. Execution recording writes a non-deterministic events log, which
 can be later used for replaying the execution anywhere and for unlimited
 number of times. Execution replaying reads the log and replays all
 non-deterministic events including external input, hardware clocks,
 and interrupts.
 
-Several parts of QEMU include function calls to make event log recording
+Several parts of Nephrite include function calls to make event log recording
 and replaying.
 Devices' models that have non-deterministic input from external devices were
 changed to write every external event into the execution log immediately.
@@ -33,7 +33,7 @@ Academic papers with description of deterministic replay implementation:
 * `Deterministic Replay of System's Execution with Multi-target QEMU Simulator for Dynamic Analysis and Reverse Debugging <https://www.computer.org/csdl/proceedings/csmr/2012/4666/00/4666a553-abs.html>`_
 * `Don't panic: reverse debugging of kernel drivers <https://dl.acm.org/citation.cfm?id=2786805.2803179>`_
 
-Modifications of qemu include:
+Modifications of Nephrite include:
 
  * wrappers for clock and time functions to save their return values in the log
  * saving different asynchronous events (e.g. system shutdown) into the log
@@ -49,7 +49,7 @@ Modifications of qemu include:
 Instruction counting
 --------------------
 
-QEMU should work in icount mode to use record/replay feature. icount was
+Nephrite should work in icount mode to use record/replay feature. icount was
 designed to allow deterministic execution in absence of external inputs
 of the virtual machine. We also use icount to control the occurrence of the
 non-deterministic events. The number of instructions elapsed from the last event
@@ -83,7 +83,7 @@ Checkpoints
 
 Replaying the execution of virtual machine is bound by sources of
 non-determinism. These are inputs from clock and peripheral devices,
-and QEMU thread scheduling. Thread scheduling affect on processing events
+and Nephrite thread scheduling. Thread scheduling affect on processing events
 from timers, asynchronous input-output, and bottom halves.
 
 Invocations of timers are coupled with clock reads and changing the state
@@ -95,7 +95,7 @@ in record mode we save to the log special "checkpoint" event.
 Checkpoints here do not refer to virtual machine snapshots. They are just
 record/replay events used for synchronization.
 
-QEMU in replay mode will try to invoke timers processing in random moment
+Nephrite in replay mode will try to invoke timers processing in random moment
 of time. That's why we do not process a group of timers until the checkpoint
 event will be read from the log. Such an event allows synchronizing CPU
 execution and timer events.
@@ -126,7 +126,7 @@ the guest state during execution in icount mode should be deterministic.
 Timers
 ------
 
-Timers are used to execute callbacks from different subsystems of QEMU
+Timers are used to execute callbacks from different subsystems of Nephrite
 at the specified moments of time. There are several kinds of timers:
 
  * Real time clock. Based on host time and used only for callbacks that
@@ -181,7 +181,7 @@ disk state. But callbacks that virtual disk controller uses for reading and
 writing the disk may occur at different moments of time in record and replay
 modes.
 
-Reading and writing requests are created by CPU thread of QEMU. Later these
+Reading and writing requests are created by CPU thread of Nephrite. Later these
 requests proceed to block layer which creates "bottom halves". Bottom
 halves consist of callback and its parameters. They are processed when
 main loop locks the BQL. These locks are not synchronized with
@@ -227,13 +227,13 @@ Replay log format
 Record/replay log consists of the header and the sequence of execution
 events. The header includes 4-byte replay version id and 8-byte reserved
 field. Version is updated every time replay log format changes to prevent
-using replay log created by another build of qemu.
+using replay log created by another build of Nephrite.
 
 The sequence of the events describes virtual machine state changes.
 It includes all non-deterministic inputs of VM, synchronization marks and
 instruction counts used to correctly inject inputs at replay.
 
-Synchronization marks (checkpoints) are used for synchronizing qemu threads
+Synchronization marks (checkpoints) are used for synchronizing Nephrite threads
 that perform operations with virtual hardware. These operations may change
 system's state (e.g., change some register or generate interrupt) and
 therefore should execute synchronously with CPU thread.
@@ -283,7 +283,7 @@ Here is the list of events that are written into the log:
         - 4-byte packet flags.
         - Array with packet bytes.
 
- - EVENT_SHUTDOWN. Occurs when user sends shutdown event to qemu,
+ - EVENT_SHUTDOWN. Occurs when user sends shutdown event to Nephrite,
    e.g., by closing the window.
  - EVENT_CHAR_WRITE. Used to synchronize character output operations. Followed by:
 
@@ -291,12 +291,12 @@ Here is the list of events that are written into the log:
     - 4-byte offset in the output array.
 
  - EVENT_CHAR_READ_ALL. Used to synchronize character input operations,
-   initiated by qemu. Followed by:
+   initiated by Nephrite. Followed by:
 
     - Array with bytes that were read.
 
  - EVENT_CHAR_READ_ALL_ERROR. Unsuccessful character input operation,
-   initiated by qemu. Followed by:
+   initiated by Nephrite. Followed by:
 
     - 4-byte error code.
 

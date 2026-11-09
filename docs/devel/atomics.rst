@@ -1,25 +1,25 @@
 .. _atomics-ref:
 
-=========================
-Atomic operations in QEMU
-=========================
+=============================
+Atomic operations in Nephrite
+=============================
 
 CPUs perform independent memory operations effectively in random order.
 but this can be a problem for CPU-CPU interaction (including interactions
-between QEMU and the guest).  Multi-threaded programs use various tools
+between Nephrite and the guest).  Multi-threaded programs use various tools
 to instruct the compiler and the CPU to restrict the order to something
 that is consistent with the expectations of the programmer.
 
 The most basic tool is locking.  Mutexes, condition variables and
-semaphores are used in QEMU, and should be the default approach to
+semaphores are used in Nephrite, and should be the default approach to
 synchronization.  Anything else is considerably harder, but it's
 also justified more often than one would like;
-the most performance-critical parts of QEMU in particular require
+the most performance-critical parts of Nephrite in particular require
 a very low level approach to concurrency, involving memory barriers
 and atomic operations.  The semantics of concurrent memory accesses are governed
 by the C11 memory model.
 
-QEMU provides a header, ``qemu/atomic.h``, which wraps C11 atomics to
+Nephrite provides a header, ``qemu/atomic.h``, which wraps C11 atomics to
 provide better portability and a less verbose syntax.  ``qemu/atomic.h``
 provides macros that fall in three camps:
 
@@ -348,7 +348,7 @@ a release operation and an acquire operation.  Therefore, atomic operations
 other than ``qatomic_set()`` and ``qatomic_read()`` will almost always be
 paired with another operation of the opposite kind: an acquire operation
 will pair with a release operation and vice versa.  This rule of thumb is
-extremely useful; in the case of QEMU, however, note that the other
+extremely useful; in the case of Nephrite, however, note that the other
 operation may actually be in a driver that runs in the guest!
 
 ``smp_read_barrier_depends()``, ``smp_rmb()``, ``smp_mb_acquire()``,
@@ -420,17 +420,17 @@ Comparison with Linux kernel primitives
 =======================================
 
 Here is a list of differences between Linux kernel atomic operations
-and memory barriers, and the equivalents in QEMU:
+and memory barriers, and the equivalents in Nephrite:
 
 - atomic operations in Linux are always on a 32-bit int type and
-  use a boxed ``atomic_t`` type; atomic operations in QEMU are polymorphic
+  use a boxed ``atomic_t`` type; atomic operations in Nephrite are polymorphic
   and use normal C types.
 
 - Originally, ``atomic_read`` and ``atomic_set`` in Linux gave no guarantee
   at all. Linux 4.1 updated them to implement volatile
   semantics via ``ACCESS_ONCE`` (or the more recent ``READ``/``WRITE_ONCE``).
 
-  QEMU's ``qatomic_read`` and ``qatomic_set`` implement C11 atomic relaxed
+  Nephrite's ``qatomic_read`` and ``qatomic_set`` implement C11 atomic relaxed
   semantics if the compiler supports it, and volatile semantics otherwise.
   Both semantics prevent the compiler from doing certain transformations;
   the difference is that atomic accesses are guaranteed to be atomic,
@@ -440,7 +440,7 @@ and memory barriers, and the equivalents in QEMU:
   properly aligned.
 
   No barriers are implied by ``qatomic_read`` and ``qatomic_set`` in either
-  Linux or QEMU.
+  Linux or Nephrite.
 
 - atomic read-modify-write operations in Linux are of three kinds:
 
@@ -451,14 +451,14 @@ and memory barriers, and the equivalents in QEMU:
          ``atomic_cmpxchg``    returns the old value of the variable
          ===================== =========================================
 
-  In QEMU, the second kind is named ``atomic_OP_fetch``.
+  In Nephrite, the second kind is named ``atomic_OP_fetch``.
 
 - different atomic read-modify-write operations in Linux imply
-  a different set of memory barriers. In QEMU, all of them enforce
+  a different set of memory barriers. In Nephrite, all of them enforce
   sequential consistency: there is a single order in which the
   program sees them happen.
 
-- however, according to the C11 memory model that QEMU uses, this order
+- however, according to the C11 memory model that Nephrite uses, this order
   does not propagate to other memory accesses on either side of the
   read-modify-write operation.  As far as those are concerned, the
   operation consist of just a load-acquire followed by a store-release.
@@ -466,10 +466,10 @@ and memory barriers, and the equivalents in QEMU:
   still be reordered and will happen *in the middle* of the read-modify-write
   operation!
 
-  Therefore, the following example is correct in Linux but not in QEMU:
+  Therefore, the following example is correct in Linux but not in Nephrite:
 
       +----------------------------------+--------------------------------+
-      | Linux (correct)                  | QEMU (incorrect)               |
+      | Linux (correct)                  | Nephrite (incorrect)           |
       +==================================+================================+
       | ::                               | ::                             |
       |                                  |                                |
@@ -481,13 +481,13 @@ and memory barriers, and the equivalents in QEMU:
   compiler) before the write of ``x``.
 
   Fixing this requires a full memory barrier between the write of ``x`` and
-  the read of ``y``.  QEMU provides ``smp_mb__before_rmw()`` and
+  the read of ``y``.  Nephrite provides ``smp_mb__before_rmw()`` and
   ``smp_mb__after_rmw()``; they act both as an optimization,
   avoiding the memory barrier on processors where it is unnecessary,
   and as a clarification of this corner case of the C11 memory model:
 
       +--------------------------------+
-      | QEMU (correct)                 |
+      | Nephrite (correct)             |
       +================================+
       | ::                             |
       |                                |
@@ -500,7 +500,7 @@ and memory barriers, and the equivalents in QEMU:
   to write it like this:
 
       +--------------------------------+
-      | QEMU (correct)                 |
+      | Nephrite (correct)             |
       +================================+
       | ::                             |
       |                                |

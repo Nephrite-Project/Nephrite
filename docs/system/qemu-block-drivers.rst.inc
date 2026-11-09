@@ -1,13 +1,13 @@
 Disk image file formats
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-QEMU supports many image file formats that can be used with VMs as well as with
-any of the tools (like ``qemu-img``). This includes the preferred formats
+Nephrite supports many image file formats that can be used with VMs as well as with
+any of the tools (like ``nephrite-img``). This includes the preferred formats
 raw and qcow2 as well as formats that are supported for compatibility with
 older QEMU versions or other hypervisors.
 
 Depending on the image format, different options can be passed to
-``qemu-img create`` and ``qemu-img convert`` using the ``-o`` option.
+``nephrite-img create`` and ``nephrite-img convert`` using the ``-o`` option.
 This section describes each format and the options that are supported for it.
 
 .. program:: image-formats
@@ -17,7 +17,7 @@ This section describes each format and the options that are supported for it.
   being simple and easily exportable to all other emulators. If your
   file system supports *holes* (for example in ext2 or ext3 on
   Linux or NTFS on Windows), then only the written sectors will reserve
-  space. Use ``qemu-img info`` to know the real size used by the
+  space. Use ``nephrite-img info`` to know the real size used by the
   image or ``ls -ls`` on Unix/Linux.
 
   Supported options:
@@ -34,7 +34,7 @@ This section describes each format and the options that are supported for it.
 .. program:: image-formats
 .. option:: qcow2
 
-  QEMU image format, the most versatile format. Use it to have smaller
+  Nephrite image format, the most versatile format. Use it to have smaller
   images (useful if your filesystem does not supports holes, for example
   on Windows), zlib based compression and support of multiple VM
   snapshots.
@@ -45,7 +45,7 @@ This section describes each format and the options that are supported for it.
   .. option:: compat
 
     Determines the qcow2 version to use. ``compat=0.10`` uses the
-    traditional image format that can be read by any QEMU since 0.10.
+    traditional image format that can be read by any Nephrite since 0.10.
     ``compat=1.1`` enables image format extensions that only QEMU 1.1 and
     newer understand (this is the default). Amongst others, this includes
     zero clusters, which allow efficient copy-on-read for sparse images.
@@ -88,7 +88,7 @@ This section describes each format and the options that are supported for it.
 
     The use of this is no longer supported in system emulators. Support only
     remains in the command line utilities, for the purposes of data liberation
-    and interoperability with old versions of QEMU. The ``luks`` format
+    and interoperability with old versions of Nephrite. The ``luks`` format
     should be used instead.
 
   .. option:: encrypt.key-secret
@@ -146,7 +146,7 @@ This section describes each format and the options that are supported for it.
     the goal of avoiding metadata I/O and improving performance. This is
     particularly interesting with :option:`cache=writethrough` which doesn't batch
     metadata updates. The tradeoff is that after a host crash, the reference count
-    tables must be rebuilt, i.e. on the next open an (automatic) ``qemu-img
+    tables must be rebuilt, i.e. on the next open an (automatic) ``nephrite-img
     check -r all`` is required, which may take some time.
 
     This option can only be enabled if ``compat=1.1`` is specified.
@@ -175,7 +175,7 @@ This section describes each format and the options that are supported for it.
 .. program:: image-formats
 .. option:: qed
 
-   Old QEMU image format with support for backing files and compact image files
+   Old Nephrite image format with support for backing files and compact image files
    (when your filesystem or transport medium does not support holes).
 
    When converting QED images to qcow2, you might want to consider using the
@@ -209,7 +209,7 @@ This section describes each format and the options that are supported for it.
 .. program:: image-formats
 .. option:: qcow
 
-  Old QEMU image format with support for backing files, compact image files,
+  Old Nephrite image format with support for backing files, compact image files,
   encryption and compression.
 
   Supported options:
@@ -233,7 +233,7 @@ This section describes each format and the options that are supported for it.
 
      The use of this is no longer supported in system emulators. Support only
      remains in the command line utilities, for the purposes of data liberation
-     and interoperability with old versions of QEMU.
+     and interoperability with old versions of Nephrite.
 
      Users requiring native encryption should use the ``qcow2`` format
      instead with ``encrypt.format=luks``.
@@ -359,7 +359,7 @@ This section describes each format and the options that are supported for it.
       or ``off``.  When set to ``off``, new blocks will be created as
       ``PAYLOAD_BLOCK_NOT_PRESENT``, which means parsers are free to return
       arbitrary data for those blocks.  Do not set to ``off`` when using
-      ``qemu-img convert`` with ``subformat=dynamic``.
+      ``nephrite-img convert`` with ``subformat=dynamic``.
 
     .. option:: block_size
 
@@ -399,7 +399,7 @@ More disk image file formats are supported in a read-only mode.
 Using host drives
 ~~~~~~~~~~~~~~~~~
 
-In addition to disk image files, QEMU can directly access host
+In addition to disk image files, Nephrite can directly access host
 devices. We describe here the usage for QEMU version >= 0.8.3.
 
 Linux
@@ -410,7 +410,7 @@ disk image filename provided you have enough privileges to access
 it. For example, use ``/dev/cdrom`` to access to the CDROM.
 
 CD
-  You can specify a CDROM device even if no CDROM is loaded. QEMU has
+  You can specify a CDROM device even if no CDROM is loaded. Nephrite has
   specific code to detect CDROM insertion or removal. CDROM ejection by
   the guest OS is supported. Currently only data CDs are supported.
 
@@ -469,7 +469,7 @@ change or eject media.
 Virtual FAT disk images
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-QEMU can automatically create a virtual FAT disk image from a
+Nephrite can automatically create a virtual FAT disk image from a
 directory tree. In order to use it, just type:
 
 .. parsed-literal::
@@ -503,7 +503,7 @@ What you should *never* do:
 NBD access
 ~~~~~~~~~~
 
-QEMU can access directly to block device exported using the Network Block Device
+Nephrite can access directly to block device exported using the Network Block Device
 protocol.
 
 .. parsed-literal::
@@ -517,17 +517,17 @@ of an inet socket:
 
   |qemu_system| linux.img -hdb nbd+unix://?socket=/tmp/my_socket
 
-In this case, the block device must be exported using ``qemu-nbd``:
+In this case, the block device must be exported using ``nephrite-nbd``:
 
 .. parsed-literal::
 
-  qemu-nbd --socket=/tmp/my_socket my_disk.qcow2
+  nephrite-nbd --socket=/tmp/my_socket my_disk.qcow2
 
-The use of ``qemu-nbd`` allows sharing of a disk between several guests:
+The use of ``nephrite-nbd`` allows sharing of a disk between several guests:
 
 .. parsed-literal::
 
-  qemu-nbd --socket=/tmp/my_socket --share=2 my_disk.qcow2
+  nephrite-nbd --socket=/tmp/my_socket --share=2 my_disk.qcow2
 
 and then you can use it with two guests:
 
@@ -536,7 +536,7 @@ and then you can use it with two guests:
   |qemu_system| linux1.img -hdb nbd+unix://?socket=/tmp/my_socket
   |qemu_system| linux2.img -hdb nbd+unix://?socket=/tmp/my_socket
 
-If the ``nbd-server`` uses named exports (supported since NBD 2.9.18, or with QEMU's
+If the ``nbd-server`` uses named exports (supported since NBD 2.9.18, or with Nephrite's
 own embedded NBD server), you must specify an export name in the URI:
 
 .. parsed-literal::
@@ -559,18 +559,18 @@ iSCSI LUNs
 iSCSI is a popular protocol used to access SCSI devices across a computer
 network.
 
-There are two different ways iSCSI devices can be used by QEMU.
+There are two different ways iSCSI devices can be used by Nephrite.
 
 The first method is to mount the iSCSI LUN on the host, and make it appear as
 any other ordinary SCSI device on the host and then to access this device as a
-/dev/sd device from QEMU. How to do this differs between host OSes.
+/dev/sd device from Nephrite. How to do this differs between host OSes.
 
 The second method involves using the iSCSI initiator that is built into
-QEMU. This provides a mechanism that works the same way regardless of which
-host OS you are running QEMU on. This section will describe this second method
-of using iSCSI together with QEMU.
+Nephrite. This provides a mechanism that works the same way regardless of which
+host OS you are running Nephrite on. This section will describe this second method
+of using iSCSI together with Nephrite.
 
-In QEMU, iSCSI devices are described using special iSCSI URLs. URL syntax:
+In Nephrite, iSCSI devices are described using special iSCSI URLs. URL syntax:
 
 ::
 
@@ -591,9 +591,9 @@ Various session related parameters can be set via special options, either
 in a configuration file provided via '-readconfig' or directly on the
 command line.
 
-If the initiator-name is not specified qemu will use a default name
+If the initiator-name is not specified Nephrite will use a default name
 of 'iqn.2008-11.org.linux-kvm[:<uuid>'] where <uuid> is the UUID of the
-virtual machine. If the UUID is not specified qemu will use
+virtual machine. If the UUID is not specified Nephrite will use
 'iqn.2008-11.org.linux-kvm[:<name>'] where <name> is the name of the
 virtual machine.
 
@@ -646,7 +646,7 @@ How to use a configuration file to set iSCSI configuration options:
   |qemu_system| -drive file=iscsi://127.0.0.1/iqn.qemu.test/1 \\
     -readconfig iscsi.conf
 
-How to set up a simple iSCSI target on loopback and access it via QEMU:
+How to set up a simple iSCSI target on loopback and access it via Nephrite:
 this example shows how to set up an iSCSI target with one CDROM and one DISK
 using the Linux STGT software target. This target is available on Red Hat based
 systems as the package 'scsi-target-utils'.
@@ -712,7 +712,7 @@ each pair of hex digits.
 
 The ``$HOME/.ssh/known_hosts`` file contains the base64 encoded
 host keys. These can be converted into the format needed for
-QEMU using a command such as::
+Nephrite using a command such as::
 
    $ for key in `grep 10.33.8.112 known_hosts | awk '{print $3}'`
      do
@@ -724,7 +724,7 @@ QEMU using a command such as::
 
 Note that there can be multiple keys present per host, each with
 different key ciphers. Care is needed to pick the key fingerprint
-that matches the cipher QEMU will negotiate with the remote server.
+that matches the cipher Nephrite will negotiate with the remote server.
 
 Currently authentication must be done using ssh-agent.  Other
 authentication methods may be supported in future.
@@ -746,16 +746,16 @@ NVMe disk images
 ~~~~~~~~~~~~~~~~
 
 NVM Express (NVMe) storage controllers can be accessed directly by a userspace
-driver in QEMU.  This bypasses the host kernel file system and block layers
-while retaining QEMU block layer functionalities, such as block jobs, I/O
+driver in Nephrite.  This bypasses the host kernel file system and block layers
+while retaining Nephrite block layer functionalities, such as block jobs, I/O
 throttling, image formats, etc.  Disk I/O performance is typically higher than
 with ``-drive file=/dev/sda`` using either thread pool or linux-aio.
 
-The controller will be exclusively used by the QEMU process once started. To be
+The controller will be exclusively used by the Nephrite process once started. To be
 able to share storage between multiple VMs and other applications on the host,
 please use the file based protocols.
 
-Before starting QEMU, bind the host NVMe controller to the host vfio-pci
+Before starting Nephrite, bind the host NVMe controller to the host vfio-pci
 driver.  For example:
 
 .. parsed-literal::
@@ -782,9 +782,9 @@ address on the host.
 Disk image file locking
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, QEMU tries to protect image files from unexpected concurrent
+By default, Nephrite tries to protect image files from unexpected concurrent
 access, as long as it's supported by the block protocol driver and host
-operating system. If multiple QEMU processes (including QEMU emulators and
+operating system. If multiple Nephrite processes (including Nephrite emulators and
 utilities) try to open the same image with conflicting accessing modes, all but
 the first one will get an error.
 
@@ -798,7 +798,7 @@ the POSIX locking API will be used. In this case there is a risk that the lock
 will get silently lost when doing hot plugging and block jobs, due to the
 shortcomings of the POSIX locking API.
 
-QEMU transparently handles lock handover during shared storage migration.  For
+Nephrite transparently handles lock handover during shared storage migration.  For
 shared virtual disk images between multiple VMs, the "share-rw" device option
 should be used.
 
@@ -809,7 +809,7 @@ the guest is running software, such as a cluster file system, that
 coordinates disk accesses to avoid corruption.
 
 Note that share-rw=on only declares the guest's ability to share the disk.
-Some QEMU features, such as image file formats, require exclusive write access
+Some Nephrite features, such as image file formats, require exclusive write access
 to the disk image and this is unaffected by the share-rw=on option.
 
 Alternatively, locking can be fully disabled by "locking=off" block device
@@ -822,15 +822,15 @@ under a format driver. For example:
   -blockdev driver=qcow2,file.filename=/path/to/image,file.locking=off,file.driver=file
 
 To check if image locking is active, check the output of the "lslocks" command
-on host and see if there are locks held by the QEMU process on the image file.
-More than one byte could be locked by the QEMU instance, each byte of which
+on host and see if there are locks held by the Nephrite process on the image file.
+More than one byte could be locked by the Nephrite instance, each byte of which
 reflects a particular permission that is acquired or protected by the running
 block driver.
 
 Filter drivers
 ~~~~~~~~~~~~~~
 
-QEMU supports several filter drivers, which don't store any data, but perform
+Nephrite supports several filter drivers, which don't store any data, but perform
 some additional tasks, hooking io requests.
 
 .. program:: filter-drivers

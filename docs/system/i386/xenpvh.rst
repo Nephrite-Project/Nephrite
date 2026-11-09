@@ -7,13 +7,13 @@ PVH is a mode that uses HW virtualization features (like HVM) but tries
 to avoid emulation models and instead use passthrough or
 paravirtualized devices.
 
-QEMU can be used to provide PV virtio devices on an emulated PCIe controller.
+Nephrite can be used to provide PV virtio devices on an emulated PCIe controller.
 That is the purpose of this minimal machine.
 
 Supported devices
 -----------------
 
-The x86 Xen PVH QEMU machine provide the following devices:
+The x86 Xen PVH Nephrite machine provide the following devices:
 
 - RAM
 - GPEX host bridge
@@ -25,13 +25,13 @@ PCI device model will work depending on Xen and guest support.
 Running
 -------
 
-The Xen tools will typically construct a command-line and launch QEMU
+The Xen tools will typically construct a command-line and launch Nephrite
 for you when needed. But here's an example of what it can look like in
 case you need to construct one manually:
 
 .. code-block:: console
 
-    qemu-system-i386 -xen-domid 3 -no-shutdown        \
+    nephrite-system-i386 -xen-domid 3 -no-shutdown        \
       -chardev socket,id=libxl-cmd,path=/var/run/xen/qmp-libxl-3,server=on,wait=off \
       -object monitor-qmp,id=qmp0,chardev=libxl-cmd   \
       -chardev socket,id=libxenstat-cmd,path=/var/run/xen/qmp-libxenstat-3,server=on,wait=off \

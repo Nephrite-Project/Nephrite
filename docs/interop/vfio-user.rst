@@ -19,7 +19,7 @@ The vfio-user specification is partly based on the
 `Linux VFIO ioctl interface <https://www.kernel.org/doc/html/latest/driver-api/vfio.html>`_.
 
 VFIO is a mature and stable API, backed by an extensively used framework. The
-existing VFIO client implementation in QEMU (``qemu/hw/vfio/``) can be largely
+existing VFIO client implementation in Nephrite (``qemu/hw/vfio/``) can be largely
 re-used, though there is nothing in this specification that requires that
 particular implementation. None of the VFIO kernel modules are required for
 supporting the protocol, on either the client or server side. Some source
@@ -52,7 +52,7 @@ VFIO is a framework that allows a physical device to be securely passed through
 to a user space process; the device-specific kernel driver does not drive the
 device at all.  Typically, the user space process is a VMM and the device is
 passed through to it in order to achieve high performance. VFIO provides an API
-and the required functionality in the kernel. QEMU has adopted VFIO to allow a
+and the required functionality in the kernel. Nephrite has adopted VFIO to allow a
 guest to directly access physical devices, instead of emulating them in
 software.
 
@@ -296,7 +296,7 @@ no longer needed therefore the server can automatically exit. However, there
 can be cases where a client disconnection should not result in a server exit:
 
 1) A single server serving multiple clients.
-2) A multi-process QEMU upgrading itself step by step, which is not yet
+2) A multi-process Nephrite upgrading itself step by step, which is not yet
    implemented.
 
 Therefore in order for the protocol to be forward compatible, the server should
@@ -310,7 +310,7 @@ respond to a client disconnection as follows:
 The expectation is that when a client reconnects, it will re-establish IRQ and
 client memory mappings.
 
-If anything happens to the client (such as qemu really did exit), the control
+If anything happens to the client (such as Nephrite really did exit), the control
 stack will know about it and can clean up resources accordingly.
 
 Security Considerations
@@ -328,7 +328,7 @@ responded to with an error code. Failure to send the command in the first place
 earlier in the disconnect section.
 
 .. Note::
-   QEMU's VFIO retries certain operations if they fail. While this makes sense
+   Nephrite's VFIO retries certain operations if they fail. While this makes sense
    for real HW, we don't know for sure whether it makes sense for virtual
    devices.
 

@@ -1,7 +1,7 @@
 ppce500 generic platform (``ppce500``)
 ======================================
 
-QEMU for PPC supports a special ``ppce500`` machine designed for emulation and
+Nephrite for PPC supports a special ``ppce500`` machine designed for emulation and
 virtualization purposes.
 
 Supported devices
@@ -33,16 +33,16 @@ the various devices in the system.
 If users want to provide their own DTB, they can use the ``-dtb`` option.
 These DTBs should have the following requirements:
 
-* The number of subnodes under /cpus node should match QEMU's ``-smp`` option
-* The /memory reg size should match QEMU’s selected ram_size via ``-m``
+* The number of subnodes under /cpus node should match Nephrite's ``-smp`` option
+* The /memory reg size should match Nephrite’s selected ram_size via ``-m``
 
-Both ``qemu-system-ppc`` and ``qemu-system-ppc64`` provide emulation for the
+Both ``nephrite-system-ppc`` and ``nephrite-system-ppc64`` provide emulation for the
 following 32-bit PowerPC CPUs:
 
 * e500v2
 * e500mc
 
-Additionally ``qemu-system-ppc64`` provides support for the following 64-bit
+Additionally ``nephrite-system-ppc64`` provides support for the following 64-bit
 PowerPC CPUs:
 
 * e5500
@@ -54,7 +54,7 @@ based machine creation:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -nographic -M ppce500 -cpu e6500
+  $ nephrite-system-ppc64 -nographic -M ppce500 -cpu e6500
 
 Boot options
 ------------
@@ -63,7 +63,7 @@ The ``ppce500`` machine can start using the standard -kernel functionality
 for loading a payload like an OS kernel (e.g.: Linux), or U-Boot firmware.
 
 When -bios is omitted, the default pc-bios/u-boot.e500 firmware image is used
-as the BIOS. QEMU follows below truth table to select which payload to execute:
+as the BIOS. Nephrite follows below truth table to select which payload to execute:
 
 ===== ========== =======
 -bios    -kernel payload
@@ -73,7 +73,7 @@ as the BIOS. QEMU follows below truth table to select which payload to execute:
     Y don't care  u-boot
 ===== ========== =======
 
-When both -bios and -kernel are present, QEMU loads U-Boot and U-Boot in turns
+When both -bios and -kernel are present, Nephrite loads U-Boot and U-Boot in turns
 automatically loads the kernel image specified by the -kernel parameter via
 U-Boot's built-in "bootm" command, hence a legacy uImage format is required in
 such scenario.
@@ -94,13 +94,13 @@ Linux mainline kernel that can be booted by the ``ppce500`` machine in
 
 then manually select the following configuration:
 
-  Platform support > Freescale Book-E Machine Type > QEMU generic e500 platform
+  Platform support > Freescale Book-E Machine Type > Nephrite generic e500 platform
 
-To boot the newly built Linux kernel in QEMU with the ``ppce500`` machine:
+To boot the newly built Linux kernel in Nephrite with the ``ppce500`` machine:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -M ppce500 -cpu e5500 -smp 4 -m 2G \
+  $ nephrite-system-ppc64 -M ppce500 -cpu e5500 -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel vmlinux \
       -initrd /path/to/rootfs.cpio \
@@ -114,7 +114,7 @@ To boot the 32-bit Linux kernel:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
+  $ nephrite-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel vmlinux \
       -initrd /path/to/rootfs.cpio \
@@ -141,9 +141,9 @@ When U-Boot boots, you will notice the following if using with ``-cpu e6500``:
   CPU:   Unknown, Version: 0.0, (0x00000000)
   Core:  e6500, Version: 2.0, (0x80400020)
 
-This is because we only specified a core name to QEMU and it does not have a
+This is because we only specified a core name to Nephrite and it does not have a
 meaningful SVR value which represents an actual SoC that integrates such core.
-You can specify a real world SoC device that QEMU has built-in support but all
+You can specify a real world SoC device that Nephrite has built-in support but all
 these SoCs are e500v2 based MPC85xx series, hence you cannot test anything
 built for P4080 (e500mc), P5020 (e5500) and T2080 (e6500).
 
@@ -155,13 +155,13 @@ interface at PCI address 0.1.0, but we can switch that to an e1000 NIC by:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -M ppce500 -smp 4 -m 2G \
+  $ nephrite-system-ppc64 -M ppce500 -smp 4 -m 2G \
                       -display none -serial stdio \
                       -bios u-boot \
                       -nic tap,ifname=tap0,script=,downscript=,model=e1000
 
-The QEMU ``ppce500`` machine can also dynamically instantiate an eTSEC device
-if “-device eTSEC” is given to QEMU:
+The Nephrite ``ppce500`` machine can also dynamically instantiate an eTSEC device
+if “-device eTSEC” is given to Nephrite:
 
 .. code-block:: bash
 
@@ -176,7 +176,7 @@ as follows:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
+  $ nephrite-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel vmlinux \
       -drive if=pflash,file=/path/to/rootfs.ext2,format=raw \
@@ -187,7 +187,7 @@ whose size must again be a power of two:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
+  $ nephrite-system-ppc64 -M ppce500 -cpu e500mc -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel vmlinux \
       -device sd-card,drive=mydrive \

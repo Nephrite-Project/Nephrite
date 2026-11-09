@@ -49,7 +49,7 @@ L2VIC/Core Integration
   core interrupt.  If some/an l2vic VID0 interrupt is pending when this occurs,
   the next interrupt should fire and any subsequent reads of the VID register
   should reflect the newly raised interrupt.
-* In QEMU, on an external interrupt or an unmasked-pending interrupt,
+* In Nephrite, on an external interrupt or an unmasked-pending interrupt,
   all vCPUs are triggered (has_work==true) and each will grab the IO lock
   while considering the steering logic to determine whether they're the thread
   that must handle the interrupt.

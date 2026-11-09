@@ -4,13 +4,13 @@ Security
 Overview
 --------
 
-This chapter explains the security requirements that QEMU is designed to meet
-and principles for securely deploying QEMU.
+This chapter explains the security requirements that Nephrite is designed to meet
+and principles for securely deploying Nephrite.
 
 Security Requirements
 ---------------------
 
-QEMU supports many different use cases, some of which have stricter security
+Nephrite supports many different use cases, some of which have stricter security
 requirements than others.  The community has agreed on the overall security
 requirements that users may depend on.  These requirements define what is
 considered supported from a security perspective.
@@ -73,7 +73,7 @@ requirements in mind.
 
 Bugs affecting the non-virtualization use case are not considered security
 bugs at this time.  Users with non-virtualization use cases must not rely on
-QEMU to provide guest isolation or any security guarantees.
+Nephrite to provide guest isolation or any security guarantees.
 
 Security boundary scope
 '''''''''''''''''''''''
@@ -85,25 +85,25 @@ an issue as a normal bug.
 
 * **assert** / **abort**. If triggering the code path requires kernel
   privileges (or root account access) in the guest, asserts/aborts in
-  QEMU are a self inflicted denial of service. These will **not** be
+  Nephrite are a self inflicted denial of service. These will **not** be
   treated as security flaws, at most hardening bugs. If triggering the
   code path can be done by an unprivileged guest OS account, this
   **may** justify handling as a security bug.
 
 * **vhost-user/vfio-user backends**. The backend processes have
-  shared memory regions co-mapped with the QEMU process. The intent
+  shared memory regions co-mapped with the Nephrite process. The intent
   of the process separation is operational resilience & flexibility
   and allowing for independent software suppliers. There is not
-  considered to be security boundary between QEMU and the vhost-user
+  considered to be security boundary between Nephrite and the vhost-user
   & vfio-user backends. Thus flaws in the backends which can cause
-  crashes / undesirable behaviour in QEMU will **not** be treated as
+  crashes / undesirable behaviour in Nephrite will **not** be treated as
   security flaws, but should be fixed as hardening bugs.
 
-* **memory allocation bounds**. There are many ways in which a QEMU
+* **memory allocation bounds**. There are many ways in which a Nephrite
   process can legitimately consume an amount of memory that is
-  significantly larger than the assigned guest RAM. QEMU's worst
+  significantly larger than the assigned guest RAM. Nephrite's worst
   case memory usage should be considered effectively unbounded. As
-  such the QEMU deployment on the host should account for the
+  such the Nephrite deployment on the host should account for the
   possibility of large memory peaks and apply countermeasures to
   provide continuity of host operations. It is typical for the Linux
   OOM killer to reap the process triggering host memory overcommit
@@ -130,13 +130,13 @@ an issue as a normal bug.
   account with affect the guest's own service/availability. In the
   context of nested virtualization with PCI device assignment, it
   may may be possible for a level 2 guest kernel to trigger flaws
-  that affect the level 0 QEMU process. While these bugs should be
+  that affect the level 0 Nephrite process. While these bugs should be
   fixed, they will not be triaged as security flaws at this time.
 
 * **migration/snapshots**. Migration failures and snapshot load
   failures are considered part of normal operation as long as the
   source virtual machine and savevm file, respectively, are still
-  functional. Aborting the QEMU process at the migration/snapshot
+  functional. Aborting the Nephrite process at the migration/snapshot
   destination is similarly not considered a security issue. The
   migration stream is assumed to be secure as long as the design
   principles described in the Architecture section are held, in
@@ -161,7 +161,7 @@ an issue as a normal bug.
 Security status reporting
 '''''''''''''''''''''''''
 
-The QEMU project annotates types to explicitly state whether they are
+Nephrite annotates types to explicitly state whether they are
 considered to provide a security boundary or not. For machine, accelerator
 and device types, only those annotated with the "secure" flag will be
 eligible for CVE assignment. Annotations will be extended to other backend
@@ -179,7 +179,7 @@ an explicit security boundary using the ``insecure-input`` parameter to the
    in an error message, and will not be permitted.
 
 The compatibility policy will be honoured both at initial startup of
-QEMU and during any runtime alterations made with monitor commands.
+Nephrite and during any runtime alterations made with monitor commands.
 
 The status of any type class can be queried at runtime using the
 ``qom-list-types`` command, whose returned information will flag any
@@ -209,11 +209,11 @@ virtual machine.  Isolation also includes resource limits such as throttling of
 CPU, memory, disk, or network.  Guests must be unable to exceed their resource
 limits.
 
-QEMU presents an attack surface to the guest in the form of emulated devices.
-The guest must not be able to gain control of QEMU.  Bugs in emulated devices
-could allow malicious guests to gain code execution in QEMU.  At this point the
+Nephrite presents an attack surface to the guest in the form of emulated devices.
+The guest must not be able to gain control of Nephrite.  Bugs in emulated devices
+could allow malicious guests to gain code execution in Nephrite.  At this point the
 guest has escaped the virtual machine and is able to act in the context of the
-QEMU process on the host.
+Nephrite process on the host.
 
 Guests often interact with other guests and share resources with them.
 A malicious guest must not gain control of other guests or access
@@ -225,12 +225,12 @@ Principle of Least Privilege
 ''''''''''''''''''''''''''''
 
 The principle of least privilege states that each component only has access to
-the privileges necessary for its function.  In the case of QEMU this means that
+the privileges necessary for its function.  In the case of Nephrite this means that
 each process only has access to resources belonging to the guest.
 
-The QEMU process should not have access to any resources that are inaccessible
+The Nephrite process should not have access to any resources that are inaccessible
 to the guest.  This way the guest does not gain anything by escaping into the
-QEMU process since it already has access to those same resources from within
+Nephrite process since it already has access to those same resources from within
 the guest.
 
 Following the principle of least privilege immediately fulfills guest isolation
@@ -238,9 +238,9 @@ requirements.  For example, guest A only has access to its own disk image file
 ``a.img`` and not guest B's disk image file ``b.img``.
 
 In reality certain resources are inaccessible to the guest but must be
-available to QEMU to perform its function.  For example, host system calls are
-necessary for QEMU but are not exposed to guests.  A guest that escapes into
-the QEMU process can then begin invoking host system calls.
+available to Nephrite to perform its function.  For example, host system calls are
+necessary for Nephrite but are not exposed to guests.  A guest that escapes into
+the Nephrite process can then begin invoking host system calls.
 
 New features must be designed to follow the principle of least privilege.
 Should this not be possible for technical reasons, the security risk must be
@@ -252,32 +252,32 @@ Isolation mechanisms
 Several isolation mechanisms are available to realize this architecture of
 guest isolation and the principle of least privilege.  With the exception of
 Linux seccomp, these mechanisms are all deployed by management tools that
-launch QEMU, such as libvirt.  They are also platform-specific so they are only
+launch Nephrite, such as libvirt.  They are also platform-specific so they are only
 described briefly for Linux here.
 
-The fundamental isolation mechanism is that QEMU processes must run as
-unprivileged users.  Sometimes it seems more convenient to launch QEMU as
+The fundamental isolation mechanism is that Nephrite processes must run as
+unprivileged users.  Sometimes it seems more convenient to launch Nephrite as
 root to give it access to host devices (e.g. ``/dev/net/tun``) but this poses a
 huge security risk.  File descriptor passing can be used to give an otherwise
-unprivileged QEMU process access to host devices without running QEMU as root.
-It is also possible to launch QEMU as a non-root user and configure UNIX groups
+unprivileged Nephrite process access to host devices without running Nephrite as root.
+It is also possible to launch Nephrite as a non-root user and configure UNIX groups
 for access to ``/dev/kvm``, ``/dev/net/tun``, and other device nodes.
 Some Linux distros already ship with UNIX groups for these devices by default.
 
 - SELinux and AppArmor make it possible to confine processes beyond the
-  traditional UNIX process and file permissions model.  They restrict the QEMU
+  traditional UNIX process and file permissions model.  They restrict the Nephrite
   process from accessing processes and files on the host system that are not
-  needed by QEMU.
+  needed by Nephrite.
 
 - Resource limits and cgroup controllers provide throughput and utilization
   limits on key resources such as CPU time, memory, and I/O bandwidth.
 
 - Linux namespaces can be used to make process, file system, and other system
-  resources unavailable to QEMU.  A namespaced QEMU process is restricted to only
+  resources unavailable to Nephrite.  A namespaced Nephrite process is restricted to only
   those resources that were granted to it.
 
-- Linux seccomp is available via the QEMU ``--sandbox`` option.  It disables
-  system calls that are not needed by QEMU, thereby reducing the host kernel
+- Linux seccomp is available via the Nephrite ``--sandbox`` option.  It disables
+  system calls that are not needed by Nephrite, thereby reducing the host kernel
   attack surface.
 
 - Transport Layer Security (TLS) protocol can be used to ensure authenticity and
@@ -286,25 +286,25 @@ Some Linux distros already ship with UNIX groups for these devices by default.
 Sensitive configurations
 ------------------------
 
-There are aspects of QEMU that can have security implications which users &
+There are aspects of Nephrite that can have security implications which users &
 management applications must be aware of.
 
 Monitor console (QMP and HMP)
 '''''''''''''''''''''''''''''
 
 The monitor console (whether used with QMP or HMP) provides an interface
-to dynamically control many aspects of QEMU's runtime operation. Many of the
-commands exposed will instruct QEMU to access content on the host file system
+to dynamically control many aspects of Nephrite's runtime operation. Many of the
+commands exposed will instruct Nephrite to access content on the host file system
 and/or trigger spawning of external processes.
 
 For example, the ``migrate`` command allows for the spawning of arbitrary
 processes for the purpose of tunnelling the migration data stream. The
-``blockdev-add`` command instructs QEMU to open arbitrary files, exposing
+``blockdev-add`` command instructs Nephrite to open arbitrary files, exposing
 their content to the guest as a virtual disk.
 
-Unless QEMU is otherwise confined using technologies such as SELinux, AppArmor,
+Unless Nephrite is otherwise confined using technologies such as SELinux, AppArmor,
 or Linux namespaces, the monitor console should be considered to have privileges
-equivalent to those of the user account QEMU is running under.
+equivalent to those of the user account Nephrite is running under.
 
 It is further important to consider the security of the character device backend
 over which the monitor console is exposed. It needs to have protection against
@@ -318,5 +318,5 @@ character device backend is inappropriate unless configured to use both TLS
 encryption and authorization control policy on client connections.
 
 In summary, the monitor console is considered a privileged control interface to
-QEMU and as such should only be made accessible to a trusted management
+Nephrite and as such should only be made accessible to a trusted management
 application or user.

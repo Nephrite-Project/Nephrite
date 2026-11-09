@@ -1,7 +1,7 @@
 PowerMac family boards (``g3beige``, ``mac99``)
 ==================================================================
 
-Use the executable ``qemu-system-ppc`` to simulate a complete PowerMac
+Use the executable ``nephrite-system-ppc`` to simulate a complete PowerMac
 PowerPC system.
 
 - ``g3beige``              Heathrow based PowerMac
@@ -10,7 +10,7 @@ PowerPC system.
 Supported devices
 -----------------
 
-QEMU emulates the following PowerMac peripherals:
+Nephrite emulates the following PowerMac peripherals:
 
  *  UniNorth or Grackle PCI Bridge
  *  PCI VGA compatible card with VESA Bochs Extensions
@@ -28,7 +28,7 @@ Missing devices
 Firmware
 --------
 
-Since version 0.9.1, QEMU uses OpenBIOS https://www.openbios.org/ for
+Since version 0.9.1, Nephrite uses OpenBIOS https://www.openbios.org/ for
 the g3beige and mac99 PowerMac and the 40p machines. OpenBIOS is a free
 (GPL v2) portable firmware implementation. The goal is to implement a
 100% IEEE 1275-1994 (referred to as Open Firmware) compliant firmware.

@@ -62,8 +62,8 @@ on). The TIC at the end of the IPL1 channel program will cause the IPL2 channel
 program to be executed automatically. After this sequence completes the "Load"
 procedure then loads the psw from ``0x0``.
 
-How this all pertains to QEMU (and the kernel)
-----------------------------------------------
+How this all pertains to Nephrite (and the kernel)
+--------------------------------------------------
 
 In theory we should merely have to do the following to IPL/boot a guest
 operating system from a DASD device:
@@ -94,8 +94,8 @@ Lastly, in some cases (the zipl bootloader for example) the IPL2 program also
 transfers control to another channel program segment immediately after reading
 it from the disk. So we need to be able to handle this case.
 
-What QEMU does
---------------
+What Nephrite does
+------------------
 
 Since we are forced to live with prefetch we cannot use the very simple IPL
 procedure we defined in the preceding section. So we compensate by doing the
@@ -123,7 +123,7 @@ following.
    Because this channel program can be dynamic, we must use a special algorithm
    that detects a READ immediately followed by a TIC and breaks the ccw chain
    by turning off the chain bit in the READ ccw. When control is returned from
-   the kernel/hardware to the QEMU bios code we immediately issue another start
+   the kernel/hardware to the Nephrite bios code we immediately issue another start
    subchannel to execute the remaining TIC instruction. This causes the entire
    channel program (starting from the TIC) and all needed data to be refetched
    thereby stepping around the limitation that would otherwise prevent this

@@ -29,7 +29,7 @@ To use the CPU topology, you currently need to choose the KVM accelerator.
 See :ref:`Accelerators` for more details about accelerators and how to select them.
 
 The s390x host needs to use a Linux kernel v6.0 or newer (which provides the so-called
-``KVM_CAP_S390_CPU_TOPOLOGY`` capability that allows QEMU to signal the
+``KVM_CAP_S390_CPU_TOPOLOGY`` capability that allows Nephrite to signal the
 CPU topology facility via the so-called STFLE bit 11 to the VM).
 
 Enabling CPU topology
@@ -45,13 +45,13 @@ Enabling CPU topology in another CPU model is done by setting the CPU flag
    -cpu gen16b,ctop=on
 
 Having the topology disabled by default allows migration between
-old and new QEMU without adding new flags.
+old and new Nephrite without adding new flags.
 
 Default topology usage
 ----------------------
 
-The CPU topology can be specified on the QEMU command line
-with the ``-smp`` or the ``-device`` QEMU command arguments.
+The CPU topology can be specified on the Nephrite command line
+with the ``-smp`` or the ``-device`` Nephrite command arguments.
 
 Note also that since 7.2 threads are no longer supported in the topology
 and the ``-smp`` command line argument accepts only ``threads=1``.
@@ -97,7 +97,7 @@ for the ``-device`` argument, like for all CPUs defined with the ``-smp``
 command argument the topology tree attributes will be set by simply
 adding the CPUs to the topology based on the core-id.
 
-QEMU will not try to resolve collisions and will report an error if the
+Nephrite will not try to resolve collisions and will report an error if the
 CPU topology defined explicitly or implicitly on a ``-device``
 argument collides with the definition of a CPU implicitly defined
 on the ``-smp`` argument.
@@ -134,7 +134,7 @@ In the following machine we define 8 sockets with 4 cores each.
 
 .. code-block:: bash
 
-  $ qemu-system-s390x -accel kvm -m 2G \
+  $ nephrite-system-s390x -accel kvm -m 2G \
     -cpu gen16b,ctop=on \
     -smp cpus=5,sockets=8,cores=4,maxcpus=32 \
     -device host-s390x-cpu,core-id=14 \
@@ -229,7 +229,7 @@ with vertical high entitlement.
 
 .. code-block:: bash
 
-  $ qemu-system-s390x -accel kvm -m 2G \
+  $ nephrite-system-s390x -accel kvm -m 2G \
     -cpu gen16b,ctop=on \
     -smp cpus=1,sockets=8,cores=4,maxcpus=32 \
     \

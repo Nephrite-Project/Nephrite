@@ -9,7 +9,7 @@ It's implemented on top of ``Vid``, which is itself implemented
 on the same set of hypercalls as the ``mshv`` driver on Linux.
 
 WHPX is the name of the Windows Hypervisor Platform accelerator
-backend in QEMU. It enables using QEMU with hardware acceleration
+backend in Nephrite. It enables using Nephrite with hardware acceleration
 on both x86_64 and arm64 Windows machines.
 
 Prerequisites
@@ -29,7 +29,7 @@ Alternatively, command line installation is also possible through:
 Minimum OS version
 ^^^^^^^^^^^^^^^^^^
 
-On x86_64, QEMU's Windows Hypervisor Platform backend is tested 
+On x86_64, Nephrite's Windows Hypervisor Platform backend is tested
 starting from Windows 10 version 2004. Earlier Windows 10 releases
 *might* work but are not tested.
 
@@ -38,20 +38,20 @@ or May 2025 security updates is the minimum required release.
 
 Prior releases of Windows 11 version 24H2 on ARM64 shipped 
 with a pre-release version of the Windows Hypervisor Platform
-API, which is not supported in QEMU.
+API, which is not supported in Nephrite.
 
 Quick Start
 -----------
 
 Launching a virtual machine on x86_64 with WHPX acceleration::
 
-    $ qemu-system-x86_64.exe -accel whpx -M pc \
+    $ nephrite-system-x86_64.exe -accel whpx -M pc \
         -smp cores=2 -m 2G -device ich9-usb-ehci1 \
         -device usb-tablet -hda OS.qcow2
 
 Launching a virtual machine on arm64 with WHPX acceleration::
 
-    $ qemu-system-aarch64.exe -accel whpx -M virt \
+    $ nephrite-system-aarch64.exe -accel whpx -M virt \
         -cpu host -smp cores=2 -m 2G \
         -bios edk2-aarch64-code.fd \
         -device ramfb -device nec-usb-xhci \
@@ -86,7 +86,7 @@ Known issues on x86_64
 Guests using legacy VGA modes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In guests using VGA modes that QEMU doesn't pass through framebuffer
+In guests using VGA modes that Nephrite doesn't pass through framebuffer
 memory for, performance will be quite suboptimal.
 
 Workaround: for affected guests, use a more modern graphics mode.

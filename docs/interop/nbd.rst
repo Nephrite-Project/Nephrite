@@ -1,21 +1,21 @@
-QEMU NBD protocol support
-=========================
+Nephrite NBD protocol support
+=============================
 
-QEMU supports the NBD protocol, and has an internal NBD client (see
+Nephrite supports the NBD protocol, and has an internal NBD client (see
 ``block/nbd.c``), an internal NBD server (see ``blockdev-nbd.c``), and an
-external NBD server tool (see ``qemu-nbd.c``). The common code is placed
+external NBD server tool (see ``nephrite-nbd.c``). The common code is placed
 in ``nbd/*``.
 
 The NBD protocol is specified here:
 https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md
 
 The following paragraphs describe some specific properties of NBD
-protocol realization in QEMU.
+protocol realization in Nephrite.
 
 Metadata namespaces
 -------------------
 
-QEMU supports the ``base:allocation`` metadata context as defined in the
+Nephrite supports the ``base:allocation`` metadata context as defined in the
 NBD protocol specification, and also defines an additional metadata
 namespace ``qemu``.
 
@@ -57,7 +57,7 @@ in addition to the specific ``qemu:allocation-depth`` and
 Features by version
 -------------------
 
-The following list documents which qemu version first implemented
+The following list documents which QEMU version first implemented
 various features (both as a server exposing the feature, and as a
 client taking advantage of the feature when present), to make it
 easier to plan for cross-version interoperability.  Note that in

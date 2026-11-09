@@ -10,7 +10,7 @@
 Live Block Device Operations
 ============================
 
-QEMU Block Layer currently (as of QEMU 2.9) supports four major kinds of
+Nephrite Block Layer currently (as of QEMU 2.9) supports four major kinds of
 live block device jobs -- stream, commit, mirror, and backup.  These can
 be used to manipulate disk image chains to accomplish certain tasks,
 namely: live copy data from backing files into overlays; shorten long
@@ -22,7 +22,7 @@ primitives, and some (non-exhaustive list of) examples to illustrate
 their use.
 
 .. note::
-    The file ``qapi/block-core.json`` in the QEMU source tree has the
+    The file ``qapi/block-core.json`` in the Nephrite source tree has the
     canonical QEMU API (QAPI) schema documentation for the QMP
     primitives discussed here.
 
@@ -35,9 +35,9 @@ Disk image backing chain notation
 ---------------------------------
 
 A simple disk image chain.  (This can be created live using QMP
-``blockdev-snapshot-sync``, or offline via ``qemu-img``)::
+``blockdev-snapshot-sync``, or offline via ``nephrite-img``)::
 
-                   (Live QEMU)
+                 (Live Nephrite)
                         |
                         .
                         V
@@ -47,7 +47,7 @@ A simple disk image chain.  (This can be created live using QMP
     (backing file)    (overlay)
 
 The arrow can be read as: Image [A] is the backing file of disk image
-[B].  And live QEMU is currently writing to image [B], consequently, it
+[B].  And live Nephrite is currently writing to image [B], consequently, it
 is also referred to as the "active layer".
 
 There are two kinds of terminology that are common when referring to
@@ -74,7 +74,7 @@ Brief overview of live block QMP primitives
 -------------------------------------------
 
 The following are the four different kinds of live block operations that
-QEMU block layer supports.
+Nephrite block layer supports.
 
 (1) ``block-stream``: Live copy of data from backing files into overlay
     files.
@@ -82,11 +82,11 @@ QEMU block layer supports.
     .. note:: Once the 'stream' operation has finished, three things to
               note:
 
-                (a) QEMU rewrites the backing chain to remove
+                (a) Nephrite rewrites the backing chain to remove
                     reference to the now-streamed and redundant backing
                     file;
 
-                (b) the streamed file *itself* won't be removed by QEMU,
+                (b) the streamed file *itself* won't be removed by Nephrite,
                     and must be explicitly discarded by the user;
 
                 (c) the streamed file remains valid -- i.e. further
@@ -102,11 +102,11 @@ QEMU block layer supports.
     .. note:: Once the 'commit' operation has finished, there are three
               things to note here as well:
 
-                (a) QEMU rewrites the backing chain to remove reference
+                (a) Nephrite rewrites the backing chain to remove reference
                     to now-redundant overlay images that have been
                     committed into a backing file;
 
-                (b) the committed file *itself* won't be removed by QEMU
+                (b) the committed file *itself* won't be removed by Nephrite
                     -- it ought to be manually removed;
 
                 (c) however, unlike in the case of ``block-stream``, the
@@ -122,13 +122,11 @@ QEMU block layer supports.
     Point-in-time (live) copy of a block device to a destination.
 
 
-.. _`Interacting with a QEMU instance`:
-
-Interacting with a QEMU instance
---------------------------------
+Interacting with a Nephrite instance
+------------------------------------
 
 To show some example invocations of command-line, we will use the
-following invocation of QEMU, with a QMP server running over UNIX
+following invocation of Nephrite, with a QMP server running over UNIX
 socket:
 
 .. parsed-literal::
@@ -151,9 +149,9 @@ image chain, and continue to refer to the disks using their
 of QEMU 2.9, accept ``node-name`` parameter) when performing various
 block operations.
 
-To interact with the QEMU instance launched above, we will use the
+To interact with the Nephrite instance launched above, we will use the
 ``qmp-shell`` utility (located at: ``qemu/scripts/qmp``, as part of the
-QEMU source directory), which takes key-value pairs for QMP commands.
+Nephrite source directory), which takes key-value pairs for QMP commands.
 Invoke it as below (which will also print out the complete raw JSON
 syntax for reference -- examples in the following sections)::
 
@@ -177,8 +175,8 @@ out where appropriate) when discussing various primitives::
     [A] <-- [B] <-- [C] <-- [D]
 
 Where [A] is the original base image; [B] and [C] are intermediate
-overlay images; image [D] is the active layer -- i.e. live QEMU is
-writing to it.  (The rule of thumb is: live QEMU will always be pointing
+overlay images; image [D] is the active layer -- i.e. live Nephrite is
+writing to it.  (The rule of thumb is: live Nephrite will always be pointing
 to the rightmost image in a disk image chain.)
 
 The above image chain can be created by invoking
@@ -197,7 +195,7 @@ also prints the raw JSON invocation of it)::
         }
     }
 
-Here, "node-A" is the name QEMU internally uses to refer to the base
+Here, "node-A" is the name Nephrite internally uses to refer to the base
 image [A] -- it is the backing file, based on which the overlay image,
 [B], is created.
 
@@ -251,7 +249,7 @@ ways (not an exhaustive list).
     the base image, [A], and overlay images, [B] and [C], into [D],
     *while* the guest is running.  The resulting chain will be a
     standalone image, [D] -- with contents from [A], [B] and [C] merged
-    into it (where live QEMU writes go to)::
+    into it (where live Nephrite writes go to)::
 
         [D]
 
@@ -274,7 +272,7 @@ ways (not an exhaustive list).
     discarded; and the backing file pointer of image [C] will be
     adjusted to point to [A].  I.e. after performing "intermediate
     streaming" of [B] into [C], the resulting image chain will be (where
-    live QEMU is writing to [D])::
+    live Nephrite is writing to [D])::
 
         [A] <-- [C] <-- [D]
 
@@ -317,7 +315,7 @@ command::
     }
 
 
-Once the ``block-stream`` operation has completed, QEMU will emit an
+Once the ``block-stream`` operation has completed, Nephrite will emit an
 event, ``BLOCK_JOB_COMPLETED``.  The intermediate overlays remain valid,
 and can now be (optionally) discarded, or retained to create further
 overlays based on them.  Finally, the ``block-stream`` jobs can be
@@ -330,12 +328,12 @@ Live block commit --- ``block-commit``
 The ``block-commit`` command lets you merge live data from overlay
 images into backing file(s).  Since QEMU 2.0, this includes "live active
 commit" (i.e. it is possible to merge the "active layer", the right-most
-image in a disk image chain where live QEMU will be writing to, into the
+image in a disk image chain where live Nephrite will be writing to, into the
 base image).  This is analogous to ``block-stream``, but in the opposite
 direction.
 
 Again, starting afresh with our example disk image chain, where live
-QEMU is writing to the right-most image in the chain, [D]::
+Nephrite is writing to the right-most image in the chain, [D]::
 
     [A] <-- [B] <-- [C] <-- [D]
 
@@ -435,7 +433,7 @@ Into::
 
 Where content from all the subsequent overlays, [B], and [C], including
 the active layer, [D], is committed back to [A] -- which is where live
-QEMU is performing all its current writes).
+Nephrite is performing all its current writes).
 
 Start the "active ``block-commit``" operation::
 
@@ -542,7 +540,7 @@ target have reached synchronization:
 
 (2) Issuing the command ``block-job-complete`` (after it emits the event
     ``BLOCK_JOB_COMPLETED``) will adjust the guest device (i.e. live
-    QEMU) to point to the target image, [E], causing all the new writes
+    Nephrite) to point to the target image, [E], causing all the new writes
     from this point on to happen there.
 
 About synchronization modes: The synchronization mode determines
@@ -570,7 +568,7 @@ Currently, there are four different kinds:
     dirty bitmap
 
 .. note::
-    Refer to the :doc:`bitmaps` document in the QEMU source
+    Refer to the :doc:`bitmaps` document in the Nephrite source
     tree to learn about the detailed workings of the ``incremental``
     synchronization mode.
 
@@ -597,7 +595,7 @@ The ``"sync": "full"``, from the above, means: copy the *entire* chain
 to the destination.
 
 Following the above, querying for active block jobs will show that a
-'mirror' job is "ready" to be completed (and QEMU will also emit an
+'mirror' job is "ready" to be completed (and Nephrite will also emit an
 event, ``BLOCK_JOB_READY``)::
 
     (QEMU) query-block-jobs
@@ -637,7 +635,7 @@ at this point:
             }
         }
 
-(b) Or, complete the operation and pivot the live QEMU to the target
+(b) Or, complete the operation and pivot the live Nephrite to the target
     copy::
 
         (QEMU) block-job-complete device=job0
@@ -658,7 +656,7 @@ QMP invocation for live storage migration with ``drive-mirror`` + NBD
 
 Live storage migration (without shared storage setup) is one of the most
 common use-cases that takes advantage of the ``drive-mirror`` primitive
-and QEMU's built-in Network Block Device (NBD) server.  Here's a quick
+and Nephrite's built-in Network Block Device (NBD) server.  Here's a quick
 walk-through of this setup.
 
 Given the disk image chain::
@@ -688,15 +686,15 @@ chain -- from images [A] to [C] -- are already expected to exist in some
 form (e.g. in a file called, ``Contents-of-A-B-C.qcow2``).  Now, on the
 destination host, let's create a target overlay image (with the image
 ``Contents-of-A-B-C.qcow2`` as its backing file), to which the contents
-of image [D] (from the source QEMU) will be mirrored to::
+of image [D] (from the source Nephrite) will be mirrored to::
 
-    $ qemu-img create -f qcow2 -b ./Contents-of-A-B-C.qcow2 \
+    $ nephrite-img create -f qcow2 -b ./Contents-of-A-B-C.qcow2 \
         -F qcow2 ./target-disk.qcow2
 
-And start the destination QEMU (we already have the source QEMU running
--- discussed in the section: `Interacting with a QEMU instance`_)
+And start the destination Nephrite (we already have the source Nephrite running
+-- discussed in the section: `Interacting with a Nephrite instance`_)
 instance, with the following invocation.  (As noted earlier, for
-simplicity's sake, the destination QEMU is started on the same host, but
+simplicity's sake, the destination Nephrite is started on the same host, but
 it could be located elsewhere):
 
 .. parsed-literal::
@@ -708,7 +706,7 @@ it could be located elsewhere):
     -S -monitor stdio -qmp unix:./qmp-sock2,server=on,wait=off \\
     -incoming tcp:localhost:6666
 
-Given the disk image chain on source QEMU::
+Given the disk image chain on source Nephrite::
 
     [A] <-- [B] <-- [C] <-- [D]
 
@@ -716,7 +714,7 @@ On the destination host, it is expected that the contents of the chain
 ``[A] <-- [B] <-- [C]`` are *already* present, and therefore copy *only*
 the content of image [D].
 
-(1) [On *destination* QEMU] As part of the first step, start the
+(1) [On *destination* Nephrite] As part of the first step, start the
     built-in NBD server on a given host (local host, represented by
     ``::``)and port::
 
@@ -734,8 +732,8 @@ the content of image [D].
             }
         }
 
-(2) [On *destination* QEMU] And export the destination disk image using
-    QEMU's built-in NBD server::
+(2) [On *destination* Nephrite] And export the destination disk image using
+    Nephrite's built-in NBD server::
 
         (QEMU) nbd-server-add device=node-TargetDisk writable=true
         {
@@ -745,7 +743,7 @@ the content of image [D].
             }
         }
 
-(3) [On *source* QEMU] Then, invoke ``drive-mirror`` (NB: since we're
+(3) [On *source* Nephrite] Then, invoke ``drive-mirror`` (NB: since we're
     running ``drive-mirror`` with ``mode=existing`` (meaning:
     synchronize to a pre-created file, therefore 'existing', file on the
     target host), with the synchronization mode as 'top' (``"sync:
@@ -763,9 +761,9 @@ the content of image [D].
             }
         }
 
-(4) [On *source* QEMU] Once ``drive-mirror`` copies the entire data, and the
+(4) [On *source* Nephrite] Once ``drive-mirror`` copies the entire data, and the
     event ``BLOCK_JOB_READY`` is emitted, issue ``block-job-cancel`` to
-    gracefully end the synchronization, from source QEMU::
+    gracefully end the synchronization, from source Nephrite::
 
         (QEMU) block-job-cancel device=job0
         {
@@ -775,7 +773,7 @@ the content of image [D].
             }
         }
 
-(5) [On *destination* QEMU] Then, stop the NBD server::
+(5) [On *destination* Nephrite] Then, stop the NBD server::
 
         (QEMU) nbd-server-stop
         {
@@ -783,7 +781,7 @@ the content of image [D].
             "arguments": {}
         }
 
-(6) [On *destination* QEMU] Finally, resume the guest vCPUs by issuing the
+(6) [On *destination* Nephrite] Finally, resume the guest vCPUs by issuing the
     QMP command ``cont``::
 
         (QEMU) cont
@@ -805,7 +803,7 @@ The ``blockdev-mirror`` command is equivalent in core functionality to
 ``drive-mirror``, except that it operates at node-level in a BDS graph.
 
 Also: for ``blockdev-mirror``, the 'target' image needs to be explicitly
-created (using ``qemu-img``) and attach it to live QEMU via
+created (using ``nephrite-img``) and attach it to live Nephrite via
 ``blockdev-add``, which assigns a name to the to-be created target node.
 
 E.g. the sequence of actions to create a point-in-time backup of an
@@ -814,10 +812,10 @@ entire disk image chain, to a target, using ``blockdev-mirror`` would be:
 (0) Create the QCOW2 overlays, to arrive at a backing chain of desired
     depth
 
-(1) Create the target image (using ``qemu-img``), say, ``e.qcow2``
+(1) Create the target image (using ``nephrite-img``), say, ``e.qcow2``
 
 (2) Attach the above created file (``e.qcow2``), run-time, using
-    ``blockdev-add`` to QEMU
+    ``blockdev-add`` to Nephrite
 
 (3) Perform ``blockdev-mirror`` (use ``"sync": "full"`` to copy the
     entire chain to the target).  And notice the event
@@ -833,7 +831,7 @@ entire disk image chain, to a target, using ``blockdev-mirror`` would be:
     caches are flushed
 
 (7) Then, finally, compare the contents of the disk image chain, and
-    the target copy with ``qemu-img compare``.  You should notice:
+    the target copy with ``nephrite-img compare``.  You should notice:
     "Images are identical"
 
 
@@ -855,9 +853,9 @@ Create the overlay images, [B], [C], and [D]::
 
 Create the target image, [E]::
 
-    $ qemu-img create -f qcow2 e.qcow2 39M
+    $ nephrite-img create -f qcow2 e.qcow2 39M
 
-Add the above created target image to QEMU, via ``blockdev-add``::
+Add the above created target image to Nephrite, via ``blockdev-add``::
 
     (QEMU) blockdev-add driver=qcow2 node-name=node-E file={"driver":"file","filename":"e.qcow2"}
     {
@@ -996,10 +994,10 @@ would be:
 (0) Create the QCOW2 overlays, to arrive at a backing chain of desired
     depth
 
-(1) Create the target image (using ``qemu-img``), say, ``e.qcow2``
+(1) Create the target image (using ``nephrite-img``), say, ``e.qcow2``
 
 (2) Attach the above created file (``e.qcow2``), run-time, using
-    ``blockdev-add`` to QEMU
+    ``blockdev-add`` to Nephrite
 
 (3) Perform ``blockdev-backup`` (use ``"sync": "full"`` to copy the
     entire chain to the target).  And notice the event
@@ -1009,7 +1007,7 @@ would be:
     caches are flushed
 
 (5) Then, finally, compare the contents of the disk image chain, and
-    the target copy with ``qemu-img compare``.  You should notice:
+    the target copy with ``nephrite-img compare``.  You should notice:
     "Images are identical"
 
 The following section shows an example QMP invocation for
@@ -1019,7 +1017,7 @@ QMP invocation for ``blockdev-backup``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Given a disk image chain of depth 1 where image [B] is the active
-overlay (live QEMU is writing to it)::
+overlay (live Nephrite is writing to it)::
 
     [A] <-- [B]
 
@@ -1043,9 +1041,9 @@ Create the overlay [B]::
 
 Create a target image that will contain the copy::
 
-    $ qemu-img create -f qcow2 e.qcow2 39M
+    $ nephrite-img create -f qcow2 e.qcow2 39M
 
-Then add it to QEMU via ``blockdev-add``::
+Then add it to Nephrite via ``blockdev-add``::
 
     (QEMU) blockdev-add driver=qcow2 node-name=node-E file={"driver":"file","filename":"e.qcow2"}
     {
@@ -1100,7 +1098,7 @@ Shutdown the guest::
 .. note::
     The above step is really important; if forgotten, an error, "Failed
     to get shared "write" lock on e.qcow2", will be thrown when you do
-    ``qemu-img compare`` to verify the integrity of the disk image
+    ``nephrite-img compare`` to verify the integrity of the disk image
     with the backup content.
 
 
@@ -1112,10 +1110,10 @@ initiated.
 One way to confirm the backup disk image contains the identical content
 with the disk image chain is to compare the backup and the contents of
 the chain, you should see "Images are identical".  (NB: this is assuming
-QEMU was launched with ``-S`` option, which will not start the CPUs at
+Nephrite was launched with ``-S`` option, which will not start the CPUs at
 guest boot up)::
 
-    $ qemu-img compare b.qcow2 e.qcow2
+    $ nephrite-img compare b.qcow2 e.qcow2
     Warning: Image size mismatch!
     Images are identical.
 

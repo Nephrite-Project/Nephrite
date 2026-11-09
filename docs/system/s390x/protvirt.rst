@@ -48,7 +48,7 @@ Boot Process
 ------------
 
 A secure guest image can either be loaded from disk or supplied on the
-QEMU command line. Booting from disk is done by the unmodified
+Nephrite command line. Booting from disk is done by the unmodified
 s390-ccw BIOS. I.e., the bootmap is interpreted, multiple components
 are read into memory and control is transferred to one of the
 components (zipl stage3). Stage3 does some fixups and then transfers
@@ -57,7 +57,7 @@ the OS kernel. The secure image has another component prepended
 (stage3a) that uses the new diag308 subcodes 8 and 10 to trigger the
 transition into secure mode.
 
-Booting from the image supplied on the QEMU command line requires that
+Booting from the image supplied on the Nephrite command line requires that
 the file passed via -kernel has the same memory layout as would result
 from the disk boot. This memory layout includes the encrypted
 components (kernel, initrd, cmdline), the stage3a loader and

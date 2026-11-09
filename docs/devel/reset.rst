@@ -1,9 +1,9 @@
 
-=======================================
-Reset in QEMU: the Resettable interface
-=======================================
+===========================================
+Reset in Nephrite: the Resettable interface
+===========================================
 
-The reset of qemu objects is handled using the resettable interface declared
+The reset of Nephrite objects is handled using the resettable interface declared
 in ``include/hw/core/resettable.h``.
 
 This interface allows objects to be grouped (on a tree basis); so that the
@@ -30,8 +30,8 @@ object to reset and a reset type.
 The Resettable interface handles reset types with an enum ``ResetType``:
 
 ``RESET_TYPE_COLD``
-  Cold reset is supported by every resettable object. In QEMU, it means we reset
-  to the initial state corresponding to the start of QEMU; this might differ
+  Cold reset is supported by every resettable object. In Nephrite, it means we reset
+  to the initial state corresponding to the start of Nephrite; this might differ
   from what is a real hardware cold reset. It differs from other resets (like
   warm or bus resets) which may keep certain parts untouched.
 

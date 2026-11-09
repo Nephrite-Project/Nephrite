@@ -1,21 +1,21 @@
 
-==================
-QEMU Documentation
-==================
+======================
+Nephrite Documentation
+======================
 
-QEMU's documentation is written in reStructuredText format and
+Nephrite's documentation is written in reStructuredText format and
 built using the Sphinx documentation generator. We generate both
 the HTML manual and the manpages from the some documentation sources.
 
 hxtool and .hx files
 --------------------
 
-The documentation for QEMU command line options and Human Monitor Protocol
+The documentation for Nephrite command line options and Human Monitor Protocol
 (HMP) commands is written in files with the ``.hx`` suffix. These
 are processed in two ways:
 
  * ``scripts/hxtool`` creates C header files from them, which are included
-   in QEMU to do things like handle the ``--help`` option output
+   in Nephrite to do things like handle the ``--help`` option output
  * a Sphinx extension in ``docs/sphinx/hxtool.py`` generates rST output
    to be included in the HTML or manpage documentation
 
@@ -50,7 +50,7 @@ output.
 
 ``ARCHHEADING()`` is a variant of ``DEFHEADING()`` which produces
 the heading only if the specified guest architecture was compiled
-into QEMU. This should be avoided in new documentation.
+into Nephrite. This should be avoided in new documentation.
 
 Within C code sections, you should check the comments at the top
 of the file to see what the expected usage is, because this

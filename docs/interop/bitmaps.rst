@@ -17,9 +17,9 @@ This document explains the conceptual mechanisms, as well as up-to-date,
 complete and comprehensive documentation on the API to manipulate them.
 (Hopefully, the "why", "what", and "how".)
 
-The intended audience for this document is developers who are adding QEMU
+The intended audience for this document is developers who are adding Nephrite
 backup features to management applications, or power users who run and
-administer QEMU directly via QMP.
+administer Nephrite directly via QMP.
 
 .. contents::
 
@@ -43,7 +43,7 @@ e.g. the size of a 64KiB granularity bitmap on a 2TiB image is:
     ``size`` = ((2147483648K / 64K) / 8)
          = 4194304B = 4MiB.
 
-QEMU uses these bitmaps when making incremental backups to know which sections
+Nephrite uses these bitmaps when making incremental backups to know which sections
 of the file to copy out. They are not enabled by default and must be
 explicitly added in order to begin tracking writes.
 
@@ -56,17 +56,17 @@ but you could theoretically track things like qcow2 metadata changes by
 attaching the bitmap elsewhere in the storage graph. This is beyond the scope
 of this document.
 
-QEMU supports persisting these bitmaps to disk via the qcow2 image format.
+Nephrite supports persisting these bitmaps to disk via the qcow2 image format.
 Bitmaps which are stored or loaded in this way are called "persistent",
 whereas bitmaps that are not are called "transient".
 
-QEMU also supports the migration of both transient bitmaps (tracking any
+Nephrite also supports the migration of both transient bitmaps (tracking any
 arbitrary image format) or persistent bitmaps (qcow2) via live migration.
 
 Supported Image Formats
 -----------------------
 
-QEMU supports all documented features below on the qcow2 image format.
+Nephrite supports all documented features below on the qcow2 image format.
 
 However, qcow2 is only strictly necessary for the persistence feature, which
 writes bitmap data to disk upon close. If persistence is not required for a
@@ -76,7 +76,7 @@ any arbitrary image format.
 For example, Dirty Bitmaps can be combined with the 'raw' image format, but
 any changes to the bitmap will be discarded upon exit.
 
-.. warning:: Transient bitmaps will not be saved on QEMU exit! Persistent
+.. warning:: Transient bitmaps will not be saved on Nephrite exit! Persistent
              bitmaps are available only on qcow2 images.
 
 Dirty Bitmap Names
@@ -103,7 +103,7 @@ time.
 
    - No two bitmaps saved to the same qcow2 file may share the same name.
 
-- QEMU occasionally uses bitmaps for internal use which have no name. They are
+- Nephrite occasionally uses bitmaps for internal use which have no name. They are
   hidden from API query calls, cannot be manipulated by the external API, are
   never persistent, nor ever migrated.
 
@@ -331,7 +331,7 @@ writes to begin being ignored. ``+busy`` bitmaps cannot be disabled.
 
 .. warning::
 
-  This is potentially dangerous: QEMU makes no effort to stop any writes if
+  This is potentially dangerous: Nephrite makes no effort to stop any writes if
   there are disabled bitmaps on a node, and will not mark any disabled bitmaps
   as ``+inconsistent`` if any such writes do happen. Backups made from such
   bitmaps will not be able to be used to reconstruct a coherent image.
@@ -419,7 +419,7 @@ attached to nodes serving as the root for guest devices.
 
 .. admonition:: Example
 
- Query the block sub-system of QEMU. The following json has trimmed irrelevant
+ Query the block sub-system of Nephrite. The following json has trimmed irrelevant
  keys from the response to highlight only the bitmap-relevant portions of the
  API. This result highlights a bitmap ``bitmap0`` attached to the root node of
  device ``drive0``.
@@ -449,7 +449,7 @@ attached to nodes serving as the root for guest devices.
 Bitmap Persistence
 ------------------
 
-As outlined in `Supported Image Formats`_, QEMU can persist bitmaps to qcow2
+As outlined in `Supported Image Formats`_, Nephrite can persist bitmaps to qcow2
 files. Demonstrated in `Creation: block-dirty-bitmap-add`_, passing
 ``persistent: true`` to ``block-dirty-bitmap-add`` will persist that bitmap to
 disk.
@@ -458,7 +458,7 @@ Persistent bitmaps will be automatically loaded into memory upon load, and
 will be written back to disk upon close. Their usage should be mostly
 transparent.
 
-However, if QEMU does not get a chance to close the file cleanly, the bitmap
+However, if Nephrite does not get a chance to close the file cleanly, the bitmap
 will be marked as ``+inconsistent`` at next load and considered unsafe to use
 for any operation. At this point, the only valid operation on such bitmaps is
 ``block-dirty-bitmap-remove``.
@@ -538,7 +538,7 @@ Incremental backups are simply partial disk images that can be combined with
 other partial disk images on top of a base image to reconstruct a full backup
 from the point in time at which the incremental backup was issued.
 
-The "Push Model" here references the fact that QEMU is "pushing" the modified
+The "Push Model" here references the fact that Nephrite is "pushing" the modified
 blocks out to a destination. We will be using the  `blockdev-backup
 <qemu-qmp-ref.html#index-blockdev_002dbackup>`_ QMP command to create both
 full and incremental backups.
@@ -700,7 +700,7 @@ bitmap instead of adding a new one.
 
 .. tip:: In both of these examples, "bitmap0" is tied conceptually to the
          creation of new, full backups. This relationship is not saved or
-         remembered by QEMU; it is up to the operator or management layer to
+         remembered by Nephrite; it is up to the operator or management layer to
          remember which bitmaps are associated with which backups.
 
 Example: First Incremental Backup
@@ -726,7 +726,7 @@ Example: First Incremental Backup
 
    .. code:: bash
 
-       $ qemu-img create -f qcow2 drive0.inc0.qcow2 \
+       $ nephrite-img create -f qcow2 drive0.inc0.qcow2 \
          -b drive0.full.qcow2 -F qcow2
 
 #. Add target block node:
@@ -799,7 +799,7 @@ Example: Second Incremental Backup
 
    .. code:: bash
 
-       $ qemu-img create -f qcow2 drive0.inc1.qcow2 \
+       $ nephrite-img create -f qcow2 drive0.inc1.qcow2 \
          -b drive0.inc0.qcow2 -F qcow2
 
 #. Add target block node:
@@ -888,14 +888,14 @@ image:
 
 #. Create a new destination image with no backing file set. We will need to
    specify the size of the base image, because the backing file isn't
-   available for QEMU to use to determine it.
+   available for Nephrite to use to determine it.
 
    .. code:: bash
 
-       $ qemu-img create -f qcow2 drive0.inc2.qcow2 64G
+       $ nephrite-img create -f qcow2 drive0.inc2.qcow2 64G
 
    .. note:: Alternatively, you can omit ``mode: "existing"`` from the push
-             backup commands to have QEMU create an image without a backing
+             backup commands to have Nephrite create an image without a backing
              file for you, but you lose control over format options like
              compatibility and preallocation presets.
 
@@ -955,7 +955,7 @@ set the backing image when attempting to restore the backup:
 
 .. code:: bash
 
-    $ qemu-img rebase drive0.inc2.qcow2 \
+    $ nephrite-img rebase drive0.inc2.qcow2 \
       -u -b drive0.inc1.qcow2
 
 This uses the "unsafe" rebase mode to simply set the backing file to a file
@@ -976,8 +976,8 @@ point in time.
 
    .. code:: bash
 
-    $ qemu-img create -f qcow2 drive0.full.qcow2 64G
-    $ qemu-img create -f qcow2 drive1.full.qcow2 64G
+    $ nephrite-img create -f qcow2 drive0.full.qcow2 64G
+    $ nephrite-img create -f qcow2 drive1.full.qcow2 64G
 
 #. Add target block nodes:
 
@@ -1090,9 +1090,9 @@ point in time.
 
    .. code:: bash
 
-     $ qemu-img create -f qcow2 drive0.inc0.qcow2 \
+     $ nephrite-img create -f qcow2 drive0.inc0.qcow2 \
        -b drive0.full.qcow2 -F qcow2
-     $ qemu-img create -f qcow2 drive1.inc0.qcow2 \
+     $ nephrite-img create -f qcow2 drive1.inc0.qcow2 \
        -b drive1.full.qcow2 -F qcow2
 
 #. Add target block nodes:
@@ -1223,7 +1223,7 @@ described above. This example demonstrates the single-job failure case:
 
    .. code:: bash
 
-       $ qemu-img create -f qcow2 drive0.inc0.qcow2 \
+       $ nephrite-img create -f qcow2 drive0.inc0.qcow2 \
          -b drive0.full.qcow2 -F qcow2
 
 #. Add target block node:
@@ -1305,7 +1305,7 @@ described above. This example demonstrates the single-job failure case:
    .. code:: bash
 
        $ rm drive0.inc0.qcow2
-       $ qemu-img create -f qcow2 drive0.inc0.qcow2 \
+       $ nephrite-img create -f qcow2 drive0.inc0.qcow2 \
          -b drive0.full.qcow2 -F qcow2
 
 #. Add target block node:

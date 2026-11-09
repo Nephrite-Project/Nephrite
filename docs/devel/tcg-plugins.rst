@@ -5,8 +5,8 @@
 
 .. _TCG Plugins:
 
-QEMU TCG Plugins
-================
+Nephrite TCG Plugins
+====================
 
 
 Writing plugins
@@ -15,8 +15,8 @@ Writing plugins
 API versioning
 ~~~~~~~~~~~~~~
 
-This is a new feature for QEMU and it does allow people to develop
-out-of-tree plugins that can be dynamically linked into a running QEMU
+This is a new feature for Nephrite and it does allow people to develop
+out-of-tree plugins that can be dynamically linked into a running Nephrite
 process. However the project reserves the right to change or break the
 API should it need to do so. The best way to avoid this is to submit
 your plugin upstream so they can be updated if/when the API changes.
@@ -27,12 +27,12 @@ version they were built against. This can be done simply by::
   QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 
 The core code will refuse to load a plugin that doesn't export a
-``qemu_plugin_version`` symbol or if plugin version is outside of QEMU's
+``qemu_plugin_version`` symbol or if plugin version is outside of Nephrite's
 supported range of API versions.
 
 Additionally the ``qemu_info_t`` structure which is passed to the
 ``qemu_plugin_install`` method of a plugin will detail the minimum and
-current API versions supported by QEMU. The API version will be
+current API versions supported by Nephrite. The API version will be
 incremented if new APIs are added. The minimum API version will be
 incremented if existing APIs are changed or removed.
 
@@ -70,14 +70,14 @@ accessed/modified in a thread-safe way without any lock needed. Combining inline
 operations and conditional callbacks offer a more efficient way to instrument
 binaries, compared to classic callbacks.
 
-Finally when QEMU exits all the registered *atexit* callbacks are
+Finally when Nephrite exits all the registered *atexit* callbacks are
 invoked.
 
-Exposure of QEMU internals
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Exposure of Nephrite internals
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The plugin architecture actively avoids leaking implementation details
-about how QEMU's translation works to the plugins. While there are
+about how Nephrite's translation works to the plugins. While there are
 conceptions such as translation time and translation blocks the
 details are opaque to plugins. The plugin is able to query select
 details of instructions and system configuration only through the

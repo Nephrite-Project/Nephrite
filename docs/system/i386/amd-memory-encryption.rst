@@ -235,7 +235,7 @@ Debugging
 Since the memory contents of a SEV guest are encrypted, hypervisor access to
 the guest memory will return cipher text. If the guest policy allows debugging,
 then a hypervisor can use the DEBUG_DECRYPT and DEBUG_ENCRYPT commands to access
-the guest memory region for debug purposes.  This is not supported in QEMU yet.
+the guest memory region for debug purposes.  This is not supported in Nephrite yet.
 
 Snapshot/Restore
 ----------------

@@ -4,7 +4,7 @@ Backwards compatibility
 How backwards compatibility works
 ---------------------------------
 
-When we do migration, we have two QEMU processes: the source and the
+When we do migration, we have two Nephrite processes: the source and the
 target.  There are two cases, they are the same version or they are
 different versions.  The easy case is when they are the same version.
 The difficult one is when they are different versions.
@@ -17,8 +17,8 @@ names and sometimes get confused:
 
 Let's start with a practical example, we start with:
 
-- qemu-system-x86_64 (v5.2), from now on qemu-5.2.
-- qemu-system-x86_64 (v5.1), from now on qemu-5.1.
+- nephrite-system-x86_64 (v5.2), from now on qemu-5.2.
+- nephrite-system-x86_64 (v5.1), from now on qemu-5.1.
 
 Related to this are the "latest" machine types defined on each of
 them:
@@ -27,19 +27,19 @@ them:
 - pc-q35-5.1 (newer one in qemu-5.1) from now on pc-5.1
 
 First of all, migration is only supposed to work if you use the same
-machine type in both source and destination. The QEMU hardware
+machine type in both source and destination. The Nephrite hardware
 configuration needs to be the same also on source and destination.
 Most aspects of the backend configuration can be changed at will,
 except for a few cases where the backend features influence frontend
 device feature exposure.  But that is not relevant for this section.
 
 I am going to list the number of combinations that we can have.  Let's
-start with the trivial ones, QEMU is the same on source and
+start with the trivial ones, Nephrite is the same on source and
 destination:
 
 1 - qemu-5.2 -M pc-5.2  -> migrates to -> qemu-5.2 -M pc-5.2
 
-  This is the latest QEMU with the latest machine type.
+  This is the latest Nephrite with the latest machine type.
   This have to work, and if it doesn't work it is a bug.
 
 2 - qemu-5.1 -M pc-5.1  -> migrates to -> qemu-5.1 -M pc-5.1
@@ -59,7 +59,7 @@ QEMU version, in this case pc-5.1.
 
   It needs to use the definition of pc-5.1 and the devices as they
   were configured on 5.1, but this should be easy in the sense that
-  both sides are the same QEMU and both sides have exactly the same
+  both sides are the same Nephrite and both sides have exactly the same
   idea of what the pc-5.1 machine is.
 
 4 - qemu-5.1 -M pc-5.2  -> migrates to -> qemu-5.1 -M pc-5.2
@@ -67,7 +67,7 @@ QEMU version, in this case pc-5.1.
   This combination is not possible as the qemu-5.1 doesn't understand
   pc-5.2 machine type.  So nothing to worry here.
 
-Now it comes the interesting ones, when both QEMU processes are
+Now it comes the interesting ones, when both Nephrite processes are
 different.  Notice also that the machine type needs to be pc-5.1,
 because we have the limitation than qemu-5.1 doesn't know pc-5.2.  So
 the possible cases are:
@@ -102,7 +102,7 @@ And the equivalent part when migrating from qemu-5.1 to qemu-5.2.
 qemu-5.2 has to expect that it is not going to get data for the new
 feature, because qemu-5.1 doesn't know about it.
 
-How do we tell QEMU about these device feature changes?  In
+How do we tell Nephrite about these device feature changes?  In
 hw/core/machine.c:hw_compat_X_Y arrays.
 
 If we change a default value, we need to put back the old value on
@@ -164,7 +164,7 @@ And now the other interesting case, case 3.  In this case we have:
 
 3 - qemu-5.2 -M pc-5.1  -> migrates to -> qemu-5.2 -M pc-5.1
 
-    Here we have the same QEMU in both sides.  So it doesn't matter a
+    Here we have the same Nephrite in both sides.  So it doesn't matter a
     lot if we have set the number of queues to 1 or not, because
     they are the same.
 
@@ -220,7 +220,7 @@ machine types to have the right value::
 A device with different features on both sides
 ----------------------------------------------
 
-Let's assume that we are using the same QEMU binary on both sides,
+Let's assume that we are using the same Nephrite binary on both sides,
 just to make the things easier.  But we have a device that has
 different features on both sides of the migration.  That can be
 because the devices are different, because the kernel driver of both
@@ -231,18 +231,18 @@ How can we get this to work with migration.  The way to do that is
 has in the source of the migration.  The features that the device has
 on the target of the migration, you get the intersection of the
 features of both sides, and that is the way that you should launch
-QEMU.
+Nephrite.
 
-Notice that this is not completely related to QEMU.  The most
+Notice that this is not completely related to Nephrite.  The most
 important thing here is that this should be handled by the managing
-application that launches QEMU.  If QEMU is configured correctly, the
+application that launches Nephrite.  If Nephrite is configured correctly, the
 migration will succeed.
 
 That said, actually doing it is complicated.  Almost all devices are
 bad at being able to be launched with only some features enabled.
 With one big exception: cpus.
 
-You can read the documentation for QEMU x86 cpu models here:
+You can read the documentation for Nephrite x86 cpu models here:
 
 https://qemu-project.gitlab.io/qemu/system/qemu-cpu-models.html
 
@@ -267,11 +267,11 @@ Doing this would be the equivalent of doing with cpus:
 
 Host A:
 
-$ qemu-system-x86_64 -cpu host
+$ nephrite-system-x86_64 -cpu host
 
 Host B:
 
-$ qemu-system-x86_64 -cpu host
+$ nephrite-system-x86_64 -cpu host
 
 When both hosts have different cpu features this is guaranteed to
 fail.  Especially if Host B has less features than host A.  If host A
@@ -286,20 +286,20 @@ Features:   'pcid'  'stibp' 'taa-no'
 Host A:        X       X
 Host B:                        X
 
-And we want to migrate between them, the way configure both QEMU cpu
+And we want to migrate between them, the way configure both Nephrite cpu
 will be:
 
 Host A:
 
-$ qemu-system-x86_64 -cpu host,pcid=off,stibp=off
+$ nephrite-system-x86_64 -cpu host,pcid=off,stibp=off
 
 Host B:
 
-$ qemu-system-x86_64 -cpu host,taa-no=off
+$ nephrite-system-x86_64 -cpu host,taa-no=off
 
 And you would be able to migrate between them.  It is responsibility
 of the management application or of the user to make sure that the
-configuration is correct.  QEMU doesn't know how to look at this kind
+configuration is correct.  Nephrite doesn't know how to look at this kind
 of features in general.
 
 Notice that we don't recommend to use -cpu host for migration.  It is
@@ -309,7 +309,7 @@ Other devices have worse control about individual features.  If they
 want to be able to migrate between hosts that show different features,
 the device needs a way to configure which ones it is going to use.
 
-In this section we have considered that we are using the same QEMU
+In this section we have considered that we are using the same Nephrite
 binary in both sides of the migration.  If we use different QEMU
 versions process, then we need to have into account all other
 differences and the examples become even more complicated.
@@ -372,7 +372,7 @@ The relevant bits of the commit for our example are this ones::
          pci_set_long(dev->config + offset + PCI_ERR_UNCOR_SEVER,
                      PCI_ERR_UNC_SEVERITY_DEFAULT);
 
-The patch changes how we configure PCI space for AER.  But QEMU fails
+The patch changes how we configure PCI space for AER.  But Nephrite fails
 when the PCI space configuration is different between source and
 destination.
 
@@ -386,7 +386,7 @@ The following commit shows how this got fixed::
 
     [...]
 
-The relevant parts of the fix in QEMU are as follow:
+The relevant parts of the fix in Nephrite are as follow:
 
 First, we create a new property for the device to be able to configure
 the old behaviour or the new behaviour::
@@ -468,7 +468,7 @@ works:
 - $ qemu-8.0 -M pc-7.2  ->  qemu-8.0 -M pc-7.2
 - $ qemu-8.0.1 -M pc-7.2  ->  qemu-8.0.1 -M pc-7.2
 
-Now the interesting ones.  When the QEMU processes versions are
+Now the interesting ones.  When the Nephrite processes versions are
 different.  For the 1st set, their fail and we can do nothing, both
 versions are released and we can't change anything.
 
@@ -511,6 +511,6 @@ $ qemu-8.0 -M pc-7.2 -> qemu-8.0.1 -M pc-7.2 -> qemu-8.2 -M pc-7.2
 In the second migration, the source is not qemu-8.0, but we still have
 that "problem" and have that property enabled.  Notice that we need to
 continue having this mark/property until we have this machine
-rebooted.  But it is not a normal reboot (that don't reload QEMU) we
-need the machine to poweroff/poweron on a fixed QEMU.  And from now
+rebooted.  But it is not a normal reboot (that don't reload Nephrite) we
+need the machine to poweroff/poweron on a fixed Nephrite.  And from now
 on we can use the proper real machine.

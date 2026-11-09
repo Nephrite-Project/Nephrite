@@ -1,16 +1,16 @@
 ==================================
-QEMU virtual RAPL MSR helper
+Nephrite virtual RAPL MSR helper
 ==================================
 
 Synopsis
 --------
 
-**qemu-vmsr-helper** [*OPTION*]
+**nephrite-vmsr-helper** [*OPTION*]
 
 Description
 -----------
 
-Implements the virtual RAPL MSR helper for QEMU.
+Implements the virtual RAPL MSR helper for Nephrite.
 
 Accessing the RAPL (Running Average Power Limit) MSR enables the RAPL powercap
 driver to advertise and monitor the power consumption or accumulated energy
@@ -18,21 +18,21 @@ consumption of different power domains, such as CPU packages, DRAM, and other
 components when available.
 
 However those registers are accessible under privileged access (CAP_SYS_RAWIO).
-QEMU can use an external helper to access those privileged registers.
+Nephrite can use an external helper to access those privileged registers.
 
-:program:`qemu-vmsr-helper` is that external helper; it creates a listener
-socket which will accept incoming connections for communication with QEMU.
+:program:`nephrite-vmsr-helper` is that external helper; it creates a listener
+socket which will accept incoming connections for communication with Nephrite.
 
 If you want to run VMs in a setup like this, this helper should be started as a
-system service, and you should read the QEMU manual section on "RAPL MSR
-support" to find out how to configure QEMU to connect to the socket created by
-:program:`qemu-vmsr-helper`.
+system service, and you should read the Nephrite manual section on "RAPL MSR
+support" to find out how to configure Nephrite to connect to the socket created by
+:program:`nephrite-vmsr-helper`.
 
-After connecting to the socket, :program:`qemu-vmsr-helper` can
+After connecting to the socket, :program:`nephrite-vmsr-helper` can
 optionally drop root privileges, except for those capabilities that
 are needed for its operation.
 
-:program:`qemu-vmsr-helper` can also use the systemd socket activation
+:program:`nephrite-vmsr-helper` can also use the systemd socket activation
 protocol.  In this case, the systemd socket unit should specify a
 Unix stream socket, like this::
 
@@ -42,7 +42,7 @@ Unix stream socket, like this::
 Options
 -------
 
-.. program:: qemu-vmsr-helper
+.. program:: nephrite-vmsr-helper
 
 .. option:: -d, --daemon
 

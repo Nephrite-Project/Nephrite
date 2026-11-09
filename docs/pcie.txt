@@ -18,11 +18,11 @@ The following presentations accompany this document:
      https://wiki.qemu.org/images/f/f6/PCIvsPCIe.pdf
 
 Note: The usage examples are not intended to replace the full
-documentation, please use QEMU help to retrieve all options.
+documentation, please use Nephrite help to retrieve all options.
 
 2. Device placement strategy
 ============================
-QEMU does not have a clear socket-device matching mechanism
+Nephrite does not have a clear socket-device matching mechanism
 and allows any PCI/PCI Express device to be plugged into any
 PCI/PCI Express slot.
 Plugging a PCI device into a PCI Express slot might not always work and
@@ -176,7 +176,7 @@ such Port should be reserved a 4K IO range for, even though only one
 (multifunction) device can be plugged into each Port. This results in
 poor IO space utilization.
 
-The firmware used by QEMU (SeaBIOS/OVMF) may try further optimizations
+The firmware used by Nephrite (SeaBIOS/OVMF) may try further optimizations
 by not allocating IO space for each PCI Express Root / PCI Express
 Downstream port if:
     (1) the port is empty, or
@@ -195,7 +195,7 @@ without using IO ports. The PCI hierarchy has no such limitations.
 
 4. Bus numbers issues
 ======================
-Each PCI domain can have up to only 256 buses and the QEMU PCI Express
+Each PCI domain can have up to only 256 buses and the Nephrite PCI Express
 machines do not support multiple PCI domains even if extra Root
 Complexes (pxb-pcie) are used.
 
@@ -263,7 +263,7 @@ PCI Express Root Ports (and PCI Express Downstream Ports).
 
 
 5.3 Hot-plug example:
-Using HMP: (add -monitor stdio to QEMU command line)
+Using HMP: (add -monitor stdio to Nephrite command line)
   device_add <dev>,id=<id>,bus=<PCI Express Root Port Id/PCI Express Downstream Port Id/PCI-PCI Bridge Id/>
 
 

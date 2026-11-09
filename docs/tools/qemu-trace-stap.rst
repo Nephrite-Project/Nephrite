@@ -1,17 +1,17 @@
-=========================
-QEMU SystemTap trace tool
-=========================
+=============================
+Nephrite SystemTap trace tool
+=============================
 
 Synopsis
 --------
 
-**qemu-trace-stap** [*GLOBAL-OPTIONS*] *COMMAND* [*COMMAND-OPTIONS*] *ARGS*...
+**nephrite-trace-stap** [*GLOBAL-OPTIONS*] *COMMAND* [*COMMAND-OPTIONS*] *ARGS*...
 
 Description
 -----------
 
-The ``qemu-trace-stap`` program facilitates tracing of the execution
-of QEMU emulators using SystemTap.
+The ``nephrite-trace-stap`` program facilitates tracing of the execution
+of Nephrite emulators using SystemTap.
 
 It is required to have the SystemTap runtime environment installed to use
 this program, since it is a wrapper around execution of the ``stap``
@@ -20,7 +20,7 @@ program.
 Options
 -------
 
-.. program:: qemu-trace-stap
+.. program:: nephrite-trace-stap
 
 The following global options may be used regardless of which command
 is executed:
@@ -51,14 +51,14 @@ The following commands are valid:
 
   .. parsed-literal::
 
-    $ qemu-trace-stap list |qemu_system|
+    $ nephrite-trace-stap list |qemu_system|
 
-  To filter the list to only cover probes related to QEMU's cryptographic
+  To filter the list to only cover probes related to Nephrite's cryptographic
   subsystem, in a binary outside ``$PATH``
 
   .. parsed-literal::
 
-    $ qemu-trace-stap list /opt/qemu/|version|/bin/|qemu_system| 'qcrypto*'
+    $ nephrite-trace-stap list /opt/qemu/|version|/bin/|qemu_system| 'qcrypto*'
 
 .. option:: run OPTIONS BINARY PATTERN...
 
@@ -73,17 +73,17 @@ The following commands are valid:
   facilitate matching multiple probes without listing each one explicitly.
   Multiple *PATTERN* arguments may be given, causing all matching probes
   to be monitored. At least one *PATTERN* is required, since stap is not
-  capable of tracing all known QEMU probes concurrently without overflowing
+  capable of tracing all known Nephrite probes concurrently without overflowing
   its trace buffer.
 
   Invocation of this command does not need to be synchronized with
-  invocation of the QEMU process(es). It will match probes on all
+  invocation of the Nephrite process(es). It will match probes on all
   existing running processes and all future launched processes,
   unless told to only monitor a specific process.
 
   Valid command specific options are:
 
-  .. program:: qemu-trace-stap-run
+  .. program:: nephrite-trace-stap-run
 
   .. option:: --pid=PID, -p PID
 
@@ -95,26 +95,26 @@ The following commands are valid:
 
   .. parsed-literal::
 
-    $ qemu-trace-stap run |qemu_system| 'qio*'
+    $ nephrite-trace-stap run |qemu_system| 'qio*'
 
-  To monitor only the QEMU process with PID 1732
+  To monitor only the Nephrite process with PID 1732
 
   .. parsed-literal::
 
-    $ qemu-trace-stap run --pid=1732 |qemu_system| 'qio*'
+    $ nephrite-trace-stap run --pid=1732 |qemu_system| 'qio*'
 
-  To monitor QEMU processes running an alternative binary outside of
+  To monitor Nephrite processes running an alternative binary outside of
   ``$PATH``, displaying verbose information about setup of the
   tracing environment:
 
   .. parsed-literal::
 
-    $ qemu-trace-stap -v run /opt/qemu/|version|/bin/|qemu_system| 'qio*'
+    $ nephrite-trace-stap -v run /opt/qemu/|version|/bin/|qemu_system| 'qio*'
 
 See also
 --------
 
-:manpage:`qemu(1)`, :manpage:`stap(1)`
+:manpage:`nephrite(1)`, :manpage:`stap(1)`
 
 ..
   Copyright (C) 2019 Red Hat, Inc.

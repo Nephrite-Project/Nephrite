@@ -41,7 +41,7 @@ Missing devices
 Firmware
 ========
 
-The pSeries platform in QEMU comes with 2 firmwares:
+The pSeries platform in Nephrite comes with 2 firmwares:
 
 `SLOF <https://gitlab.com/slof/slof>`_ (Slimline Open Firmware) is an
 implementation of the `IEEE 1275-1994, Standard for Boot (Initialization
@@ -51,12 +51,12 @@ Configuration) Firmware: Core Requirements and Practices
 SLOF performs bus scanning, PCI resource allocation, provides the client
 interface to boot from block devices and network.
 
-QEMU includes a prebuilt image of SLOF which is updated when a more recent
+Nephrite includes a prebuilt image of SLOF which is updated when a more recent
 version is required.
 
 VOF (Virtual Open Firmware) is a minimalistic firmware to work with
 ``-machine pseries,x-vof=on``. When enabled, the firmware acts as a slim
-shim and QEMU implements parts of the IEEE 1275 Open Firmware interface.
+shim and Nephrite implements parts of the IEEE 1275 Open Firmware interface.
 
 VOF does not have device drivers, does not do PCI resource allocation and
 relies on ``-kernel`` used with Linux kernels recent enough (v5.4+)
@@ -88,18 +88,18 @@ Build directions
 Running instructions
 ====================
 
-Someone can select the pSeries machine type by running QEMU with the following
+Someone can select the pSeries machine type by running Nephrite with the following
 options:
 
 .. code-block:: bash
 
-  qemu-system-ppc64 -M pseries <other QEMU arguments>
+  nephrite-system-ppc64 -M pseries <other Nephrite arguments>
 
 sPAPR devices
 =============
 
 The sPAPR specification defines a set of para-virtualized devices, which are
-also supported by the pSeries machine in QEMU and can be instantiated with the
+also supported by the pSeries machine in Nephrite and can be instantiated with the
 ``-device`` option:
 
 * ``spapr-vlan`` : a virtual network interface.
@@ -119,20 +119,20 @@ However, since these devices have originally been specified with another
 hypervisor and non-Linux guests in mind, you should use the virtio counterparts
 (virtio-net, virtio-blk/scsi and virtio-rng for instance) if possible instead,
 since they will most probably give you better performance with Linux guests in a
-QEMU environment.
+Nephrite environment.
 
-The pSeries machine in QEMU is always instantiated with the following devices:
+The pSeries machine in Nephrite is always instantiated with the following devices:
 
 * A NVRAM device (``spapr-nvram``).
 * A virtual teletype (``spapr-vty``).
 * A PCI host bridge (``spapr-pci-host-bridge``).
 
 Hence, it is not needed to add them manually, unless you use the ``-nodefaults``
-command line option in QEMU.
+command line option in Nephrite.
 
 In the case of the default ``spapr-nvram`` device, if someone wants to make the
 contents of the NVRAM device persistent, they will need to specify a PFLASH
-device when starting QEMU, i.e. either use
+device when starting Nephrite, i.e. either use
 ``-drive if=pflash,file=<filename>,format=raw`` to set the default PFLASH
 device, or specify one with an ID
 (``-drive if=none,file=<filename>,format=raw,id=pfid``) and pass that ID to the
@@ -142,8 +142,8 @@ sPAPR specification
 -------------------
 
 The main source of documentation on the sPAPR standard is the [LoPAR]_ document.
-However, documentation specific to QEMU's implementation of the specification
-can  also be found in QEMU documentation:
+However, documentation specific to Nephrite's implementation of the specification
+can  also be found in Nephrite documentation:
 
 .. toctree::
    :maxdepth: 1
@@ -164,9 +164,9 @@ Currently, there are two implementations of KVM on Power, ``kvm_hv.ko`` and
 If a host supports both KVM modes, and both KVM kernel modules are loaded, it is
 possible to switch between the two modes with the ``kvm-type`` parameter:
 
-* Use ``qemu-system-ppc64 -M pseries,accel=kvm,kvm-type=PR`` to use the
+* Use ``nephrite-system-ppc64 -M pseries,accel=kvm,kvm-type=PR`` to use the
   ``kvm_pr.ko`` kernel module.
-* Use ``qemu-system-ppc64 -M pseries,accel=kvm,kvm-type=HV`` to use ``kvm_hv.ko``
+* Use ``nephrite-system-ppc64 -M pseries,accel=kvm,kvm-type=HV`` to use ``kvm_hv.ko``
   instead.
 
 KVM-PR
@@ -194,7 +194,7 @@ performance, maintenance work has been much more focused on it in the past
 years. Maintenance for KVM-PR has been minimal.
 
 In order to run KVM-PR guests with POWER9 processors, someone will need to start
-QEMU with ``kernel_irqchip=off`` command line option.
+Nephrite with ``kernel_irqchip=off`` command line option.
 
 KVM-HV
 ------
@@ -216,7 +216,7 @@ of the same type as the host CPU this way, e.g. it is not possible to specify an
 embedded PPC CPU for the guest with KVM-HV. However, there is at least the
 possibility to run the guest in a backward-compatibility mode of the previous
 CPUs generations, e.g. you can run a POWER7 guest on a POWER8 host by using
-``-cpu POWER8,compat=power7`` as parameter to QEMU.
+``-cpu POWER8,compat=power7`` as parameter to Nephrite.
 
 Modules support
 ===============
@@ -274,7 +274,7 @@ If a suitable firmware including an Ultravisor is installed, it adds
 an extra memory protection mode to the CPU.  The ultravisor manages a
 pool of secure memory which cannot be accessed by the hypervisor.
 
-When this feature is enabled in QEMU, a guest can use ultracalls to
+When this feature is enabled in Nephrite, a guest can use ultracalls to
 enter "secure mode".  This transfers most of its memory to secure
 memory, where it cannot be eavesdropped by a compromised hypervisor.
 
@@ -283,7 +283,7 @@ Launching
 
 To launch a guest which will be permitted to enter PEF secure mode::
 
-  $ qemu-system-ppc64 \
+  $ nephrite-system-ppc64 \
       -object pef-guest,id=pef0 \
       -machine confidential-guest-support=pef0 \
       ...
@@ -292,7 +292,7 @@ Live Migration
 ^^^^^^^^^^^^^^
 
 Live migration is not yet implemented for PEF guests.  For
-consistency, QEMU currently prevents migration if the PEF feature is
+consistency, Nephrite currently prevents migration if the PEF feature is
 enabled, whether or not the guest has actually entered secure mode.
 
 

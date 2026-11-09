@@ -4,7 +4,7 @@
 eMMC Emulation
 ==============
 
-Besides SD card emulation, QEMU also offers an eMMC model as found on many
+Besides SD card emulation, Nephrite also offers an eMMC model as found on many
 embedded boards. An eMMC, just like an SD card, is connected to the machine
 via an SDHCI controller.
 
@@ -12,7 +12,7 @@ Create eMMC Images
 ==================
 
 A recent eMMC consists of 4 partitions: 2 boot partitions, 1 Replay protected
-Memory Block (RPMB), and the user data area. QEMU expects backing images for
+Memory Block (RPMB), and the user data area. Nephrite expects backing images for
 the eMMC to contain those partitions concatenated in exactly that order.
 However, the boot partitions as well as the RPMB might be absent if their sizes
 are configured to zero.
@@ -26,7 +26,7 @@ The alignment constrain of the user data area depends on its size. Up to 2
 GByte, the size must be a power of 2. From 2 GByte onward, the size has to be
 multiples of 512 byte.
 
-QEMU is enforcing those alignment rules before instantiating the device.
+Nephrite is enforcing those alignment rules before instantiating the device.
 Therefore, the provided image has to strictly follow them as well. The helper
 script ``scripts/mkemmc.sh`` can be used to create compliant images, with or
 without pre-filled partitions. E.g., to create an eMMC image from a firmware
@@ -59,7 +59,7 @@ RPMB Authentication Key
 
 A private shared key is used for authenticating requests of the host to the
 RPMB. A real eMMC stores this persistently and permits no reprogramming once it
-is set. QEMU emulates key programming but does not persist the key state
+is set. Nephrite emulates key programming but does not persist the key state
 across restarts. To emulate the state "key is set", the eMMC can be created
 with a user-provided key via the ``auth-key`` property:
 

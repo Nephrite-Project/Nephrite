@@ -32,7 +32,7 @@ Each I/O request is evaluated against the rules.  If a rule matches the request
 then its "action" is executed.
 
 Rules can be placed in a configuration file; the configuration file
-follows the same .ini-like format used by QEMU's ``-readconfig`` option, and
+follows the same .ini-like format used by Nephrite's ``-readconfig`` option, and
 each section of the file represents a rule.
 
 The following configuration file defines a single rule::
@@ -46,9 +46,9 @@ This rule fails all aio read requests with ``ENOSPC`` (28).  Note that the errno
 value depends on the host.  On Linux, see
 ``/usr/include/asm-generic/errno-base.h`` for errno values.
 
-Invoke QEMU as follows::
+Invoke Nephrite as follows::
 
-  $ qemu-system-x86_64
+  $ nephrite-system-x86_64
         -drive if=none,cache=none,file=blkdebug:blkdebug.conf:test.img,id=drive0 \
         -device virtio-blk-pci,drive=drive0,id=virtio-blk-pci0
 
@@ -173,5 +173,5 @@ Breakpoints on ``blkdebug`` events are associated with a user-defined ``tag`` st
 This tag serves as an identifier by which the request can be resumed at a later
 point.
 
-See the ``qemu-io(1)`` ``break``, ``resume``, ``remove_break``, and ``wait_break``
+See the ``nephrite-io(1)`` ``break``, ``resume``, ``remove_break``, and ``wait_break``
 commands for details.

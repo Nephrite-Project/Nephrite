@@ -158,4 +158,4 @@ allow-rpcs     string list
 See also
 --------
 
-:manpage:`qemu(1)`
+:manpage:`nephrite(1)`

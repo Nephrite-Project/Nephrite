@@ -108,7 +108,7 @@ How To Use QATzip Compression
 
 1 - Install ``QATzip`` library
 
-2 - Build ``QEMU`` with ``--enable-qatzip`` parameter
+2 - Build ``Nephrite`` with ``--enable-qatzip`` parameter
 
   E.g. configure --target-list=x86_64-softmmu --enable-kvm ``--enable-qatzip``
 

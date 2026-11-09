@@ -1,7 +1,7 @@
 Locked Counters (aka ``QemuLockCnt``)
 =====================================
 
-QEMU often uses reference counts to track data structures that are being
+Nephrite often uses reference counts to track data structures that are being
 accessed and should not be freed.  For example, a loop that invoke
 callbacks like this is not safe::
 
@@ -61,7 +61,7 @@ general is complementary:
   should be kept short;
 
 - reference counting is often applied to code that is not thread-safe
-  but is reentrant; in fact, usage of reference counting in QEMU predates
+  but is reentrant; in fact, usage of reference counting in Nephrite predates
   the introduction of threads by many years.  RCU is generally used to
   protect readers from other threads freeing memory after concurrent
   modifications to a data structure.
@@ -164,7 +164,7 @@ assumptions are valid:
 - writes are frequent, but this kind of write (e.g. appending to a
   list) has a very small critical section.
 
-For example, QEMU uses ``QemuLockCnt`` to manage an ``AioContext``'s list of
+For example, Nephrite uses ``QemuLockCnt`` to manage an ``AioContext``'s list of
 bottom halves and file descriptor handlers.  Modifications to the list
 of file descriptor handlers are rare.  Creation of a new bottom half is
 frequent and can happen on a fast path; however: 1) it is almost never

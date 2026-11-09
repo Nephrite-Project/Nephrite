@@ -5,7 +5,7 @@ The Arm Musca development boards are a reference implementation
 of a system using the SSE-200 Subsystem for Embedded. They are
 dual Cortex-M33 systems.
 
-QEMU provides models of the A and B1 variants of this board.
+Nephrite provides models of the A and B1 variants of this board.
 
 Unimplemented devices:
 

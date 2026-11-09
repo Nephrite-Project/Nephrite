@@ -24,7 +24,7 @@ enabled:
 ``kvm-msi-ext-dest-id`` feature is enabled by default in x2apic mode with split
 irqchip (e.g. "-machine ...,kernel-irqchip=split -cpu ...,x2apic").
 
-Note: when CPU model ``host`` is used, QEMU passes through all supported
+Note: when CPU model ``host`` is used, Nephrite passes through all supported
 paravirtualized ``KVM`` features to the guest.
 
 Existing features

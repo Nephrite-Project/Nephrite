@@ -48,7 +48,7 @@ The format of a TLB entry is shown below.
 
 
 * ASID: the address-space identifier
-* A1, A0: the behavior of these cache line attributes are not modeled by QEMU.
+* A1, A0: the behavior of these cache line attributes are not modeled by Nephrite.
 * xP: the extra-physical bit is the most significant physical address bit.
 * S: the S bit and the LSBs of the physical page indicate the page size
 * val: this is the 'valid' bit, when set it indicates that page matching
@@ -109,4 +109,4 @@ managing this resource.
 
 .. seealso::
 
-    ``target/hexagon/README`` in the QEMU source tree for more info about Hexagon.
+    ``target/hexagon/README`` in the Nephrite source tree for more info about Hexagon.

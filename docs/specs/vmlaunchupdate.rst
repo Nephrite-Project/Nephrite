@@ -182,7 +182,7 @@ The reset causes recreation of the VM context which triggers a fresh
 measurement of the replaced BIOS region and reset CPU state.
 
 For non-confidential guests, there is no concept of guest private memory and all the existing
-guest memory is preserved (this is the default behaviour today - QEMU does not reset/clear
+guest memory is preserved (this is the default behaviour today - Nephrite does not reset/clear
 guest memory upon reset).
 
 In both confidential and non-confidential cases, CPU and device state are reset to
@@ -194,5 +194,5 @@ Closing Remarks
 The exact content of the memory region specified by starting address ``opaque_addr``
 and length ``opaque_size`` is guest specific and is hypervisor agnostic. The hypervisor does
 not care about the contents of this memory region. Therefore, it is not included in this
-specification. As of writing this document, TDX guests on QEMU does not support IGVM.
+specification. As of writing this document, TDX guests on Nephrite does not support IGVM.
 Therefore, this mechanism cannot be used to change launch state of TDX guests.

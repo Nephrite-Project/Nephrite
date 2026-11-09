@@ -62,7 +62,7 @@ RAM: 128G
 NIC: Intel I350 (10/100/1000Mbps)
 Host OS: CentOS 7 64-bit
 Guest OS: RHEL 6.5 64-bit
-Parameter: qemu-system-x86_64 -accel kvm -smp 4 -m 4096
+Parameter: nephrite-system-x86_64 -accel kvm -smp 4 -m 4096
  /share/ia32e_rhel6u5.qcow -monitor stdio
 
 There is no additional application is running on the guest when doing
@@ -108,26 +108,26 @@ total ram(kB):      |  4211524  | 4211524
 
 Usage
 =====
-1. Verify both the source and destination QEMU are able
+1. Verify both the source and destination Nephrite are able
 to support the multiple thread compression migration:
-    {qemu} info migrate_capabilities
-    {qemu} ... compress: off ...
+    {Nephrite} info migrate_capabilities
+    {Nephrite} ... compress: off ...
 
 2. Activate compression on the source:
-    {qemu} migrate_set_capability compress on
+    {Nephrite} migrate_set_capability compress on
 
 3. Set the compression thread count on source:
-    {qemu} migrate_set_parameter compress-threads 12
+    {Nephrite} migrate_set_parameter compress-threads 12
 
 4. Set the compression level on the source:
-    {qemu} migrate_set_parameter compress-level 1
+    {Nephrite} migrate_set_parameter compress-level 1
 
 5. Set the decompression thread count on destination:
-    {qemu} migrate_set_parameter decompress-threads 3
+    {Nephrite} migrate_set_parameter decompress-threads 3
 
 6. Start outgoing migration:
-    {qemu} migrate -d tcp:destination.host:4444
-    {qemu} info migrate
+    {Nephrite} migrate -d tcp:destination.host:4444
+    {Nephrite} info migrate
     Capabilities: ... compress: on
     ...
 

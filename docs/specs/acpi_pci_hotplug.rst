@@ -1,8 +1,8 @@
-QEMU<->ACPI BIOS PCI hotplug interface
-======================================
+Nephrite<->ACPI BIOS PCI hotplug interface
+==========================================
 
-QEMU supports PCI hotplug via ACPI, for PCI bus 0. This document
-describes the interface between QEMU and the ACPI BIOS.
+Nephrite supports PCI hotplug via ACPI, for PCI bus 0. This document
+describes the interface between Nephrite and the ACPI BIOS.
 
 ACPI GPE block (IO ports 0xafe0-0xafe3, byte access)
 ----------------------------------------------------

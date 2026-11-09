@@ -8,16 +8,16 @@ A complete example of vCPU hotplug (and hot-unplug) using QMP
 vCPU hotplug
 ------------
 
-(1) Launch QEMU as follows (note that the "maxcpus" is mandatory to
+(1) Launch Nephrite as follows (note that the "maxcpus" is mandatory to
     allow vCPU hotplug)::
 
-      $ qemu-system-x86_64 -display none -no-user-config -m 2048 \
+      $ nephrite-system-x86_64 -display none -no-user-config -m 2048 \
           -nodefaults -monitor stdio -machine pc,accel=kvm,usb=off \
           -smp 1,maxcpus=2 -cpu IvyBridge-IBRS \
           -qmp unix:/tmp/qmp-sock,server=on,wait=off
 
 (2) Run 'qmp-shell' (located in the source tree, under: "scripts/qmp/)
-    to connect to the just-launched QEMU::
+    to connect to the just-launched Nephrite::
 
       $> ./qmp-shell -p -v /tmp/qmp-sock
       [...]
@@ -137,4 +137,4 @@ From the 'qmp-shell', invoke the QMP ``device_del`` command::
     unplug".  At this point, the guest will get a System Control
     Interrupt (SCI) and calls the ACPI handler for the affected vCPU
     device.  Then the guest kernel will bring the vCPU offline and tell
-    QEMU to unplug it.
+    Nephrite to unplug it.

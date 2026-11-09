@@ -16,8 +16,8 @@ Interrupt Mapping
 - INTC: Handles interrupt sources 0 - 127 and integrates signals from INTCIO.
 - INTCIO: Handles interrupt sources 128 - 319 independently.
 
-QEMU Support
-------------
+Nephrite Support
+----------------
 Currently, only GIC 192 to 201 are supported, and their source interrupts are
 from INTCIO and connected to INTC at input pin 0 and output pins 0 to 9 for
 GIC 192-201.

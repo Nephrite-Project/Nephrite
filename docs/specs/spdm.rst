@@ -1,18 +1,18 @@
-======================================================
-QEMU Security Protocols and Data Models (SPDM) Support
-======================================================
+==========================================================
+Nephrite Security Protocols and Data Models (SPDM) Support
+==========================================================
 
 SPDM enables authentication, attestation and key exchange to assist in
 providing infrastructure security enablement. It's a standard published
 by the `DMTF`_.
 
-QEMU supports connecting to a SPDM responder implementation. This allows an
+Nephrite supports connecting to a SPDM responder implementation. This allows an
 external application to emulate the SPDM responder logic for an SPDM device.
 
 Setting up a SPDM server
 ========================
 
-When using QEMU with SPDM devices QEMU will connect to a server which
+When using Nephrite with SPDM devices Nephrite will connect to a server which
 implements the SPDM functionality.
 
 SPDM-Utils
@@ -84,7 +84,7 @@ The responder can then be launched with
 Connecting an SPDM NVMe device
 ==============================
 
-Once a SPDM server is running we can start QEMU and connect to the server.
+Once a SPDM server is running we can start Nephrite and connect to the server.
 
 For an NVMe device first let's setup a block we can use
 
@@ -93,21 +93,21 @@ For an NVMe device first let's setup a block we can use
     $ cd qemu-spdm/linux/image
     $ dd if=/dev/zero of=blknvme bs=1M count=2096 # 2GB NNMe Drive
 
-Then you can add this to your QEMU command line:
+Then you can add this to your Nephrite command line:
 
 .. code-block:: shell
 
     -drive file=blknvme,if=none,id=mynvme,format=raw \
         -device nvme,drive=mynvme,serial=deadbeef,spdm_port=2323,spdm_trans=doe
 
-At which point QEMU will try to connect to the SPDM server.
+At which point Nephrite will try to connect to the SPDM server.
 
 Note that if using x86_64 you will want to use the q35 machine instead
-of the default. So the entire QEMU command might look like this
+of the default. So the entire Nephrite command might look like this
 
 .. code-block:: shell
 
-    qemu-system-x86_64 -M q35 \
+    nephrite-system-x86_64 -M q35 \
         --kernel bzImage \
         -drive file=rootfs.ext2,if=virtio,format=raw \
         -append "root=/dev/vda console=ttyS0" \
@@ -116,7 +116,7 @@ of the default. So the entire QEMU command might look like this
         -device nvme,drive=mynvme,serial=deadbeef,spdm_port=2323,spdm_trans=doe
 
 The ``spdm_trans`` argument defines the underlying transport type that is
-emulated by QEMU. For an PCIe NVMe controller, both "doe" and "nvme" are
+emulated by Nephrite. For an PCIe NVMe controller, both "doe" and "nvme" are
 supported. Where, "doe" does SPDM transport over the PCIe extended capability
 Data Object Exchange (DOE), and "nvme" uses the NVMe Admin Security
 Send/Receive commands to implement the SPDM transport.

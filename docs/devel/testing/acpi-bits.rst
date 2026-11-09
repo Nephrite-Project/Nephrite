@@ -33,10 +33,10 @@ bios-bits very attractive for testing bioses. More details on the inspiration
 for developing biosbits and its real life uses were presented `at Plumbers
 in 2011 <Plumbers_>`__ and `at Linux.conf.au in 2012 <Linux.conf.au_>`__.
 
-For QEMU, we maintain a fork of bios bits in `gitlab`_, along with all
+For Nephrite, we maintain a fork of bios bits in `gitlab`_, along with all
 the dependent submodules.  This fork contains numerous fixes, a newer
-acpica and changes specific to running these functional QEMU tests using
-bits. The author of this document is the current maintainer of the QEMU
+acpica and changes specific to running these functional Nephrite tests using
+bits. The author of this document is the current maintainer of the Nephrite
 fork of bios bits repository. For more information, please see `the
 author's FOSDEM presentation <FOSDEM_>`__ on this bios-bits based test framework.
 
@@ -49,7 +49,7 @@ author's FOSDEM presentation <FOSDEM_>`__ on this bios-bits based test framework
 Description of the test framework
 *********************************
 
-Under the directory ``tests/functional/``, ``test_acpi_bits.py`` is a QEMU
+Under the directory ``tests/functional/``, ``test_acpi_bits.py`` is a Nephrite
 functional test that drives all this.
 
 A brief description of the various test files follows.
@@ -71,10 +71,10 @@ Under ``tests/functional/`` as the root we have:
 
    ``test_acpi_bits.py``:
    This is the main python functional test script that generates a
-   biosbits iso. It then spawns a QEMU VM with it, collects the log and reports
+   biosbits iso. It then spawns a Nephrite VM with it, collects the log and reports
    test failures. This is the script one would be interested in if they wanted
    to add or change some component of the log parsing, add a new command line
-   to alter how QEMU is spawned etc. Test writers typically would not need to
+   to alter how Nephrite is spawned etc. Test writers typically would not need to
    modify this script unless they wanted to enhance or change the log parsing
    for their tests. In order to enable debugging, you can set **V=1**
    environment variable. This enables verbose mode for the test and also dumps
@@ -83,12 +83,12 @@ Under ``tests/functional/`` as the root we have:
    verbose logs and also retain the temporary work directory the test used for
    you to inspect and run the specific commands manually.
 
-   In order to run this test, please perform the following steps from the QEMU
+   In order to run this test, please perform the following steps from the Nephrite
    build directory (assuming that the sources are in ".."):
    ::
 
      $ export PYTHONPATH=../python:../tests/functional
-     $ export QEMU_TEST_QEMU_BINARY=$PWD/qemu-system-x86_64
+     $ export QEMU_TEST_QEMU_BINARY=$PWD/nephrite-system-x86_64
      $ python3 ../tests/functional/test_acpi_bits.py
 
    The above will run all acpi-bits functional tests (producing output in
@@ -121,7 +121,7 @@ Under ``tests/functional/`` as the root we have:
    do this, please clone the bits source from
    https://gitlab.com/qemu-project/biosbits-bits/-/tree/qemu-bits.
    Note that this is the "qemu-bits" branch and not the "bits" branch of the
-   repository. "qemu-bits" is the branch where we have made all the QEMU
+   repository. "qemu-bits" is the branch where we have made all the Nephrite
    specific enhancements and we must use the source from this branch only.
    Copy the test suite/script that needs modification (addition of new tests
    or disabling them) from python directory into this directory. For
@@ -145,7 +145,7 @@ Under ``tests/functional/`` as the root we have:
    The tests have an extension .py2 in order to indicate that:
 
    (a) They are python2.7 based scripts and not python 3 scripts.
-   (b) They are run from within the bios bits VM and is not subjected to QEMU
+   (b) They are run from within the bios bits VM and is not subjected to Nephrite
        build/test python script maintenance and dependency resolutions.
    (c) They need not be loaded by the test framework by accident when running
        tests.

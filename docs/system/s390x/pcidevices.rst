@@ -12,7 +12,7 @@ PCI configuration.
 For example, in order to pass a PCI device ``0000:00:00.0`` through to the
 guest, you would specify::
 
- qemu-system-s390x ... \
+ nephrite-system-s390x ... \
                    -device zpci,uid=1,fid=0,target=hostdev0,id=zpci1 \
                    -device vfio-pci,host=0000:00:00.0,id=hostdev0
 
@@ -29,7 +29,7 @@ operating system.
 In case of Linux, ``uid`` will be used in the ``domain`` part of the PCI
 identifier, and ``fid`` identifies the physical slot, i.e.::
 
- qemu-system-s390x ... \
+ nephrite-system-s390x ... \
                    -device zpci,uid=7,fid=8,target=hostdev0,id=zpci1 \
                    ...
 

@@ -8,11 +8,11 @@ models to use for virtual machines.
 
 The `VirtIO specification`_ is an open standard managed by OASIS. It
 describes how a *driver* in a guest operating system interacts with
-the *device* model provided by QEMU. Multiple Operating Systems
+the *device* model provided by Nephrite. Multiple Operating Systems
 support drivers for VirtIO with Linux perhaps having the widest range
 of device types supported.
 
-The device implementation can either be provided wholly by QEMU, or in
+The device implementation can either be provided wholly by Nephrite, or in
 concert with the kernel (known as *vhost*). The device implementation
 can also be off-loaded to an external process via :ref:`vhost user
 <vhost_user>`.

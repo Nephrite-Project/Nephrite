@@ -1,19 +1,19 @@
-=======================
-QEMU disk image utility
-=======================
+===========================
+Nephrite disk image utility
+===========================
 
 Synopsis
 --------
 
-**qemu-img** [*standard options*] *command* [*command options*]
+**nephrite-img** [*standard options*] *command* [*command options*]
 
 Description
 -----------
 
-qemu-img allows you to create, convert and modify images offline. It can handle
-all image formats supported by QEMU.
+nephrite-img allows you to create, convert and modify images offline. It can handle
+all image formats supported by Nephrite.
 
-**Warning:** Never use qemu-img to modify images in use by a running virtual
+**Warning:** Never use nephrite-img to modify images in use by a running virtual
 machine or any other process; this may destroy the image. Also, be aware that
 querying an image that is being modified by another process may encounter
 inconsistent state.
@@ -21,7 +21,7 @@ inconsistent state.
 Options
 -------
 
-.. program:: qemu-img
+.. program:: nephrite-img
 
 Standard options:
 
@@ -67,11 +67,11 @@ by the used format or see the format descriptions below for details.
   Note the use of a new 'program'; otherwise Sphinx complains about
   the -h option appearing both in the above option list and this one.
 
-.. program:: qemu-img-common-opts
+.. program:: nephrite-img-common-opts
 
 .. option:: --object OBJECTDEF
 
-  is a QEMU user creatable object definition. See the :manpage:`qemu(1)`
+  is a Nephrite user creatable object definition. See the :manpage:`nephrite(1)`
   manual page for a description of the object properties. The most common
   object type is a ``secret``, which is used to supply passwords and/or
   encryption keys.
@@ -92,8 +92,8 @@ by the used format or see the format descriptions below for details.
 
 .. option:: --force-share (-U)
 
-  If specified, ``qemu-img`` will open the image in shared mode, allowing
-  other QEMU processes to open it in write mode. For example, this can be used to
+  If specified, ``nephrite-img`` will open the image in shared mode, allowing
+  other Nephrite processes to open it in write mode. For example, this can be used to
   get the image information (with 'info' subcommand) when the image is used by a
   running guest.  Note that this could produce inconsistent results because of
   concurrent metadata changes, etc. This option is only allowed when opening
@@ -131,7 +131,7 @@ by the used format or see the format descriptions below for details.
 .. option:: -S SIZE
 
   Indicates the consecutive number of bytes that must contain only zeros
-  for ``qemu-img`` to create a sparse image during conversion. This value is
+  for ``nephrite-img`` to create a sparse image during conversion. This value is
   rounded down to the nearest 512 bytes. You may use the common size suffixes
   like ``k`` for kilobytes.
 
@@ -149,7 +149,7 @@ by the used format or see the format descriptions below for details.
 
 Parameters to compare subcommand:
 
-.. program:: qemu-img-compare
+.. program:: nephrite-img-compare
 
 .. option:: -f
 
@@ -165,7 +165,7 @@ Parameters to compare subcommand:
 
 Parameters to convert subcommand:
 
-.. program:: qemu-img-convert
+.. program:: nephrite-img-convert
 
 .. option:: --bitmaps
 
@@ -212,7 +212,7 @@ Parameters to convert subcommand:
 
 Parameters to dd subcommand:
 
-.. program:: qemu-img-dd
+.. program:: nephrite-img-dd
 
 .. option:: bs=BLOCK_SIZE
 
@@ -236,7 +236,7 @@ Parameters to dd subcommand:
 
 Parameters to snapshot subcommand:
 
-.. program:: qemu-img-snapshot
+.. program:: nephrite-img-snapshot
 
 .. option:: snapshot
 
@@ -260,7 +260,7 @@ Parameters to snapshot subcommand:
 
 Command description:
 
-.. program:: qemu-img-commands
+.. program:: nephrite-img-commands
 
 .. option:: amend [--object OBJECTDEF] [--image-opts] [-p] [-q] [-f FMT] [-t CACHE] [--force] -o OPTIONS FILENAME
 
@@ -269,7 +269,7 @@ Command description:
 
   The set of options that can be amended are dependent on the image
   format, but note that amending the backing chain relationship should
-  instead be performed with ``qemu-img rebase``.
+  instead be performed with ``nephrite-img rebase``.
 
   --force allows some unsafe operations. Currently for -f luks, it allows to
   erase the last encryption key, and to overwrite an active encryption key.
@@ -327,7 +327,7 @@ Command description:
   alternative source file for all *SOURCE* bitmaps used by
   ``--merge``.
 
-  To see what bitmaps are present in an image, use ``qemu-img info``.
+  To see what bitmaps are present in an image, use ``nephrite-img info``.
 
 .. option:: check [--object OBJECTDEF] [--image-opts] [-q] [-f FMT] [--output=OFMT] [-r [leaks | all]] [-T SRC_CACHE] [-U] FILENAME
 
@@ -335,7 +335,7 @@ Command description:
   output in the format *OFMT* which is either ``human`` or ``json``.
   The JSON output is an object of QAPI type ``ImageCheck``.
 
-  If ``-r`` is specified, qemu-img tries to repair any inconsistencies found
+  If ``-r`` is specified, nephrite-img tries to repair any inconsistencies found
   during the check. ``-r leaks`` repairs only cluster leaks, whereas
   ``-r all`` fixes all kinds of errors, with a higher risk of choosing the
   wrong fix or hiding corruption that has already occurred.
@@ -439,7 +439,7 @@ Command description:
   suppressed from the destination image.
 
   *SPARSE_SIZE* indicates the consecutive number of bytes (defaults to 4k)
-  that must contain only zeros for ``qemu-img`` to create a sparse image during
+  that must contain only zeros for ``nephrite-img`` to create a sparse image during
   conversion. If *SPARSE_SIZE* is 0, the source will not be scanned for
   unallocated or zero sectors, and the destination image will always be
   fully allocated.
@@ -455,7 +455,7 @@ Command description:
   If the ``-n`` option is specified, the target volume creation will be
   skipped. This is useful for formats such as ``rbd`` if the target
   volume has already been created with site specific options that cannot
-  be supplied through ``qemu-img``.
+  be supplied through ``nephrite-img``.
 
   Out of order writes can be enabled with ``-W`` to improve performance.
   This is only recommended for preallocated devices like host devices or other
@@ -480,7 +480,7 @@ Command description:
   If the option *BACKING_FILE* is specified, then the image will record
   only the differences from *BACKING_FILE*. No size needs to be specified in
   this case. *BACKING_FILE* will never be modified unless you use the
-  ``commit`` monitor command (or ``qemu-img commit``).
+  ``commit`` monitor command (or ``nephrite-img commit``).
 
   If a relative path name is given, the backing file is looked up relative to
   the directory containing *FILE*.
@@ -527,7 +527,7 @@ Command description:
 
   ::
 
-    qemu-img info --backing-chain snap2.qcow2
+    nephrite-img info --backing-chain snap2.qcow2
 
   The command can output in the format *OFMT* which is either ``human`` or
   ``json``.  The JSON output is an object of QAPI type ``ImageInfo``; with
@@ -558,7 +558,7 @@ Command description:
 
   *cleanly shut down*
     This is shown as ``no`` if the image is dirty and will have to be
-    auto-repaired the next time it is opened in qemu.
+    auto-repaired the next time it is opened in Nephrite.
 
   *backing file*
     The backing file name, if present
@@ -576,7 +576,7 @@ Command description:
     for qcow2 images).
 
   *Block limits*
-    The block limits for I/O that QEMU detected for the image.
+    The block limits for I/O that Nephrite detected for the image.
     This information is only shown if the ``--limits`` option was specified.
 
 .. option:: map [--object OBJECTDEF] [--image-opts] [-f FMT] [--start-offset=OFFSET] [--max-length=LEN] [--output=OFMT] [-U] FILENAME
@@ -589,7 +589,7 @@ Command description:
   Two option formats are possible.  The default format (``human``)
   only dumps known-nonzero areas of the file.  Known-zero parts of the
   file are omitted altogether, and likewise for parts that are not allocated
-  throughout the chain.  ``qemu-img`` output will identify a file
+  throughout the chain.  ``nephrite-img`` output will identify a file
   from where the data can be read, and the offset in the file.  Each line
   will include four fields, the first three of which are hexadecimal
   numbers.  For example the first line of:
@@ -629,7 +629,7 @@ Command description:
   corresponding sectors in the file are not yet in use, but they are
   preallocated.
 
-  For more information, consult ``include/block/block.h`` in QEMU's
+  For more information, consult ``include/block/block.h`` in Nephrite's
   source code.
 
 .. option:: measure [--output=OFMT] [-O OUTPUT_FMT] [-o OPTIONS] [--size N | [--object OBJECTDEF] [--image-opts] [-f FMT] [-l SNAPSHOT_PARAM] FILENAME]
@@ -642,8 +642,8 @@ Command description:
   The JSON output is an object of QAPI type ``BlockMeasureInfo``.
 
   If the size *N* is given then act as if creating a new empty image file
-  using ``qemu-img create``.  If *FILENAME* is given then act as if
-  converting an existing image file using ``qemu-img convert``.  The format
+  using ``nephrite-img create``.  If *FILENAME* is given then act as if
+  converting an existing image file using ``nephrite-img convert``.  The format
   of the new file is given by *OUTPUT_FMT* while the format of an existing
   file is given by *FMT*.
 
@@ -696,7 +696,7 @@ Command description:
 
   Safe mode
     This is the default mode and performs a real rebase operation. The
-    new backing file may differ from the old one and ``qemu-img rebase``
+    new backing file may differ from the old one and ``nephrite-img rebase``
     will take care of keeping the guest-visible content of *FILENAME*
     unchanged.
 
@@ -711,7 +711,7 @@ Command description:
     exists.
 
   Unsafe mode
-    ``qemu-img`` uses the unsafe mode if ``-u`` is specified. In this
+    ``nephrite-img`` uses the unsafe mode if ``-u`` is specified. In this
     mode, only the backing file name and format of *FILENAME* is changed
     without any checks on the file contents. The user must take care of
     specifying the correct new backing file, or the guest-visible
@@ -734,8 +734,8 @@ Command description:
 
   ::
 
-    qemu-img create -f qcow2 -b modified.img diff.qcow2
-    qemu-img rebase -b base.img diff.qcow2
+    nephrite-img create -f qcow2 -b modified.img diff.qcow2
+    nephrite-img rebase -b base.img diff.qcow2
 
   At this point, ``modified.img`` can be discarded, since
   ``base.img + diff.qcow2`` contains the same information.
@@ -749,7 +749,7 @@ Command description:
   sizes accordingly.  Failure to do so will result in data loss!
 
   When shrinking images, the ``--shrink`` option must be given. This informs
-  ``qemu-img`` that the user acknowledges all loss of data beyond the truncated
+  ``nephrite-img`` that the user acknowledges all loss of data beyond the truncated
   image's end.
 
   After using this command to grow a disk image, you must use file system and
@@ -774,7 +774,7 @@ Supported image file formats:
   being simple and easily exportable to all other emulators. If your
   file system supports *holes* (for example in ext2 or ext3 on
   Linux or NTFS on Windows), then only the written sectors will reserve
-  space. Use ``qemu-img info`` to know the real size used by the
+  space. Use ``nephrite-img info`` to know the real size used by the
   image or ``ls -ls`` on Unix/Linux.
 
   Supported options:
@@ -788,7 +788,7 @@ Supported image file formats:
 
 ``qcow2``
 
-  QEMU image format, the most versatile format. Use it to have smaller
+  Nephrite image format, the most versatile format. Use it to have smaller
   images (useful if your filesystem does not supports holes, for example
   on Windows), optional AES encryption, zlib or zstd based compression and
   support of multiple VM snapshots.
@@ -797,7 +797,7 @@ Supported image file formats:
 
   ``compat``
     Determines the qcow2 version to use. ``compat=0.10`` uses the
-    traditional image format that can be read by any QEMU since 0.10.
+    traditional image format that can be read by any Nephrite since 0.10.
     ``compat=1.1`` enables image format extensions that only QEMU 1.1 and
     newer understand (this is the default). Amongst others, this includes zero
     clusters, which allow efficient copy-on-read for sparse images.
@@ -812,7 +812,7 @@ Supported image file formats:
     This option configures which compression algorithm will be used for
     compressed clusters on the image. Note that setting this option doesn't yet
     cause the image to actually receive compressed writes. It is most commonly
-    used with the ``-c`` option of ``qemu-img convert``, but can also be used
+    used with the ``-c`` option of ``nephrite-img convert``, but can also be used
     with the ``compress`` filter driver or backup block jobs with compression
     enabled.
 
@@ -877,7 +877,7 @@ Supported image file formats:
     ``cache=writethrough`` which doesn't batch metadata
     updates. The tradeoff is that after a host crash, the reference
     count tables must be rebuilt, i.e. on the next open an (automatic)
-    ``qemu-img check -r all`` is required, which may take some time.
+    ``nephrite-img check -r all`` is required, which may take some time.
 
     This option can only be enabled if ``compat=1.1`` is specified.
 
@@ -906,13 +906,13 @@ Supported image file formats:
     the qcow2 file will only contain the image's metadata.
 
     Note: Data loss will occur if the given filename already exists when
-    using this option with ``qemu-img create`` since ``qemu-img`` will create
+    using this option with ``nephrite-img create`` since ``nephrite-img`` will create
     the data file anew, overwriting the file's original contents. To simply
     update the reference to point to the given pre-existing file, use
-    ``qemu-img amend``.
+    ``nephrite-img amend``.
 
   ``data_file_raw``
-    If this option is set to ``on``, QEMU will always keep the external data
+    If this option is set to ``on``, Nephrite will always keep the external data
     file consistent as a standalone read-only raw image.
 
     It does this by forwarding all write accesses to the qcow2 file through to
@@ -923,7 +923,7 @@ Supported image file formats:
     out-of-band writes may result in the metadata falling out of sync with the
     raw image.
 
-    If this option is ``off``, QEMU will use the data file to store data in an
+    If this option is ``off``, Nephrite will use the data file to store data in an
     arbitrary manner. The file’s content will not make sense without the
     accompanying qcow2 metadata. Where data is written will have no relation to
     its offset as seen by the guest, and some writes (specifically zero writes)
@@ -934,11 +934,11 @@ Supported image file formats:
 
 ``Other``
 
-  QEMU also supports various other image file formats for
+  Nephrite also supports various other image file formats for
   compatibility with older QEMU versions or other hypervisors,
   including VMDK, VDI, VHD (vpc), VHDX, qcow1 and QED. For a full list
-  of supported formats see ``qemu-img --help``.  For a more detailed
-  description of these formats, see the QEMU block drivers reference
+  of supported formats see ``nephrite-img --help``.  For a more detailed
+  description of these formats, see the Nephrite block drivers reference
   documentation.
 
   The main purpose of the block drivers for these formats is image

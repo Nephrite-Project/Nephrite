@@ -1,7 +1,7 @@
 CPU Features
 ============
 
-The QEMU emulation of the OpenRISC architecture provides following built in
+The Nephrite emulation of the OpenRISC architecture provides following built in
 features.
 
 - Shadow GPRs

@@ -5,7 +5,7 @@ VFIO device migration
 Migration of virtual machine involves saving the state for each device that
 the guest is running on source host and restoring this saved state on the
 destination host. This document details how saving and restoring of VFIO
-devices is done in QEMU.
+devices is done in Nephrite.
 
 Migration of VFIO devices consists of two phases: the optional pre-copy phase,
 and the stop-and-copy phase. The pre-copy phase is iterative and allows to
@@ -142,16 +142,16 @@ perpetually marked dirty, unless the device driver pins pages through external
 APIs in which case only those pinned pages are perpetually marked dirty.
 
 If the above two methods are not supported, all pages are perpetually marked
-dirty by QEMU.
+dirty by Nephrite.
 
 By default, dirty pages are tracked during pre-copy as well as stop-and-copy
 phase. So, a page marked as dirty will be copied to the destination in both
-phases. Copying dirty pages in pre-copy phase helps QEMU to predict if it can
-achieve its downtime tolerances. If QEMU during pre-copy phase keeps finding
+phases. Copying dirty pages in pre-copy phase helps Nephrite to predict if it can
+achieve its downtime tolerances. If Nephrite during pre-copy phase keeps finding
 dirty pages continuously, then it understands that even in stop-and-copy phase,
 it is likely to find dirty pages and can predict the downtime accordingly.
 
-QEMU also provides a per device opt-out option ``pre-copy-dirty-page-tracking``
+Nephrite also provides a per device opt-out option ``pre-copy-dirty-page-tracking``
 which disables querying the dirty bitmap during pre-copy phase. If it is set to
 off, all dirty pages will be copied to the destination in stop-and-copy phase
 only.
@@ -161,7 +161,7 @@ System memory dirty pages tracking when vIOMMU is enabled
 
 With vIOMMU, an IO virtual address range can get unmapped while in pre-copy
 phase of migration. In that case, the unmap ioctl returns any dirty pages in
-that range and QEMU reports corresponding guest physical pages dirty. During
+that range and Nephrite reports corresponding guest physical pages dirty. During
 stop-and-copy phase, an IOMMU notifier is used to get a callback for mapped
 pages and then dirty pages bitmap is fetched from VFIO IOMMU modules for those
 mapped ranges. If device dirty tracking is enabled with vIOMMU, live migration
@@ -182,7 +182,7 @@ Live migration save path
 
 ::
 
-                           QEMU normal running state
+                         Nephrite normal running state
                            (RUNNING, _NONE, _RUNNING)
                                       |
                      migrate_init spawns migration_thread
@@ -254,15 +254,15 @@ The multifd VFIO device state transfer is controlled by
 AUTO, which means that VFIO device state transfer via multifd channels is
 attempted in configurations that otherwise support it.
 
-Since the target QEMU needs to load device state buffers in-order it needs to
+Since the target Nephrite needs to load device state buffers in-order it needs to
 queue incoming buffers until they can be loaded into the device.
-This means that a malicious QEMU source could theoretically cause the target
-QEMU to allocate unlimited amounts of memory for such buffers-in-flight.
+This means that a malicious Nephrite source could theoretically cause the target
+Nephrite to allocate unlimited amounts of memory for such buffers-in-flight.
 
 The "x-migration-max-queued-buffers-size" property allows capping the total size
 of these VFIO device state buffers queued at the destination.
 
-Because a malicious QEMU source causing OOM on the target is not expected to be
+Because a malicious Nephrite source causing OOM on the target is not expected to be
 a realistic threat in most of VFIO live migration use cases and the right value
 depends on the particular setup by default this queued buffers size limit is
 disabled by setting it to UINT64_MAX.

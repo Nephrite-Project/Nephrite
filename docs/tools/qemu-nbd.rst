@@ -1,32 +1,32 @@
 .. _qemu-nbd:
 
-=====================================
-QEMU Disk Network Block Device Server
-=====================================
+=========================================
+Nephrite Disk Network Block Device Server
+=========================================
 
 Synopsis
 --------
 
-**qemu-nbd** [*OPTION*]... *filename*
+**nephrite-nbd** [*OPTION*]... *filename*
 
-**qemu-nbd** -L [*OPTION*]...
+**nephrite-nbd** -L [*OPTION*]...
 
-**qemu-nbd** -d *dev*
+**nephrite-nbd** -d *dev*
 
 Description
 -----------
 
-Export a QEMU disk image using the NBD protocol.
+Export a Nephrite disk image using the NBD protocol.
 
 Other uses:
 
-- Bind a /dev/nbdX block device to a QEMU server (on Linux).
+- Bind a /dev/nbdX block device to a Nephrite server (on Linux).
 - As a client to query exports of a remote NBD server.
 
 Options
 -------
 
-.. program:: qemu-nbd
+.. program:: nephrite-nbd
 
 *filename* is a disk image filename, or a set of block
 driver options if :option:`--image-opts` is specified.
@@ -36,11 +36,11 @@ driver options if :option:`--image-opts` is specified.
 .. option:: --object type,id=ID,...
 
   Define a new instance of the *type* object class identified by *ID*.
-  See the :manpage:`qemu(1)` manual page for full details of the properties
+  See the :manpage:`nephrite(1)` manual page for full details of the properties
   supported. The common object types that it makes sense to define are the
   ``secret`` object, which is used to supply passwords and/or encryption
   keys, and the ``tls-creds`` object, which is used to supply TLS
-  credentials for the ``qemu-nbd`` server or client.
+  credentials for the ``nephrite-nbd`` server or client.
 
 .. option:: -p, --port=PORT
 
@@ -212,7 +212,7 @@ driver options if :option:`--image-opts` is specified.
 .. option:: -v, --verbose
 
   Display extra debugging information. This option also keeps the original
-  *STDERR* stream open if the ``qemu-nbd`` process is daemonized due to
+  *STDERR* stream open if the ``nephrite-nbd`` process is daemonized due to
   other options like :option:`--fork` or :option:`-c`.
 
 .. option:: -h, --help
@@ -238,7 +238,7 @@ disconnects:
 
 ::
 
-  qemu-nbd -f qcow2 file.qcow2
+  nephrite-nbd -f qcow2 file.qcow2
 
 Start a long-running server listening with encryption on port 10810,
 and allow clients with a specific X.509 certificate to connect to
@@ -246,7 +246,7 @@ a 1 megabyte subset of a raw file, using the export name 'subset':
 
 ::
 
-  qemu-nbd \
+  nephrite-nbd \
     --object tls-creds-x509,id=tls0,endpoint=server,dir=/path/to/qemutls \
     --object 'authz-simple,id=auth0,identity=CN=laptop.example.com,,\
               O=Example Org,,L=London,,ST=London,,C=GB' \
@@ -260,13 +260,13 @@ daemon:
 
 ::
 
-  qemu-nbd --fork --persistent --shared=5 --socket=/path/to/sock \
+  nephrite-nbd --fork --persistent --shared=5 --socket=/path/to/sock \
     --read-only --format=qcow2 file.qcow2
 
 Expose the guest-visible contents of a qcow2 file via a block device
 /dev/nbd0 (and possibly creating /dev/nbd0p1 and friends for
 partitions found within), then disconnect the device when done.
-Access to bind ``qemu-nbd`` to a /dev/nbd device generally requires root
+Access to bind ``nephrite-nbd`` to a /dev/nbd device generally requires root
 privileges, and may also require the execution of ``modprobe nbd``
 to enable the kernel NBD client module.  *CAUTION*: Do not use
 this method to mount filesystems from an untrusted guest image - a
@@ -275,19 +275,19 @@ kernel bugs in partition probing or file system mounting.
 
 ::
 
-  qemu-nbd -c /dev/nbd0 -f qcow2 file.qcow2
-  qemu-nbd -d /dev/nbd0
+  nephrite-nbd -c /dev/nbd0 -f qcow2 file.qcow2
+  nephrite-nbd -d /dev/nbd0
 
 Query a remote server to see details about what export(s) it is
 serving on port 10809, and authenticating via PSK:
 
 ::
 
-  qemu-nbd \
+  nephrite-nbd \
     --object tls-creds-psk,id=tls0,dir=/tmp/keys,username=eblake,endpoint=client \
     --tls-creds tls0 -L -b remote.example.com
 
 See also
 --------
 
-:manpage:`qemu(1)`, :manpage:`qemu-img(1)`
+:manpage:`nephrite(1)`, :manpage:`nephrite-img(1)`

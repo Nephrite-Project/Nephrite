@@ -1,7 +1,7 @@
-QEMU memory hotplug
-===================
+Nephrite memory hotplug
+=======================
 
-This document explains how to use the memory hotplug feature in QEMU,
+This document explains how to use the memory hotplug feature in Nephrite,
 which is present since v2.1.0.
 
 Guest support is required for memory hotplug to work.
@@ -9,7 +9,7 @@ Guest support is required for memory hotplug to work.
 Basic RAM hotplug
 -----------------
 
-In order to be able to hotplug memory, QEMU has to be told how many
+In order to be able to hotplug memory, Nephrite has to be told how many
 hotpluggable memory slots to create and what is the maximum amount of
 memory the guest can grow. This is done at startup time by means of
 the -m command-line option, which has the following format:
@@ -24,7 +24,7 @@ Where,
 
 For example, the following command-line:
 
- qemu [...] -m 1G,slots=3,maxmem=4G
+ Nephrite [...] -m 1G,slots=3,maxmem=4G
 
 Creates a guest with 1GB of memory and three hotpluggable memory slots.
 The hotpluggable memory slots are empty when the guest is booted, so all
@@ -47,7 +47,7 @@ discussed earlier:
 Using the file backend
 ----------------------
 
-Besides basic RAM hotplug, QEMU also supports using files as a memory
+Besides basic RAM hotplug, Nephrite also supports using files as a memory
 backend. This is useful for using hugetlbfs in Linux, which provides
 access to bigger page sizes.
 
@@ -67,7 +67,7 @@ comes from regular RAM, 1GB is a 1GB hugepage page and 256MB is from
 2MB pages. Also, the guest has additional memory slots to hotplug more
 2GB if needed:
 
- qemu [...] -m 6GB,slots=4,maxmem=10G \
+ Nephrite [...] -m 6GB,slots=4,maxmem=10G \
    -object memory-backend-file,id=mem1,size=1G,mem-path=/mnt/hugepages-1G \
    -device pc-dimm,id=dimm1,memdev=mem1 \
    -object memory-backend-file,id=mem2,size=256M,mem-path=/mnt/hugepages-2MB \
@@ -77,7 +77,7 @@ comes from regular RAM, 1GB is a 1GB hugepage page and 256MB is from
 RAM hot-unplug
 ---------------
 
-In order to be able to hot unplug pc-dimm device, QEMU has to be told the ids
+In order to be able to hot unplug pc-dimm device, Nephrite has to be told the ids
 of pc-dimm device and memory backend object. The ids were assigned when you hot
 plugged memory.
 

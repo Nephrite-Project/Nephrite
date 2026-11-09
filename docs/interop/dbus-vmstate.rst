@@ -2,11 +2,11 @@
 D-Bus VMState
 =============
 
-The QEMU dbus-vmstate object's aim is to migrate helpers' data running
-on a QEMU D-Bus bus. (refer to the :doc:`dbus` document for
+The Nephrite dbus-vmstate object's aim is to migrate helpers' data running
+on a Nephrite D-Bus bus. (refer to the :doc:`dbus` document for
 some recommendations on D-Bus usage)
 
-Upon migration, QEMU will go through the queue of
+Upon migration, Nephrite will go through the queue of
 ``org.nephrite.VMState1`` D-Bus name owners and query their ``Id``. It
 must be unique among the helpers.
 

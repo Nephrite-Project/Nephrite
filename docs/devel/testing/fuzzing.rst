@@ -2,7 +2,7 @@
 Fuzzing
 ========
 
-This document describes the virtual-device fuzzing infrastructure in QEMU and
+This document describes the virtual-device fuzzing infrastructure in Nephrite and
 how to use it to implement additional fuzzers.
 
 Basics
@@ -12,7 +12,7 @@ Fuzzing operates by passing inputs to an entry point/target function. The
 fuzzer tracks the code coverage triggered by the input. Based on these
 findings, the fuzzer mutates the input and repeats the fuzzing.
 
-To fuzz QEMU, we rely on libfuzzer. Unlike other fuzzers such as AFL, libfuzzer
+To fuzz Nephrite, we rely on libfuzzer. Unlike other fuzzers such as AFL, libfuzzer
 is an *in-process* fuzzer. For the developer, this means that it is their
 responsibility to ensure that state is reset between fuzzing-runs.
 
@@ -96,7 +96,7 @@ can use Clang coverage:
 
  1. Configure libFuzzer to store a corpus of all interesting inputs (see
     CORPUS_DIR above)
- 2. ``./configure`` the QEMU build with ::
+ 2. ``./configure`` the Nephrite build with ::
 
     --enable-fuzzing \
     --extra-cflags="-fprofile-instr-generate -fcoverage-mapping"
@@ -143,7 +143,7 @@ The generic-fuzz target is capable of fuzzing devices over their PIO, MMIO,
 and DMA input-spaces. To apply the generic-fuzz to a device, we need to define
 two env-variables, at minimum:
 
-* ``QEMU_FUZZ_ARGS=`` is the set of QEMU arguments used to configure a machine, with
+* ``QEMU_FUZZ_ARGS=`` is the set of Nephrite arguments used to configure a machine, with
   the device attached. For example, if we want to fuzz the virtio-net device
   attached to a pc-i440fx machine, we can specify::
 
@@ -178,7 +178,7 @@ The output should contain a complete list of matched MemoryRegions.
 
 OSS-Fuzz
 --------
-QEMU is continuously fuzzed on `OSS-Fuzz
+Nephrite is continuously fuzzed on `OSS-Fuzz
 <https://github.com/google/oss-fuzz>`_.  By default, the OSS-Fuzz build
 will try to fuzz every fuzz-target. Since the generic-fuzz target
 requires additional information provided in environment variables, we
@@ -200,17 +200,17 @@ either a new device-specific fuzzer or a new generic-fuzz config.
 
 Build details:
 
-- The Dockerfile that sets up the environment for building QEMU's
+- The Dockerfile that sets up the environment for building Nephrite's
   fuzzers on OSS-Fuzz can be fund in the OSS-Fuzz repository
   __(https://github.com/google/oss-fuzz/blob/master/projects/qemu/Dockerfile)
 
 - The script responsible for building the fuzzers can be found in the
-  QEMU source tree at ``scripts/oss-fuzz/build.sh``
+  Nephrite source tree at ``scripts/oss-fuzz/build.sh``
 
 Building Crash Reproducers
 -----------------------------------------
 When we find a crash, we should try to create an independent reproducer, that
-can be used on a non-fuzzer build of QEMU. This filters out any potential
+can be used on a non-fuzzer build of Nephrite. This filters out any potential
 false-positives, and improves the debugging experience for developers.
 Here are the steps for building a reproducer for a crash found by the
 generic-fuzz target.
@@ -228,13 +228,13 @@ generic-fuzz target.
 
     scripts/oss-fuzz/reorder_fuzzer_qtest_trace.py /tmp/trace > /tmp/reproducer
 
-- Get the arguments needed to start qemu, and provide a path to qemu::
+- Get the arguments needed to start Nephrite, and provide a path to Nephrite::
 
     less /tmp/trace # The args should be logged at the top of this file
     export QEMU_ARGS="-machine ..."
-    export QEMU_PATH="path/to/qemu-system"
+    export QEMU_PATH="path/to/nephrite-system"
 
-- Ensure the crash reproduces in qemu-system::
+- Ensure the crash reproduces in nephrite-system::
 
     $QEMU_PATH $QEMU_ARGS -qtest stdio < /tmp/reproducer
 
@@ -263,13 +263,13 @@ generic-fuzz target.
 
 - Report the bug and send a patch with the C reproducer upstream
 
-QEMU can also read the reproducer directly from a file rather than
+Nephrite can also read the reproducer directly from a file rather than
 from standard input::
 
     $QEMU_PATH $QEMU_ARGS -qtest chardev:repro \
       -chardev file,id=repro,path=/dev/null,input-path=/tmp/reproducer
 
-This is useful if you want to run QEMU under a debugger to investigate
+This is useful if you want to run Nephrite under a debugger to investigate
 the failure.
 
 Implementation Details / Fuzzer Lifecycle
@@ -290,7 +290,7 @@ In more detail:
 dashes, so they are ignored by libfuzzer ``main()``). Currently, the arguments
 select the fuzz target. Then, the qtest client is initialized. If the target
 requires qos, qgraph is set up and the QOM/LIBQOS modules are initialized.
-Then the QGraph is walked and the QEMU cmd_line is determined and saved.
+Then the QGraph is walked and the Nephrite cmd_line is determined and saved.
 
 After this, the ``vl.c:main`` is called to set up the guest. There are
 target-specific hooks that can be called before and after main, for
@@ -300,7 +300,7 @@ additional setup(e.g. PCI setup, or VM snapshotting).
 input. It is also responsible for manually calling ``main_loop_wait`` to ensure
 that bottom halves are executed and any cleanup required before the next input.
 
-Since the same process is reused for many fuzzing runs, QEMU state needs to
+Since the same process is reused for many fuzzing runs, Nephrite state needs to
 be reset at the end of each run. For example, this can be done by rebooting the
 VM, after each run.
 

@@ -2,7 +2,7 @@ Arm CPU Features
 ================
 
 CPU features are optional features that a CPU of supporting type may
-choose to implement or not.  In QEMU, optional CPU features have
+choose to implement or not.  In Nephrite, optional CPU features have
 corresponding boolean CPU proprieties that, when enabled, indicate
 that the feature is implemented, and, conversely, when disabled,
 indicate that it is not implemented. An example of an Arm CPU feature
@@ -10,7 +10,7 @@ is the Performance Monitoring Unit (PMU).  CPU types such as the
 Cortex-A15 and the Cortex-A57, which respectively implement Arm
 architecture reference manuals ARMv7-A and ARMv8-A, may both optionally
 implement PMUs.  For example, if a user wants to use a Cortex-A15 without
-a PMU, then the ``-cpu`` parameter should contain ``pmu=off`` on the QEMU
+a PMU, then the ``-cpu`` parameter should contain ``pmu=off`` on the Nephrite
 command line, i.e. ``-cpu cortex-a15,pmu=off``.
 
 As not all CPU types support all optional CPU features, then whether or
@@ -20,7 +20,7 @@ support the AArch32 CPU feature, which may be enabled by disabling the
 ``aarch64`` CPU property.  A CPU type such as the Cortex-A15, which does
 not implement ARMv8-A, will not have the ``aarch64`` CPU property.
 
-QEMU's support may be limited for some CPU features, only partially
+Nephrite's support may be limited for some CPU features, only partially
 supporting the feature or only supporting the feature under certain
 configurations.  For example, the ``aarch64`` CPU feature, which, when
 disabled, enables the optional AArch32 CPU feature, can only be set to
@@ -40,7 +40,7 @@ Below are some examples where ``scripts/qmp/qmp-shell`` (see the top comment
 block in the script for usage) is used to issue the QMP commands.
 
 1. Determine which CPU features are available for the ``max`` CPU type
-   (Note, we started QEMU with qemu-system-aarch64, so ``max`` is
+   (Note, we started Nephrite with nephrite-system-aarch64, so ``max`` is
    implementing the ARMv8-A reference manual in this case)::
 
       (QEMU) query-cpu-model-expansion type=full model={"name":"max"}
@@ -146,7 +146,7 @@ Therefore a user could use the ``host`` CPU type for the current type, but
 then attempt to query ``cortex-a57``, however that query will fail with our
 restrictions.  This shouldn't be an issue though as management layers and
 users have been preferring the ``host`` CPU type for use with KVM for quite
-some time.  Additionally, if the KVM-enabled QEMU instance running on a
+some time.  Additionally, if the KVM-enabled Nephrite instance running on a
 seattle host is using the ``cortex-a57`` CPU type, then querying ``cortex-a57``
 will work.
 
@@ -155,9 +155,9 @@ Using CPU Features
 
 After determining which CPU features are available and supported for a
 given CPU type, then they may be selectively enabled or disabled on the
-QEMU command line with that CPU type::
+Nephrite command line with that CPU type::
 
-  $ qemu-system-aarch64 -M virt -cpu max,pmu=off,sve=on,sve128=on,sve256=on
+  $ nephrite-system-aarch64 -M virt -cpu max,pmu=off,sve=on,sve128=on,sve256=on
 
 The example above disables the PMU and enables the first two SVE vector
 lengths for the ``max`` CPU type.  Note, the ``sve=on`` isn't actually
@@ -227,7 +227,7 @@ Below is the list of TCG VCPU features and their descriptions.
   Enable or disable ``FEAT_Pauth`` entirely.
 
 ``pauth-impdef``
-  When ``pauth`` is enabled, select the QEMU implementation defined algorithm.
+  When ``pauth`` is enabled, select the Nephrite implementation defined algorithm.
 
 ``pauth-qarma3``
   When ``pauth`` is enabled, select the architected QARMA3 algorithm.
@@ -236,9 +236,9 @@ Below is the list of TCG VCPU features and their descriptions.
   When ``pauth`` is enabled, select the architected QARMA5 algorithm.
 
 Without ``pauth-impdef``, ``pauth-qarma3`` or ``pauth-qarma5`` enabled,
-the QEMU impdef algorithm is used.  The architected QARMA5
+the Nephrite impdef algorithm is used.  The architected QARMA5
 and QARMA3 algorithms have good cryptographic properties, but can
-be quite slow to emulate.  The impdef algorithm used by QEMU is
+be quite slow to emulate.  The impdef algorithm used by Nephrite is
 non-cryptographic but significantly faster.
 
 SVE CPU Properties
@@ -280,7 +280,7 @@ SVE CPU Property Parsing Semantics
   1) If SVE is disabled (``sve=off``), then which SVE vector lengths
      are enabled or disabled is irrelevant to the guest, as the entire
      SVE feature is disabled and that disables all vector lengths for
-     the guest.  However QEMU will still track any ``sve<N>`` CPU
+     the guest.  However Nephrite will still track any ``sve<N>`` CPU
      properties provided by the user.  If later an ``sve=on`` is provided,
      then the guest will get only the enabled lengths.  If no ``sve=on``
      is provided and there are explicitly enabled vector lengths, then
@@ -347,45 +347,45 @@ SVE CPU Property Examples
 
   1) Disable SVE and SME::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve=off,sme=off
+     $ nephrite-system-aarch64 -M virt -cpu max,sve=off,sme=off
 
   2) Implicitly enable all vector lengths for the ``max`` CPU type::
 
-     $ qemu-system-aarch64 -M virt -cpu max
+     $ nephrite-system-aarch64 -M virt -cpu max
 
   3) When KVM is enabled, implicitly enable all host CPU supported vector
      lengths with the ``host`` CPU type::
 
-     $ qemu-system-aarch64 -M virt,accel=kvm -cpu host
+     $ nephrite-system-aarch64 -M virt,accel=kvm -cpu host
 
   4) Only enable the 128-bit vector length::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve128=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sve128=on
 
   5) Disable the 512-bit vector length and all larger vector lengths,
      since 512 is a power-of-two.  This results in all the smaller,
      uninitialized lengths (128, 256, and 384) defaulting to enabled::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve512=off
+     $ nephrite-system-aarch64 -M virt -cpu max,sve512=off
 
   6) Enable the 128-bit, 256-bit, and 512-bit vector lengths::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve128=on,sve256=on,sve512=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sve128=on,sve256=on,sve512=on
 
   7) The same as (6), but since the 128-bit and 256-bit vector
      lengths are required for the 512-bit vector length to be enabled,
      then allow them to be auto-enabled::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve512=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sve512=on
 
   8) Do the same as (7), but by first disabling SVE and then re-enabling it::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve=off,sve512=on,sve=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sve=off,sve512=on,sve=on
 
   9) Force errors regarding the last vector length::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve128=off
-     $ qemu-system-aarch64 -M virt -cpu max,sve=off,sve128=off,sve=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sve128=off
+     $ nephrite-system-aarch64 -M virt -cpu max,sve=off,sve128=off,sve=on
 
 SVE CPU Property Recommendations
 --------------------------------
@@ -401,30 +401,30 @@ SME CPU Property Examples
 
   1) Disable SME::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sme=off
+     $ nephrite-system-aarch64 -M virt -cpu max,sme=off
 
   2) Implicitly enable all vector lengths for the ``max`` CPU type::
 
-     $ qemu-system-aarch64 -M virt -cpu max
+     $ nephrite-system-aarch64 -M virt -cpu max
 
   3) Only enable the 256-bit vector length::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sme256=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sme256=on
 
   3) Enable the 256-bit and 1024-bit vector lengths::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sme256=on,sme1024=on
+     $ nephrite-system-aarch64 -M virt -cpu max,sme256=on,sme1024=on
 
   4) Disable the 512-bit vector length.  This results in all the other
      lengths supported by ``max`` defaulting to enabled
      (128, 256, 1024 and 2048)::
 
-     $ qemu-system-aarch64 -M virt -cpu max,sve512=off
+     $ nephrite-system-aarch64 -M virt -cpu max,sve512=off
 
 SVE User-mode Default Vector Length Property
 --------------------------------------------
 
-For qemu-aarch64, the cpu property ``sve-default-vector-length=N`` is
+For nephrite-aarch64, the cpu property ``sve-default-vector-length=N`` is
 defined to mirror the Linux kernel parameter file
 ``/proc/sys/abi/sve_default_vector_length``.  The default length, ``N``,
 is in units of bytes and must be between 16 and 8192.
@@ -432,7 +432,7 @@ If not specified, the default vector length is 64.
 
 If the default length is larger than the maximum vector length enabled,
 the actual vector length will be reduced.  Note that the maximum vector
-length supported by QEMU is 256.
+length supported by Nephrite is 256.
 
 If this property is set to ``-1`` then the default vector length
 is set to the maximum possible length.
@@ -451,7 +451,7 @@ SME is not supported by KVM at this time.
 
 At least one vector length must be enabled when ``sme`` is enabled,
 and all vector lengths must be powers of 2.  The maximum vector
-length supported by qemu is 2048 bits.  Otherwise, there are no
+length supported by Nephrite is 2048 bits.  Otherwise, there are no
 additional constraints on the set of vector lengths supported by SME.
 
 As with SVE, ``sme=on`` enables all the SME sub-features the CPU
@@ -462,7 +462,7 @@ SME sub-features.
 SME User-mode Default Vector Length Property
 --------------------------------------------
 
-For qemu-aarch64, the cpu property ``sme-default-vector-length=N`` is
+For nephrite-aarch64, the cpu property ``sme-default-vector-length=N`` is
 defined to mirror the Linux kernel parameter file
 ``/proc/sys/abi/sme_default_vector_length``.  The default length, ``N``,
 is in units of bytes and must be between 16 and 8192.
@@ -476,12 +476,12 @@ length is set to the maximum possible length.
 RME CPU Properties
 ==================
 
-The status of RME support with QEMU is experimental.  At this time we
+The status of RME support with Nephrite is experimental.  At this time we
 only support RME within the CPU proper, not within the SMMU or GIC.
 The feature is enabled by the CPU property ``x-rme``, with the ``x-``
 prefix present as a reminder of the experimental status, and defaults off.
 
-The method for enabling RME will change in some future QEMU release
+The method for enabling RME will change in some future Nephrite release
 without notice or backward compatibility.
 
 RME Level 0 GPT Size Property
@@ -494,4 +494,4 @@ specifies the size of the Level 0 Granule Protection Table.
 Legal values for ``S`` are 30, 34, 36, and 39; the default is 30.
 
 As with ``x-rme``, the ``x-l0gptsz`` property may be renamed or
-removed in some future QEMU release.
+removed in some future Nephrite release.

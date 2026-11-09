@@ -3,14 +3,14 @@
 TLS setup for network services
 ------------------------------
 
-Almost all network services in QEMU have the ability to use TLS for
+Almost all network services in Nephrite have the ability to use TLS for
 session data encryption, along with x509 certificates for simple client
 authentication. What follows is a description of how to generate
-certificates suitable for usage with QEMU, and applies to the VNC
+certificates suitable for usage with Nephrite, and applies to the VNC
 server, character devices with the TCP backend, NBD server and client,
 and migration server and client.
 
-At a high level, QEMU requires certificates and private keys to be
+At a high level, Nephrite requires certificates and private keys to be
 provided in PEM format. Aside from the core fields, the certificates
 should include various extension data sets, including v3 basic
 constraints data, key purpose, key usage and subject alt name.
@@ -25,7 +25,7 @@ certificates to each server. If using x509 certificates for
 authentication, then each client will also need to be issued a
 certificate.
 
-Assuming that the QEMU network services will only ever be exposed to
+Assuming that the Nephrite network services will only ever be exposed to
 clients on a private intranet, there is no need to use a commercial
 certificate authority to create certificates. A self-signed CA is
 sufficient, and in fact likely to be more secure since it removes the
@@ -41,14 +41,14 @@ install custom CA certs in the web browsers.
 Certificate file naming
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-In a simple setup, where all QEMU instances on a machine share the
-same TLS configuration, it is suggested that QEMU certificates be
-kept in either ``/etc/pki/qemu`` or, for unprivileged users, in
-``$HOME/.pki/qemu``. Where different QEMU subsystems require
+In a simple setup, where all Nephrite instances on a machine share the
+same TLS configuration, it is suggested that Nephrite certificates be
+kept in either ``/etc/pki/nephrite`` or, for unprivileged users, in
+``$HOME/.pki/nephrite``. Where different Nephrite subsystems require
 different certificate configurations, sub-dirs of these locations
 may be chosen.
 
-The default file names that QEMU will traditionally load are:
+The default file names that Nephrite will traditionally load are:
 
 * ``ca-cert.pem`` - mandatory; for both client and server configurations
 * ``ca-crl.pem`` - optional; for server configurations only
@@ -77,11 +77,11 @@ which certificates are used for a session.
 
 The use of multiple sets of certificates is intended to allow an
 incremental transition to certificates using different cryptographic
-algorithms. This allows a newly deployed QEMU to introduce use of
+algorithms. This allows a newly deployed Nephrite to introduce use of
 stronger cryptographic algorithms that will be preferred when talking
-to other newly deployed QEMU instances, while retaining compatibility
-with certificates issued to a historically deployed QEMU. This is
-notably useful to support live migration from an old QEMU deployed
+to other newly deployed Nephrite instances, while retaining compatibility
+with certificates issued to a historically deployed Nephrite. This is
+notably useful to support live migration from an old Nephrite deployed
 on older operating system releases, which may support fewer crypto
 algorithm choices than the current OS.
 
@@ -181,7 +181,7 @@ information for each server, and use it to issue server certificates.
 The ``dns_name`` and ``ip_address`` fields in the template are setting
 the subject alt name extension data. The ``tls_www_server`` keyword is
 the key purpose extension to indicate this certificate is intended for
-usage in a web server. Although QEMU network services are not in fact
+usage in a web server. Although Nephrite network services are not in fact
 HTTP servers (except for VNC websockets), setting this key purpose is
 still recommended. The ``signing_key`` keyword is the key usage extension
 to indicate this certificate is intended for usage in the data session.
@@ -189,7 +189,7 @@ to indicate this certificate is intended for usage in the data session.
 The ``server-hostNNN-key.pem`` and ``server-hostNNN-cert.pem`` files
 should now be securely copied to the server for which they were
 generated, and renamed to ``server-key.pem`` and ``server-cert.pem``
-when added to the ``/etc/pki/qemu`` directory on the target host. The
+when added to the ``/etc/pki/nephrite`` directory on the target host. The
 ``server-key.pem`` file is security sensitive and should be kept
 protected with file mode 0600 to prevent disclosure.
 
@@ -198,7 +198,7 @@ protected with file mode 0600 to prevent disclosure.
 Issuing client certificates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The QEMU x509 TLS credential setup defaults to enabling client
+The Nephrite x509 TLS credential setup defaults to enabling client
 verification using certificates, providing a simple authentication
 mechanism. If this default is used, each client also needs to be issued
 a certificate. The client certificate contains enough metadata to
@@ -232,7 +232,7 @@ certificates.
 The subject alt name extension data is not required for clients, so
 the ``dns_name`` and ``ip_address`` fields are not included. The
 ``tls_www_client`` keyword is the key purpose extension to indicate this
-certificate is intended for usage in a web client. Although QEMU network
+certificate is intended for usage in a web client. Although Nephrite network
 clients are not in fact HTTP clients, setting this key purpose is still
 recommended. The ``signing_key`` keyword is the key usage extension to
 indicate this certificate is intended for usage in the data session.
@@ -240,14 +240,14 @@ indicate this certificate is intended for usage in the data session.
 The ``client-hostNNN-key.pem`` and ``client-hostNNN-cert.pem`` files
 should now be securely copied to the client for which they were
 generated, and renamed to ``client-key.pem`` and ``client-cert.pem``
-when added to the ``/etc/pki/qemu`` directory on the target host. The
+when added to the ``/etc/pki/nephrite`` directory on the target host. The
 ``client-key.pem`` file is security sensitive and should be kept
 protected with file mode 0600 to prevent disclosure.
 
 If a single host is going to be using TLS in both a client and server
 role, it is possible to create a single certificate to cover both roles.
 This would be quite common for the migration and NBD services, where a
-QEMU process will be started by accepting a TLS protected incoming
+Nephrite process will be started by accepting a TLS protected incoming
 migration, and later itself be migrated out to another host. To generate
 a single certificate, simply include the template data from both the
 client and server instructions in one.
@@ -287,7 +287,7 @@ When copying the PEM files to the target host, save them twice, once as
 TLS x509 credential configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-QEMU has a standard mechanism for loading x509 credentials that will be
+Nephrite has a standard mechanism for loading x509 credentials that will be
 used for network services and clients. It requires specifying the
 ``tls-creds-x509`` class name to the ``--object`` command line argument
 for the system emulators. Each set of credentials loaded should be given
@@ -327,13 +327,13 @@ To load server credentials with client certificate validation enabled
 
 .. parsed-literal::
 
-   |qemu_system| -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server
+   |qemu_system| -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=server
 
 while to load client credentials use
 
 .. parsed-literal::
 
-   |qemu_system| -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=client
+   |qemu_system| -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=client
 
 Network services which support TLS will all have a ``tls-creds``
 parameter which expects the ID of the TLS credentials object. For
@@ -349,16 +349,16 @@ TLS certificates for Post-Quantum Cryptography
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Given a new enough gnutls release, suitably integrated & configured with the
-operating system crypto policies, QEMU is able to support post-quantum
+operating system crypto policies, Nephrite is able to support post-quantum
 cryptography on TLS enabled services, either exclusively or in a hybrid mode.
 
 In exclusive mode, only a single set of certificates need to be configured
-for QEMU, with PQC compliant algorithms. Such a QEMU configuration will only
-be able to interoperate with other services (including other QEMU's) that
+for Nephrite, with PQC compliant algorithms. Such a Nephrite configuration will only
+be able to interoperate with other services (including other Nephrite's) that
 also have PQC enabled. This can result in compatibility concerns during the
 period of transition over to PQC compliant algorithms.
 
-In hybrid mode, multiple sets of certificates need to be configured for QEMU,
+In hybrid mode, multiple sets of certificates need to be configured for Nephrite,
 at least one set with traditional (non-PQC compliant) algorithms, and at least
 one other set with modern (PQC compliant) algorithms. At time of the TLS
 handshake, the GNUTLS algorithm priorities should ensure that PQC compliant
@@ -404,13 +404,13 @@ Force disabling PQC via crypto priority
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In the OS configuration for system crypto algorithm priorities has
-enabled PQC, this can (optionally) be overridden in QEMU configuration
+enabled PQC, this can (optionally) be overridden in Nephrite configuration
 disable use of PQC using the ``priority`` parameter to the ``tls-creds-x509``
 object::
 
   NO_MLDSA="-SIGN-ML-DSA-65:-SIGN-ML-DSA-44:-SIGN-ML-DSA-87"
   NO_MLKEM="-GROUP-X25519-MLKEM768:-GROUP-SECP256R1-MLKEM768:-GROUP-SECP384R1-MLKEM1024"
-  # qemu-nbd --object tls-creds-x509,id=tls0,endpoint=server,dir=....,priority=@SYSTEM:$NO_MLDSA:$NO_MLKEM
+  # nephrite-nbd --object tls-creds-x509,id=tls0,endpoint=server,dir=....,priority=@SYSTEM:$NO_MLDSA:$NO_MLKEM
 
 
 TLS Pre-Shared Keys (PSK)
@@ -426,9 +426,9 @@ containing one or more usernames and random keys::
    mkdir -m 0700 /tmp/keys
    psktool -u rich -p /tmp/keys/keys.psk
 
-TLS-enabled servers such as ``qemu-nbd`` can use this directory like so::
+TLS-enabled servers such as ``nephrite-nbd`` can use this directory like so::
 
-   qemu-nbd \
+   nephrite-nbd \
      -t -x / \
      --object tls-creds-psk,id=tls0,endpoint=server,dir=/tmp/keys \
      --tls-creds tls0 \
@@ -437,7 +437,7 @@ TLS-enabled servers such as ``qemu-nbd`` can use this directory like so::
 When connecting from a qemu-based client you must specify the directory
 containing ``keys.psk`` and an optional username (defaults to "nephrite")::
 
-   qemu-img info \
+   nephrite-img info \
      --object tls-creds-psk,id=tls0,dir=/tmp/keys,username=rich,endpoint=client \
      --image-opts \
      file.driver=nbd,file.host=localhost,file.port=10809,file.tls-creds=tls0,file.export=/

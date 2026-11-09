@@ -3,7 +3,7 @@ Compute Express Link (CXL)
 From the view of a single host, CXL is an interconnect standard that
 targets accelerators and memory devices attached to a CXL host.
 This description will focus on those aspects visible either to
-software running on a QEMU emulated host or to the internals of
+software running on a Nephrite emulated host or to the internals of
 functional emulation. As such, it will skip over many of the
 electrical and protocol elements that would be more of interest
 for real hardware and will dominate more general introductions to CXL.
@@ -16,7 +16,7 @@ attached to CXL or PCI End Points. Alternatively there may be CXL Switches
 with CXL and PCI Endpoints attached below them.  In many cases additional
 control and capabilities are exposed via PCI Express interfaces.
 This sharing of interfaces and hence emulation code is reflected
-in how the devices are emulated in QEMU. In most cases the various
+in how the devices are emulated in Nephrite. In most cases the various
 CXL elements are built upon an equivalent PCIe devices.
 
 CXL devices support the following interfaces:
@@ -37,8 +37,8 @@ CXL devices support the following interfaces:
     supported by the host for normal memory should also work for
     CXL attached memory devices.
 
-* Cache operations. The are mostly irrelevant to QEMU emulation as
-  QEMU is not emulating a coherency protocol. Any emulation related
+* Cache operations. The are mostly irrelevant to Nephrite emulation as
+  Nephrite is not emulating a coherency protocol. Any emulation related
   to these will be device specific and is out of the scope of this
   document.
 
@@ -61,8 +61,8 @@ persistent memory. The CXL topology may support interleaving across a
 number of Type 3 memory devices using HDM Decoders in the host, host
 bridge, switch upstream port and endpoints.
 
-Scope of CXL emulation in QEMU
-------------------------------
+Scope of CXL emulation in Nephrite
+----------------------------------
 The focus of CXL emulation is CXL revision 2.0 and later. Earlier CXL
 revisions defined a smaller set of features, leaving much of the control
 interface as implementation defined or device specific, making generic
@@ -89,7 +89,7 @@ decisions about how to configure interleave across available CXL
 memory devices.  It is provide as CFMW Structures (CFMWS) in
 the CXL Early Discovery Table, an ACPI table.
 
-Note: QTG 0 is the only one currently supported in QEMU.
+Note: QTG 0 is the only one currently supported in Nephrite.
 
 CXL Host Bridge (CXL HB)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -150,7 +150,7 @@ into a Device Physical Address (DPA).
 CXL Memory Interleave
 ---------------------
 To understand the interaction of different CXL hardware components which
-are emulated in QEMU, let us consider a memory read in a fully configured
+are emulated in Nephrite, let us consider a memory read in a fully configured
 CXL topology.  Note that system software is responsible for configuration
 of all components with the exception of the CFMWs. System software is
 responsible for allocating appropriate ranges from within the CFMWs
@@ -302,7 +302,7 @@ Example command lines
 ---------------------
 A very simple setup with just one directly attached CXL Type 3 Persistent Memory device::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-file,id=cxl-mem1,share=on,mem-path=/tmp/cxltest.raw,size=256M \
   -object memory-backend-file,id=cxl-lsa1,share=on,mem-path=/tmp/lsa.raw,size=256M \
@@ -313,7 +313,7 @@ A very simple setup with just one directly attached CXL Type 3 Persistent Memory
 
 A very simple setup with just one directly attached CXL Type 3 Volatile Memory device::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-ram,id=vmem0,share=on,size=256M \
   -device pxb-cxl,bus_nr=12,bus=pcie.0,id=cxl.1 \
@@ -323,7 +323,7 @@ A very simple setup with just one directly attached CXL Type 3 Volatile Memory d
 
 The same volatile setup may optionally include an LSA region::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-ram,id=vmem0,share=on,size=256M \
   -object memory-backend-file,id=cxl-lsa0,share=on,mem-path=/tmp/lsa.raw,size=256M \
@@ -336,7 +336,7 @@ A setup suitable for 4 way interleave. Only one fixed window provided, to enable
 interleave across 2 CXL host bridges.  Each host bridge has 2 CXL Root Ports, with
 the CXL Type3 device directly attached (no switches).::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-file,id=cxl-mem1,share=on,mem-path=/tmp/cxltest.raw,size=256M \
   -object memory-backend-file,id=cxl-mem2,share=on,mem-path=/tmp/cxltest2.raw,size=256M \
@@ -360,7 +360,7 @@ the CXL Type3 device directly attached (no switches).::
 
 An example of 4 devices below a switch suitable for 1, 2 or 4 way interleave::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-file,id=cxl-mem0,share=on,mem-path=/tmp/cxltest.raw,size=256M \
   -object memory-backend-file,id=cxl-mem1,share=on,mem-path=/tmp/cxltest1.raw,size=256M \
@@ -392,7 +392,7 @@ plain host-only devices are directly attached and use the default window.
 Because a window targets a host bridge, giving each coherency model its own
 bridge keeps the window-to-device mapping explicit::
 
-  qemu-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
+  nephrite-system-x86_64 -M q35,cxl=on -m 4G,maxmem=8G,slots=8 -smp 4 \
   ...
   -object memory-backend-ram,id=cxl-mem0,share=on,size=256M \
   -object memory-backend-ram,id=cxl-mem1,share=on,size=256M \
@@ -415,7 +415,7 @@ bridge keeps the window-to-device mapping explicit::
 A simple arm/virt example featuring a single direct connected CXL Type 3
 Volatile Memory device::
 
-  qemu-system-aarch64 -M virt,gic-version=3,cxl=on -m 4g,maxmem=8g,slots=4 -cpu max -smp 4 \
+  nephrite-system-aarch64 -M virt,gic-version=3,cxl=on -m 4g,maxmem=8g,slots=4 -cpu max -smp 4 \
   ...
   -object memory-backend-ram,id=vmem0,share=on,size=256M \
   -device pxb-cxl,bus_nr=12,bus=pcie.0,id=cxl.1 \

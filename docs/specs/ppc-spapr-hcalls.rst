@@ -2,7 +2,7 @@
 sPAPR hypervisor calls
 ======================
 
-When used with the ``pseries`` machine type, ``qemu-system-ppc64`` implements
+When used with the ``pseries`` machine type, ``nephrite-system-ppc64`` implements
 a set of hypervisor calls (a.k.a. hcalls) defined in the Linux on Power
 Architecture Reference ([LoPAR]_) document. This document is a subset of the
 Power Architecture Platform Reference (PAPR+) specification (IBM internal only),
@@ -12,7 +12,7 @@ The subset in LoPAR is selected based on the requirements of Linux as a guest.
 
 In addition to those calls, we have added our own private hypervisor
 calls which are mostly used as a private interface between the firmware
-running in the guest and QEMU.
+running in the guest and Nephrite.
 
 All those hypercalls start at hcall number 0xf000 which correspond
 to an implementation specific range in PAPR.
@@ -26,9 +26,9 @@ predates the existence of hypervisors (it was originally an extension to Open
 Firmware) and is still used by PAPR and LoPAR to provide various services that
 are not performance sensitive.
 
-We currently implement the RTAS services in QEMU itself. The actual RTAS
+We currently implement the RTAS services in Nephrite itself. The actual RTAS
 "firmware" blob in the guest is a small stub of a few instructions which
-calls our private H_RTAS hypervisor call to pass the RTAS calls to QEMU.
+calls our private H_RTAS hypervisor call to pass the RTAS calls to Nephrite.
 
 Arguments:
 

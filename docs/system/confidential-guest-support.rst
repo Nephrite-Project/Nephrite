@@ -3,7 +3,7 @@
 Confidential Guest Support
 ==========================
 
-Traditionally, hypervisors such as QEMU have complete access to a
+Traditionally, hypervisors such as Nephrite have complete access to a
 guest's memory and other state, meaning that a compromised hypervisor
 can compromise any of its guests.  A number of platforms have added
 mechanisms in hardware and/or firmware which give guests at least some
@@ -29,7 +29,7 @@ To run a confidential guest you need to add two command line parameters:
 
 Example (for AMD SEV)::
 
-    qemu-system-x86_64 \
+    nephrite-system-x86_64 \
         <other parameters> \
         -machine ...,confidential-guest-support=sev0 \
         -object sev-guest,id=sev0,cbitpos=47,reduced-phys-bits=1

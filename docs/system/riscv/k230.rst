@@ -32,9 +32,9 @@ starts OpenSBI/Linux with ``bootm``. It also supports direct Linux boot.
 The DDRC CFG and DDR PHY models allow the K230 SDK U-Boot SPL to complete DDR
 initialization before loading the next boot stage.
 
-K230 SDK Linux kernels use T-HEAD C9xx private MAEE page table attributes. QEMU
+K230 SDK Linux kernels use T-HEAD C9xx private MAEE page table attributes. Nephrite
 does not implement MAEE in the generic RISC-V MMU, so such kernels need to be
-built with standard RISC-V PTE bits before they can boot under QEMU.
+built with standard RISC-V PTE bits before they can boot under Nephrite.
 
 Running
 -------
@@ -42,14 +42,14 @@ Running
 Direct Linux boot
 ~~~~~~~~~~~~~~~~~
 
-This flow lets QEMU load OpenSBI, Linux, initrd, and DTB directly, without
+This flow lets Nephrite load OpenSBI, Linux, initrd, and DTB directly, without
 running SDK U-Boot. The Linux Image must be rebuilt with standard RISC-V PTE
-bits before running under QEMU.
+bits before running under Nephrite.
 
 .. code-block:: bash
 
    $ SDK=k230_sdk/output/k230_canmv_defconfig
-   $ qemu-system-riscv64 -machine k230 \
+   $ nephrite-system-riscv64 -machine k230 \
       -kernel "$SDK/images/little-core/Image" \
       -dtb "/tmp/user-k230-qemu.dtb" \
       -initrd "$SDK/images/little-core/rootfs.cpio.gz" \
@@ -58,7 +58,7 @@ bits before running under QEMU.
 
 Direct boot uses the SDK little-core RAM layout for OpenSBI at
 ``0x08000000``, Linux at ``0x08200000``, and the DTB at ``0x0a000000``. The
-initrd is placed by QEMU's generic RISC-V boot helper, and QEMU writes the
+initrd is placed by Nephrite's generic RISC-V boot helper, and Nephrite writes the
 initrd range and kernel command line into ``/chosen``. The DTB passed with
 ``-dtb`` should be derived from ``$SDK/images/little-core/k230.dtb`` and must
 describe that initrd location as usable memory and disable any devices that are
@@ -70,7 +70,7 @@ U-Boot boot
 This flow starts SDK U-Boot in M-mode with ``-bios``. Until the SDK storage
 path is modeled, place OpenSBI, Linux, initrd, and DTB in RAM with loader
 devices and run ``bootm`` manually. The Linux Image must be rebuilt with
-standard RISC-V PTE bits before running under QEMU.
+standard RISC-V PTE bits before running under Nephrite.
 
 .. code-block:: bash
 
@@ -84,7 +84,7 @@ standard RISC-V PTE bits before running under QEMU.
       -A riscv -O linux -T kernel -C none \
       -a 0x8000000 -e 0x8000000 -n opensbi \
       -d "$SDK/images/little-core/fw_jump.bin" "$FWJUMP_UIMAGE"
-   $ qemu-system-riscv64 -machine k230 \
+   $ nephrite-system-riscv64 -machine k230 \
       -bios "$SDK/little/uboot/u-boot" \
       -device loader,file="$FWJUMP_UIMAGE",addr=0xc100000,force-raw=on \
       -device loader,file="$IMAGE",addr=0x8200000,force-raw=on \

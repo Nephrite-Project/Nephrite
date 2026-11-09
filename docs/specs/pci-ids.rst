@@ -1,8 +1,8 @@
-================
-PCI IDs for QEMU
-================
+====================
+PCI IDs for Nephrite
+====================
 
-Red Hat, Inc. donates a part of its device ID range to QEMU, to be used for
+Red Hat, Inc. donates a part of its device ID range to Nephrite, to be used for
 virtual devices.  The vendor IDs are 1af4 (formerly Qumranet ID) and 1b36.
 
 Contact Gerd Hoffmann <kraxel@redhat.com> to get a device ID assigned
@@ -37,7 +37,7 @@ maintained as part of the virtio specification.
   ID is calculated from the virtio device ID by adding the
   0x1040 offset.  The virtio IDs are defined in the virtio
   specification.  The Linux kernel has a header file with
-  defines for all virtio IDs (``linux/virtio_ids.h``); QEMU has a
+  defines for all virtio IDs (``linux/virtio_ids.h``); Nephrite has a
   copy in ``include/standard-headers/``.
 
 1af4:10f0 to 1a4f:10ff
@@ -47,7 +47,7 @@ maintained as part of the virtio specification.
 
 1af4:1100
   Used as PCI Subsystem ID for existing hardware devices emulated by
-  QEMU, such as the intel chipset devices.  Also used for virtio
+  Nephrite, such as the intel chipset devices.  Also used for virtio
   devices and generic pci class devices (1b36:00xx, see below).
 
 1af4:1101

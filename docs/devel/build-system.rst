@@ -1,9 +1,9 @@
-==================================
-The QEMU build system architecture
-==================================
+======================================
+The Nephrite build system architecture
+======================================
 
 This document aims to help developers understand the architecture of the
-QEMU build system. As with projects using GNU autotools, the QEMU build
+Nephrite build system. As with projects using GNU autotools, the Nephrite build
 system has two stages; first the developer runs the "configure" script
 to determine the local build environment characteristics, then they run
 "make" to build the project.  This is about where the similarities with
@@ -11,7 +11,7 @@ GNU autotools end, so try to forget what you know about them.
 
 The two general ways to perform a build are as follows:
 
- - build artifacts outside of QEMU source tree entirely::
+ - build artifacts outside of Nephrite source tree entirely::
 
      cd ../
      mkdir build
@@ -19,7 +19,7 @@ The two general ways to perform a build are as follows:
      ../qemu/configure
      make
 
- - build artifacts in a subdir of QEMU source tree::
+ - build artifacts in a subdir of Nephrite source tree::
 
      mkdir build
      cd build
@@ -55,7 +55,7 @@ The configure script automatically recognizes command line options for
 which a same-named Meson option exists; dashes in the command line are
 replaced with underscores.
 
-Almost all QEMU developers that need to modify the build system will
+Almost all Nephrite developers that need to modify the build system will
 only be concerned with Meson, and therefore can skip the rest of this
 section.
 
@@ -82,7 +82,7 @@ and operating systems:
    replacement in Meson is ``find_program()``.
 
 ``probe_target_compiler $TARGET``
-  Detect a cross compiler and cross tools for the QEMU target $TARGET (e.g.,
+  Detect a cross compiler and cross tools for the Nephrite target $TARGET (e.g.,
   ``$CPU-softmmu``, ``$CPU-linux-user``, ``$CPU-bsd-user``).  If a working
   compiler is present, return success and set variables ``$target_cc``,
   ``$target_ar``, etc. to non-empty values.
@@ -133,7 +133,7 @@ in the ``pyvenv`` directory in the build tree, and provides consistency
 in how the build process runs Python code.
 
 At this stage, ``configure`` also queries the chosen Python interpreter
-about QEMU's build dependencies.  Note that the build process does  *not*
+about Nephrite's build dependencies.  Note that the build process does  *not*
 look for ``meson`` or ``sphinx-build`` binaries in the PATH;
 likewise, there are no options such as ``--meson`` or ``--sphinx-build``.
 This avoids a potential mismatch, where Meson and Sphinx binaries on the
@@ -165,10 +165,10 @@ the dependencies are not present.
               ``distlib.scripts`` to perform this task.
 
 The required versions of the packages are stored in a configuration file
-``pythondeps.toml``.  The format is custom to QEMU, but it is documented
+``pythondeps.toml``.  The format is custom to Nephrite, but it is documented
 at the top of the file itself and it should be easy to understand.  The
 requirements should make it possible to use the version that is packaged
-by QEMU's supported distros.
+by Nephrite's supported distros.
 
 When dependencies are downloaded, instead, ``configure`` uses a "known
 good" version that is also listed in ``pythondeps.toml``.  In this
@@ -179,9 +179,9 @@ scenario, ``pythondeps.toml`` behaves like the "lock file" used by
 Bundled Python packages
 -----------------------
 
-Python packages that are **mandatory** dependencies to build QEMU,
+Python packages that are **mandatory** dependencies to build Nephrite,
 but are not available in all supported distros, are bundled with the
-QEMU sources.  The only one is currently Meson (outdated in Ubuntu
+Nephrite sources.  The only one is currently Meson (outdated in Ubuntu
 22.04 and openSUSE Leap).
 
 In order to include a new or updated wheel, modify and rerun the
@@ -197,9 +197,9 @@ The Meson build system describes the build and install process for:
 
 1) executables, which include:
 
-   - Tools - ``qemu-img``, ``qemu-nbd``, ``qemu-ga`` (guest agent), etc
+   - Tools - ``nephrite-img``, ``nephrite-nbd``, ``nephrite-ga`` (guest agent), etc
 
-   - System emulators - ``qemu-system-$ARCH``
+   - System emulators - ``nephrite-system-$ARCH``
 
    - Userspace emulators - ``qemu-$ARCH``
 
@@ -207,7 +207,7 @@ The Meson build system describes the build and install process for:
 
 2) documentation
 
-3) ROMs, whether provided as binary blobs in the QEMU distributions
+3) ROMs, whether provided as binary blobs in the Nephrite distributions
    or cross compiled under the direction of the configure script
 
 4) other data files, such as icons or desktop files
@@ -304,7 +304,7 @@ Utility sourcesets:
   ``util_ss`` contains generic utility files.  Even though this code is only
   linked in some binaries, sometimes it requires hooks only in some of
   these and depend on other functions that are not fully implemented by
-  all QEMU binaries.  ``stub_ss`` links dummy stubs that will only be linked
+  all Nephrite binaries.  ``stub_ss`` links dummy stubs that will only be linked
   into the binary if the real implementation is not present.  In a way,
   the stubs can be thought of as a portable implementation of the weak
   symbols concept.
@@ -315,7 +315,7 @@ into each emulator:
 
 ``configs/devices/*.mak``
   The files under ``configs/devices/`` control the boards and devices
-  that are built into each QEMU system emulation targets. They merely contain
+  that are built into each Nephrite system emulation targets. They merely contain
   a list of config variable definitions such as::
 
     include arm-softmmu.mak
@@ -433,13 +433,13 @@ places under ``pyvenv``.  One way to do so is as follows, using Meson's
 Stage 3: Make
 =============
 
-The next step in building QEMU is to invoke make.  GNU Make is required
-to build QEMU, and may be installed as ``gmake`` on some hosts.
+The next step in building Nephrite is to invoke make.  GNU Make is required
+to build Nephrite, and may be installed as ``gmake`` on some hosts.
 
 The output of Meson is a ``build.ninja`` file, which is used with the
-Ninja build tool.  However, QEMU's build comprises other components than
+Ninja build tool.  However, Nephrite's build comprises other components than
 just the emulators (namely firmware and the tests in ``tests/tcg``) which
-need different cross compilers.  The QEMU Makefile wraps both Ninja and
+need different cross compilers.  The Nephrite Makefile wraps both Ninja and
 the smaller build systems for firmware and tests; it also takes care of
 running ``configure`` again when the script changes.  Apart from invoking
 these sub-Makefiles, the resulting build is largely non-recursive.
@@ -473,19 +473,19 @@ Statically defined files
 ------------------------
 
 The following key files are statically defined in the source tree, with
-the rules needed to build QEMU. Their behaviour is influenced by a
+the rules needed to build Nephrite. Their behaviour is influenced by a
 number of dynamically created files listed later.
 
 ``Makefile``
   The main entry point used when invoking make to build all the components
-  of QEMU. The default 'all' target will naturally result in the build of
+  of Nephrite. The default 'all' target will naturally result in the build of
   every component.
 
 ``*/meson.build``
   The meson.build file in the root directory is the main entry point for the
   Meson build system, and it coordinates the configuration and build of all
   executables.  Build rules for various subdirectories are included in
-  other meson.build files spread throughout the QEMU source tree.
+  other meson.build files spread throughout the Nephrite source tree.
 
 ``python/scripts/mkvenv.py``
   A wrapper for the Python ``venv`` and ``distlib.scripts`` packages.
@@ -509,7 +509,7 @@ Dynamically created files
 -------------------------
 
 The following files are generated at run-time in order to control the
-behaviour of the Makefiles. This avoids the need for QEMU makefiles to
+behaviour of the Makefiles. This avoids the need for Nephrite makefiles to
 go through any pre-processing as seen with autotools, where configure
 generates ``Makefile`` from ``Makefile.in``.
 
@@ -521,10 +521,10 @@ Built by configure:
   before running the requested command. Pass the command to run as
   args, for example::
 
-    $ ./build/run ./script/qmp/qmp-shell-wrap qemu-system-x86_64
+    $ ./build/run ./script/qmp/qmp-shell-wrap nephrite-system-x86_64
 
   will use the ``python3`` binary and site-packages from the local
-  venv to run ``qmp-shell-wrap`` and spawn the QEMU emulator from
+  venv to run ``qmp-shell-wrap`` and spawn the Nephrite emulator from
   the build directory.
 
 ``config-host.mak``

@@ -27,7 +27,7 @@ also works as long as the bus name is unique.
 
 === Block Devices ===
 
-A QEMU block device (drive) has a host and a guest part.
+A Nephrite block device (drive) has a host and a guest part.
 
 In the general case, the guest device is connected to a controller
 device.  For instance, the IDE controller provides two IDE buses, each
@@ -148,7 +148,7 @@ part are not cleanly separated.
 
 === Character Devices ===
 
-A QEMU character device has a host and a guest part.
+A Nephrite character device has a host and a guest part.
 
 The old ways to define character devices define host and guest part
 together.
@@ -228,7 +228,7 @@ LEGACY-CHARDEV translates to -chardev HOST-OPTS... as follows:
   single host part.  You need to pass mux=on to -chardev to enable
   switching the input focus.
 
-QEMU uses LEGACY-CHARDEV syntax not just to set up guest devices, but
+Nephrite uses LEGACY-CHARDEV syntax not just to set up guest devices, but
 also in various other places such as -monitor or -net
 user,guestfwd=...  You can use chardev:CHR-ID in place of
 LEGACY-CHARDEV to refer to a host part defined with -chardev.
@@ -363,7 +363,7 @@ bus=PCI-BUS,addr=DEVFN to control the PCI device address, as usual.
 
 === Host Device Assignment ===
 
-QEMU supports assigning host PCI devices (qemu-kvm only at this time)
+Nephrite supports assigning host PCI devices (qemu-kvm only at this time)
 and host USB devices.  PCI devices can only be assigned with -device:
 
     -device vfio-pci,host=ADDR,id=ID
@@ -383,7 +383,7 @@ Omitted options match anything.
 
 === Default Devices ===
 
-QEMU creates a number of devices by default, depending on the machine
+Nephrite creates a number of devices by default, depending on the machine
 type.
 
 -device DEVNAME... and global DEVNAME... suppress default devices for

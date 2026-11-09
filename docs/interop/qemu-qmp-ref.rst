@@ -1,7 +1,7 @@
 .. _QMP Ref:
 
-QEMU QMP Reference Manual
-=========================
+Nephrite QMP Reference Manual
+=============================
 
 .. contents::
    :local:

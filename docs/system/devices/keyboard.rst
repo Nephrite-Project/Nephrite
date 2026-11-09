@@ -6,7 +6,7 @@ SUN Type 4, 5 and 5c keyboards have dip switches to choose the language layout
 of the keyboard. Solaris makes an ioctl to query the value of the dipswitches
 and uses that value to select keyboard layout. Also the SUN bios like the one
 in the file ss5.bin uses this value to support at least some keyboard layouts.
-However, the OpenBIOS provided with qemu is hardcoded to always use an
+However, the OpenBIOS provided with Nephrite is hardcoded to always use an
 US keyboard layout.
 
 With the escc.chnA-sunkbd-layout driver property it is possible to select

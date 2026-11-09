@@ -1,14 +1,14 @@
 :orphan:
 
-==================================
-QEMU / KVM CPU model configuration
-==================================
+======================================
+Nephrite / KVM CPU model configuration
+======================================
 
 --------
 Synopsis
 --------
 
-QEMU CPU Modelling Infrastructure manual
+Nephrite CPU Modelling Infrastructure manual
 
 -----------
 Description
@@ -21,4 +21,4 @@ Description
 See also
 --------
 
-The HTML documentation of QEMU for more precise information and Linux user mode emulator invocation.
+The HTML documentation of Nephrite for more precise information and Linux user mode emulator invocation.

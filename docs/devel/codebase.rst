@@ -2,13 +2,13 @@
 Codebase
 ========
 
-This section presents the various parts of QEMU and how the codebase is
+This section presents the various parts of Nephrite and how the codebase is
 organized.
 
 Beyond giving succinct descriptions, the goal is to offer links to various
 parts of the documentation/codebase.
 
-Those two videos are an excellent introduction to QEMU codebase:
+Those two videos are an excellent introduction to Nephrite codebase:
 
 - `QEMU Dev Starter guide - General overview <https://www.youtube.com/watch?v=OCBLTMKLGAk>`_
 - `QEMU Dev Starter guide - System mode <https://www.youtube.com/watch?v=jrZ56K3Sl_k>`_
@@ -16,7 +16,7 @@ Those two videos are an excellent introduction to QEMU codebase:
 Subsystems
 ----------
 
-Some of the main QEMU subsystems are:
+Some of the main Nephrite subsystems are:
 
 - `Accelerators<Accelerators>`
 - Block devices and `disk images<disk images>` support
@@ -32,7 +32,7 @@ Some of the main QEMU subsystems are:
 - `User mode<user-mode>` (`Linux<linux-user-mode>` & `BSD<bsd-user-mode>`)
 - User Interfaces
 
-More documentation on QEMU subsystems can be found on :ref:`internal-subsystem`
+More documentation on Nephrite subsystems can be found on :ref:`internal-subsystem`
 page.
 
 The Grand tour
@@ -48,14 +48,14 @@ yet, so sometimes the source code is all you have.
 
 * `accel <https://gitlab.com/qemu-project/qemu/-/tree/master/accel>`_:
   Infrastructure and architecture agnostic code related to the various
-  `accelerators <Accelerators>` supported by QEMU
+  `accelerators <Accelerators>` supported by Nephrite
   (TCG, KVM, hvf, whpx, xen, nvmm, mshv).
   Contains interfaces for operations that will be implemented per
   `target <https://gitlab.com/qemu-project/qemu/-/tree/master/target>`_.
 * `audio <https://gitlab.com/qemu-project/qemu/-/tree/master/audio>`_:
   Audio (host) support.
 * `authz <https://gitlab.com/qemu-project/qemu/-/tree/master/authz>`_:
-  `QEMU Authorization framework<client authorization>`.
+  `Nephrite Authorization framework<client authorization>`.
 * `backends <https://gitlab.com/qemu-project/qemu/-/tree/master/backends>`_:
   Various backends that are used to access resources on the host (e.g. for
   random number generation, memory backing or cryptographic functions).
@@ -63,26 +63,26 @@ yet, so sometimes the source code is all you have.
   Block devices and `image formats<disk images>` implementation.
 * `bsd-user <https://gitlab.com/qemu-project/qemu/-/tree/master/bsd-user>`_:
   `BSD User mode<bsd-user-mode>`.
-* build: Where the code built goes by default. You can tell the QEMU build
+* build: Where the code built goes by default. You can tell the Nephrite build
   system to put the built code anywhere else you like.
 * `chardev <https://gitlab.com/qemu-project/qemu/-/tree/master/chardev>`_:
   Various backends used by char devices.
 * `common-user <https://gitlab.com/qemu-project/qemu/-/tree/master/common-user>`_:
   User-mode assembly code for dealing with signals occurring during syscalls.
 * `configs <https://gitlab.com/qemu-project/qemu/-/tree/master/configs>`_:
-  Makefiles defining configurations to build QEMU.
+  Makefiles defining configurations to build Nephrite.
 * `contrib <https://gitlab.com/qemu-project/qemu/-/tree/master/contrib>`_:
   Community contributed devices/plugins/tools.
 * `crypto <https://gitlab.com/qemu-project/qemu/-/tree/master/crypto>`_:
-  Cryptographic algorithms used in QEMU.
+  Cryptographic algorithms used in Nephrite.
 * `disas <https://gitlab.com/qemu-project/qemu/-/tree/master/disas>`_:
-  Disassembly functions used by QEMU target code.
+  Disassembly functions used by Nephrite target code.
 * `docs <https://gitlab.com/qemu-project/qemu/-/tree/master/docs>`_:
-  QEMU Documentation.
+  Nephrite Documentation.
 * `dump <https://gitlab.com/qemu-project/qemu/-/tree/master/dump>`_:
   Code to dump memory of a running VM.
 * `ebpf <https://gitlab.com/qemu-project/qemu/-/tree/master/ebpf>`_:
-  eBPF program support in QEMU. `virtio-net RSS<ebpf-rss>` uses it.
+  eBPF program support in Nephrite. `virtio-net RSS<ebpf-rss>` uses it.
 * `fpu <https://gitlab.com/qemu-project/qemu/-/tree/master/fpu>`_:
   Floating-point software emulation.
 * `fsdev <https://gitlab.com/qemu-project/qemu/-/tree/master/fsdev>`_:
@@ -99,13 +99,13 @@ yet, so sometimes the source code is all you have.
   `User mode <user-mode>` implementation. Contains one folder per target
   architecture.
 * `include <https://gitlab.com/qemu-project/qemu/-/tree/master/include>`_:
-  All headers associated to different subsystems in QEMU. The hierarchy used
+  All headers associated to different subsystems in Nephrite. The hierarchy used
   mirrors source code organization and naming.
 * `hw <https://gitlab.com/qemu-project/qemu/-/tree/master/hw>`_:
   `Devices <device-emulation>` and boards emulation. Devices are categorized by
   type/protocol/architecture and located in associated subfolder.
 * `io <https://gitlab.com/qemu-project/qemu/-/tree/master/io>`_:
-  QEMU `I/O channels <https://lists.gnu.org/archive/html/qemu-devel/2015-11/msg04208.html>`_.
+  Nephrite `I/O channels <https://lists.gnu.org/archive/html/qemu-devel/2015-11/msg04208.html>`_.
 * `libdecnumber <https://gitlab.com/qemu-project/qemu/-/tree/master/libdecnumber>`_:
   Import of gcc library, used to implement decimal number arithmetic.
 * `migration <https://gitlab.com/qemu-project/qemu/-/tree/master/migration>`__:
@@ -113,12 +113,12 @@ yet, so sometimes the source code is all you have.
 * `monitor <https://gitlab.com/qemu-project/qemu/-/tree/master/monitor>`_:
   `Monitor <QEMU monitor>` implementation (HMP & QMP).
 * `nbd <https://gitlab.com/qemu-project/qemu/-/tree/master/nbd>`_:
-  QEMU NBD (Network Block Device) server.
+  Nephrite NBD (Network Block Device) server.
 * `net <https://gitlab.com/qemu-project/qemu/-/tree/master/net>`_:
   Network (host) support.
 * `pc-bios <https://gitlab.com/qemu-project/qemu/-/tree/master/pc-bios>`_:
   Contains pre-built firmware binaries and boot images, ready to use in
-  QEMU without compilation.
+  Nephrite without compilation.
 * `plugins <https://gitlab.com/qemu-project/qemu/-/tree/master/plugins>`_:
   :ref:`TCG plugins <tcg-plugins>` core implementation. Plugins can be found in
   `tests <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/tcg/plugins>`__
@@ -131,37 +131,37 @@ yet, so sometimes the source code is all you have.
 * `qapi <https://gitlab.com/qemu-project/qemu/-/tree/master/qapi>`_:
   `QAPI <qapi>` implementation.
 * `qobject <https://gitlab.com/qemu-project/qemu/-/tree/master/qobject>`_:
-  QEMU Object implementation.
+  Nephrite Object implementation.
 * `qga <https://gitlab.com/qemu-project/qemu/-/tree/master/qga>`_:
-  QEMU `Guest agent <qemu-ga>` implementation.
+  Nephrite `Guest agent <qemu-ga>` implementation.
 * `qom <https://gitlab.com/qemu-project/qemu/-/tree/master/qom>`_:
-  QEMU :ref:`Object model <qom>` implementation, with monitor associated commands.
+  Nephrite :ref:`Object model <qom>` implementation, with monitor associated commands.
 * `replay <https://gitlab.com/qemu-project/qemu/-/tree/master/replay>`_:
-  QEMU :ref:`Record/replay <replay>` implementation.
+  Nephrite :ref:`Record/replay <replay>` implementation.
 * `roms <https://gitlab.com/qemu-project/qemu/-/tree/master/roms>`_:
   Contains source code for various firmware and ROMs, which can be compiled if
   custom or updated versions are needed.
 * `rust <https://gitlab.com/qemu-project/qemu/-/tree/master/rust>`_:
-  Rust integration in QEMU. It contains the new interfaces defined and
+  Rust integration in Nephrite. It contains the new interfaces defined and
   associated devices using it.
 * `scripts <https://gitlab.com/qemu-project/qemu/-/tree/master/scripts>`_:
   Collection of scripts used in build and test systems, and various
-  tools for QEMU codebase and execution traces.
+  tools for Nephrite codebase and execution traces.
 * `scsi <https://gitlab.com/qemu-project/qemu/-/tree/master/scsi>`_:
   Code related to SCSI support, used by SCSI devices.
 * `semihosting <https://gitlab.com/qemu-project/qemu/-/tree/master/semihosting>`_:
-  QEMU `Semihosting <Semihosting>` implementation.
+  Nephrite `Semihosting <Semihosting>` implementation.
 * `stats <https://gitlab.com/qemu-project/qemu/-/tree/master/stats>`_:
   `Monitor <QEMU monitor>` stats commands implementation.
 * `storage-daemon <https://gitlab.com/qemu-project/qemu/-/tree/master/storage-daemon>`_:
-  QEMU `Storage daemon <storage-daemon>` implementation.
+  Nephrite `Storage daemon <storage-daemon>` implementation.
 * `stubs <https://gitlab.com/qemu-project/qemu/-/tree/master/stubs>`_:
-  Various stubs (empty functions) used to compile QEMU with specific
+  Various stubs (empty functions) used to compile Nephrite with specific
   configurations.
 * `subprojects <https://gitlab.com/qemu-project/qemu/-/tree/master/subprojects>`_:
-  QEMU submodules used by QEMU build system.
+  Nephrite submodules used by Nephrite build system.
 * `system <https://gitlab.com/qemu-project/qemu/-/tree/master/system>`_:
-  QEMU `system mode <System emulation>` implementation (cpu, mmu, boot support).
+  Nephrite `system mode <System emulation>` implementation (cpu, mmu, boot support).
 * `target <https://gitlab.com/qemu-project/qemu/-/tree/master/target>`_:
   Contains code for all target architectures supported (one subfolder
   per arch). For every architecture, you can find accelerator specific
@@ -170,7 +170,7 @@ yet, so sometimes the source code is all you have.
   :ref:`TCG <tcg>` related code.
   Contains one subfolder per host supported architecture.
 * `tests <https://gitlab.com/qemu-project/qemu/-/tree/master/tests>`_:
-  QEMU `test <testing>` suite
+  Nephrite `test <testing>` suite
 
   - `data <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/data>`_:
     Data for various tests.
@@ -179,7 +179,7 @@ yet, so sometimes the source code is all you have.
   - `docker <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/docker>`_:
     Code and scripts to create `containers <container-ref>` for builds and tests.
   - `fp <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/fp>`_:
-    QEMU testsuite for soft float implementation.
+    Nephrite testsuite for soft float implementation.
   - `functional <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/functional>`_:
     `Functional tests <checkfunctional-ref>` (full VM boot).
   - `lcitool <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/lcitool>`_:
@@ -202,11 +202,11 @@ yet, so sometimes the source code is all you have.
   - `uefi-test-tools <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/uefi-test-tools>`_:
     Test tool for UEFI support.
   - `unit <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/unit>`_:
-    QEMU `Unit tests <unit-tests>`.
+    Nephrite `Unit tests <unit-tests>`.
 * `trace <https://gitlab.com/qemu-project/qemu/-/tree/master/trace>`_:
   :ref:`Tracing framework <tracing>`. Used to print information associated to various
   events during execution.
 * `ui <https://gitlab.com/qemu-project/qemu/-/tree/master/ui>`_:
-  QEMU User interfaces.
+  Nephrite User interfaces.
 * `util <https://gitlab.com/qemu-project/qemu/-/tree/master/util>`_:
-  Utility code used by other parts of QEMU.
+  Utility code used by other parts of Nephrite.

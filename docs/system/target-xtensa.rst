@@ -4,7 +4,7 @@ Xtensa System emulator
 ----------------------
 
 Two executables cover simulation of both Xtensa endian options,
-``qemu-system-xtensa`` and ``qemu-system-xtensaeb``. Two different
+``nephrite-system-xtensa`` and ``nephrite-system-xtensaeb``. Two different
 machine types are emulated:
 
 -  Xtensa emulator pseudo board \"sim\"

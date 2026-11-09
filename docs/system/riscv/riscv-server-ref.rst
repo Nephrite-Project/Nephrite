@@ -45,11 +45,11 @@ process in a shell (the ``log`` parameter is optional):
             --tpm2 \
             --log level=20
 
-And then start QEMU with:
+And then start Nephrite with:
 
 .. code-block:: bash
 
- qemu-system-riscv64 -M riscv-server-ref \
+ nephrite-system-riscv64 -M riscv-server-ref \
      -bios fw_dynamic.bin \
      -kernel EDK2.fd \
      -drive file=nvme_disk.ext2,format=raw,id=hd0,if=none \

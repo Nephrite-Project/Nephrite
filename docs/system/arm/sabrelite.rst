@@ -27,7 +27,7 @@ The SABRE Lite machine supports the following devices:
  * 2 FlexCAN CAN controllers
  * 1 SST 25VF016B flash
 
-Please note above list is a complete superset the QEMU SABRE Lite machine can
+Please note above list is a complete superset the Nephrite SABRE Lite machine can
 support. For a normal use case, a device tree blob that represents a real world
 SABRE Lite board, only exposes a subset of devices to the guest software.
 
@@ -51,11 +51,11 @@ the kernel using the imx_v6_v7_defconfig configuration:
   $ make imx_v6_v7_defconfig
   $ make
 
-To boot the newly built Linux kernel in QEMU with the SABRE Lite machine, use:
+To boot the newly built Linux kernel in Nephrite with the SABRE Lite machine, use:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M sabrelite \
+  $ nephrite-system-arm -M sabrelite \
       -display none -serial null -serial stdio \
       -kernel arch/arm/boot/zImage \
       -dtb arch/arm/boot/dts/imx6q-sabrelite.dtb \
@@ -89,13 +89,13 @@ the -kernel argument, along with an SD card image with rootfs:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M sabrelite \
+  $ nephrite-system-arm -M sabrelite \
       -display none -serial null -serial stdio \
       -kernel u-boot
 
 The following example shows booting Linux kernel from dhcp, and uses the
 rootfs on an SD card. This requires some additional command line parameters
-for QEMU:
+for Nephrite:
 
 .. code-block:: none
 

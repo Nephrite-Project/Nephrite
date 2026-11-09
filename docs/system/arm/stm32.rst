@@ -24,7 +24,7 @@ The following machines are based on this Arm Cortex-M4F chip :
 - ``olimex-stm32-h405`` Olimex STM32 H405 board with STM32F405RGT6 microcontroller
 - ``b-l475e-iot01a``     :doc:`B-L475E-IOT01A IoT Node </system/arm/b-l475e-iot01a>` board with STM32L475VG microcontroller
 
-There are many other STM32 series that are currently not supported by QEMU.
+There are many other STM32 series that are currently not supported by Nephrite.
 
 Supported devices
 -----------------
@@ -67,4 +67,4 @@ firmware. Example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M stm32vldiscovery -kernel firmware.bin
+  $ nephrite-system-arm -M stm32vldiscovery -kernel firmware.bin

@@ -1,7 +1,7 @@
 .. _user-mode:
 
-QEMU User space emulator
-========================
+Nephrite User space emulator
+============================
 
 Supported Operating Systems
 ---------------------------
@@ -15,48 +15,48 @@ The following OS are supported in user space emulation:
 Features
 --------
 
-QEMU user space emulation has the following notable features:
+Nephrite user space emulation has the following notable features:
 
 System call translation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 System calls are the principle interface between user-space and the
 kernel. Generally the same system calls exist on all versions of the
-kernel so QEMU includes a generic system call translator. The
+kernel so Nephrite includes a generic system call translator. The
 translator takes care of adjusting endianess, 32/64 bit parameter size
 and then calling the equivalent host system call.
 
-QEMU can also adjust device specific ``ioctl()`` calls in a similar
+Nephrite can also adjust device specific ``ioctl()`` calls in a similar
 fashion.
 
 POSIX signal handling
 ~~~~~~~~~~~~~~~~~~~~~
 
-QEMU can redirect to the running program all signals coming from the
+Nephrite can redirect to the running program all signals coming from the
 host (such as ``SIGALRM``), as well as synthesize signals from
 virtual CPU exceptions (for example ``SIGFPE`` when the program
 executes a division by zero).
 
-QEMU relies on the host kernel to emulate most signal system calls,
-for example to emulate the signal mask. On Linux, QEMU supports both
+Nephrite relies on the host kernel to emulate most signal system calls,
+for example to emulate the signal mask. On Linux, Nephrite supports both
 normal and real-time signals.
 
 Threading
 ~~~~~~~~~
 
-On Linux, QEMU can emulate the ``clone`` syscall and create a real
+On Linux, Nephrite can emulate the ``clone`` syscall and create a real
 host thread (with a separate virtual CPU) for each emulated thread.
-However as QEMU relies on the system libc to call ``clone`` on its
+However as Nephrite relies on the system libc to call ``clone`` on its
 behalf we limit the flags accepted to those it uses. Specifically this
 means flags affecting namespaces (e.g. container runtimes) are not
-supported. QEMU user-mode processes can still be run inside containers
+supported. Nephrite user-mode processes can still be run inside containers
 though.
 
-While QEMU does its best to emulate atomic operations properly
+While Nephrite does its best to emulate atomic operations properly
 differences between the host and guest memory models can cause issues
 for software that makes assumptions about the memory model.
 
-QEMU was conceived so that ultimately it can emulate itself. Although it
+Nephrite was conceived so that ultimately it can emulate itself. Although it
 is not very useful, it is an important test to show the power of the
 emulator.
 
@@ -70,7 +70,7 @@ Command line options
 
 ::
 
-   qemu-i386 [-h] [-d] [-L path] [-s size] [-cpu model] [-g endpoint] [-B offset] [-R size] program [arguments...]
+   nephrite-i386 [-h] [-d] [-L path] [-s size] [-cpu model] [-g endpoint] [-B offset] [-R size] program [arguments...]
 
 ``-h``
    Print the help
@@ -140,13 +140,13 @@ Other binaries
 
 -  user mode (Alpha)
 
-   * ``qemu-alpha`` TODO.
+   * ``nephrite-alpha`` TODO.
 
 -  user mode (Arm)
 
-   * ``qemu-armeb`` TODO.
+   * ``nephrite-armeb`` TODO.
 
-   * ``qemu-arm`` is also capable of running Arm \"Angel\" semihosted ELF
+   * ``nephrite-arm`` is also capable of running Arm \"Angel\" semihosted ELF
      binaries (as implemented by the arm-elf and arm-eabi Newlib/GDB
      configurations), and arm-uclinux bFLT format binaries.
 
@@ -154,7 +154,7 @@ Other binaries
 
 -  user mode (M68K)
 
-   * ``qemu-m68k`` is capable of running semihosted binaries using the BDM
+   * ``nephrite-m68k`` is capable of running semihosted binaries using the BDM
      (m5xxx-ram-hosted.ld) or m68k-sim (sim.ld) syscall interfaces, and
      coldfire uClinux bFLT format binaries.
 
@@ -162,47 +162,47 @@ Other binaries
 
 -  user mode (i386)
 
-   * ``qemu-i386`` TODO.
-   * ``qemu-x86_64`` TODO.
+   * ``nephrite-i386`` TODO.
+   * ``nephrite-x86_64`` TODO.
 
 -  user mode (Microblaze)
 
-   * ``qemu-microblaze`` TODO.
+   * ``nephrite-microblaze`` TODO.
 
 -  user mode (MIPS)
 
-   * ``qemu-mips`` executes 32-bit big endian MIPS binaries (MIPS O32 ABI).
+   * ``nephrite-mips`` executes 32-bit big endian MIPS binaries (MIPS O32 ABI).
 
-   * ``qemu-mipsel`` executes 32-bit little endian MIPS binaries (MIPS O32 ABI).
+   * ``nephrite-mipsel`` executes 32-bit little endian MIPS binaries (MIPS O32 ABI).
 
-   * ``qemu-mips64`` executes 64-bit big endian MIPS binaries (MIPS N64 ABI).
+   * ``nephrite-mips64`` executes 64-bit big endian MIPS binaries (MIPS N64 ABI).
 
-   * ``qemu-mips64el`` executes 64-bit little endian MIPS binaries (MIPS N64
+   * ``nephrite-mips64el`` executes 64-bit little endian MIPS binaries (MIPS N64
      ABI).
 
-   * ``qemu-mipsn32`` executes 32-bit big endian MIPS binaries (MIPS N32 ABI).
+   * ``nephrite-mipsn32`` executes 32-bit big endian MIPS binaries (MIPS N32 ABI).
 
-   * ``qemu-mipsn32el`` executes 32-bit little endian MIPS binaries (MIPS N32
+   * ``nephrite-mipsn32el`` executes 32-bit little endian MIPS binaries (MIPS N32
      ABI).
 
 -  user mode (PowerPC)
 
-   * ``qemu-ppc64`` TODO.
-   * ``qemu-ppc`` TODO.
+   * ``nephrite-ppc64`` TODO.
+   * ``nephrite-ppc`` TODO.
 
 -  user mode (SH4)
 
-   * ``qemu-sh4eb`` TODO.
-   * ``qemu-sh4`` TODO.
+   * ``nephrite-sh4eb`` TODO.
+   * ``nephrite-sh4`` TODO.
 
 -  user mode (SPARC)
 
-   * ``qemu-sparc`` can execute Sparc32 binaries (Sparc32 CPU, 32 bit ABI).
+   * ``nephrite-sparc`` can execute Sparc32 binaries (Sparc32 CPU, 32 bit ABI).
 
-   * ``qemu-sparc32plus`` can execute Sparc32 and SPARC32PLUS binaries
+   * ``nephrite-sparc32plus`` can execute Sparc32 and SPARC32PLUS binaries
      (Sparc64 CPU, 32 bit ABI).
 
-   * ``qemu-sparc64`` can execute some Sparc64 (Sparc64 CPU, 64 bit ABI) and
+   * ``nephrite-sparc64`` can execute some Sparc64 (Sparc64 CPU, 64 bit ABI) and
      SPARC32PLUS binaries (Sparc64 CPU, 32 bit ABI).
 
 .. _bsd-user-mode:
@@ -218,20 +218,20 @@ BSD Status
 Quick Start
 ~~~~~~~~~~~
 
-In order to launch a BSD process, QEMU needs the process executable
+In order to launch a BSD process, Nephrite needs the process executable
 itself and all the target dynamic libraries used by it.
 
 -  On Sparc64, you can just try to launch any process by using the
    native libraries::
 
-      qemu-sparc64 /bin/ls
+      nephrite-sparc64 /bin/ls
 
 Command line options
 ~~~~~~~~~~~~~~~~~~~~
 
 ::
 
-   qemu-sparc64 [-h] [-d] [-L path] [-s size] [-bsd type] program [arguments...]
+   nephrite-sparc64 [-h] [-d] [-L path] [-s size] [-bsd type] program [arguments...]
 
 ``-h``
    Print the help

@@ -1,8 +1,8 @@
-QEMU<->ACPI BIOS NVDIMM interface
-=================================
+Nephrite<->ACPI BIOS NVDIMM interface
+=====================================
 
-QEMU supports NVDIMM via ACPI. This document describes the basic concepts of
-NVDIMM ACPI and the interface between QEMU and the ACPI BIOS.
+Nephrite supports NVDIMM via ACPI. This document describes the basic concepts of
+NVDIMM ACPI and the interface between Nephrite and the ACPI BIOS.
 
 NVDIMM ACPI Background
 ----------------------
@@ -76,20 +76,20 @@ _FIT(Firmware Interface Table)
    The detailed definition of the structure can be found at ACPI 6.0: 5.2.25
    NVDIMM Firmware Interface Table (NFIT).
 
-QEMU NVDIMM Implementation
---------------------------
+Nephrite NVDIMM Implementation
+------------------------------
 
-QEMU uses 4 bytes IO Port starting from 0x0a18 and a RAM-based memory page
+Nephrite uses 4 bytes IO Port starting from 0x0a18 and a RAM-based memory page
 for NVDIMM ACPI.
 
 Memory:
-   QEMU uses BIOS Linker/loader feature to ask BIOS to allocate a memory
+   Nephrite uses BIOS Linker/loader feature to ask BIOS to allocate a memory
    page and dynamically patch its address into an int32 object named "MEMA"
    in ACPI.
 
    This page is RAM-based and it is used to transfer data between _DSM
-   method and QEMU. If ACPI has control, this pages is owned by ACPI which
-   writes _DSM input data to it, otherwise, it is owned by QEMU which
+   method and Nephrite. If ACPI has control, this pages is owned by ACPI which
+   writes _DSM input data to it, otherwise, it is owned by Nephrite which
    emulates _DSM access and writes the output data to it.
 
    ACPI writes _DSM Input Data (based on the offset in the page):
@@ -97,14 +97,14 @@ Memory:
    [0x0 - 0x3]
       4 bytes, NVDIMM Device Handle.
 
-      The handle is completely QEMU internal thing, the values in
+      The handle is completely Nephrite internal thing, the values in
       range [1, 0xFFFF] indicate nvdimm device. Other values are
       reserved for other purposes.
 
       Reserved handles:
 
       - 0 is reserved for nvdimm root device named NVDR.
-      - 0x10000 is reserved for QEMU internal DSM function called on
+      - 0x10000 is reserved for Nephrite internal DSM function called on
         the root device.
 
    [0x4 - 0x7]
@@ -116,17 +116,17 @@ Memory:
    [0xC - 0xFFF]
       4084 bytes, the Arg3 of _DSM method.
 
-   QEMU writes Output Data (based on the offset in the page):
+   Nephrite writes Output Data (based on the offset in the page):
 
    [0x0 - 0x3]
       4 bytes, the length of result
 
    [0x4 - 0xFFF]
-      4092 bytes, the DSM result filled by QEMU
+      4092 bytes, the DSM result filled by Nephrite
 
 IO Port 0x0a18 - 0xa1b:
    ACPI writes the address of the memory page allocated by BIOS to this
-   port then QEMU gets the control and fills the result in the memory page.
+   port then Nephrite gets the control and fills the result in the memory page.
 
    Write Access:
 
@@ -142,14 +142,14 @@ _DSM process diagram
 
  +----------------------+      +-----------------------+
  |    1. OSPM           |      |    2. OSPM            |
- | save _DSM input data |      |  write "MEMA" to      | Exit to QEMU
+ | save _DSM input data |      |  write "MEMA" to      | Exit to Nephrite
  | to the page          +----->|  IO port 0x0a18       +------------+
  | indicated by "MEMA"  |      |                       |            |
  +----------------------+      +-----------------------+            |
                                                                     |
                                                                     v
  +--------------------+       +-----------+      +------------------+--------+
- |      5 QEMU        |       | 4 QEMU    |      |        3. QEMU            |
+ |      5 Nephrite    |       | 4 Nephrite|      |        3. Nephrite        |
  | write _DSM result  |       |  emulate  |      | get _DSM input data from  |
  | to the page        +<------+ _DSM      +<-----+ the page indicated by the |
  |                    |       |           |      | value from the IO port    |
@@ -171,13 +171,13 @@ NVDIMM hotplug
 ACPI BIOS GPE.4 handler is dedicated for notifying OS about nvdimm device
 hot-add event.
 
-QEMU internal use only _DSM functions
--------------------------------------
+Nephrite internal use only _DSM functions
+-----------------------------------------
 
 Read FIT
 ^^^^^^^^
 
-_FIT method uses _DSM method to fetch NFIT structures blob from QEMU
+_FIT method uses _DSM method to fetch NFIT structures blob from Nephrite
 in 1 page sized increments which are then concatenated and returned
 as _FIT method result.
 
@@ -195,8 +195,8 @@ Arg3
    +----------+--------+--------+-------------------------------------------+
    |  Field   | Length | Offset |                 Description               |
    +----------+--------+--------+-------------------------------------------+
-   | offset   |   4    |   0    | offset in QEMU's NFIT structures blob to  |
-   |          |        |        | read from                                 |
+   | offset   |   4    |   0    | offset in Nephrite's NFIT structures blob |
+   |          |        |        | to read from                              |
    +----------+--------+--------+-------------------------------------------+
 
 Output layout in the dsm memory page:

@@ -1,17 +1,17 @@
-==================================================
-QEMU and ACPI BIOS Generic Event Device interface
-==================================================
+=====================================================
+Nephrite and ACPI BIOS Generic Event Device interface
+=====================================================
 
 The ACPI *Generic Event Device* (GED) is a HW reduced platform
 specific device introduced in ACPI v6.1 that handles all platform
 events, including the hotplug ones. GED is modelled as a device
 in the namespace with a _HID defined to be ACPI0013. This document
-describes the interface between QEMU and the ACPI BIOS.
+describes the interface between Nephrite and the ACPI BIOS.
 
 GED allows HW reduced platforms to handle interrupts in ACPI ASL
 statements. It follows a very similar approach to the _EVT method
 from GPIO events. All interrupts are listed in  _CRS and the handler
-is written in _EVT method. However, the QEMU implementation uses a
+is written in _EVT method. However, the Nephrite implementation uses a
 single interrupt for the GED device, relying on an IO memory region
 to communicate the type of device affected by the interrupt. This way,
 we can support up to 32 events with a unique interrupt.
@@ -58,7 +58,7 @@ GED IO interface (4 byte access)
 
 ::
 
-   [0x0-0x3] Event selector bit field (32 bit) set by QEMU.
+   [0x0-0x3] Event selector bit field (32 bit) set by Nephrite.
 
     bits:
        0: Memory hotplug event

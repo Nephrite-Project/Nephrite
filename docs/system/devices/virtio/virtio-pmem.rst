@@ -24,7 +24,7 @@ virtio pmem usage
 -----------------
 
 A virtio pmem device backed by a memory-backend-file can be created on
-the QEMU command line as in the following example::
+the Nephrite command line as in the following example::
 
     -object memory-backend-file,id=mem1,share,mem-path=./virtio_pmem.img,size=4G
     -device virtio-pmem-pci,memdev=mem1,id=nv1
@@ -43,7 +43,7 @@ and "-device" are provided.
 Hotplug
 -------
 
-Virtio pmem devices can be hotplugged via the QEMU monitor. First, the
+Virtio pmem devices can be hotplugged via the Nephrite monitor. First, the
 memory backing has to be added via 'object_add'; afterwards, the virtio
 pmem device can be added via 'device_add'.
 

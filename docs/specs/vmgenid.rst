@@ -51,8 +51,8 @@ generation ID support in a virtualization platform" section of
   in the VMGenId device's scope that is unique to the hypervisor vendor.
 
 
-QEMU Implementation
--------------------
+Nephrite Implementation
+-----------------------
 
 The above-mentioned specification does not dictate which ACPI descriptor table
 will contain the VM Generation ID device.  Other implementations (Hyper-V and
@@ -143,13 +143,13 @@ Design Details:
 
 Requirements R1a through R1e dictate that the memory holding the
 VM Generation ID must be allocated and owned by the guest firmware,
-in this case BIOS or UEFI.  However, to be useful, QEMU must be able to
+in this case BIOS or UEFI.  However, to be useful, Nephrite must be able to
 change the contents of the memory at runtime, specifically when starting a
-backed-up or snapshotted image.  In order to do this, QEMU must know the
+backed-up or snapshotted image.  In order to do this, Nephrite must know the
 address that has been allocated.
 
 The mechanism chosen for this memory sharing is writable fw_cfg blobs.
-These are data object that are visible to both QEMU and guests, and are
+These are data object that are visible to both Nephrite and guests, and are
 addressable as sequential files.
 
 More information about fw_cfg can be found in :doc:`fw_cfg`.
@@ -167,16 +167,16 @@ Two fw_cfg blobs are used in this case:
 - writable by the guest
 
 
-QEMU sends the following commands to the guest at startup:
+Nephrite sends the following commands to the guest at startup:
 
 1. Allocate memory for vmgenid_guid fw_cfg blob.
 2. Write the address of vmgenid_guid into the SSDT (VGIA ACPI variable as
    shown above in the iasl dump).  Note that this change is not propagated
-   back to QEMU.
-3. Write the address of vmgenid_guid back to QEMU's copy of vmgenid_addr
+   back to Nephrite.
+3. Write the address of vmgenid_guid back to Nephrite's copy of vmgenid_addr
    via the fw_cfg DMA interface.
 
-After step 3, QEMU is able to update the contents of vmgenid_guid at will.
+After step 3, Nephrite is able to update the contents of vmgenid_guid at will.
 
 Since BIOS or UEFI does not necessarily run when we wish to change the GUID,
 the value of VGIA is persisted via the VMState mechanism.
@@ -229,12 +229,12 @@ The device has one property, which may be only be set using the command line:
 
 ``guid``
   sets the value of the GUID.  A special value ``auto`` instructs
-  QEMU to generate a new random GUID.
+  Nephrite to generate a new random GUID.
 
 For example::
 
-  QEMU  -device vmgenid,guid="324e6eaf-d1d1-4bf6-bf41-b9bb6c91fb87"
-  QEMU  -device vmgenid,guid=auto
+  nephrite-system-x86_64 -device vmgenid,guid="324e6eaf-d1d1-4bf6-bf41-b9bb6c91fb87"
+  nephrite-system-x86_64 -device vmgenid,guid=auto
 
 The property may be queried via QMP/HMP::
 
@@ -242,5 +242,5 @@ The property may be queried via QMP/HMP::
   {"return": {"guid": "324e6eaf-d1d1-4bf6-bf41-b9bb6c91fb87"}}
 
 Setting of this parameter is intentionally left out from the QMP/HMP
-interfaces.  There are no known use cases for changing the GUID once QEMU is
+interfaces.  There are no known use cases for changing the GUID once Nephrite is
 running, and adding this capability would greatly increase the complexity.

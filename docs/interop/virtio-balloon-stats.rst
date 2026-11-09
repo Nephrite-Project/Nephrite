@@ -2,7 +2,7 @@ Virtio balloon memory statistics
 ================================
 
 The virtio balloon driver supports guest memory statistics reporting. These
-statistics are available to QEMU users as QOM (QEMU Object Model) device
+statistics are available to Nephrite users as QOM (QEMU Object Model) device
 properties via a polling mechanism.
 
 Before querying the available stats, clients first have to enable polling.
@@ -17,7 +17,7 @@ guest-stats-polling-interval property. This value can be:
        disables polling. Previous polled statistics are still valid and
        can be queried.
 
-Once polling is enabled, the virtio-balloon device in QEMU will start
+Once polling is enabled, the virtio-balloon device in Nephrite will start
 polling the guest's balloon driver for new stats in the specified time
 interval.
 
@@ -43,7 +43,7 @@ It's also important to note the following:
    respond to the request the timer will never be re-armed, which has
    the same effect as disabling polling
 
-Here are a few examples. QEMU is started with ``-device virtio-balloon``,
+Here are a few examples. Nephrite is started with ``-device virtio-balloon``,
 which generates ``/machine/peripheral-anon/device[1]`` as the QOM path for
 the balloon device.
 

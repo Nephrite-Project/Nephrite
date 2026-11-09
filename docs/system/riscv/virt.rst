@@ -21,7 +21,7 @@ The ``virt`` machine supports the following devices:
 * 1 SiFive Test device
 * 8 virtio-mmio transport devices
 * 1 generic PCIe host bridge
-* The fw_cfg device that allows a guest to obtain data from QEMU
+* The fw_cfg device that allows a guest to obtain data from Nephrite
 
 The hypervisor extension has been enabled for the default CPU, so virtual
 machines with hypervisor extension can simply be used without explicitly
@@ -42,8 +42,8 @@ that are present in the generated DTB.
 If users want to provide their own DTB, they can use the ``-dtb`` option.
 These DTBs should have the following requirements:
 
-* The number of subnodes of the /cpus node should match QEMU's ``-smp`` option
-* The /memory reg size should match QEMU’s selected ram_size via ``-m``
+* The number of subnodes of the /cpus node should match Nephrite's ``-smp`` option
+* The /memory reg size should match Nephrite’s selected ram_size via ``-m``
 * Should contain a node for the CLINT device with a compatible string
   "riscv,clint0" if using with OpenSBI BIOS images
 
@@ -67,7 +67,7 @@ For example, booting edk2 looks like
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 \
+  $ nephrite-system-riscv64 \
      -blockdev node-name=pflash0,driver=file,read-only=on,filename=<edk2_code> \
      -blockdev node-name=pflash1,driver=file,filename=<edk2_vars> \
      -M virt,pflash0=pflash0,pflash1=pflash1 \
@@ -79,7 +79,7 @@ none``, as in
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 \
+  $ nephrite-system-riscv64 \
      -bios none \
      -blockdev node-name=pflash0,driver=file,read-only=on,filename=<m_mode_code> \
      -M virt,pflash0=pflash0 \
@@ -95,13 +95,13 @@ command line:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt -device riscv-iommu-pci (...)
+  $ nephrite-system-riscv64 -M virt -device riscv-iommu-pci (...)
 
 It also has support for the riscv-iommu-sys platform device:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt,iommu-sys=on (...)
+  $ nephrite-system-riscv64 -M virt,iommu-sys=on (...)
 
 Refer to :ref:`riscv-iommu` for more information on how the RISC-V IOMMU support
 works.
@@ -163,11 +163,11 @@ Linux mainline kernel that can be booted by the ``virt`` machine in
   $ make defconfig
   $ make
 
-To boot the newly built Linux kernel in QEMU with the ``virt`` machine:
+To boot the newly built Linux kernel in Nephrite with the ``virt`` machine:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt -smp 4 -m 2G \
+  $ nephrite-system-riscv64 -M virt -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel arch/riscv/boot/Image \
       -initrd /path/to/rootfs.cpio \
@@ -186,7 +186,7 @@ fix the 32-bit boot issue for Linux kernel v5.12.
   $ make rv32_defconfig
   $ make
 
-Replace ``qemu-system-riscv64`` with ``qemu-system-riscv32`` in the command
+Replace ``nephrite-system-riscv64`` with ``nephrite-system-riscv32`` in the command
 line above to boot the 32-bit Linux kernel. A rootfs image containing 32-bit
 applications shall be used in order for kernel to boot to user space.
 
@@ -206,7 +206,7 @@ Boot the 64-bit U-Boot S-mode image directly:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt -smp 4 -m 2G \
+  $ nephrite-system-riscv64 -M virt -smp 4 -m 2G \
       -display none -serial stdio \
       -kernel /path/to/u-boot.bin
 
@@ -220,18 +220,18 @@ build the U-Boot images using riscv64_spl_defconfig:
   $ export OPENSBI=/path/to/opensbi-riscv64-generic-fw_dynamic.bin
   $ make qemu-riscv64_spl_defconfig
 
-The minimal QEMU commands to run U-Boot SPL are:
+The minimal Nephrite commands to run U-Boot SPL are:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt -smp 4 -m 2G \
+  $ nephrite-system-riscv64 -M virt -smp 4 -m 2G \
       -display none -serial stdio \
       -bios /path/to/u-boot-spl \
       -device loader,file=/path/to/u-boot.itb,addr=0x80200000
 
 To test 32-bit U-Boot images, switch to use qemu-riscv32_smode_defconfig and
-riscv32_spl_defconfig builds, and replace ``qemu-system-riscv64`` with
-``qemu-system-riscv32`` in the command lines above to boot the 32-bit U-Boot.
+riscv32_spl_defconfig builds, and replace ``nephrite-system-riscv64`` with
+``nephrite-system-riscv32`` in the command lines above to boot the 32-bit U-Boot.
 
 Enabling TPM
 ------------
@@ -245,11 +245,11 @@ First launch the TPM emulator:
   $ swtpm socket --tpm2 -t -d --tpmstate dir=/tmp/tpm \
         --ctrl type=unixio,path=swtpm-sock
 
-Then launch QEMU with some additional arguments to link a TPM device to the backend:
+Then launch Nephrite with some additional arguments to link a TPM device to the backend:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 \
+  $ nephrite-system-riscv64 \
     ... other args .... \
     -chardev socket,id=chrtpm,path=swtpm-sock \
     -tpmdev emulator,id=tpm0,chardev=chrtpm \

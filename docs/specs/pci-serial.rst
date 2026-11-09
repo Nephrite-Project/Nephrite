@@ -1,8 +1,8 @@
-=======================
-QEMU PCI serial devices
-=======================
+===========================
+Nephrite PCI serial devices
+===========================
 
-QEMU implements some PCI serial devices which are simple PCI
+Nephrite implements some PCI serial devices which are simple PCI
 wrappers around one or more 16550 UARTs.
 
 There is one single-port variant and two multiport-variants.  Linux

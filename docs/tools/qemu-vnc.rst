@@ -1,27 +1,27 @@
 .. _qemu-vnc:
 
-==========================
-QEMU standalone VNC server
-==========================
+==============================
+Nephrite standalone VNC server
+==============================
 
 Synopsis
 --------
 
-**qemu-vnc** [*OPTION*]...
+**nephrite-vnc** [*OPTION*]...
 
 Description
 -----------
 
-``qemu-vnc`` is a standalone VNC server that connects to a running QEMU instance
+``nephrite-vnc`` is a standalone VNC server that connects to a running Nephrite instance
 via the D-Bus display interface (:ref:`dbus-display`). It serves the guest
 display, input, audio, clipboard, and serial console chardevs over the VNC
-protocol, allowing VNC clients to interact with the virtual machine without QEMU
+protocol, allowing VNC clients to interact with the virtual machine without Nephrite
 itself binding a VNC socket.
 
 Options
 -------
 
-.. program:: qemu-vnc
+.. program:: nephrite-vnc
 
 .. option:: -h, --help
 
@@ -33,18 +33,18 @@ Options
 
 .. option:: -a ADDRESS, --dbus-address=ADDRESS
 
-  D-Bus address to connect to. When not specified, ``qemu-vnc`` connects to the
+  D-Bus address to connect to. When not specified, ``nephrite-vnc`` connects to the
   session bus.
 
 .. option:: -p FD, --dbus-p2p-fd=FD
 
   File descriptor of an inherited Unix socket for a peer-to-peer D-Bus
-  connection to QEMU. This is mutually exclusive with ``--dbus-address`` and
+  connection to Nephrite. This is mutually exclusive with ``--dbus-address`` and
   ``--bus-name``.
 
 .. option:: -n NAME, --bus-name=NAME
 
-  D-Bus bus name of the QEMU instance to connect to. The default is
+  D-Bus bus name of the Nephrite instance to connect to. The default is
   ``org.nephrite``. When a custom ``--dbus-address`` is given without a bus name,
   peer-to-peer D-Bus is used.
 
@@ -65,7 +65,7 @@ Options
 
 .. option:: -l ADDR, --vnc-addr=ADDR
 
-  VNC listen address in the same format as the QEMU ``-vnc`` option (default
+  VNC listen address in the same format as the Nephrite ``-vnc`` option (default
   ``localhost:0``, i.e. TCP port 5900).
 
 .. option:: -w ADDR, --websocket=ADDR
@@ -75,8 +75,8 @@ Options
 
 .. option:: -O OBJDEF, --object=OBJDEF
 
-  Create a QEMU user-creatable object. *OBJDEF* uses the same key=value syntax
-  as the QEMU ``-object`` option. This option may be given multiple times. It is
+  Create a Nephrite user-creatable object. *OBJDEF* uses the same key=value syntax
+  as the Nephrite ``-object`` option. This option may be given multiple times. It is
   needed, for example, to create authorization objects referenced by
   ``--tls-authz``.
 
@@ -100,7 +100,7 @@ Options
   Require that the client use SASL to authenticate with the VNC server. The
   exact choice of authentication method used is controlled from the system /
   user's SASL configuration file for the 'nephrite' service. This is typically found
-  in ``/etc/sasl2/nephrite.conf``. If running QEMU as an unprivileged user, an
+  in ``/etc/sasl2/nephrite.conf``. If running Nephrite as an unprivileged user, an
   environment variable ``SASL_CONF_PATH`` can be used to make it search
   alternate locations for the service config. While some SASL auth methods can
   also provide data encryption (eg GSSAPI), it is recommended that SASL always
@@ -131,7 +131,7 @@ Options
   disconnect everybody else.
 
   ``ignore`` completely ignores the shared flag and allows everybody to connect
-  unconditionally. Doesn't conform to the RFB spec but is traditional QEMU
+  unconditionally. Doesn't conform to the RFB spec but is traditional Nephrite
   behavior.
 
 .. option:: -C NAME, --vt-chardev=NAME
@@ -172,35 +172,35 @@ Options
 Examples
 --------
 
-Start QEMU with the D-Bus display backend::
+Start Nephrite with the D-Bus display backend::
 
-    qemu-system-x86_64 -display dbus ...
+    nephrite-system-x86_64 -display dbus ...
 
-Then attach ``qemu-vnc``::
+Then attach ``nephrite-vnc``::
 
-    qemu-vnc
+    nephrite-vnc
 
 A VNC client can now connect to ``localhost:5900``.
 
 To listen on a different port with TLS::
 
-    qemu-vnc --vnc-addr localhost:1 --tls-creds /etc/pki/qemu-vnc
+    nephrite-vnc --vnc-addr localhost:1 --tls-creds /etc/pki/nephrite-vnc
 
 To require TLS with client certificate authorization::
 
-    qemu-vnc --object authz-list-file,id=auth0,filename=/etc/qemu/vnc.acl,refresh=on \
-             --tls-creds /etc/pki/qemu-vnc --tls-authz auth0
+    nephrite-vnc --object authz-list-file,id=auth0,filename=/etc/nephrite/vnc.acl,refresh=on \
+             --tls-creds /etc/pki/nephrite-vnc --tls-authz auth0
 
 To enable SASL authentication with TLS::
 
-    qemu-vnc --tls-creds /etc/pki/qemu-vnc --sasl
+    nephrite-vnc --tls-creds /etc/pki/nephrite-vnc --sasl
 
 VNC password authentication
 ----------------------------
 
 There are two ways to enable VNC password authentication:
 
-1. ``--password`` flag -- start ``qemu-vnc`` with ``--password`` and
+1. ``--password`` flag -- start ``nephrite-vnc`` with ``--password`` and
    then set the password at runtime using the D-Bus ``SetPassword``
    method.  Clients will be rejected until a password is set.
 
@@ -213,14 +213,14 @@ There are two ways to enable VNC password authentication:
 D-Bus interface
 ---------------
 
-``qemu-vnc`` exposes a D-Bus interface for management and monitoring of
+``nephrite-vnc`` exposes a D-Bus interface for management and monitoring of
 VNC connections.  See :doc:`/interop/dbus-vnc` for the full interface
 reference.
 
 See also
 --------
 
-:manpage:`qemu(1)`,
+:manpage:`nephrite(1)`,
 :doc:`/interop/dbus-display`,
 :doc:`/interop/dbus-vnc`,
 `The RFB Protocol <https://github.com/rfbproto/rfbproto>`_

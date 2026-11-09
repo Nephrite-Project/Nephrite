@@ -3,7 +3,7 @@
 Internal Subsystem Information
 ------------------------------
 
-Details about QEMU's various subsystems including how to add features to them.
+Details about Nephrite's various subsystems including how to add features to them.
 
 .. toctree::
    :maxdepth: 2

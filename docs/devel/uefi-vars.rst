@@ -5,7 +5,7 @@ UEFI variables
 Guest UEFI variable management
 ==============================
 
-The traditional approach for UEFI Variable storage in qemu guests is
+The traditional approach for UEFI Variable storage in Nephrite guests is
 to work as close as possible to physical hardware.  That means
 providing pflash as storage and leaving the management of variables
 and flash to the guest.
@@ -15,7 +15,7 @@ storage must be protected against direct access by the OS.  All update
 requests must pass the sanity checks.  (Parts of) the firmware must
 run with a higher privilege level than the OS so this can be enforced
 by the firmware.  On x86 this has been implemented using System
-Management Mode (SMM) in qemu and kvm, which again is the same
+Management Mode (SMM) in Nephrite and kvm, which again is the same
 approach taken by physical hardware.  Only privileged code running in
 SMM mode is allowed to access flash storage.
 
@@ -49,14 +49,14 @@ without implementing secure world (el3) emulation in kvm.
 
 Of course there are also downsides.  The added device increases the
 attack surface of the host, and we are adding some code duplication
-because we have to reimplement some edk2 functionality in qemu.
+because we have to reimplement some edk2 functionality in Nephrite.
 
 usage on x86_64
 ---------------
 
 .. code::
 
-   qemu-system-x86_64 \
+   nephrite-system-x86_64 \
       -device uefi-vars-x64,jsonfile=/path/to/vars.json
 
 usage on aarch64
@@ -64,5 +64,5 @@ usage on aarch64
 
 .. code::
 
-   qemu-system-aarch64 -M virt \
+   nephrite-system-aarch64 -M virt \
       -device uefi-vars-sysbus,jsonfile=/path/to/vars.json

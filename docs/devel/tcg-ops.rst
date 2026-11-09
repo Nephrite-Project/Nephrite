@@ -8,21 +8,21 @@ Introduction
 ============
 
 TCG (Tiny Code Generator) began as a generic backend for a C compiler.
-It was simplified to be used in QEMU.  It also has its roots in the
+It was simplified to be used in Nephrite.  It also has its roots in the
 QOP code generator written by Paul Brook.
 
 Definitions
 ===========
 
 The TCG *target* is the architecture for which we generate the code.
-It is of course not the same as the "target" of QEMU which is the
+It is of course not the same as the "target" of Nephrite which is the
 emulated architecture.  As TCG started as a generic C backend used
 for cross compiling, the assumption was that TCG target might be
-different from the host, although this is never the case for QEMU.
+different from the host, although this is never the case for Nephrite.
 
 In this document, we use *guest* to specify what architecture we are
 emulating; *target* always means the TCG target, the machine on which
-we are running QEMU.
+we are running Nephrite.
 
 An operation with *undefined behavior* may result in a crash.
 
@@ -198,7 +198,7 @@ optimizations:
   information is used to suppress moves from a dead variable to
   another one. It is also used to remove instructions which compute
   dead results. The later is especially useful for condition code
-  optimization in QEMU.
+  optimization in Nephrite.
 
   In the following example:
 
@@ -728,8 +728,8 @@ Memory Barrier support
        | Please see :ref:`atomics-ref` for more information on memory barriers.
 
 
-QEMU specific operations
-------------------------
+Nephrite specific operations
+----------------------------
 
 .. list-table::
 
@@ -765,7 +765,7 @@ QEMU specific operations
          if dealing with 64-bit quantities on a 32-bit host, or 128-bit quantities on
          a 64-bit host.
        |
-       | The *memidx* selects the qemu tlb index to use (e.g. user or kernel access).
+       | The *memidx* selects the Nephrite tlb index to use (e.g. user or kernel access).
          The flags are the MemOp bits, selecting the sign, width, and endianness
          of the memory access.
        |
@@ -1027,7 +1027,7 @@ Function call assumptions
 Recommended coding rules for best performance
 =============================================
 
-- Use globals to represent the parts of the QEMU CPU state which are
+- Use globals to represent the parts of the Nephrite CPU state which are
   often modified, e.g. the integer registers and the condition
   codes. TCG will be able to use host registers to store them.
 

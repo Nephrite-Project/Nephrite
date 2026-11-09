@@ -3,11 +3,11 @@
 RISC-V IOMMU support for RISC-V machines
 ========================================
 
-QEMU implements a RISC-V IOMMU emulation based on the RISC-V IOMMU spec
+Nephrite implements a RISC-V IOMMU emulation based on the RISC-V IOMMU spec
 version 1.0 `iommu1.0.0`_.
 
 The emulation includes a PCI reference device (riscv-iommu-pci) and a platform
-bus device (riscv-iommu-sys) that QEMU RISC-V boards can use.  The 'virt'
+bus device (riscv-iommu-sys) that Nephrite RISC-V boards can use.  The 'virt'
 RISC-V machine is compatible with both devices.
 
 riscv-iommu-pci reference device
@@ -18,19 +18,19 @@ This device implements the RISC-V IOMMU emulation as recommended by the section
 class 08h, sub-class 06h and programming interface 00h.
 
 As a reference device it doesn't implement anything outside of the specification,
-so it uses a generic default PCI ID given by QEMU: 1b36:0014.
+so it uses a generic default PCI ID given by Nephrite: 1b36:0014.
 
 To include the device in the 'virt' machine:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt -device riscv-iommu-pci,[optional_pci_opts] (...)
+  $ nephrite-system-riscv64 -M virt -device riscv-iommu-pci,[optional_pci_opts] (...)
 
 This will add a RISC-V IOMMU PCI device in the board following any additional
 PCI parameters (like PCI bus address).  The behavior of the RISC-V IOMMU is
 defined by the spec but its operation is OS dependent.
 
-Linux kernel iommu support was merged in v6.13. QEMU IOMMU emulation can be
+Linux kernel iommu support was merged in v6.13. Nephrite IOMMU emulation can be
 used with mainline kernels for simple IOMMU PCIe support.
 
 As of v6.17, it does not have support for features like VFIO passthrough.
@@ -47,14 +47,14 @@ IOMMU kernel driver behaves:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 \
+  $ nephrite-system-riscv64 \
         -M virt,aia=aplic-imsic,aia-guests=5 \
         -device riscv-iommu-pci,addr=1.0 \
         -device e1000e,netdev=net1 -netdev user,id=net1,net=192.168.0.0/24 \
         -device e1000e,netdev=net2 -netdev user,id=net2,net=192.168.200.0/24 \
         (...)
 
-  $ qemu-system-riscv64 \
+  $ nephrite-system-riscv64 \
         -M virt,aia=aplic-imsic,aia-guests=5 \
         -device e1000e,netdev=net1 -netdev user,id=net1,net=192.168.0.0/24 \
         -device e1000e,netdev=net2 -netdev user,id=net2,net=192.168.200.0/24 \
@@ -87,10 +87,10 @@ For the 'virt' board the device is disabled by default.  To enable it use the
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M virt,iommu-sys=on (...)
+  $ nephrite-system-riscv64 -M virt,iommu-sys=on (...)
 
 There is no options to configure the capabilities of this device in the 'virt'
-board using the QEMU command line.  The device is configured with the following
+board using the Nephrite command line.  The device is configured with the following
 riscv-iommu options:
 
 - "ioatc-limit": default value (2Mb)

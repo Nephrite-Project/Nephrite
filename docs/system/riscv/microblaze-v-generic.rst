@@ -9,7 +9,7 @@ More information can be found in below document.
 
 https://docs.amd.com/r/en-US/ug1629-microblaze-v-user-guide/MicroBlaze-V-Architecture
 
-The MicroBlaze™ V generic board in QEMU has following supported devices:
+The MicroBlaze™ V generic board in Nephrite has following supported devices:
 
     - timer
     - uartlite
@@ -19,7 +19,7 @@ The MicroBlaze™ V generic board in QEMU has following supported devices:
     - axi emac
     - axi dma
 
-The MicroBlaze™ V core in QEMU has the following configuration:
+The MicroBlaze™ V core in Nephrite has the following configuration:
 
     - RV32I base integer instruction set
     - "Zicsr" Control and Status register instructions
@@ -33,7 +33,7 @@ Below is an example command line for launching mainline U-boot
 
 .. code-block:: bash
 
-   $ qemu-system-riscv32 -M amd-microblaze-v-generic \
+   $ nephrite-system-riscv32 -M amd-microblaze-v-generic \
      -display none \
      -device loader,addr=0x80000000,file=u-boot-spl.bin,cpu-num=0 \
      -device loader,addr=0x80200000,file=u-boot.img \

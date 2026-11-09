@@ -14,8 +14,8 @@ Introduction
 
 The vhost-user-gpu protocol is aiming at sharing the rendering result
 of a virtio-gpu, done from a vhost-user back-end process to a vhost-user
-front-end process (such as QEMU). It bears a resemblance to a display
-server protocol, if you consider QEMU as the display server and the
+front-end process (such as Nephrite). It bears a resemblance to a display
+server protocol, if you consider Nephrite as the display server and the
 back-end as the client, but in a very limited way. Typically, it will
 work by setting a scanout/display configuration, before sending flush
 events for the display updates. It will also update the cursor shape
@@ -150,7 +150,7 @@ VhostUserGpuDMABUFScanout2
 C structure
 -----------
 
-In QEMU the vhost-user-gpu message is implemented with the following struct:
+In Nephrite the vhost-user-gpu message is implemented with the following struct:
 
 .. code:: c
 

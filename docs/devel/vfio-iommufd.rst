@@ -9,7 +9,7 @@ interface for user space drivers to propagate their DMA mappings to kernel
 for assigned devices. While the legacy kernel interface is group-centric,
 the new iommufd interface is device-centric, relying on device fd and iommufd.
 
-To support both interfaces in the QEMU VFIO device, introduce a base container
+To support both interfaces in the Nephrite VFIO device, introduce a base container
 to abstract the common part of VFIO legacy and iommufd container. So that the
 generic VFIO code can use either container.
 
@@ -84,13 +84,13 @@ Step 1: configure the host device
 
 It's exactly same as the VFIO device with legacy VFIO container.
 
-Step 2: configure QEMU
-----------------------
+Step 2: configure Nephrite
+--------------------------
 
 Interactions with the ``/dev/iommu`` are abstracted by a new iommufd
 object (compiled in with the ``CONFIG_IOMMUFD`` option).
 
-Any QEMU device (e.g. VFIO device) wishing to use ``/dev/iommu`` must
+Any Nephrite device (e.g. VFIO device) wishing to use ``/dev/iommu`` must
 be linked with an iommufd object. It gets a new optional property
 named iommufd which allows to pass an iommufd object. Take ``vfio-pci``
 device for example:
@@ -109,7 +109,7 @@ string naming the fd or a number, for example:
     -object iommufd,id=iommufd0,fd=22
     -device vfio-pci,iommufd=iommufd0,fd=23
 
-If the ``fd`` property is not passed, the fd is opened by QEMU.
+If the ``fd`` property is not passed, the fd is opened by Nephrite.
 
 If no ``iommufd`` object is passed to the ``vfio-pci`` device, iommufd
 is not used and the user gets the behavior based on the legacy VFIO
@@ -135,8 +135,8 @@ BAR region yet. Below warning shows for assigned PCI device, it's not a bug.
 
 .. code-block:: none
 
-    qemu-system-x86_64: warning: IOMMU_IOAS_MAP failed: Bad address, PCI BAR?
-    qemu-system-x86_64: vfio_container_dma_map(0x560cb6cb1620, 0xe000000021000, 0x3000, 0x7f32ed55c000) = -14 (Bad address)
+    nephrite-system-x86_64: warning: IOMMU_IOAS_MAP failed: Bad address, PCI BAR?
+    nephrite-system-x86_64: vfio_container_dma_map(0x560cb6cb1620, 0xe000000021000, 0x3000, 0x7f32ed55c000) = -14 (Bad address)
 
 FD passing with mdev
 --------------------
@@ -148,7 +148,7 @@ RAM discarding for mdev.
 
 .. code-block:: none
 
-    qemu-system-x86_64: -device vfio-pci,iommufd=iommufd0,x-balloon-allowed=on,fd=9: vfio VFIO_FD9: x-balloon-allowed only potentially compatible with mdev devices
+    nephrite-system-x86_64: -device vfio-pci,iommufd=iommufd0,x-balloon-allowed=on,fd=9: vfio VFIO_FD9: x-balloon-allowed only potentially compatible with mdev devices
 
 ``vfio-ap`` and ``vfio-ccw`` devices don't have same issue as their backend
 devices are always mdev and RAM discarding is force enabled.
@@ -161,14 +161,14 @@ with fsts=on, for legacy container backed VFIO device, below error shows:
 
 .. code-block:: none
 
-    qemu-system-x86_64: -device vfio-pci,host=0000:02:00.0: vfio 0000:02:00.0: Failed to set vIOMMU: Need IOMMUFD backend when fsts=on
+    nephrite-system-x86_64: -device vfio-pci,host=0000:02:00.0: vfio 0000:02:00.0: Failed to set vIOMMU: Need IOMMUFD backend when fsts=on
 
 VFIO device under PCI bridge is unsupported, use PCIE bridge if necessary,
 otherwise below error shows:
 
 .. code-block:: none
 
-    qemu-system-x86_64: -device vfio-pci,host=0000:02:00.0,bus=bridge1,iommufd=iommufd0: vfio 0000:02:00.0: Failed to set vIOMMU: Host device downstream to a PCI bridge is unsupported when fsts=on
+    nephrite-system-x86_64: -device vfio-pci,host=0000:02:00.0,bus=bridge1,iommufd=iommufd0: vfio 0000:02:00.0: Failed to set vIOMMU: Host device downstream to a PCI bridge is unsupported when fsts=on
 
 If host IOMMU has ERRATA_772415_SPR17, running guest with "intel_iommu=on,sm_off"
 is unsupported, kexec or reboot guest from "intel_iommu=on,sm_on" to

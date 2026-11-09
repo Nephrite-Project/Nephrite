@@ -1,9 +1,9 @@
 USB emulation
 -------------
 
-QEMU can emulate a PCI UHCI, OHCI, EHCI or XHCI USB controller. You can
+Nephrite can emulate a PCI UHCI, OHCI, EHCI or XHCI USB controller. You can
 plug virtual USB devices or real host USB devices (only works with
-certain host operating systems). QEMU will automatically create and
+certain host operating systems). Nephrite will automatically create and
 connect virtual USB hubs as necessary to connect multiple USB devices.
 
 USB controllers
@@ -12,7 +12,7 @@ USB controllers
 XHCI controller support
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-QEMU has XHCI host adapter support.  The XHCI hardware design is much
+Nephrite has XHCI host adapter support.  The XHCI hardware design is much
 more virtualization-friendly when compared to EHCI and UHCI, thus XHCI
 emulation uses less resources (especially CPU).  So if your guest
 supports XHCI (which should be the case for any operating system
@@ -29,7 +29,7 @@ need to use the bus= parameter when adding USB devices.
 EHCI controller support
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The QEMU EHCI Adapter supports USB 2.0 devices.  It can be used either
+The Nephrite EHCI Adapter supports USB 2.0 devices.  It can be used either
 standalone or with companion controllers (UHCI, OHCI) for USB 1.1
 devices.  The companion controller setup is more convenient to use
 because it provides a single USB bus supporting both USB 2.0 and USB
@@ -43,7 +43,7 @@ the EHCI controller.  Devices must be attached to the correct
 controller manually.
 
 The easiest way to add a UHCI controller to a ``pc`` machine is the
-``-usb`` switch.  QEMU will create the UHCI controller as function of
+``-usb`` switch.  Nephrite will create the UHCI controller as function of
 the PIIX3 chipset.  The USB 1.1 bus will carry the name ``usb-bus.0``.
 
 You can use the standard ``-device`` switch to add a EHCI controller to
@@ -106,7 +106,7 @@ option or the ``device_add`` monitor command. Available devices are:
 
 ``usb-tablet``
    Pointer device that uses absolute coordinates (like a touchscreen).
-   This means QEMU is able to report the mouse position without having
+   This means Nephrite is able to report the mouse position without having
    to grab the mouse. Also overrides the PS/2 mouse emulation when
    activated.
 
@@ -147,7 +147,7 @@ option or the ``device_add`` monitor command. Available devices are:
 ``usb-bot``
    Bulk-only transport storage device. This presents the guest with the
    same USB bulk-only transport protocol interface as ``usb-storage``, but
-   the QEMU command line option works like ``usb-uas`` and does not
+   the Nephrite command line option works like ``usb-uas`` and does not
    automatically create SCSI disks for you. ``usb-bot`` supports up to
    16 LUNs. Unlike ``usb-uas``, the LUN numbers must be continuous,
    i.e. for three devices you must use 0+1+2. The 0+1+5 numbering from the
@@ -216,7 +216,7 @@ option or the ``device_add`` monitor command. Available devices are:
 Physical port addressing
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-For all the above USB devices, by default QEMU will plug the device
+For all the above USB devices, by default Nephrite will plug the device
 into the next available port on the specified USB bus, or onto
 some available USB bus if you didn't specify one explicitly.
 If you need to, you can also specify the physical port where
@@ -265,7 +265,7 @@ device visible to the guest. The workflow looks like this:
 Using host USB devices on a Linux host
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-WARNING: this is an experimental feature. QEMU will slow down when using
+WARNING: this is an experimental feature. Nephrite will slow down when using
 it. USB devices requiring real time streaming (i.e. USB Video Cameras)
 are not supported yet.
 
@@ -283,14 +283,14 @@ are not supported yet.
       001  devices  drivers
 
 3. Since only root can access to the USB devices directly, you can
-   either launch QEMU as root or change the permissions of the USB
+   either launch Nephrite as root or change the permissions of the USB
    devices you want to use. For testing, the following suffices:
 
    ::
 
       chown -R myuid /proc/bus/usb
 
-4. Launch QEMU and do in the monitor:
+4. Launch Nephrite and do in the monitor:
 
    ::
 
@@ -301,7 +301,7 @@ are not supported yet.
    You should see the list of the devices you can use (Never try to use
    hubs, it won't work).
 
-5. Add the device in QEMU by using:
+5. Add the device in Nephrite by using:
 
    ::
 
@@ -310,9 +310,9 @@ are not supported yet.
    Normally the guest OS should report that a new USB device is plugged.
    You can use the option ``-device usb-host,...`` to do the same.
 
-6. Now you can try to use the host USB device in QEMU.
+6. Now you can try to use the host USB device in Nephrite.
 
-When relaunching QEMU, you may have to unplug and plug again the USB
+When relaunching Nephrite, you may have to unplug and plug again the USB
 device to make it work again (this is a bug).
 
 ``usb-host`` properties for specifying the host device
@@ -354,7 +354,7 @@ same physical port on the host may show up on different host buses
 depending on the speed. Supposing that devices plugged into a given
 physical port appear as bus 1 + port 1 for 2.0 devices and bus 3 + port 1
 for 1.1 devices, you can pass through any device plugged into that port
-and also assign it to the correct USB bus in QEMU like this:
+and also assign it to the correct USB bus in Nephrite like this:
 
 .. parsed-literal::
 

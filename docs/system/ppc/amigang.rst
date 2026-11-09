@@ -28,7 +28,7 @@ Firmware
 
 A firmware binary is necessary for the boot process. It is a modified
 U-Boot under GPL but its source is lost so it cannot be included in
-QEMU. A binary is available at
+Nephrite. A binary is available at
 https://www.hyperion-entertainment.com/index.php/downloads?view=files&parent=28.
 The ROM image is in the last 512kB which can be extracted with the
 following command:
@@ -37,7 +37,7 @@ following command:
 
   $ tail -c 524288 updater.image > u-boot-amigaone.bin
 
-The BIOS emulator in the firmware is unable to run QEMU‘s standard
+The BIOS emulator in the firmware is unable to run Nephrite‘s standard
 vgabios so ``VGABIOS-lgpl-latest.bin`` is needed instead which can be
 downloaded from http://www.nongnu.org/vgabios.
 
@@ -51,7 +51,7 @@ To boot the system run:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc -machine amigaone -bios u-boot-amigaone.bin \
+  $ nephrite-system-ppc -machine amigaone -bios u-boot-amigaone.bin \
                     -cdrom "A1 Linux Net Installer.iso" \
                     -device ati-vga,model=rv100,romfile=VGABIOS-lgpl-latest.bin
 
@@ -90,7 +90,7 @@ Firmware
 
 The Pegasos boards have an Open Firmware compliant ROM based on
 SmartFirmware with some changes that are not open-sourced therefore
-the ROM binary cannot be included in QEMU. A Pegasos II updater was available
+the ROM binary cannot be included in Nephrite. A Pegasos II updater was available
 from bPlan, it can be found in the `Internet Archive
 <http://web.archive.org/web/20071021223056/http://www.bplan-gmbh.de/up050404/up050404>`_.
 The ROM image can be extracted from it with the following command:
@@ -103,26 +103,26 @@ Running Linux
 -------------
 
 The PowerPC version of Debian 8.11 supported Pegasos II. The BIOS
-emulator in the firmware binary is unable to run QEMU‘s standard
+emulator in the firmware binary is unable to run Nephrite‘s standard
 vgabios so it needs to be disabled. To boot the system run:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc -machine pegasos2 -bios pegasos2.rom \
+  $ nephrite-system-ppc -machine pegasos2 -bios pegasos2.rom \
                     -cdrom debian-8.11.0-powerpc-netinst.iso \
                     -device VGA,romfile="" -serial stdio
 
 At the firmware ``ok`` prompt enter ``boot cd install/pegasos``.
 
 Alternatively, it is possible to boot the kernel directly without
-firmware ROM using the QEMU built-in minimal Virtual Open Firmware
+firmware ROM using the Nephrite built-in minimal Virtual Open Firmware
 (VOF) emulation which is also supported on ``pegasos1`` and ``pegasos2``. For this,
 extract the kernel ``install/powerpc/vmlinuz-chrp.initrd`` from the CD
 image, then run:
 
 .. code-block:: bash
 
-  $ qemu-system-ppc -machine pegasos2 -serial stdio \
+  $ nephrite-system-ppc -machine pegasos2 -serial stdio \
                     -kernel vmlinuz-chrp.initrd -append "---" \
                     -cdrom debian-8.11.0-powerpc-netinst.iso
 
@@ -138,7 +138,7 @@ Firmware
 
 The board has a firmware based on an older U-Boot version with
 modifications to support booting AmigaOS 4. The firmware ROM is
-included with QEMU.
+included with Nephrite.
 
 Emulated devices
 ----------------
@@ -157,7 +157,7 @@ The only Linux distro that supported Sam460ex out of box was CruxPPC
 
 .. code-block:: bash
 
-  $ qemu-system-ppc -machine sam460ex -serial stdio \
+  $ nephrite-system-ppc -machine sam460ex -serial stdio \
                     -drive if=none,id=cd,format=raw,file=crux-ppc-2.7a.iso \
                     -device ide-cd,drive=cd,bus=ide.1
 

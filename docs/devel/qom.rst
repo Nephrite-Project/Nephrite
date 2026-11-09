@@ -22,7 +22,7 @@ The QOM tree
 ============
 
 The QOM tree is a composition tree which represents all of the objects
-that make up a QEMU "machine". You can view this tree by running
+that make up a Nephrite "machine". You can view this tree by running
 ``info qom-tree`` in the :ref:`QEMU monitor`. It will contain both
 objects created by the machine itself as well those created due to
 user configuration.
@@ -67,7 +67,7 @@ In the above example, we create a simple type that is described by #TypeInfo.
 from, the instance and class size, and constructor/destructor hooks.
 
 The TYPE_DEVICE class is the parent class for all modern devices
-implemented in QEMU and adds some specific methods to handle QEMU
+implemented in Nephrite and adds some specific methods to handle Nephrite
 device model. This includes managing the lifetime of devices from
 creation through to when they become visible to the guest and
 eventually unrealized.
@@ -114,7 +114,7 @@ specific type:
       OBJECT_CHECK(MyDevice, obj, TYPE_MY_DEVICE)
 
 In case the ObjectClass implementation can be built as module a
-module_obj() line must be added to make sure qemu loads the module
+module_obj() line must be added to make sure Nephrite loads the module
 when the object is needed.
 
 .. code-block:: c

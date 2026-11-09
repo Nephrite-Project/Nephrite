@@ -34,7 +34,7 @@ Boot options
 ------------
 
 The ``microchip-icicle-kit`` machine provides some options to run a firmware
-(BIOS) or a kernel image.  QEMU follows below truth table to select the
+(BIOS) or a kernel image.  Nephrite follows below truth table to select the
 firmware:
 
 ============= =========== ======================================
@@ -52,14 +52,14 @@ Direct Kernel Boot
 
 Use the ``-kernel`` option to directly run a kernel image.  When a direct
 kernel boot is requested, a device tree blob may be specified via the ``-dtb``
-option.  Unlike other QEMU machines, this machine does not generate a device
+option.  Unlike other Nephrite machines, this machine does not generate a device
 tree for the kernel.  It shall be provided by the user.  The user provided DTB
 should meet the following requirements:
 
 * The ``/cpus`` node should contain at least one subnode for E51 and the number
-  of subnodes should match QEMU's ``-smp`` option.
+  of subnodes should match Nephrite's ``-smp`` option.
 
-* The ``/memory`` reg size should match QEMU’s selected RAM size via the ``-m``
+* The ``/memory`` reg size should match Nephrite’s selected RAM size via the ``-m``
   option.
 
 * It should contain a node for the CLINT device with a compatible string
@@ -81,7 +81,7 @@ Then we can boot the machine by:
 
 .. code-block:: bash
 
-  $ qemu-system-riscv64 -M microchip-icicle-kit -smp 5 -m 2G \
+  $ nephrite-system-riscv64 -M microchip-icicle-kit -smp 5 -m 2G \
       -sd path/to/sdcard.img \
       -nic user,model=cadence_gem \
       -nic tap,ifname=tap,model=cadence_gem,script= \
@@ -103,7 +103,7 @@ Running HSS
 -----------
 
 The machine ``microchip-icicle-kit`` used to run the Hart Software Services
-(HSS_), however, the HSS development progressed and the QEMU machine
+(HSS_), however, the HSS development progressed and the Nephrite machine
 implementation lacks behind.  Currently, running the HSS no longer works.
 There is missing support in the clock and memory controller devices.  In
 particular, reading from the SD card does not work.

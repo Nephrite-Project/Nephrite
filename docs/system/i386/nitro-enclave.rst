@@ -12,16 +12,16 @@ for cryptographic attestation. The parent instance VM always has CID 3 while
 the enclave VM gets a dynamic CID. Enclaves use an EIF (`Enclave Image Format`_)
 file which contains the necessary kernel, cmdline and ramdisk(s) to boot.
 
-In QEMU, ``nitro-enclave`` is a machine type based on ``microvm`` similar to how
+In Nephrite, ``nitro-enclave`` is a machine type based on ``microvm`` similar to how
 AWS nitro enclaves look like a `Firecracker`_ microvm. This is useful for
-local testing of EIF files using QEMU instead of running real AWS Nitro Enclaves
+local testing of EIF files using Nephrite instead of running real AWS Nitro Enclaves
 which can be difficult for debugging due to its roots in security. The vsock
 device emulation is done using vhost-user-vsock which means another process that
 can do the userspace emulation, like `vhost-device-vsock`_ from rust-vmm crate,
 must be run alongside nitro-enclave for the vsock communication to work.
 
 ``libcbor`` and ``gnutls`` are required dependencies for nitro-enclave machine
-support to be added when building QEMU from source.
+support to be added when building Nephrite from source.
 
 .. _AWS nitro enclaves: https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
 .. _Enclave Image Format: https://github.com/aws/aws-nitro-enclaves-image-format
@@ -67,7 +67,7 @@ VM for successful communication with the enclave VM.
 Then run the nitro-enclave VM using the following command where ``hello.eif`` is
 an EIF file you would use to spawn a real AWS nitro enclave virtual machine::
 
-  $ qemu-system-x86_64 -M nitro-enclave,vsock=c,id=hello-world \
+  $ nephrite-system-x86_64 -M nitro-enclave,vsock=c,id=hello-world \
      -kernel hello-world.eif -nographic -m 4G --enable-kvm -cpu host \
      -chardev socket,id=c,path=/tmp/vhost4.socket
 

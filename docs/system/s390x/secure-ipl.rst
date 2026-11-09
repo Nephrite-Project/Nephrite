@@ -9,7 +9,7 @@ verify the integrity of guest kernels.
 For technical details of this feature, see the
 :doc:`specs document </specs/s390x-secure-ipl>`.
 
-This document explains how to use secure IPL with s390x in QEMU. It covers
+This document explains how to use secure IPL with s390x in Nephrite. It covers
 the command line options for providing certificates and enabling secure IPL,
 the different IPL modes (Normal, Audit, and Secure), and system requirements.
 
@@ -34,7 +34,7 @@ Note: certificate files must have a .pem extension.
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
+    nephrite-system-s390x -machine s390-ccw-virtio,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
 
 Enabling Secure IPL
 ^^^^^^^^^^^^^^^^^^^
@@ -44,7 +44,7 @@ specified, secure boot is considered off.
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio,secure-boot=on|off
+    nephrite-system-s390x -machine s390-ccw-virtio,secure-boot=on|off
 
 
 IPL Modes
@@ -52,7 +52,7 @@ IPL Modes
 
 Multiple IPL modes are available to differentiate between the various IPL
 configurations. These modes are mutually exclusive and enabled based on specific
-combinations of the ``secure-boot`` and ``boot-certs`` options on the QEMU
+combinations of the ``secure-boot`` and ``boot-certs`` options on the Nephrite
 command line.
 
 Normal Mode
@@ -67,7 +67,7 @@ Configuration:
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio ...
+    nephrite-system-s390x -machine s390-ccw-virtio ...
 
 Audit Mode
 ^^^^^^^^^^
@@ -82,7 +82,7 @@ Configuration:
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
+    nephrite-system-s390x -machine s390-ccw-virtio,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
 
 Secure Mode
 ^^^^^^^^^^^
@@ -95,7 +95,7 @@ Configuration:
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio,secure-boot=on,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
+    nephrite-system-s390x -machine s390-ccw-virtio,secure-boot=on,boot-certs.0.path=/.../qemu/certs,boot-certs.1.path=/another/path/cert.pem ...
 
 
 Constraints
@@ -104,7 +104,7 @@ Constraints
 The following constraints apply when attempting to boot an s390x guest in secure
 mode:
 
-- z16 or "qemu" CPU model
+- z16 or "Nephrite" CPU model
 - certificates must be in X.509 PEM format
 - only support for SCSI scheme of virtio-blk/virtio-scsi devices
 - a boot device must be specified
@@ -116,8 +116,8 @@ mode:
 Secure IPL Quickstart
 ---------------------
 
-Build QEMU with gnutls enabled
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Build Nephrite with gnutls enabled
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
 
@@ -181,4 +181,4 @@ Command line options for starting the guest
 
 .. code-block:: shell
 
-    qemu-system-s390x -machine s390-ccw-virtio,secure-boot=on,boot-certs.0.path=cert.pem ...
+    nephrite-system-s390x -machine s390-ccw-virtio,secure-boot=on,boot-certs.0.path=cert.pem ...

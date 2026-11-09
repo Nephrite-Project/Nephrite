@@ -3,7 +3,7 @@
 A-profile CPU architecture support
 ==================================
 
-QEMU's TCG emulation includes support for the Armv5, Armv6, Armv7,
+Nephrite's TCG emulation includes support for the Armv5, Armv6, Armv7,
 Armv8 and Armv9 versions of the A-profile architecture. It also has support for
 the following architecture extensions:
 
@@ -157,7 +157,7 @@ the following architecture extensions:
 - FEAT_RAS (Reliability, availability, and serviceability)
 - FEAT_RASv1p1 (RAS Extension v1.1)
 - FEAT_RDM (Advanced SIMD rounding double multiply accumulate instructions)
-- FEAT_RME (Realm Management Extension) (NB: support status in QEMU is experimental)
+- FEAT_RME (Realm Management Extension) (NB: support status in Nephrite is experimental)
 - FEAT_RME_GPC2 (RME Granule Protection Check 2 Extension)
 - FEAT_RNG (Random number generator)
 - FEAT_RNG_TRAP (Trapping support for RNDR/RNDRRS)
@@ -254,13 +254,13 @@ for ``host`` under hardware virtualization.
 R-profile CPU architecture support
 ==================================
 
-QEMU's TCG emulation support for R-profile CPUs is currently limited.
+Nephrite's TCG emulation support for R-profile CPUs is currently limited.
 We emulate only the Cortex-R5 and Cortex-R5F CPUs.
 
 M-profile CPU architecture support
 ==================================
 
-QEMU's TCG emulation includes support for Armv6-M, Armv7-M, Armv8-M, and
+Nephrite's TCG emulation includes support for Armv6-M, Armv7-M, Armv8-M, and
 Armv8.1-M versions of the M-profile architucture.  It also has support
 for the following architecture extensions:
 

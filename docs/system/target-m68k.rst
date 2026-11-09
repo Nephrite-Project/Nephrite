@@ -3,7 +3,7 @@
 ColdFire System emulator
 ------------------------
 
-Use the executable ``qemu-system-m68k`` to simulate a ColdFire machine.
+Use the executable ``nephrite-system-m68k`` to simulate a ColdFire machine.
 The emulator is able to boot a uClinux kernel.
 
 The M5208EVB emulation includes the following devices:

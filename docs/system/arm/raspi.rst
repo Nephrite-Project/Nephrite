@@ -2,7 +2,7 @@ Raspberry Pi boards (``raspi0``, ``raspi1ap``, ``raspi2b``, ``raspi3ap``, ``rasp
 ===================================================================================================
 
 
-QEMU provides models of the following Raspberry Pi boards:
+Nephrite provides models of the following Raspberry Pi boards:
 
 ``raspi0`` and ``raspi1ap``
   ARM1176JZF-S core, 512 MiB of RAM

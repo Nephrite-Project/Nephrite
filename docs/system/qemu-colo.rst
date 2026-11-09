@@ -45,8 +45,8 @@ Overview::
     |            |  |       HeartBeat       +<----->+       HeartBeat        |  |            |
     | Primary VM |  +-----------+-----------+       +-----------+------------+  |Secondary VM|
     |            |              |                               |               |            |
-    |            |  +-----------|-----------+       +-----------|------------+  |            |
-    |            |  |QEMU   +---v----+      |       |QEMU  +----v---+        |  |            |
+    |            |  + Nephrite -|-----------+       + Nephrite -|------------+  |            |
+    |            |  |       +---v----+      |       |      +----v---+        |  |            |
     |            |  |       |Failover|      |       |      |Failover|        |  |            |
     |            |  |       +--------+      |       |      +--------+        |  |            |
     |            |  |   +---------------+   |       |   +---------------+    |  |            |
@@ -163,19 +163,19 @@ change the IP Addresses if you want to run it on two hosts. Initially
 COLO uses double the guest ram size on the secondary side. The Qemu version
 should be the same on both hosts.
 
-Startup qemu
-^^^^^^^^^^^^
+Startup Nephrite
+^^^^^^^^^^^^^^^^
 **1. Primary**:
 Initially, ``$imagefolder/primary.qcow2`` needs to be copied to all hosts.
 You don't need to change any IP's here, because ``0.0.0.0`` listens on any
-interface. The chardev's with ``127.0.0.1`` IP's loopback to the local qemu
+interface. The chardev's with ``127.0.0.1`` IP's loopback to the local Nephrite
 instance::
 
     # imagefolder="/mnt/vms/colo-test-primary"
 
-    # qemu-system-x86_64 -enable-kvm -cpu qemu64,kvmclock=on -m 512 -smp 1 -qmp stdio \
+    # nephrite-system-x86_64 -enable-kvm -cpu qemu64,kvmclock=on -m 512 -smp 1 -qmp stdio \
        -device piix3-usb-uhci -device usb-tablet -name primary \
-       -netdev tap,id=hn0,vhost=off,helper=/usr/lib/qemu/qemu-bridge-helper \
+       -netdev tap,id=hn0,vhost=off,helper=/usr/lib/nephrite/nephrite-bridge-helper \
        -device rtl8139,id=e0,netdev=hn0 \
        -chardev socket,id=mirror0,host=0.0.0.0,port=9003,server=on,wait=off \
        -chardev socket,id=compare1,host=0.0.0.0,port=9004,server=on,wait=on \
@@ -201,13 +201,13 @@ any IP's here, except for the ``$primary_ip`` variable::
     # imagefolder="/mnt/vms/colo-test-secondary"
     # primary_ip=127.0.0.1
 
-    # qemu-img create -f qcow2 $imagefolder/secondary-active.qcow2 10G
+    # nephrite-img create -f qcow2 $imagefolder/secondary-active.qcow2 10G
 
-    # qemu-img create -f qcow2 $imagefolder/secondary-hidden.qcow2 10G
+    # nephrite-img create -f qcow2 $imagefolder/secondary-hidden.qcow2 10G
 
-    # qemu-system-x86_64 -enable-kvm -cpu qemu64,kvmclock=on -m 512 -smp 1 -qmp stdio \
+    # nephrite-system-x86_64 -enable-kvm -cpu qemu64,kvmclock=on -m 512 -smp 1 -qmp stdio \
        -device piix3-usb-uhci -device usb-tablet -name secondary \
-       -netdev tap,id=hn0,vhost=off,helper=/usr/lib/qemu/qemu-bridge-helper \
+       -netdev tap,id=hn0,vhost=off,helper=/usr/lib/nephrite/nephrite-bridge-helper \
        -device rtl8139,id=e0,netdev=hn0 \
        -chardev socket,id=red0,host=$primary_ip,port=9003,reconnect-ms=1000 \
        -chardev socket,id=red1,host=$primary_ip,port=9004,reconnect-ms=1000 \
@@ -224,7 +224,7 @@ any IP's here, except for the ``$primary_ip`` variable::
        -incoming tcp:0.0.0.0:9998
 
 
-**3.** On Secondary VM's QEMU monitor, issue command::
+**3.** On Secondary VM's Nephrite monitor, issue command::
 
     {"execute":"qmp_capabilities"}
     {"execute": "migrate-set-capabilities", "arguments": {"capabilities": [ {"capability": "return-path", "state": true }, {"capability": "x-colo", "state": true } ] } }
@@ -233,13 +233,13 @@ any IP's here, except for the ``$primary_ip`` variable::
 
 Note:
   a. The qmp command ``nbd-server-start`` and ``nbd-server-add`` must be run
-     before running the qmp command migrate on primary QEMU
+     before running the qmp command migrate on primary Nephrite
   b. Active disk, hidden disk and nbd target's length should be the
      same.
   c. It is better to put active disk and hidden disk in ramdisk. They
      will be merged into the parent disk on failover.
 
-**4.** On Primary VM's QEMU monitor, issue command::
+**4.** On Primary VM's Nephrite monitor, issue command::
 
     {"execute":"qmp_capabilities"}
     {"execute": "blockdev-add", "arguments": {"driver": "nbd", "node-name": "nbd0", "server": {"type": "inet", "host": "127.0.0.2", "port": "9999"}, "export": "parent0", "detect-zeroes": "on"} }
@@ -250,7 +250,7 @@ Note:
 Note:
   a. There should be only one NBD Client for each primary disk.
   b. The qmp command line must be run after running qmp command line in
-     secondary qemu.
+     secondary Nephrite.
 
 **5.** After the above steps, you will see, whenever you make changes to PVM, SVM will be synced.
 You can issue command ``{ "execute": "migrate-set-parameters" , "arguments":{ "x-checkpoint-delay": 2000 } }``

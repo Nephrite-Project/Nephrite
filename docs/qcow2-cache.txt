@@ -8,7 +8,7 @@ later. See the COPYING file in the top-level directory.
 
 Introduction
 ------------
-The QEMU qcow2 driver has two caches that can improve the I/O
+The Nephrite qcow2 driver has two caches that can improve the I/O
 performance significantly. However, setting the right cache sizes is
 not a straightforward operation.
 
@@ -24,13 +24,13 @@ Clusters
 A qcow2 file is organized in units of constant size called clusters.
 
 The cluster size is configurable, but it must be a power of two and
-its value 512 bytes or higher. QEMU currently defaults to 64 KB
+its value 512 bytes or higher. Nephrite currently defaults to 64 KB
 clusters, and it does not support sizes larger than 2MB.
 
-The 'qemu-img create' command supports specifying the size using the
+The 'nephrite-img create' command supports specifying the size using the
 cluster_size option:
 
-   qemu-img create -f qcow2 -o cluster_size=128K hd.qcow2 4G
+   nephrite-img create -f qcow2 -o cluster_size=128K hd.qcow2 4G
 
 
 The L2 tables
@@ -44,9 +44,9 @@ always kept in memory.
 
 There can be many L2 tables, depending on how much space has been
 allocated in the image. Each table is one cluster in size. In order to
-read or write data from the virtual disk, QEMU needs to read its
+read or write data from the virtual disk, Nephrite needs to read its
 corresponding L2 table to find out where that data is located. Since
-reading the table for each I/O operation can be expensive, QEMU keeps
+reading the table for each I/O operation can be expensive, Nephrite keeps
 an L2 cache in memory to speed up disk access.
 
 The size of the L2 cache can be configured, and setting the right
@@ -68,9 +68,9 @@ Each block contains a number of refcount entries. Their size (in bits)
 is a power of two and must not be higher than 64. It defaults to 16
 bits, but a different value can be set using the refcount_bits option:
 
-   qemu-img create -f qcow2 -o refcount_bits=8 hd.qcow2 4G
+   nephrite-img create -f qcow2 -o refcount_bits=8 hd.qcow2 4G
 
-QEMU keeps a refcount cache to speed up I/O much like the
+Nephrite keeps a refcount cache to speed up I/O much like the
 aforementioned L2 cache, and its size can also be configured.
 
 
@@ -127,7 +127,7 @@ There are a few things that need to be taken into account:
 
  - The maximum L2 cache size is 32 MB by default on Linux platforms (enough
    for full coverage of 256 GB images, with the default cluster size). This
-   value can be modified using the "l2-cache-size" option. QEMU will not use
+   value can be modified using the "l2-cache-size" option. Nephrite will not use
    more memory than needed to hold all of the image's L2 tables, regardless
    of this max. value.
    On non-Linux platforms the maximal value is smaller by default (8 MB) and
@@ -137,7 +137,7 @@ There are a few things that need to be taken into account:
 
  - The default (and minimum) refcount cache size is 4 clusters.
 
- - If only "cache-size" is specified then QEMU will assign as much
+ - If only "cache-size" is specified then Nephrite will assign as much
    memory as possible to the L2 cache before increasing the refcount
    cache size.
 
@@ -158,7 +158,7 @@ refcount cache is as small as possible unless overridden by the user.
 
 Using smaller cache entries
 ---------------------------
-The qcow2 L2 cache can store complete tables. This means that if QEMU
+The qcow2 L2 cache can store complete tables. This means that if Nephrite
 needs an entry from an L2 table then the whole table is read from disk
 and is kept in the cache. If the cache is full then a complete table
 needs to be evicted first.
@@ -198,7 +198,7 @@ Some things to take into account:
    (as explained in the "Choosing the right cache sizes" and "How to
    configure the cache sizes" sections in this document) then none of
    this is necessary and you can omit the "l2-cache-entry-size"
-   parameter altogether. In this case QEMU makes the entry size
+   parameter altogether. In this case Nephrite makes the entry size
    equal to the cluster size by default.
 
 

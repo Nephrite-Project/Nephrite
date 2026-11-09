@@ -1,7 +1,7 @@
 Xen Device Emulation Backend (``xenpvh``)
 =========================================
 
-This machine is a little unusual compared to others as QEMU just acts
+This machine is a little unusual compared to others as Nephrite just acts
 as an IOREQ server to register/connect with Xen Hypervisor. Control of
 the VMs themselves is left to the Xen tooling.
 
@@ -21,11 +21,11 @@ Example for starting swtpm on host machine:
     swtpm socket --tpmstate dir=/tmp/vtpm2 \
       --ctrl type=unixio,path=/tmp/vtpm2/swtpm-sock &
 
-Sample QEMU xenpvh commands for running and connecting with Xen:
+Sample Nephrite xenpvh commands for running and connecting with Xen:
 
 .. code-block:: console
 
-    qemu-system-aarch64 -xen-domid 1 \
+    nephrite-system-aarch64 -xen-domid 1 \
       -chardev socket,id=libxl-cmd,path=qmp-libxl-1,server=on,wait=off \
       -object monitor-qmp,id=qmp0,chardev=libxl-cmd \
       -chardev socket,id=libxenstat-cmd,path=qmp-libxenstat-1,server=on,wait=off \
@@ -35,5 +35,5 @@ Sample QEMU xenpvh commands for running and connecting with Xen:
       -chardev socket,id=chrtpm,path=tmp/vtpm2/swtpm-sock \
       -tpmdev emulator,id=tpm0,chardev=chrtpm -machine tpm-base-addr=0x0C000000
 
-In above QEMU command, last two lines are for connecting xenpvh QEMU to swtpm
+In above Nephrite command, last two lines are for connecting xenpvh Nephrite to swtpm
 via chardev socket.

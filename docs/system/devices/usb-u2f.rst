@@ -9,7 +9,7 @@ The second factor is provided by a device implementing the U2F
 protocol. In case of a USB U2F security key, it is a USB HID device
 that implements the U2F protocol.
 
-QEMU supports both pass-through of a host U2F key device to a VM,
+Nephrite supports both pass-through of a host U2F key device to a VM,
 and software emulation of a U2F key.
 
 ``u2f-passthru``

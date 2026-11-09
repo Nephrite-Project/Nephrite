@@ -56,11 +56,11 @@ Design Details
                                             +-+-------------------------+-+
 
 
-(1) QEMU generates the ACPI HEST table. This table goes in the current
+(1) Nephrite generates the ACPI HEST table. This table goes in the current
     "etc/acpi/tables" fw_cfg blob. Each error source has different
     notification types.
 
-(2) A new fw_cfg blob called "etc/hardware_errors" is introduced. QEMU
+(2) A new fw_cfg blob called "etc/hardware_errors" is introduced. Nephrite
     also needs to populate this blob. The "etc/hardware_errors" fw_cfg blob
     contains an address registers table and an Error Status Data Block table.
 
@@ -73,23 +73,23 @@ Design Details
     (N * 8 * 2 + N * ACPI_GHES_MAX_RAW_DATA_LENGTH) bytes.
     N is the number of the kinds of hardware error sources.
 
-(4) QEMU generates the ACPI linker/loader script for the firmware. The
+(4) Nephrite generates the ACPI linker/loader script for the firmware. The
     firmware pre-allocates memory for "etc/acpi/tables", "etc/hardware_errors"
     and copies blob contents there.
 
-(5) QEMU generates N ADD_POINTER commands, which patch addresses in the
+(5) Nephrite generates N ADD_POINTER commands, which patch addresses in the
     "error_status_address" fields of the HEST table with a pointer to the
     corresponding "address registers" in the "etc/hardware_errors" blob.
 
-(6) QEMU generates N ADD_POINTER commands, which patch addresses in the
+(6) Nephrite generates N ADD_POINTER commands, which patch addresses in the
     "read_ack_register" fields of the HEST table with a pointer to the
     corresponding "read_ack_register" within the "etc/hardware_errors" blob.
 
-(7) QEMU generates N ADD_POINTER commands for the firmware, which patch
+(7) Nephrite generates N ADD_POINTER commands for the firmware, which patch
     addresses in the "error_block_address" fields with a pointer to the
     respective "Error Status Data Block" in the "etc/hardware_errors" blob.
 
-(8) QEMU defines a third and write-only fw_cfg blob to store the location
+(8) Nephrite defines a third and write-only fw_cfg blob to store the location
     where the error block offsets, read ack registers and CPER records are
     stored.
 
@@ -100,12 +100,12 @@ Design Details
     pointing to the GPA of the HEST table.
 
     Using above mentioned 'fw_cfg' files, the firmware can send back the
-    guest-side allocation addresses to QEMU. They contain a 8-byte entry.
-    QEMU generates a single WRITE_POINTER command for the firmware. The
+    guest-side allocation addresses to Nephrite. They contain a 8-byte entry.
+    Nephrite generates a single WRITE_POINTER command for the firmware. The
     firmware will write back the start address of either "etc/hardware_errors"
     or HEST table at the corresponding fw_cfg file.
 
-(9) When QEMU gets a SIGBUS from the kernel, QEMU writes CPER into corresponding
+(9) When Nephrite gets a SIGBUS from the kernel, Nephrite writes CPER into corresponding
     "Error Status Data Block", guest memory, and then injects platform specific
     interrupt (in case of arm/virt machine it's Synchronous External Abort) as a
     notification which is necessary for notifying the guest.

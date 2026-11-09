@@ -1,10 +1,10 @@
 .. _kconfig:
 
-================
-QEMU and Kconfig
-================
+====================
+Nephrite and Kconfig
+====================
 
-QEMU is a very versatile emulator; it can be built for a variety of
+Nephrite is a very versatile emulator; it can be built for a variety of
 targets, where each target can emulate various boards and at the same
 time different targets can share large amounts of code.  For example,
 a POWER and an x86 board can run the same code to emulate a PCI network
@@ -13,12 +13,12 @@ can run the same code to emulate a SCSI disk while using different
 SCSI adapters.  Arm, s390 and x86 boards can all present a virtio-blk
 disk to their guests, but with three different virtio guest interfaces.
 
-Each QEMU target enables a subset of the boards, devices and buses that
-are included in QEMU's source code.  As a result, each QEMU executable
-only links a small subset of the files that form QEMU's source code;
+Each Nephrite target enables a subset of the boards, devices and buses that
+are included in Nephrite's source code.  As a result, each Nephrite executable
+only links a small subset of the files that form Nephrite's source code;
 anything that is not needed to support a particular target is culled.
 
-QEMU uses a simple domain-specific language to describe the dependencies
+Nephrite uses a simple domain-specific language to describe the dependencies
 between components.  This is useful for two reasons:
 
 * new targets and boards can be added without knowing in detail the
@@ -27,21 +27,21 @@ between components.  This is useful for two reasons:
   include all the required dependencies and all the devices that the
   user can add to that board;
 
-* users can easily build reduced versions of QEMU that support only a subset
+* users can easily build reduced versions of Nephrite that support only a subset
   of boards or devices.  For example, by default most targets will include
-  all emulated PCI devices that QEMU supports, but the build process is
+  all emulated PCI devices that Nephrite supports, but the build process is
   configurable and it is easy to drop unnecessary (or otherwise unwanted)
   code to make a leaner binary.
 
 This domain-specific language is based on the Kconfig language that
 originated in the Linux kernel, though it was heavily simplified and
-the handling of dependencies is stricter in QEMU.
+the handling of dependencies is stricter in Nephrite.
 
 Unlike Linux, there is no user interface to edit the configuration, which
 is instead specified in per-target files under the ``configs/``
-directory of the QEMU source tree.  This is because, unlike Linux,
+directory of the Nephrite source tree.  This is because, unlike Linux,
 configuration and dependencies can be treated as a black box when building
-QEMU; the default configuration that QEMU ships with should be okay in
+Nephrite; the default configuration that Nephrite ships with should be okay in
 almost all cases.
 
 The Kconfig language
@@ -94,7 +94,7 @@ directives can be included:
   The optional expression will prevent ``select`` from having any effect
   unless it is true.
 
-  Note that unlike Linux's Kconfig implementation, QEMU will detect
+  Note that unlike Linux's Kconfig implementation, Nephrite will detect
   contradictions between ``depends on`` and ``select`` statements and prevent
   you from building such a configuration.
 
@@ -133,7 +133,7 @@ directives can be included:
 Guidelines for writing Kconfig files
 ------------------------------------
 
-Configurable elements in QEMU fall under five broad groups.  Each group
+Configurable elements in Nephrite fall under five broad groups.  Each group
 declares its dependencies in different ways:
 
 **subsystems**, of which **buses** are a special case
@@ -163,7 +163,7 @@ declares its dependencies in different ways:
 
   Devices are the most complex of the five.  They can have a variety
   of directives that cooperate so that a default configuration includes
-  all the devices that can be accessed from QEMU.
+  all the devices that can be accessed from Nephrite.
 
   Devices *depend on* the bus that they lie on, for example a PCI
   device would specify ``depends on PCI``.  An MMIO device will likely
@@ -190,7 +190,7 @@ declares its dependencies in different ways:
   no directive and are not used in the Makefile either; they only appear
   as conditions for ``default y`` directives.
 
-  QEMU currently has three device groups, ``PCI_DEVICES``, ``I2C_DEVICES``,
+  Nephrite currently has three device groups, ``PCI_DEVICES``, ``I2C_DEVICES``,
   and ``TEST_DEVICES``.  PCI devices usually have a ``default y if
   PCI_DEVICES`` directive rather than just ``default y``.  This lets
   some boards (notably s390) easily support a subset of PCI devices,
@@ -200,7 +200,7 @@ declares its dependencies in different ways:
   board (and not ones which are very board-specific or that need
   to be wired up in a way that can't be done on the command line).
   ``TEST_DEVICES`` instead is used for devices that are rarely used on
-  production virtual machines, but provide useful hooks to test QEMU
+  production virtual machines, but provide useful hooks to test Nephrite
   or KVM.
 
 **boards**
@@ -227,7 +227,7 @@ declares its dependencies in different ways:
   Boards specify their constituent devices using ``imply`` and ``select``
   directives.  A device should be listed under ``select`` if the board
   cannot be started at all without it.  It should be listed under
-  ``imply`` if (depending on the QEMU command line) the board may or
+  ``imply`` if (depending on the Nephrite command line) the board may or
   may not be started without it.  Boards default to true, but also
   have a ``depends on`` clause to limit them to the appropriate targets.
   For some targets, not all boards may be supported by hardware
@@ -280,11 +280,11 @@ boards are supported by the target.  The user will typically modify
 the default configuration by uncommenting lines in the first group,
 or commenting out lines in the second group.
 
-It is also possible to run QEMU's configure script with the
+It is also possible to run Nephrite's configure script with the
 ``--without-default-devices`` option.  When this is done, everything defaults
 to ``n`` unless it is ``select``\ ed or explicitly switched on in the
 ``.mak`` files.  In other words, ``default`` and ``imply`` directives
-are disabled.  When QEMU is built with this option, the user will probably
+are disabled.  When Nephrite is built with this option, the user will probably
 want to change some lines in the first group, for example like this::
 
    CONFIG_PCI_DEVICES=y
@@ -310,7 +310,7 @@ they will include all these symbols and some help text on what they do.
 ----------------
 
 In some special cases, a configurable element depends on host features
-that are detected by QEMU's configure or ``meson.build`` scripts; for
+that are detected by Nephrite's configure or ``meson.build`` scripts; for
 example some devices depend on the availability of KVM or on the presence
 of a library on the host.
 

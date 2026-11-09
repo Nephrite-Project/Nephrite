@@ -3,13 +3,13 @@ QAPI interface for S390 CPU topology
 
 The following sections will explain the QAPI interface for S390 CPU topology
 with the help of exemplary output.
-For this, let's assume that QEMU has been started with the following
+For this, let's assume that Nephrite has been started with the following
 command, defining 4 CPUs, where CPU[0] is defined by the -smp argument and will
 have default values:
 
 .. code-block:: bash
 
- qemu-system-s390x \
+ nephrite-system-s390x \
     -enable-kvm \
     -cpu z14,ctop=on \
     -smp 1,drawers=3,books=3,sockets=2,cores=2,maxcpus=36 \
@@ -120,11 +120,11 @@ QAPI event CPU_POLARIZATION_CHANGE
 ----------------------------------
 
 When a guest requests a modification of the polarization,
-QEMU sends a CPU_POLARIZATION_CHANGE event.
+Nephrite sends a CPU_POLARIZATION_CHANGE event.
 
 When requesting the change, the guest only specifies horizontal or
 vertical polarization.
-It is the job of the entity administrating QEMU to set the dedication and fine
+It is the job of the entity administrating Nephrite to set the dedication and fine
 grained vertical entitlement in response to this event.
 
 Note that a vertical polarized dedicated vCPU can only have a high

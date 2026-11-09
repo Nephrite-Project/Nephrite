@@ -38,7 +38,7 @@ VNC server using password authentication should be restricted to only
 listen on the loopback interface or UNIX domain sockets. Password
 authentication is not supported when operating in FIPS 140-2 compliance
 mode as it requires the use of the DES cipher. Password authentication
-is requested with the ``password`` option, and then once QEMU is running
+is requested with the ``password`` option, and then once Nephrite is running
 the password is set with the monitor. Until the monitor is used to set
 the password all clients will be rejected.
 
@@ -54,7 +54,7 @@ the password all clients will be rejected.
 With x509 certificates
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The QEMU VNC server also implements the VeNCrypt extension allowing use
+The Nephrite VNC server also implements the VeNCrypt extension allowing use
 of TLS for encryption of the session, and x509 certificates for
 authentication. The use of x509 certificates is strongly recommended,
 because TLS on its own is susceptible to man-in-the-middle attacks.
@@ -65,13 +65,13 @@ encrypted session.
 .. parsed-literal::
 
    |qemu_system| [...OPTIONS...] \
-     -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server,verify-peer=off \
+     -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=server,verify-peer=off \
      -vnc :1,tls-creds=tls0 -monitor stdio
 
-In the above example ``/etc/pki/qemu`` should contain at least three
+In the above example ``/etc/pki/nephrite`` should contain at least three
 files, ``ca-cert.pem``, ``server-cert.pem`` and ``server-key.pem``.
 Unprivileged users will want to use a private directory, for example
-``$HOME/.pki/qemu``. NB the ``server-key.pem`` file should be protected
+``$HOME/.pki/nephrite``. NB the ``server-key.pem`` file should be protected
 with file mode 0600 to only be readable by the user owning it.
 
 .. _vnc_005fsec_005fcertificate_005fverify:
@@ -89,7 +89,7 @@ but with ``verify-peer`` set to ``on`` instead.
 .. parsed-literal::
 
    |qemu_system| [...OPTIONS...] \
-     -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server,verify-peer=on \
+     -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=server,verify-peer=on \
      -vnc :1,tls-creds=tls0 -monitor stdio
 
 .. _vnc_005fsec_005fcertificate_005fpw:
@@ -103,7 +103,7 @@ authentication to provide two layers of authentication for clients.
 .. parsed-literal::
 
    |qemu_system| [...OPTIONS...] \
-     -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server,verify-peer=on \
+     -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=server,verify-peer=on \
      -vnc :1,tls-creds=tls0,password=on -monitor stdio
    (nephrite) change vnc password
    Password: ********
@@ -123,7 +123,7 @@ configured. If the chosen mechanism also provides a SSF layer, then it
 will encrypt the datastream as well.
 
 Refer to the later docs on how to choose the exact SASL mechanism used
-for authentication, but assuming use of one supporting SSF, then QEMU
+for authentication, but assuming use of one supporting SSF, then Nephrite
 can be launched with:
 
 .. parsed-literal::
@@ -145,7 +145,7 @@ x509 options:
 .. parsed-literal::
 
    |qemu_system| [...OPTIONS...] \
-     -object tls-creds-x509,id=tls0,dir=/etc/pki/qemu,endpoint=server,verify-peer=on \
+     -object tls-creds-x509,id=tls0,dir=/etc/pki/nephrite,endpoint=server,verify-peer=on \
      -vnc :1,tls-creds=tls0,sasl=on -monitor stdio
 
 .. _vnc_005fsetup_005fsasl:
@@ -157,7 +157,7 @@ The following documentation assumes use of the Cyrus SASL implementation
 on a Linux host, but the principles should apply to any other SASL
 implementation or host. When SASL is enabled, the mechanism
 configuration will be loaded from system default SASL service config
-/etc/sasl2/nephrite.conf. If running QEMU as an unprivileged user, an
+/etc/sasl2/nephrite.conf. If running Nephrite as an unprivileged user, an
 environment variable SASL_CONF_PATH can be used to make it search
 alternate locations for the service config file.
 
@@ -166,7 +166,7 @@ encryption, otherwise the SASL mechanism will have to provide
 encryption. In the latter case the list of possible plugins that can be
 used is drastically reduced. In fact only the GSSAPI SASL mechanism
 provides an acceptable level of security by modern standards. Previous
-versions of QEMU referred to the DIGEST-MD5 mechanism, however, it has
+versions of Nephrite referred to the DIGEST-MD5 mechanism, however, it has
 multiple serious flaws described in detail in RFC 6331 and thus should
 never be used any more. The SCRAM-SHA-256 mechanism provides a simple
 username/password auth facility similar to DIGEST-MD5, but does not
@@ -184,7 +184,7 @@ with the server principal stored in /etc/nephrite/krb5.tab. For this to work
 the administrator of your KDC must generate a Kerberos principal for the
 server, with a name of ``vnc/somehost.example.com@EXAMPLE.COM`` replacing
 ``somehost.example.com`` with the fully qualified host name of the machine
-running QEMU, and ``EXAMPLE.COM`` with the Kerberos Realm.
+running Nephrite, and ``EXAMPLE.COM`` with the Kerberos Realm.
 
 When using TLS, if username+password authentication is desired, then a
 reasonable configuration is

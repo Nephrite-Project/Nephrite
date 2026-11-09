@@ -1,7 +1,7 @@
 Aspeed family boards
 ====================
 
-The QEMU Aspeed machines model BMCs of various OpenPOWER systems and
+The Nephrite Aspeed machines model BMCs of various OpenPOWER systems and
 Aspeed evaluation boards. They are based on different releases of the
 Aspeed SoC : the AST2400 integrating an ARM926EJ-S CPU (400MHz), the
 AST2500 with an ARM1176JZS CPU (800MHz), the AST2600
@@ -107,7 +107,7 @@ To boot a kernel directly from a Linux build tree:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M ast2600-evb -nographic \
+  $ nephrite-system-arm -M ast2600-evb -nographic \
         -kernel arch/arm/boot/zImage \
         -dtb arch/arm/boot/dts/aspeed-ast2600-evb.dtb \
         -initrd rootfs.cpio
@@ -130,7 +130,7 @@ To boot the machine from the flash image, use an MTD drive :
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M romulus-bmc -nic user \
+  $ nephrite-system-arm -M romulus-bmc -nic user \
 	-drive file=obmc-phosphor-image-romulus.static.mtd,format=raw,if=mtd -nographic
 
 To use other flash models, for instance a different FMC chip and a
@@ -142,7 +142,7 @@ bigger (64M) SPI for the ``ast2500-evb`` machine, run :
 
 When more flexibility is needed to define the flash devices, to use
 different flash models or define all flash devices (up to 8), the
-``-nodefaults`` QEMU option can be used to avoid creating the default
+``-nodefaults`` Nephrite option can be used to avoid creating the default
 flash devices.
 
 Flash devices should then be created from the command line and attached
@@ -150,7 +150,7 @@ to a block device :
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M ast2600-evb \
+  $ nephrite-system-arm -M ast2600-evb \
         -blockdev node-name=fmc0,driver=file,filename=/path/to/fmc0.img \
 	-device mx66u51235f,bus=ssi.0,cs=0x0,drive=fmc0 \
 	-blockdev node-name=fmc1,driver=file,filename=/path/to/fmc1.img \
@@ -188,7 +188,7 @@ Boot the machine ``rainier-emmc`` with :
 
 .. code-block:: bash
 
-   $ qemu-system-arm -M rainier-bmc \
+   $ nephrite-system-arm -M rainier-bmc \
          -drive file=mmc.img,format=raw,if=sd,index=2 \
          -nographic
 
@@ -204,7 +204,7 @@ eMMC image :
 
 .. code-block:: bash
 
-   $ qemu-system-arm -M rainier-bmc,boot-emmc=false \
+   $ nephrite-system-arm -M rainier-bmc,boot-emmc=false \
         -drive file=flash.img,format=raw,if=mtd \
         -drive file=mmc.img,format=raw,if=sd,index=2 \
         -nographic
@@ -276,7 +276,7 @@ configuration file for OTP memory:
 Aspeed 2700 family boards (``ast2700-evb``, ``ast2700fc``)
 ==========================================================
 
-The QEMU Aspeed machines model BMCs of Aspeed evaluation boards.
+The Nephrite Aspeed machines model BMCs of Aspeed evaluation boards.
 They are based on different releases of the Aspeed SoC :
 the AST2700 with quad cores Arm Cortex-A35 64 bits CPUs (1.6GHz).
 
@@ -350,7 +350,7 @@ corresponds to the BL31 image load address.
 
   IMGDIR=ast2700-default
 
-  $ qemu-system-aarch64 -M ast2700-evb \
+  $ nephrite-system-aarch64 -M ast2700-evb \
        -device loader,force-raw=on,addr=0x400000000,file=${IMGDIR}/u-boot.bin \
        -device loader,force-raw=on,addr=0x430000000,file=${IMGDIR}/bl31.bin \
        -device loader,force-raw=on,addr=0x430080000,file=${IMGDIR}/optee/tee-raw.bin \
@@ -364,13 +364,13 @@ corresponds to the BL31 image load address.
 
 Boot using a virtual boot ROM (``-bios``):
 
-If users do not specify the ``-bios option``, QEMU will attempt to load the
+If users do not specify the ``-bios option``, Nephrite will attempt to load the
 default vbootrom image ``ast27x0_bootrom.bin`` from either the current working
-directory or the ``pc-bios`` directory within the QEMU source tree.
+directory or the ``pc-bios`` directory within the Nephrite source tree.
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M ast2700-evb \
+  $ nephrite-system-aarch64 -M ast2700-evb \
       -drive file=image-bmc,format=raw,if=mtd \
       -nographic
 
@@ -407,7 +407,7 @@ Steps to boot the AST2700fc machine:
 
   IMGDIR=ast2700-default
 
-  $ qemu-system-aarch64 -M ast2700fc \
+  $ nephrite-system-aarch64 -M ast2700fc \
        -device loader,force-raw=on,addr=0x400000000,file=${IMGDIR}/u-boot.bin \
        -device loader,force-raw=on,addr=0x430000000,file=${IMGDIR}/bl31.bin \
        -device loader,force-raw=on,addr=0x430080000,file=${IMGDIR}/optee/tee-raw.bin \
@@ -422,7 +422,7 @@ Steps to boot the AST2700fc machine:
        -snapshot \
        -S -nographic
 
-After launching QEMU, serial devices will be automatically redirected.
+After launching Nephrite, serial devices will be automatically redirected.
 Example output:
 
 .. code-block:: bash
@@ -446,7 +446,7 @@ Use ``tio`` or another terminal emulator to connect to the consoles:
 Aspeed Bridge IC and Platform Root of Trust processor family boards (``ast1030-evb``, ``ast1040-evb``, ``ast1060-evb``, ``ast1080-evb``)
 ========================================================================================================================================
 
-The QEMU Aspeed machines model Bridge ICs and Platform Root of Trust processors
+The Nephrite Aspeed machines model Bridge ICs and Platform Root of Trust processors
 of various Aspeed evaluation boards. They are based on different members of
 the Aspeed AST10x0 SoC family:
 
@@ -514,5 +514,5 @@ To boot a kernel directly from a Zephyr build tree:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M ast1030-evb -nographic \
+  $ nephrite-system-arm -M ast1030-evb -nographic \
         -kernel zephyr.bin

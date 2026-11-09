@@ -2,7 +2,7 @@
 IBM's Flexible Service Interface (FSI)
 ======================================
 
-The QEMU FSI emulation implements hardware interfaces between ASPEED SOC, FSI
+The Nephrite FSI emulation implements hardware interfaces between ASPEED SOC, FSI
 master/slave and the end engine.
 
 FSI is a point-to-point two wire interface which is capable of supporting
@@ -66,14 +66,14 @@ learn more about Aspeed ``rainier-bmc`` machine: (:doc:`../../system/arm/aspeed`
 
 .. code-block:: console
 
-  qemu-system-arm -M rainier-bmc -nographic \
+  nephrite-system-arm -M rainier-bmc -nographic \
   -kernel fitImage-linux.bin \
   -dtb aspeed-bmc-ibm-rainier.dtb \
   -initrd obmc-phosphor-initramfs.rootfs.cpio.xz \
   -drive file=obmc-phosphor-image.rootfs.wic.qcow2,if=sd,index=2 \
   -append "rootwait console=ttyS4,115200n8 root=PARTLABEL=rofs-a"
 
-The implementation appears as following in the qemu device tree:
+The implementation appears as following in the Nephrite device tree:
 
 .. code-block:: console
 

@@ -13,7 +13,7 @@ The following machines are based on this chip :
 - ``microbit``       BBC micro:bit board with nRF51822 SoC
 
 There are other series such as nRF52, nRF53 and nRF91 which are currently not
-supported by QEMU.
+supported by Nephrite.
 
 Supported devices
 -----------------
@@ -48,4 +48,4 @@ firmware in `ihex format`_. Example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M microbit -device loader,file=test.hex
+  $ nephrite-system-arm -M microbit -device loader,file=test.hex

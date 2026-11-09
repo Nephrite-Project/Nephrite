@@ -1,7 +1,7 @@
 The virtual channel subsystem
 =============================
 
-QEMU implements a virtual channel subsystem with subchannels, (mostly
+Nephrite implements a virtual channel subsystem with subchannels, (mostly
 functionless) channel paths, and channel devices (virtio-ccw, 3270, and
 devices passed via vfio-ccw). It supports multiple subchannel sets (MSS) and
 multiple channel subsystems extended (MCSS-E).
@@ -23,11 +23,11 @@ device type.
 
 The device number can range from ``0-0xffff``.
 
-If the ``devno`` property is not specified for a device, QEMU will choose the
+If the ``devno`` property is not specified for a device, Nephrite will choose the
 next free device number in subchannel set 0, skipping to the next subchannel
 set if no more device numbers are free.
 
-QEMU places a device at the first free subchannel in the specified subchannel
+Nephrite places a device at the first free subchannel in the specified subchannel
 set. If a device is hotunplugged and later replugged, it may appear at a
 different subchannel. (This is similar to how z/VM works.)
 
@@ -43,7 +43,7 @@ Examples
   prior to this one), this will show up as ``0.0.0000`` under subchannel
   ``0.0.0000``.
 
-  The auto-assigned-properties in QEMU (as seen via e.g. ``info qtree``)
+  The auto-assigned-properties in Nephrite (as seen via e.g. ``info qtree``)
   would be ``dev_id = "fe.0.0000"`` and ``subch_id = "fe.0.0000"``.
 
 * a virtio-rng device in subchannel set ``0``::

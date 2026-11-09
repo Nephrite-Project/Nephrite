@@ -4,7 +4,7 @@
 UFS Emulation
 =============
 
-QEMU emulates a Universal Flash Storage (UFS) host controller and the
+Nephrite emulates a Universal Flash Storage (UFS) host controller and the
 logical units behind it. The host controller follows the UFSHCI
 register interface and reports UFS version 4.1 to the guest.
 

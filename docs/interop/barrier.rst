@@ -1,7 +1,7 @@
 Barrier client protocol
 =======================
 
-QEMU's ``input-barrier`` device implements the client end of
+Nephrite's ``input-barrier`` device implements the client end of
 the KVM (Keyboard-Video-Mouse) software
 `Barrier <https://github.com/debauchee/barrier>`__.
 

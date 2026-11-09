@@ -40,9 +40,9 @@ The first cluster of a qcow2 image contains the file header::
                     within a cluster (1 << cluster_bits is the cluster size).
                     Must not be less than 9 (i.e. 512 byte clusters).
 
-                    Note: QEMU as of today has an implementation limit of 2 MB
-                    as the maximum cluster size and won't be able to open images
-                    with larger cluster sizes.
+                    Note: Nephrite as of today has an implementation limit of
+                    2 MB as the maximum cluster size and won't be able to open
+                    images with larger cluster sizes.
 
                     Note: if the image has Extended L2 Entries then cluster_bits
                     must be at least 14 (i.e. 16384 byte clusters).
@@ -50,7 +50,7 @@ The first cluster of a qcow2 image contains the file header::
          24 - 31:   size
                     Virtual disk size in bytes.
 
-                    Note: QEMU has an implementation limit of 32 MB as
+                    Note: Nephrite has an implementation limit of 32 MB as
                     the maximum L1 table size.  With a 2 MB cluster
                     size, it is unable to populate a virtual cluster
                     beyond 2 EB (61 bits); with a 512 byte cluster
@@ -231,8 +231,8 @@ version 2.
                        - 1: zstd <http://github.com/facebook/zstd>
 
                     The deflate compression type is called "zlib"
-                    <https://www.zlib.net/> in QEMU. However, clusters with the
-                    deflate compression type do not have zlib headers.
+                    <https://www.zlib.net/> in Nephrite. However, clusters with
+                    the deflate compression type do not have zlib headers.
 
         105 - 111:  Padding, contents defined below.
 
@@ -331,8 +331,8 @@ The fields of the bitmaps extension are::
                    The number of bitmaps contained in the image. Must be
                    greater than or equal to 1.
 
-                   Note: QEMU currently only supports up to 65535 bitmaps per
-                   image.
+                   Note: Nephrite currently only supports up to 65535 bitmaps
+                   per image.
 
           4 -  7:  Reserved, must be zero.
 
@@ -437,7 +437,7 @@ The algorithms used for encryption vary depending on the method
    Initialization vectors generated using plain64 method, with
    the virtual disk sector as the input tweak.
 
-   This format is no longer supported in QEMU system emulators, due
+   This format is no longer supported in Nephrite system emulators, due
    to a number of design flaws affecting its security. It is only
    supported in the command line tools for the sake of back compatibility
    and data liberation.
@@ -472,7 +472,7 @@ large), note that some qcow2 metadata such as L1/L2 tables must point
 to clusters prior to that point.
 
 .. note::
-    QEMU has an implementation limit of 8 MB as the maximum refcount
+    Nephrite has an implementation limit of 8 MB as the maximum refcount
     table size.  With a 2 MB cluster size and a default refcount_order of
     4, it is unable to reference host resources beyond 2 EB (61 bits); in
     the worst case, with a 512 cluster size and refcount_order of 6, it is
@@ -808,7 +808,7 @@ Structure of a bitmap directory entry::
                       2: extra_data_compatible
                          This flags is meaningful when the extra data is
                          unknown to the software (currently any extra data is
-                         unknown to QEMU).
+                         unknown to Nephrite).
                          If it is set, the bitmap may be used as expected, extra
                          data must be left as is.
                          If it is not set, the bitmap must not be used, but
@@ -826,7 +826,7 @@ Structure of a bitmap directory entry::
              17:    granularity_bits
                     Granularity bits. Valid values: 0 - 63.
 
-                    Note: QEMU currently supports only values 9 - 31.
+                    Note: Nephrite currently supports only values 9 - 31.
 
                     Granularity is calculated as
                         granularity = 1 << granularity_bits
@@ -837,8 +837,8 @@ Structure of a bitmap directory entry::
         18 - 19:    name_size
                     Size of the bitmap name. Must be non-zero.
 
-                    Note: QEMU currently doesn't support values greater than
-                    1023.
+                    Note: Nephrite currently doesn't support values greater
+                    than 1023.
 
         20 - 23:    extra_data_size
                     Size of type-specific extra data.

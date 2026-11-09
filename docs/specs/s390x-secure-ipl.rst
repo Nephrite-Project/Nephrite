@@ -8,7 +8,7 @@ leverage qcrypto libraries and z/Architecture emulation to verify the
 integrity of signed kernels. The qcrypto libraries are used to perform
 certificate validation and signature-verification, whereas the
 z/Architecture emulation is used to ensure secure IPL data has not
-been tampered with, convey data between QEMU and guest code, and set up
+been tampered with, convey data between Nephrite and guest code, and set up
 the relevant secure IPL data structures with verification results.
 
 To find out more about using this feature, see
@@ -17,13 +17,13 @@ To find out more about using this feature, see
 Note that "guest code" will refer to the s390-ccw BIOS unless stated
 otherwise.
 
-Both QEMU and guest code work in cooperation to perform secure IPL. The Secure
+Both Nephrite and guest code work in cooperation to perform secure IPL. The Secure
 Code Loading Attributes Facility (SCLAF) is used to check the Secure Code
 Loading Attribute Block (SCLAB) and ensure that secure IPL data has not
 been tampered with. DIAGNOSE 'X'320' is invoked by guest code to query
-the certificate store info and retrieve specific certificates from QEMU.
+the certificate store info and retrieve specific certificates from Nephrite.
 DIAGNOSE 'X'508' is used by guest code to leverage qcrypto libraries to
-perform signature-verification in QEMU. Lastly, guest code generates and
+perform signature-verification in Nephrite. Lastly, guest code generates and
 appends an IPL Information Report Block (IIRB) at the end of the IPL
 Parameter Block (IPLB), which is used by the kernel to store signed and
 verified entries.
@@ -33,12 +33,12 @@ The logical steps are as follows:
 - guest code reads data payload from disk (e.g. stage3 boot loader, kernel)
 - guest code checks the validity of the SCLAB
 - guest code invokes DIAG 508 subcode 1 and provides the payload
-- QEMU handles DIAG 508 request by reading the payload and retrieving the
+- Nephrite handles DIAG 508 request by reading the payload and retrieving the
   certificate store
-- QEMU DIAG 508 utilizes handler qcrypto libraries to perform
+- Nephrite DIAG 508 utilizes handler qcrypto libraries to perform
   signature-verification on the payload, attempting with each cert in the store
   (until success or exhausted)
-- QEMU DIAG 508 returns:
+- Nephrite DIAG 508 returns:
 
   - success: index of cert used to verify payload
   - failure: error code
@@ -135,7 +135,7 @@ signature verification for secure IPL.
 
 If the function code specifies 0x508, IPL extension functions are performed.
 These functions are meant to provide extended functionality for s390 guest boot
-that requires assistance from QEMU.
+that requires assistance from Nephrite.
 
 Subcode 0 - query installed subcodes
     Returns a 64-bit mask indicating which subcodes are supported.

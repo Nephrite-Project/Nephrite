@@ -4,7 +4,7 @@
 igb
 ---
 
-igb is a family of Intel's gigabit ethernet controllers. In QEMU, 82576
+igb is a family of Intel's gigabit ethernet controllers. In Nephrite, 82576
 emulation is implemented in particular. Its datasheet is available at [1]_.
 
 This implementation is expected to be useful to test SR-IOV networking without
@@ -43,7 +43,7 @@ As these devices are very similar, if you make a change for igb and the same
 change can be applied to e1000e and e1000, please do so.
 
 Please do not forget to run tests before submitting a change. As tests included
-in QEMU is very minimal, run some application which is likely to be affected by
+in Nephrite is very minimal, run some application which is likely to be affected by
 the change to confirm it works in an integrated system.
 
 Testing igb

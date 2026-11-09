@@ -35,20 +35,20 @@ Board to firmware interface
 
 ``sbsa-ref`` is a static system that reports a very minimal devicetree to the
 firmware for non-discoverable information about system components. This
-includes both internal hardware and parts affected by the qemu command line
+includes both internal hardware and parts affected by the Nephrite command line
 (i.e. CPUs and memory). As a result it must have a firmware specifically built
 to expect a certain hardware layout (as you would in a real machine).
 
 Note
 ''''
 
-QEMU provides the guest EL3 firmware with minimal information about hardware
+Nephrite provides the guest EL3 firmware with minimal information about hardware
 platform using minimalistic devicetree. This is not a Linux devicetree. It is
 not even a firmware devicetree.
 
-It is information passed from QEMU to describe the information a hardware
+It is information passed from Nephrite to describe the information a hardware
 platform would have other mechanisms to discover at runtime, that are affected
-by the QEMU command line.
+by the Nephrite command line.
 
 Ultimately this devicetree may be replaced by IPC calls to an emulated SCP.
 

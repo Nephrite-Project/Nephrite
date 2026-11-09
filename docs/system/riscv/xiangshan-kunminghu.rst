@@ -33,7 +33,7 @@ machine:
 
 .. code-block:: bash
 
-   $ qemu-system-riscv64 -machine xiangshan-kunminghu \
+   $ nephrite-system-riscv64 -machine xiangshan-kunminghu \
       -smp 16 -m 16G \
       -bios path/to/opensbi/platform/generic/firmware/fw_payload.bin \
       -nographic

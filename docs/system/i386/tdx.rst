@@ -65,11 +65,11 @@ attributes, XFAM and CPUIDs.
 TD attributes
 ~~~~~~~~~~~~~
 
-QEMU supports configuring raw 64-bit TD attributes directly via "attributes"
+Nephrite supports configuring raw 64-bit TD attributes directly via "attributes"
 property of "tdx-guest" object. Note, it's users' responsibility to provide a
-valid value because some bits may not supported by current QEMU or KVM yet.
+valid value because some bits may not supported by current Nephrite or KVM yet.
 
-QEMU also supports the configuration of individual attribute bits that are
+Nephrite also supports the configuration of individual attribute bits that are
 supported by it, via properties of "tdx-guest" object.
 E.g., "sept-ve-disable" (bit 28).
 
@@ -77,13 +77,13 @@ MSR based features
 ~~~~~~~~~~~~~~~~~~
 
 Current KVM doesn't support MSR based feature (e.g., MSR_IA32_ARCH_CAPABILITIES)
-configuration for TDX, and it's a future work to enable it in QEMU when KVM adds
+configuration for TDX, and it's a future work to enable it in Nephrite when KVM adds
 support of it.
 
 Feature check
 ~~~~~~~~~~~~~
 
-QEMU checks if the final (CPU) features, determined by given cpu model and
+Nephrite checks if the final (CPU) features, determined by given cpu model and
 explicit feature adjustment of "+featureA/-featureB", can be supported or not.
 It can produce feature not supported warning like
 
@@ -94,7 +94,7 @@ It can also produce warning like
   "warning: TDX forcibly sets the feature: CPUID.80000007H:EDX.invtsc [bit 8]"
 
 if the fixed-1 feature is requested to be disabled explicitly. This is newly
-added to QEMU for TDX because TDX has fixed-1 features that are forcibly enabled
+added to Nephrite for TDX because TDX has fixed-1 features that are forcibly enabled
 by TDX module and VMM cannot disable them.
 
 Launching a TD (TDX VM)
@@ -131,7 +131,7 @@ Debugging
 Bit 0 of TD attributes, is DEBUG bit, which decides if the TD runs in off-TD
 debug mode. When in off-TD debug mode, TD's VCPU state and private memory are
 accessible via given SEAMCALLs. This requires KVM to expose APIs to invoke those
-SEAMCALLs and corresonponding QEMU change.
+SEAMCALLs and corresonponding Nephrite change.
 
 It's targeted as future work.
 
@@ -145,7 +145,7 @@ TD attestation is initiated first by calling TDG.MR.REPORT inside TD to get the
 REPORT. Then the REPORT data needs to be converted into a remotely verifiable
 Quote by SGX Quoting Enclave (QE).
 
-It's a future work in QEMU to add support of TD attestation since it lacks
+It's a future work in Nephrite to add support of TD attestation since it lacks
 support in current KVM.
 
 Live Migration

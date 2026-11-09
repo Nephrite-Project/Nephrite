@@ -1,7 +1,7 @@
 Arm Versatile Express boards (``vexpress-a9``, ``vexpress-a15``)
 ================================================================
 
-QEMU models two variants of the Arm Versatile Express development
+Nephrite models two variants of the Arm Versatile Express development
 board family:
 
 - ``vexpress-a9`` models the combination of the Versatile Express
@@ -43,22 +43,22 @@ Unimplemented devices:
 - BP147 TrustZone Protection Controller
 - TrustZone Address Space Controller
 
-Other differences between the hardware and the QEMU model:
+Other differences between the hardware and the Nephrite model:
 
-- QEMU will default to creating one CPU unless you pass a different
+- Nephrite will default to creating one CPU unless you pass a different
   ``-smp`` argument
-- QEMU allows the amount of RAM provided to be specified with the
+- Nephrite allows the amount of RAM provided to be specified with the
   ``-m`` argument
-- QEMU defaults to providing a CPU which does not provide either
+- Nephrite defaults to providing a CPU which does not provide either
   TrustZone or the Virtualization Extensions: if you want these you
   must enable them with ``-machine secure=on`` and ``-machine
   virtualization=on``
-- QEMU provides 4 virtio-mmio virtio transports; these start at
+- Nephrite provides 4 virtio-mmio virtio transports; these start at
   address ``0x10013000`` for ``vexpress-a9`` and at ``0x1c130000`` for
   ``vexpress-a15``, and have IRQs from 40 upwards. If a dtb is
-  provided on the command line then QEMU will edit it to include
+  provided on the command line then Nephrite will edit it to include
   suitable entries describing these transports for the guest.
-- QEMU does not currently support either dynamic or static remapping
+- Nephrite does not currently support either dynamic or static remapping
   of the area of memory at address 0: it is always mapped to alias
   the first flash bank
 
@@ -83,7 +83,7 @@ DTB you could also add devices to the virtio-mmio bus.
 
 .. code-block:: bash
 
-  $ qemu-system-arm -cpu cortex-a15 -smp 4 -m 4096 \
+  $ nephrite-system-arm -cpu cortex-a15 -smp 4 -m 4096 \
       -machine type=vexpress-a15 -serial mon:stdio \
       -drive if=sd,driver=file,filename=armel-rootfs.ext4 \
       -kernel zImage  \

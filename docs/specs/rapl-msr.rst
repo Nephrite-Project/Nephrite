@@ -11,7 +11,7 @@ registers that represent the accumulated energy consumption in micro Joules.
 
 Thanks to KVM's `MSR filtering <msr-filter-patch_>`__ functionality,
 not all MSRs are handled by KVM. Some of them can now be handled by the
-userspace (QEMU); a list of MSRs is given at VM creation time to KVM, and
+userspace (Nephrite); a list of MSRs is given at VM creation time to KVM, and
 a userspace exit occurs when they are accessed.
 
 .. _msr-filter-patch: https://patchwork.kernel.org/project/kvm/patch/20200916202951.23760-7-graf@amazon.com/
@@ -48,20 +48,20 @@ vice-versa.
 High level implementation
 -------------------------
 
-In order to update the value of the virtual MSR, a QEMU thread is created.
+In order to update the value of the virtual MSR, a Nephrite thread is created.
 The thread is basically just an infinity loop that does:
 
-1. Snapshot of the time metrics of all QEMU threads (Time spent scheduled in
+1. Snapshot of the time metrics of all Nephrite threads (Time spent scheduled in
    Userspace and System)
 
 2. Snapshot of the actual MSR_PKG_ENERGY_STATUS counter of all packages where
-   the QEMU threads are running on.
+   the Nephrite threads are running on.
 
 3. Sleep for 1 second - During this pause the vcpu and other non-vcpu threads
    will do what they have to do and so the energy counter will increase.
 
 4. Repeat 2. and 3. and calculate the delta of every metrics representing the
-   time spent scheduled for each QEMU thread *and* the energy spent by the
+   time spent scheduled for each Nephrite thread *and* the energy spent by the
    packages during the pause.
 
 5. Filter the vcpu threads and the non-vcpu threads.
@@ -71,7 +71,7 @@ The thread is basically just an infinity loop that does:
 
 7. The total energy spent by the non-vcpu threads is divided by the number
    of vcpu threads so that each vcpu thread will get an equal part of the
-   energy spent by the QEMU workers.
+   energy spent by the Nephrite workers.
 
 8. Calculate the ratio of energy spent per vcpu threads.
 
@@ -116,23 +116,23 @@ Usage
 -----
 
 Currently this feature is only working on an Intel CPU that has the RAPL driver
-mounted and available in the sysfs. if not, QEMU fails at start-up.
+mounted and available in the sysfs. if not, Nephrite fails at start-up.
 
 This feature is activated with -accel
 kvm,rapl=true,rapl-helper-socket=/path/sock.sock
 
 It is important that the socket path is the same as the one
-:program:`qemu-vmsr-helper` is listening to.
+:program:`nephrite-vmsr-helper` is listening to.
 
-qemu-vmsr-helper
-----------------
+nephrite-vmsr-helper
+--------------------
 
-The qemu-vmsr-helper is working very much like the qemu-pr-helper. Instead of
-making persistent reservation, qemu-vmsr-helper is here to overcome the
+The nephrite-vmsr-helper is working very much like the nephrite-pr-helper. Instead of
+making persistent reservation, nephrite-vmsr-helper is here to overcome the
 CVE-2020-8694 which remove user access to the rapl msr attributes.
 
-A socket communication is established between QEMU processes that has the RAPL
-MSR support activated and the qemu-vmsr-helper. A systemd service and socket
+A socket communication is established between Nephrite processes that has the RAPL
+MSR support activated and the nephrite-vmsr-helper. A systemd service and socket
 activation is provided in contrib/systemd/nephrite-vmsr-helper.(service/socket).
 
 The systemd socket uses 600, like contrib/systemd/nephrite-pr-helper.socket. The
@@ -141,7 +141,7 @@ changed (e.g. 660 and root:kvm for a Debian system for example). Libvirt could
 also start a separate helper if needed. All in all, the policy is left to the
 user.
 
-See the qemu-pr-helper documentation or manpage for further details.
+See the nephrite-pr-helper documentation or manpage for further details.
 
 Current Limitations
 -------------------

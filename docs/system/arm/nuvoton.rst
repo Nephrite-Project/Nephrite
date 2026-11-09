@@ -26,7 +26,7 @@ Hyperscale applications. The following machines are based on this chip :
 
 There are also two more SoCs, NPCM710 and NPCM705, which are single-core
 variants of NPCM750 and NPCM730, respectively. These are currently not
-supported by QEMU.
+supported by Nephrite.
 
 The NPCM8xx SoC is the successor of the NPCM7xx SoC. It has 4 Cortex-A35 cores.
 The following machines are based on this chip :
@@ -95,17 +95,17 @@ Boot options
 
 The Nuvoton machines can boot from an OpenBMC firmware image, or directly into
 a kernel using the ``-kernel`` option. OpenBMC machine names do not always
-match QEMU machine names. Check the OpenBMC supported-machine list and Jenkins
+match Nephrite machine names. Check the OpenBMC supported-machine list and Jenkins
 for currently available source and pre-built images.
 
-Known OpenBMC (v2.18.0) target names for QEMU Nuvoton machines per:
+Known OpenBMC (v2.18.0) target names for Nephrite Nuvoton machines per:
 
    https://github.com/openbmc/openbmc/blob/2.18.0/meta-phosphor/docs/supported-machines.md
 
 .. list-table::
    :header-rows: 1
 
-   * - QEMU machine
+   * - Nephrite machine
      - OpenBMC machine
    * - ``npcm750-evb``
      - ``evb-npcm750``
@@ -119,13 +119,13 @@ Known OpenBMC (v2.18.0) target names for QEMU Nuvoton machines per:
      - ``mori``
 
 As of June 2026, the latest OpenBMC release, ``2.18.0``, no longer lists a
-``gsj`` machine. To build an image for QEMU's ``quanta-gsj`` machine, use an
+``gsj`` machine. To build an image for Nephrite's ``quanta-gsj`` machine, use an
 older OpenBMC release that still contains ``meta-quanta/meta-gsj``. The
 ``2.14.0`` release contains the ``gsj`` machine:
 
    https://github.com/openbmc/openbmc/tree/2.14.0/meta-quanta/meta-gsj
 
-Some pre-built OpenBMC images for QEMU Nuvoton machines may be available on
+Some pre-built OpenBMC images for Nephrite Nuvoton machines may be available on
 Jenkins:
 
    https://jenkins.openbmc.org/
@@ -144,7 +144,7 @@ The firmware image should be attached as an MTD drive. Example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -machine quanta-gbs-bmc -nographic \
+  $ nephrite-system-arm -machine quanta-gbs-bmc -nographic \
       -drive file=obmc-phosphor-image-gbs-xxxxxx.static.mtd,if=mtd,bus=0,unit=0,format=raw
 
 The default root password for test images is usually ``0penBmc``.

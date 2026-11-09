@@ -1,6 +1,6 @@
 
-QEMU Standard VGA
-=================
+Nephrite Standard VGA
+=====================
 
 Exists in two variants, for isa and pci.
 
@@ -83,11 +83,11 @@ Likewise applies to the pci variant only for obvious reasons.
   bochs dispi interface registers, mapped flat without index/data ports.
   Use ``(index << 1)`` as offset for (16bit) register access.
 ``0600 - 0607``
-  QEMU extended registers.  QEMU 2.2+ only.
+  Nephrite extended registers.  QEMU 2.2+ only.
   The pci revision is 2 (or greater) when these registers are present.
   The registers are 32bit.
 ``0600``
-  QEMU extended register region size, in bytes.
+  Nephrite extended register region size, in bytes.
 ``0604``
   framebuffer endianness register.
   - ``0xbebebebe`` indicates big endian.

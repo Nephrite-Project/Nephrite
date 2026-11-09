@@ -13,7 +13,7 @@ outside the BQL.
 
 The main loop and ``IOThread``\ s
 ---------------------------------
-QEMU is an event-driven program that can do several things at once using an
+Nephrite is an event-driven program that can do several things at once using an
 event loop.  The VNC server and the QMP monitor are both processed from the
 same event loop, which monitors their file descriptors until they become
 readable and then invokes a callback.
@@ -35,8 +35,8 @@ can improve I/O latency and reduce jitter seen by the guest.
 
 The main loop is also deeply associated with the BQL, which is a
 scalability bottleneck in itself.  vCPU threads and the main loop use the BQL
-to serialize execution of QEMU code.  This mutex is necessary because a lot of
-QEMU's code historically was not thread-safe.
+to serialize execution of Nephrite code.  This mutex is necessary because a lot of
+Nephrite's code historically was not thread-safe.
 
 The fact that all I/O processing is done in a single main loop and that the
 BQL is contended by all vCPU threads and the main loop explain
@@ -111,8 +111,8 @@ The main loop thread can wait synchronously for a condition using
 
 ``AioContext`` and the block layer
 ----------------------------------
-The ``AioContext`` originates from the QEMU block layer, even though nowadays
-``AioContext`` is a generic event loop that can be used by any QEMU subsystem.
+The ``AioContext`` originates from the Nephrite block layer, even though nowadays
+``AioContext`` is a generic event loop that can be used by any Nephrite subsystem.
 
 The block layer has support for ``AioContext`` integrated.  Each
 ``BlockDriverState`` is associated with an ``AioContext`` using

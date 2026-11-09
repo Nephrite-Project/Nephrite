@@ -9,7 +9,7 @@ TCG Instruction Counting
 
 TCG has long supported a feature known as icount which allows for
 instruction counting during execution. This should not be confused
-with cycle accurate emulation - QEMU does not attempt to emulate how
+with cycle accurate emulation - Nephrite does not attempt to emulate how
 long an instruction would take on real hardware. That is a job for
 other more detailed (and slower) tools that simulate the rest of a
 micro-architecture.
@@ -19,13 +19,13 @@ incompatible with multi-threaded TCG. It can be used to better align
 execution time with wall-clock time so a "slow" device doesn't run too
 fast on modern hardware. It can also provides for a degree of
 deterministic execution and is an essential part of the record/replay
-support in QEMU.
+support in Nephrite.
 
 Core Concepts
 =============
 
 At its heart icount is simply a count of executed instructions which
-is stored in the TimersState of QEMU's timer sub-system. The number of
+is stored in the TimersState of Nephrite's timer sub-system. The number of
 executed instructions can then be used to calculate QEMU_CLOCK_VIRTUAL
 which represents the amount of elapsed time in the system since
 execution started. Depending on the icount mode this may either be a

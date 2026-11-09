@@ -1,22 +1,22 @@
-====================================================
-QEMU/Guest Firmware Interface for AMD SEV and SEV-ES
-====================================================
+========================================================
+Nephrite/Guest Firmware Interface for AMD SEV and SEV-ES
+========================================================
 
 Overview
 ========
 
 The guest firmware image (OVMF) may contain some configuration entries
-which are used by QEMU before the guest launches.  These are listed in a
-GUIDed table at a known location in the firmware image.  QEMU parses
-this table when it loads the firmware image into memory, and then QEMU
+which are used by Nephrite before the guest launches.  These are listed in a
+GUIDed table at a known location in the firmware image.  Nephrite parses
+this table when it loads the firmware image into memory, and then Nephrite
 reads individual entries when their values are needed.
 
 Though nothing in the table structure is SEV-specific, currently all the
 entries in the table are related to SEV and SEV-ES features.
 
 
-Table parsing in QEMU
----------------------
+Table parsing in Nephrite
+-------------------------
 
 The table is parsed from the footer: first the presence of the table
 footer GUID (96b582de-1fb2-45f7-baea-a366c55a082d) at 0xffffffd0 is
@@ -25,7 +25,7 @@ table length.
 
 Then the table is scanned backwards looking for the specific entry GUID.
 
-QEMU files related to parsing and scanning the OVMF table:
+Nephrite files related to parsing and scanning the OVMF table:
  - ``hw/i386/pc_sysfw_ovmf.c``
 
 The edk2 firmware code that constructs this structure is in the

@@ -1,12 +1,12 @@
 Prep machine (``40p``)
 ==================================================================
 
-Use the executable ``qemu-system-ppc`` to simulate a complete 40P (PREP)
+Use the executable ``nephrite-system-ppc`` to simulate a complete 40P (PREP)
 
 Supported devices
 -----------------
 
-QEMU emulates the following 40P (PREP) peripherals:
+Nephrite emulates the following 40P (PREP) peripherals:
 
  *  PCI Bridge
  *  PCI VGA compatible card with VESA Bochs Extensions

@@ -10,7 +10,7 @@
 Record/replay
 =============
 
-Record/replay functions are used for the deterministic replay of qemu execution.
+Record/replay functions are used for the deterministic replay of Nephrite execution.
 Execution recording writes a non-deterministic events log, which can be later
 used for replaying the execution anywhere and for unlimited number of times.
 It also supports checkpointing for faster rewind to the specific replay moment.
@@ -60,7 +60,7 @@ Usage of the record/replay:
    This behavior is enabled by using blkreplay driver. It should be used
    for every enabled block device, as described in :ref:`block-label` section.
  * ``-net none`` option should be specified when network is not used,
-   because QEMU adds network card by default. When network is needed,
+   because Nephrite adds network card by default. When network is needed,
    it should be configured explicitly with replay filter, as described
    in :ref:`network-label` section.
  * Interaction with audio devices and serial ports are recorded and replayed
@@ -86,7 +86,7 @@ initial state.
 Instruction counting
 --------------------
 
-QEMU should work in icount mode to use record/replay feature. icount was
+Nephrite should work in icount mode to use record/replay feature. icount was
 designed to allow deterministic execution in absence of external inputs
 of the virtual machine. Record/replay feature is enabled through ``-icount``
 command-line option, making possible deterministic execution of the machine,
@@ -138,7 +138,7 @@ in the overlay (or original image) instead of using the temporary overlay.
     -drive driver=blkreplay,if=none,image=img-direct,id=img-blkreplay
     -device ide-hd,drive=img-blkreplay
 
-Use QEMU monitor to create additional snapshots. ``savevm <name>`` command
+Use Nephrite monitor to create additional snapshots. ``savevm <name>`` command
 created the snapshot and ``loadvm <name>`` restores it. To prevent corruption
 of the original disk image, use overlay files linked to the original images.
 Therefore all new snapshots (including the starting one) will be saved in
@@ -199,7 +199,7 @@ GDB remote protocol supports "reverse step" and "reverse continue"
 commands. The first one steps single instruction backwards in time,
 and the second one finds the last breakpoint in the past.
 
-Recorded executions may be used to enable reverse debugging. QEMU can't
+Recorded executions may be used to enable reverse debugging. Nephrite can't
 execute the code in backwards direction, but can load a snapshot and
 replay forward to find the desired position or breakpoint.
 

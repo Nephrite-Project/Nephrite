@@ -16,7 +16,7 @@ implemented on top of QMP.  The typical HMP command wraps around an
 equivalent QMP command, but HMP convenience commands built from QMP
 building blocks are also fine.  The long term goal is to make all
 existing HMP commands conform to this, to fully isolate HMP from the
-internals of QEMU. Refer to the `Writing a debugging aid returning
+internals of Nephrite. Refer to the `Writing a debugging aid returning
 unstructured text`_ section for further guidance on commands that
 would have traditionally been HMP only.
 
@@ -30,7 +30,7 @@ new QMP command.
    schema module.
 
 2. Write the QMP command itself, which is a regular C function. Preferably,
-   the command should be exported by some QEMU subsystem. But it can also be
+   the command should be exported by some Nephrite subsystem. But it can also be
    added to the monitor/qmp-cmds.c file
 
 3. At this point the command can be tested under the QMP protocol
@@ -49,9 +49,9 @@ Testing
 For all the examples in the next sections, the test setup is the same and is
 shown here.
 
-First, QEMU should be started like this::
+First, Nephrite should be started like this::
 
- # qemu-system-TARGET [...] \
+ # nephrite-system-TARGET [...] \
      -chardev socket,id=chrqmp0,port=4444,host=localhost,server=on \
      -object monitor-qmp,chardev=chrqmp0,pretty=on,id=qmp0
 
@@ -98,7 +98,7 @@ Writing a simple command: hello-world
 -------------------------------------
 
 That's the most simple QMP command that can be written. Usually, this kind of
-command carries some meaningful action in QEMU but here it will just print
+command carries some meaningful action in Nephrite but here it will just print
 "Hello, world" to the standard output.
 
 Our command will be called "hello-world". It takes no arguments, nor does it
@@ -120,7 +120,7 @@ generate any prototypes and the necessary code to marshal and unmarshal
 protocol data.
 
 The next step is to write the "hello-world" implementation. As explained
-earlier, it's preferable for commands to live in QEMU subsystems. But
+earlier, it's preferable for commands to live in Nephrite subsystems. But
 "hello-world" doesn't pertain to any, so we put its implementation in
 monitor/qmp-cmds.c::
 
@@ -141,12 +141,12 @@ There are a few things to be noticed:
 5. Printing to the terminal is discouraged for QMP commands, we do it here
    because it's the easiest way to demonstrate a QMP command
 
-You're done. Now build QEMU, run it as suggested in the "Testing" section,
+You're done. Now build Nephrite, run it as suggested in the "Testing" section,
 and then type the following QMP command::
 
  { "execute": "hello-world" }
 
-Then check the terminal running QEMU and look for the "Hello, world" string. If
+Then check the terminal running Nephrite and look for the "Hello, world" string. If
 you don't see it then something went wrong.
 
 
@@ -200,7 +200,7 @@ There are two important details to be noticed:
 2. The C implementation signature must follow the schema's argument ordering,
    which is defined by the "data" member
 
-Time to test our new version of the "hello-world" command. Build QEMU, run it as
+Time to test our new version of the "hello-world" command. Build Nephrite, run it as
 described in the "Testing" section and then send two commands::
 
  { "execute": "hello-world" }
@@ -209,13 +209,13 @@ described in the "Testing" section and then send two commands::
      }
  }
 
- { "execute": "hello-world", "arguments": { "message": "We love QEMU" } }
+ { "execute": "hello-world", "arguments": { "message": "We love Nephrite" } }
  {
      "return": {
      }
  }
 
-You should see "Hello, world" and "We love QEMU" in the terminal running QEMU,
+You should see "Hello, world" and "We love Nephrite" in the terminal running Nephrite,
 if you don't see these strings, then something went wrong.
 
 
@@ -245,7 +245,7 @@ The first argument to the error_setg() function is the Error pointer
 to pointer, which is passed to all QMP functions. The next argument is a human
 description of the error, this is a free-form printf-like string.
 
-Let's test the example above. Build QEMU, run it as defined in the "Testing"
+Let's test the example above. Build Nephrite, run it as defined in the "Testing"
 section, and then issue the following command::
 
  { "execute": "hello-world", "arguments": { "message": "all you need is love" } }
@@ -368,7 +368,7 @@ stable / liable to change in future and is not following QAPI design
 best practices. An example where this approach is taken is the QMP
 command "x-query-registers". This returns a formatted dump of the
 architecture specific CPU state. The way the data is formatted varies
-across QEMU targets, is liable to change over time, and is only
+across Nephrite targets, is liable to change over time, and is only
 intended to be consumed as an opaque string by machines. Refer to the
 `Writing a debugging aid returning unstructured text`_ section for
 an illustration.
@@ -461,7 +461,7 @@ There are a number of things to be noticed:
    member, it comes with a 'has_bootindex' member that needs to be set
    by the implementation, as shown above
 
-Time to test the new command. Build QEMU, run it as described in the "Testing"
+Time to test the new command. Build Nephrite, run it as described in the "Testing"
 section and try this::
 
  { "execute": "query-option-rom" }
@@ -530,7 +530,7 @@ option-roms" follows::
    Show the option ROMs.
  ERST
 
-To test this, run QEMU and type "info option-roms" in the user monitor.
+To test this, run Nephrite and type "info option-roms" in the user monitor.
 
 
 Writing a debugging aid returning unstructured text
@@ -540,7 +540,7 @@ As discussed in section `Modelling data in QAPI`_, it is required that
 commands expecting machine usage be using fine-grained QAPI data types.
 The exception to this rule applies when the command is solely intended
 as a debugging aid and allows for returning unstructured text, such as
-a query command that report aspects of QEMU's internal state that are
+a query command that report aspects of Nephrite's internal state that are
 useful only to human operators.
 
 In this example we will consider the existing QMP command

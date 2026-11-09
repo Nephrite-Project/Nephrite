@@ -4,20 +4,20 @@
 Migration framework
 ===================
 
-QEMU has code to load/save the state of the guest that it is running.
+Nephrite has code to load/save the state of the guest that it is running.
 These are two complementary operations.  Saving the state just does
 that, saves the state for each device that the guest is running.
 Restoring a guest is just the opposite operation: we need to load the
 state of each device.
 
-For this to work, QEMU has to be launched with the same arguments the
+For this to work, Nephrite has to be launched with the same arguments the
 two times.  I.e. it can only restore the state in one guest that has
 the same devices that the one it was saved (this last requirement can
 be relaxed a bit, but for now we can consider that configuration has
 to be exactly the same).
 
 Once that we are able to save/restore a guest, a new functionality is
-requested: migration.  This means that QEMU is able to start in one
+requested: migration.  This means that Nephrite is able to start in one
 machine and being "migrated" to another machine.  I.e. being moved to
 another machine.
 
@@ -42,15 +42,15 @@ over any transport.
 - unix migration: do the migration using unix sockets
 - exec migration: do the migration using the stdin/stdout through a process.
 - fd migration: do the migration using a file descriptor that is
-  passed to QEMU.  QEMU doesn't care how this file descriptor is opened.
-- file migration: do the migration using a file that is passed to QEMU
+  passed to Nephrite.  Nephrite doesn't care how this file descriptor is opened.
+- file migration: do the migration using a file that is passed to Nephrite
   by path. A file offset option is supported to allow a management
   application to add its own metadata to the start of the file without
-  QEMU interference. Note that QEMU does not flush cached file
+  Nephrite interference. Note that Nephrite does not flush cached file
   data/metadata at the end of migration.
 
   The file migration also supports using a file that has already been
-  opened. A set of file descriptors is passed to QEMU via an "fdset"
+  opened. A set of file descriptors is passed to Nephrite via an "fdset"
   (see add-fd QMP command documentation). This method allows a
   management application to have control over the migration file
   opening operation. There are, however, strict requirements to this
@@ -134,7 +134,7 @@ General advice for device developers
   higher levels of management, or failures of the destination host are
   not unusual, and in that case the VM is restarted on the source.
   Note that the management layer can validly revert the migration
-  even though the QEMU level of migration has succeeded as long as it
+  even though the Nephrite level of migration has succeeded as long as it
   does it before starting execution on the destination.
 
 - Buses and devices should be able to explicitly specify addresses when
@@ -233,9 +233,9 @@ When we migrate a device, we save/load the state as a series
 of fields.  Sometimes, due to bugs or new functionality, we need to
 change the state to store more/different information.  Changing the migration
 state saved for a device can break migration compatibility unless
-care is taken to use the appropriate techniques.  In general QEMU tries
+care is taken to use the appropriate techniques.  In general Nephrite tries
 to maintain forward migration compatibility (i.e. migrating from
-QEMU n->n+1) and there are users who benefit from backward compatibility
+Nephrite n->n+1) and there are users who benefit from backward compatibility
 as well.
 
 Subsections
@@ -254,8 +254,8 @@ side.
 On the receiving side, if we found a subsection for a device that we
 don't understand, we just fail the migration.  If we understand all
 the subsections, then we load the state with success.  There's no check
-that a subsection is loaded, so a newer QEMU that knows about a subsection
-can (with care) load a stream from an older QEMU that didn't send
+that a subsection is loaded, so a newer Nephrite that knows about a subsection
+can (with care) load a stream from an older Nephrite that didn't send
 the subsection.
 
 If the new data is only needed in a rare case, then the subsection
@@ -349,7 +349,7 @@ For example:
 
 Now that subsection will not be generated when using an older
 machine type and the migration stream will be accepted by older
-QEMU versions.
+Nephrite versions.
 
 Not sending existing elements
 -----------------------------
@@ -413,7 +413,7 @@ e.g.
 only loads that field for versions 2 and newer.
 
 Saving state will always create a section with the 'version_id' value
-and thus can't be loaded by any older QEMU.
+and thus can't be loaded by any older Nephrite.
 
 Massaging functions
 -------------------
@@ -421,7 +421,7 @@ Massaging functions
 Sometimes, it is not enough to be able to save the state directly
 from one structure, we need to fill the correct values there.  One
 example is when we are using kvm.  Before saving the cpu state, we
-need to ask kvm to copy to QEMU the state that it is using.  And the
+need to ask kvm to copy to Nephrite the state that it is using.  And the
 opposite when we are loading the state, we need a way to tell kvm to
 load the state for the cpu that we have just loaded from the QEMUFile.
 

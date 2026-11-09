@@ -6,7 +6,7 @@ NUMA in sPAPR works different than the System Locality Distance
 Information Table (SLIT) in ACPI. The logic is explained in the LOPAPR
 1.1 chapter 15, "Non Uniform Memory Access (NUMA) Option". This
 document aims to complement this specification, providing details
-of the elements that impacts how QEMU views NUMA in pseries.
+of the elements that impacts how Nephrite views NUMA in pseries.
 
 Associativity and ibm,associativity property
 --------------------------------------------
@@ -328,7 +328,7 @@ the guest:
 
 Note that this is not what the user wanted - the desired distance between
 0 and 3 is 40, we calculated it as 20. This is what the current logic and
-implementation constraints of the kernel and QEMU will provide inside the
+implementation constraints of the kernel and Nephrite will provide inside the
 LOPAPR specification.
 
 Users are welcome to use this knowledge and experiment with the input to get
@@ -340,7 +340,7 @@ Limitations of the implementation
 ---------------------------------
 
 As mentioned above, the pSeries NUMA distance logic is, in fact, a way to approximate
-user choice. The Linux kernel, and PAPR itself, does not provide QEMU with the ways
+user choice. The Linux kernel, and PAPR itself, does not provide Nephrite with the ways
 to fully map user input to actual NUMA distance the guest will use. These limitations
 creates two notable limitations in our support:
 
@@ -381,14 +381,14 @@ Legacy (5.1 and older) pseries NUMA mechanics
 =============================================
 
 In short, we can summarize the NUMA distances seem in pseries Linux guests, using
-QEMU up to 5.1, as follows:
+Nephrite up to 5.1, as follows:
 
 * local distance, i.e. the distance of the resource to its own NUMA node: 10
 * if it's a NVLink GPU device, distance: 80
 * every other resource, distance: 40
 
 The way the pseries Linux guest calculates NUMA distances has a direct effect
-on what QEMU users can expect when doing NUMA tuning. As of QEMU 5.1, this is
+on what Nephrite users can expect when doing NUMA tuning. As of QEMU 5.1, this is
 the default ibm,associativity-reference-points being used in the pseries
 machine:
 
@@ -406,5 +406,5 @@ as far as NUMA distance goes:
   to the same third NUMA level, having distance = 40
 * for NVLink GPUs, distance = 80 from everything else
 
-This also means that user input in QEMU command line does not change the
+This also means that user input in Nephrite command line does not change the
 NUMA distancing inside the guest for the pseries machine.

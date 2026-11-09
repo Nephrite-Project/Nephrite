@@ -1,15 +1,15 @@
-# QEMU documentation build configuration file, created by
+# Nephrite documentation build configuration file, created by
 # sphinx-quickstart on Thu Jan 31 16:40:14 2019.
 #
 # This config file can be used in one of two ways:
 # (1) as a common config file which is included by the conf.py
-# for each of QEMU's manuals: in this case sphinx-build is run multiple
+# for each of Nephrite's manuals: in this case sphinx-build is run multiple
 # times, once per subdirectory.
 # (2) as a top level conf file which will result in building all
 # the manuals into a single document: in this case sphinx-build is
 # run once, on the top-level docs directory.
 #
-# QEMU's makefiles take option (1), which allows us to install
+# Nephrite's makefiles take option (1), which allows us to install
 # only the ones the user cares about (in particular we don't want
 # to ship the 'devel' manual to end-users).
 # Third-party sites such as readthedocs.org will take option (2).
@@ -238,10 +238,8 @@ html_js_files = [
 ]
 
 html_context = {
-    "source_url_prefix": "https://gitlab.com/qemu-project/qemu/-/blob/master/docs/",
-    "gitlab_user": "qemu-project",
-    "gitlab_repo": "qemu",
-    "gitlab_version": "master",
+    "source_url_prefix":
+        "https://github.com/Nephrite-Project/Nephrite/blob/trunk/docs/",
     "conf_py_path": "/docs/", # Path in the checkout to the docs root
 }
 
@@ -256,7 +254,7 @@ html_copy_source = False
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'QEMUdoc'
+htmlhelp_basename = 'Nephritedoc'
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -283,8 +281,9 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'QEMU.tex', u'QEMU Documentation',
-     u'The QEMU Project Developers', 'manual'),
+    (master_doc, 'Nephrite.tex', u'Nephrite Documentation',
+     u'The QEMU Project Developers and the Nephrite Project Developers',
+     'manual'),
 ]
 
 

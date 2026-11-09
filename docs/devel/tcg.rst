@@ -4,17 +4,17 @@
 Translator Internals
 ====================
 
-QEMU is a dynamic translator. When it first encounters a piece of code,
+Nephrite is a dynamic translator. When it first encounters a piece of code,
 it converts it to the host instruction set. Usually dynamic translators
-are very complicated and highly CPU dependent. QEMU uses some tricks
+are very complicated and highly CPU dependent. Nephrite uses some tricks
 which make it relatively easily portable and simple while achieving good
 performances.
 
-QEMU's dynamic translation backend is called TCG, for "Tiny Code
+Nephrite's dynamic translation backend is called TCG, for "Tiny Code
 Generator". For more information, please take a look at :ref:`tcg-ops-ref`.
 
 The following sections outline some notable features and implementation
-details of QEMU's dynamic translator.
+details of Nephrite's dynamic translator.
 
 CPU state optimisations
 -----------------------
@@ -33,15 +33,15 @@ generate an addition for the segment base.
 Direct block chaining
 ---------------------
 
-After each translated basic block is executed, QEMU uses the simulated
+After each translated basic block is executed, Nephrite uses the simulated
 Program Counter (PC) and other CPU state information (such as the CS
 segment base value) to find the next basic block.
 
 In its simplest, less optimized form, this is done by exiting from the
 current TB, going through the TB epilogue, and then back to the
-main loop. That’s where QEMU looks for the next TB to execute,
+main loop. That’s where Nephrite looks for the next TB to execute,
 translating it from the guest architecture if it isn’t already available
-in memory. Then QEMU proceeds to execute this next TB, starting at the
+in memory. Then Nephrite proceeds to execute this next TB, starting at the
 prologue and then moving on to the translated instructions.
 
 Exiting from the TB this way will cause the ``cpu_exec_interrupt()``
@@ -50,7 +50,7 @@ It is mandatory to exit this way after any CPU state changes that may
 unmask interrupts.
 
 In order to accelerate the cases where the TB for the new
-simulated PC is already available, QEMU has mechanisms that allow
+simulated PC is already available, Nephrite has mechanisms that allow
 multiple TBs to be chained directly, without having to go back to the
 main loop as described above. These mechanisms are:
 
@@ -134,7 +134,7 @@ is modified.
 User-mode emulation marks a host page as write-protected (if it is
 not already read-only) every time translated code is generated for a
 basic block.  Then, if a write access is done to the page, Linux raises
-a SEGV signal. QEMU then invalidates all the translated code in the page
+a SEGV signal. Nephrite then invalidates all the translated code in the page
 and enables write accesses to the page.  For system emulation, write
 protection is achieved through the software MMU.
 
@@ -144,7 +144,7 @@ linked lists are also maintained to undo direct block chaining.
 
 On RISC targets, correctly written software uses memory barriers and
 cache flushes, so some of the protection above would not be
-necessary. However, QEMU still requires that the generated code always
+necessary. However, Nephrite still requires that the generated code always
 matches the target instructions in memory in order to handle
 exceptions correctly.
 
@@ -155,7 +155,7 @@ longjmp() is used when an exception such as division by zero is
 encountered.
 
 The host SIGSEGV and SIGBUS signal handlers are used to get invalid
-memory accesses.  QEMU keeps a map from host program counter to
+memory accesses.  Nephrite keeps a map from host program counter to
 target program counter, and looks up where the exception happened
 based on the host program counter at the exception point.
 
@@ -170,13 +170,13 @@ looked up on exceptions.
 MMU emulation
 -------------
 
-For system emulation QEMU uses a software MMU. In that mode, the MMU
+For system emulation Nephrite uses a software MMU. In that mode, the MMU
 virtual to physical address translation is done at every memory
 access.
 
-QEMU uses an address translation cache (TLB) to speed up the translation.
+Nephrite uses an address translation cache (TLB) to speed up the translation.
 In order to avoid flushing the translated code each time the MMU
-mappings change, all caches in QEMU are physically indexed.  This
+mappings change, all caches in Nephrite are physically indexed.  This
 means that each basic block is indexed with its physical address.
 
 In order to avoid invalidating the basic block chain when MMU mappings
@@ -211,5 +211,5 @@ before the final report can be viewed.
   DEBUGINFOD_URLS= perf inject -j -i perf.data -o perf.data.jitted
   perf report -i perf.data.jitted
 
-Note that qemu-system generates mappings only for ``-kernel`` files in ELF
+Note that nephrite-system generates mappings only for ``-kernel`` files in ELF
 format.

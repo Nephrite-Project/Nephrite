@@ -94,7 +94,7 @@ a threshold.
 Usage
 -----
 
-1. Verify the destination QEMU version is able to decode the new format::
+1. Verify the destination Nephrite version is able to decode the new format::
 
     (nephrite) info migrate_capabilities
     xbzrle: off

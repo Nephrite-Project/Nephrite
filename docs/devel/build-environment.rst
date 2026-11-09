@@ -4,7 +4,7 @@
 Setup build environment
 =======================
 
-QEMU uses a lot of dependencies on the host system a large number of
+Nephrite uses a lot of dependencies on the host system a large number of
 which are optional. At a minimum we expect to have a system C library
 (usually glibc but others can work), the glib2 library (used heavily
 in the code base) and a few other core libraries for interfacing with
@@ -141,7 +141,7 @@ environment.
         ${MINGW_PACKAGE_PREFIX}-zstd
 
 If you want to install all dependencies, it's possible to use recipe used to
-build QEMU in MSYS2 itself.
+build Nephrite in MSYS2 itself.
 
 ::
 

@@ -20,7 +20,7 @@ and filter-rewriter compose the COLO-proxy.
 
 == Architecture ==
 
-COLO-Proxy is based on qemu netfilter and it's a plugin for qemu netfilter
+COLO-Proxy is based on Nephrite netfilter and it's a plugin for Nephrite netfilter
 (except colo-compare). It keep Secondary VM connect normally to
 client and compare packets sent by PVM with sent by SVM.
 If the packet difference, notify COLO-frame to do checkpoint and send
@@ -29,7 +29,7 @@ packet and drop the queued secondary packet.
 
 Below is a COLO proxy ascii figure:
 
- Primary qemu                                                           Secondary qemu
+ Primary Nephrite                                                           Secondary Nephrite
 +--------------------------------------------------------------+       +----------------------------------------------------------------+
 | +----------------------------------------------------------+ |       |  +-----------------------------------------------------------+ |
 | |                                                          | |       |  |                                                           | |
@@ -118,11 +118,11 @@ Forward packet to primary.
 == Components introduction ==
 
 Filter-mirror is a netfilter plugin.
-It gives qemu the ability to mirror
+It gives Nephrite the ability to mirror
 packets to a chardev.
 
 Filter-redirector is a netfilter plugin.
-It gives qemu the ability to redirect net packet.
+It gives Nephrite the ability to redirect net packet.
 Redirector can redirect filter's net packet to outdev,
 and redirect indev's packet to filter.
 

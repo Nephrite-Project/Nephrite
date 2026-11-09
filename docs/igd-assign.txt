@@ -45,7 +45,7 @@ For #6, ROM either provided via the ROM BAR or romfile= option is needed, this
 Intel document [1] shows how to dump VBIOS to file. For UEFI Option ROM, see
 "Guest firmware" section.
 
-QEMU also provides a "Legacy" mode that implicitly enables full functionality
+Nephrite also provides a "Legacy" mode that implicitly enables full functionality
 on IGD, it is automatically enabled when
 * IGD generation is 6 to 9 (Sandy Bridge to Comet Lake)
 * IGD claims VGA cycles on host (IGD is VGA controller on host)
@@ -53,13 +53,13 @@ on IGD, it is automatically enabled when
 * IGD is assigned to guest BDF 00:02.0
 * ROM BAR or romfile is present
 
-In "Legacy" mode, QEMU will automatically setup OpRegion, LPC bridge IDs and
+In "Legacy" mode, Nephrite will automatically setup OpRegion, LPC bridge IDs and
 VGA range access, which is equivalent to:
   x-igd-opregion=on,x-igd-lpc=on,x-vga=on
 
 By default, "Legacy" mode won't fail, it continues on error. User can set
 "x-igd-legacy-mode=on" to force enabling legacy mode, this also checks if the
-conditions above for legacy mode is met, and if any error occurs, QEMU will
+conditions above for legacy mode is met, and if any error occurs, Nephrite will
 fail immediately. Users can also set "x-igd-legacy-mode=off" to disable legacy
 mode.
 
@@ -231,7 +231,7 @@ not allowed, any access will immediately freeze the whole system. The only way
 to access it is through the second half of MMIO BAR0.
 
 The Data Stolen Memory is reserved by firmware, and acts as the VRAM in pre-OS
-environments. In QEMU, guest firmware (Seabios/OVMF) is responsible for
+environments. In Nephrite, guest firmware (Seabios/OVMF) is responsible for
 reserving a continuous region and program its base address to BDSM register,
 then let VBIOS/GOP driver initializing this region. Illustration below shows
 how DSM is mapped.
@@ -244,7 +244,7 @@ how DSM is mapped.
        |             |                | Data Stolen |         | Data Stolen |
        |             |                |   (Guest)   |         |   (Guest)   |
        |             |  +------------>+-------------+<------->+-------------+<--Guest BDSM
-       |             |  | Passthrough |             | EPT     |             |   Emulated by QEMU
+       |             |  | Passthrough |             | EPT     |             |   Emulated by Nephrite
 DSMSIZE+-------------+  | with IOMMU  |             | Mapping |             |   Programmed by guest FW
        |             |  |             |             |         |             |
        |             |  |             |             |         |             |

@@ -9,7 +9,7 @@ QTest Device Emulation Testing Framework
    qgraph
 
 QTest is a device emulation testing framework.  It can be very useful to test
-device models; it could also control certain aspects of QEMU (such as virtual
+device models; it could also control certain aspects of Nephrite (such as virtual
 clock stepping), with a special purpose "qtest" protocol.  Refer to
 :ref:`qtest-protocol` for more details of the protocol.
 
@@ -31,7 +31,7 @@ encapsulate common tasks of device drivers, such as memory management and
 communicating with system buses or devices. Many virtual device tests use
 libqos instead of directly calling into libqtest.
 Libqos also offers the Qgraph API to increase each test coverage and
-automate QEMU command line arguments and devices setup.
+automate Nephrite command line arguments and devices setup.
 Refer to :ref:`qgraph` for Qgraph explanation and API.
 
 Steps to add a new QTest case are:
@@ -65,9 +65,9 @@ Steps to add a new QTest case are:
      }
 
 Debugging a QTest failure is slightly harder than the unit test because the
-tests look up QEMU program names in the environment variables, such as
+tests look up Nephrite program names in the environment variables, such as
 ``QTEST_QEMU_BINARY`` and ``QTEST_QEMU_IMG``, and also because it is not easy
-to attach gdb to the QEMU process spawned from the test. But manual invoking
+to attach gdb to the Nephrite process spawned from the test. But manual invoking
 and using gdb on the test is still simple to do: find out the actual command
 from the output of
 
@@ -97,26 +97,26 @@ QTest valid environment variables
 ---------------------------------
 
 A few environment variables are used to point QTest at artifacts to be
-used in the tests, mostly QEMU binaries or to control the behavior of
+used in the tests, mostly Nephrite binaries or to control the behavior of
 the tests. Environment variables are set automatically by the build
 system, but it can be useful to alter them when running tests
 manually. The following are the environment variables recognized by
 QTest, not including test-specific ones:
 
 ``QTEST_QEMU_BINARY``
-    The QEMU binary itself (generally a ``qemu-system-<arch>`` binary).
+    The Nephrite binary itself (generally a ``nephrite-system-<arch>`` binary).
 
 ``QTEST_QEMU_ARGS``
-    Extra arguments for the QEMU command line.
+    Extra arguments for the Nephrite command line.
 
 ``QTEST_QEMU_IMG``
-    The ``qemu-img`` binary.
+    The ``nephrite-img`` binary.
 
 ``QTEST_QEMU_STORAGE_DAEMON_BINARY``
-    The ``qemu-storage-daemon`` binary.
+    The ``nephrite-storage-daemon`` binary.
 
 ``QTEST_STOP``
-    Instruct QTest to stop the QEMU process with SIGSTOP before continuing
+    Instruct QTest to stop the Nephrite process with SIGSTOP before continuing
     execution.
 
 ``QTEST_LOG``

@@ -3,25 +3,25 @@
 Supported build platforms
 =========================
 
-QEMU aims to support building and executing on multiple host OS
+Nephrite aims to support building and executing on multiple host OS
 platforms. This appendix outlines which platforms are the major build
 targets. These platforms are used as the basis for deciding upon the
-minimum required versions of 3rd party software QEMU depends on. The
+minimum required versions of 3rd party software Nephrite depends on. The
 supported platforms are the targets for automated testing performed by
 the project when patches are submitted for review, and tested before and
 after merge.
 
-If a platform is not listed here, it does not imply that QEMU won't
+If a platform is not listed here, it does not imply that Nephrite won't
 work. If an unlisted platform has comparable software versions to a
 listed platform, there is every expectation that it will work. Bug
 reports are welcome for problems encountered on unlisted platforms
 unless they are clearly older vintage than what is described here.
 
 Note that when considering software versions shipped in distros as
-support targets, QEMU considers only the version number, and assumes the
+support targets, Nephrite considers only the version number, and assumes the
 features in that distro match the upstream release with the same
 version. In other words, if a distro backports extra features to the
-software in their distro, QEMU upstream code will not add explicit
+software in their distro, Nephrite will not add explicit
 support for those backports, unless the feature is auto-detectable in a
 manner that works for the upstream releases too.
 
@@ -55,10 +55,10 @@ Those hosts are officially supported, with various accelerators:
    * - x86
      - hvf, mshv, kvm, nvmm, tcg, whpx, xen
 
-Other host architectures are not supported. It is possible to build QEMU system
+Other host architectures are not supported. It is possible to build Nephrite system
 emulation on an unsupported host architecture using the configure
 ``--enable-tcg-interpreter`` option to enable the TCI support, but note that
-this is very slow and is not recommended for normal use. QEMU user emulation
+this is very slow and is not recommended for normal use. Nephrite user emulation
 requires host-specific support for signal handling, therefore TCI won't help
 on unsupported host architectures.
 
@@ -92,31 +92,31 @@ Some build dependencies may follow less conservative rules:
 
 Python runtime
   Distributions with long-term support often provide multiple versions
-  of the Python runtime.  While QEMU will initially aim to support the
+  of the Python runtime.  While Nephrite will initially aim to support the
   distribution's default runtime, it may later increase its minimum version
   to any newer python that is available as an option from the vendor.
   In this case, it will be necessary to use the ``--python`` command line
-  option of the ``configure`` script to point QEMU to a supported
+  option of the ``configure`` script to point Nephrite to a supported
   version of the Python runtime.
 
   As of Nephrite |version|, the minimum supported version of Python is 3.9.
 
 Python build dependencies
-  Some of QEMU's build dependencies are written in Python.  Usually these
+  Some of Nephrite's build dependencies are written in Python.  Usually these
   are only packaged by distributions for the default Python runtime.
-  If QEMU bumps its minimum Python version and a non-default runtime is
+  If Nephrite bumps its minimum Python version and a non-default runtime is
   required, it may be necessary to fetch python modules from the Python
-  Package Index (PyPI) via ``pip``, in order to build QEMU.
+  Package Index (PyPI) via ``pip``, in order to build Nephrite.
 
 Rust build dependencies
-  QEMU is generally conservative in adding new Rust dependencies, and all
+  Nephrite is generally conservative in adding new Rust dependencies, and all
   of them are included in the distributed tarballs.  One exception is the
   bindgen tool, which is too big to package and distribute.  The minimum
   supported version of bindgen is 0.60.x.  For distributions that do not
   include bindgen or have an older version, it is recommended to install
   a newer version using ``cargo install --locked bindgen-cli``.
 
-  QEMU requires Rust 1.83.0.  This is available on all supported platforms
+  Nephrite requires Rust 1.83.0.  This is available on all supported platforms
   except for the ``mips64el`` architecture on Debian bookworm.  For all other
   architectures, Debian bookworm provides a new-enough Rust compiler
   in the ``rustc-web`` package.
@@ -127,15 +127,15 @@ Rust build dependencies
   the configure script.
 
   Some distros prefer to avoid vendored crate sources, and instead use
-  local sources from e.g. ``/usr/share/cargo/registry``.  QEMU includes a
+  local sources from e.g. ``/usr/share/cargo/registry``.  Nephrite includes a
   script, ``scripts/update-cargo-wraps.py``, that automatically
   performs this task.  The script is meant to be invoked after unpacking
-  the QEMU tarball.  QEMU also includes ``rust/Cargo.toml`` and
-  ``rust/Cargo.lock`` files that can be used to compute QEMU's build
+  the Nephrite tarball.  Nephrite also includes ``rust/Cargo.toml`` and
+  ``rust/Cargo.lock`` files that can be used to compute Nephrite's build
   dependencies, e.g. using ``cargo2rpm -p rust/Cargo.toml buildrequires``.
 
 Optional build dependencies
-  Build components whose absence does not affect the ability to build QEMU
+  Build components whose absence does not affect the ability to build Nephrite
   may not be available in distros, or may be too old for our requirements.
   Many of these, such as additional modules for the functional testing
   framework or various linters, are written in Python and therefore can
@@ -143,22 +143,22 @@ Optional build dependencies
   of optional build-time dependency; in this case it is possible to
   download them from repositories such as EPEL, to use container-based
   cross compilation using ``docker`` or ``podman``, or to use pre-built
-  binaries distributed with QEMU.
+  binaries distributed with Nephrite.
 
 Windows
 -------
 
 The project aims to support the two most recent versions of Windows that are
 still supported by the vendor. The minimum Windows API that is currently
-targeted is "Windows 8", so theoretically the QEMU binaries can still be run
+targeted is "Windows 8", so theoretically the Nephrite binaries can still be run
 on older versions of Windows, too. However, such old versions of Windows are
 not tested anymore, so it is recommended to use one of the latest versions of
 Windows instead.
 
-The project supports building QEMU with current versions of the MinGW
+The project supports building Nephrite with current versions of the MinGW
 toolchain, either hosted on Linux (Debian/Fedora) or via `MSYS2`_ on Windows.
 A more recent Windows version is always preferred as it is less likely to have
-problems with building via MSYS2. The building process of QEMU involves some
+problems with building via MSYS2. The building process of Nephrite involves some
 Python scripts that call os.symlink() which needs special attention for the
 build process to successfully complete. On newer versions of Windows 10,
 unprivileged accounts can create symlinks if Developer Mode is enabled.

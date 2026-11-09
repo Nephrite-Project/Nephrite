@@ -150,11 +150,11 @@ object created using "-object".
 ''''''''''''''''''''''''''''''''''''''''''''''
 
 If guest RAM allocation from file pointed by ``mem-path`` failed,
-QEMU was falling back to allocating from RAM, which might have resulted
+Nephrite was falling back to allocating from RAM, which might have resulted
 in unpredictable behavior since the backing file specified by the user
 as ignored. Currently, users are responsible for making sure the backing storage
 specified with ``-mem-path`` can actually provide the guest RAM configured with
-``-m`` and QEMU fails to start up if RAM allocation is unsuccessful.
+``-m`` and Nephrite fails to start up if RAM allocation is unsuccessful.
 
 ``-net ...,name=...`` (removed in 5.1)
 ''''''''''''''''''''''''''''''''''''''
@@ -190,7 +190,7 @@ option is supported by looking at MachineInfo::numa-mem-supported property.
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Splitting RAM by default between NUMA nodes had the same issues as ``mem``
-parameter with the difference that the role of the user plays QEMU using
+parameter with the difference that the role of the user plays Nephrite using
 implicit generic or board specific splitting rule.
 Use ``memdev`` with *memory-backend-ram* backend or ``mem`` (if
 it's supported by used machine type) to define mapping explicitly instead.
@@ -206,7 +206,7 @@ device memory from output of ``info numa``.
 CPU topology properties should describe whole machine topology including
 possible CPUs.
 
-However, historically it was possible to start QEMU with an incorrect topology
+However, historically it was possible to start Nephrite with an incorrect topology
 where *n* <= *sockets* * *cores* * *threads* < *maxcpus*,
 which could lead to an incorrect topology enumeration by the guest.
 Support for invalid topologies is removed, the user must ensure
@@ -342,7 +342,7 @@ should be used instead.
 This option restricted usage of certain cryptographic algorithms when
 the host is operating in FIPS mode.
 
-If FIPS compliance is required, QEMU should be built with the ``libgcrypt``
+If FIPS compliance is required, Nephrite should be built with the ``libgcrypt``
 or ``gnutls`` library enabled as a cryptography provider.
 
 Neither the ``nettle`` library, or the built-in cryptography provider are
@@ -352,7 +352,7 @@ supported on FIPS enabled hosts.
 '''''''''''''''''''''''''''''''''
 
 The ``-writeconfig`` option was not able to serialize the entire contents
-of the QEMU command line.  It is thus considered a failed experiment
+of the Nephrite command line.  It is thus considered a failed experiment
 and removed without a replacement.
 
 ``loaded`` property of secret and TLS credential objects (removed in 9.2)
@@ -453,8 +453,8 @@ that refer to it in an ``audiodev=`` property.
 
 In order to configure a default audio backend, use the ``-audio``
 command line option without specifying a ``model``; while previous
-versions of QEMU required a model, starting with version 8.2
-QEMU does not require a model and will not create any sound card
+versions of Nephrite required a model, starting with version 8.2
+Nephrite does not require a model and will not create any sound card
 in this case.
 
 Note that the default audio backend must be configured on the command
@@ -496,7 +496,7 @@ Specified CPU topology parameters must be greater than zero.
 
 In the SMP configuration, users should either provide a CPU topology
 parameter with a reasonable value (greater than zero) or just omit it
-and QEMU will compute the missing value.
+and Nephrite will compute the missing value.
 
 However, historically it was implicitly allowed for users to provide
 a parameter with zero value, which is meaningless and could also possibly
@@ -522,7 +522,7 @@ full SCSI support.  Use virtio-scsi instead when SCSI passthrough is required.
 
 The 9p ``proxy`` filesystem backend driver was originally developed to
 enhance security by dispatching low level filesystem operations from 9p
-server (QEMU process) over to a separate process (the virtfs-proxy-helper
+server (Nephrite process) over to a separate process (the virtfs-proxy-helper
 binary). However the proxy backend was much slower than the local backend,
 didn't see any development in years, and showed to be less secure,
 especially due to the fact that its helper daemon must be run as root.
@@ -569,14 +569,14 @@ command line and other information via the old ``param_struct`` ABI,
 rather than the newer ATAGS or DTB mechanisms. This option was only
 ever needed to support ancient kernels on some old board types
 like the ``akita`` or ``terrier``; it has been deprecated in the
-kernel since 2001. None of the board types QEMU supports need
+kernel since 2001. None of the board types Nephrite supports need
 ``param_struct`` support, so this option has been removed.
 
 32-bit host operating systems (removed in 11.0)
 '''''''''''''''''''''''''''''''''''''''''''''''
 
 Keeping 32-bit host support alive was a substantial burden for the
-QEMU project.  Thus QEMU dropped all support for all 32-bit host systems.
+QEMU project.  Thus Nephrite dropped all support for all 32-bit host systems.
 
 
 User-mode emulator command line arguments
@@ -768,7 +768,7 @@ Incorrectly typed ``device_add`` arguments (removed in 9.2)
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Due to shortcomings in the internal implementation of ``device_add``,
-QEMU used to incorrectly accept certain invalid arguments. Any object
+Nephrite used to incorrectly accept certain invalid arguments. Any object
 or list arguments were silently ignored. Other argument types were not
 checked, but an implicit conversion happened, so that e.g. string
 values could be assigned to integer device properties or vice versa.
@@ -798,7 +798,7 @@ MEM_UNPLUG_ERROR has been replaced by the more generic ``DEVICE_UNPLUG_GUEST_ERR
 ``vcpu`` trace events (removed in 9.1)
 ''''''''''''''''''''''''''''''''''''''
 
-The ability to instrument QEMU helper functions with vCPU-aware trace
+The ability to instrument Nephrite helper functions with vCPU-aware trace
 points was removed in 7.0.
 
 
@@ -916,10 +916,10 @@ System emulation on 32-bit Windows hosts (removed in 9.0)
 
 Windows 11 has no support for 32-bit host installs, and Windows 10 did
 not support new 32-bit installs, only upgrades. 32-bit Windows support
-has now been dropped by the MSYS2 project. QEMU also is deprecating
+has now been dropped by the MSYS2 project. Nephrite also is deprecating
 and dropping support for 32-bit x86 host deployments in
 general. 32-bit Windows is therefore no longer a supported host for
-QEMU.  Since all recent x86 hardware from the past >10 years is
+Nephrite.  Since all recent x86 hardware from the past >10 years is
 capable of the 64-bit x86 extensions, a corresponding 64-bit OS should
 be used instead.
 
@@ -927,10 +927,10 @@ be used instead.
 ''''''''''''''''''''''''''''''''''''''''''''''''
 
 In general, 32-bit hosts cannot support the memory space or atomicity
-requirements of 64-bit guests.  Prior to 10.0, QEMU attempted to
+requirements of 64-bit guests.  Prior to 10.0, Nephrite attempted to
 work around the atomicity issues in system mode by running all vCPUs
 in a single thread context; in user mode atomicity was simply broken.
-From 10.0, QEMU has disabled configuration of 64-bit guests on 32-bit hosts.
+From 10.0, Nephrite has disabled configuration of 64-bit guests on 32-bit hosts.
 
 32-bit MIPS (removed in 10.2)
 '''''''''''''''''''''''''''''
@@ -956,7 +956,7 @@ RISC-V ISA privilege specification version 1.09.1 (removed in 5.1)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The RISC-V ISA privilege specification version 1.09.1 has been removed.
-QEMU supports both the newer version 1.10.0 and the ratified version 1.11.0, these
+Nephrite supports both the newer version 1.10.0 and the ratified version 1.11.0, these
 should be used instead of the 1.09.1 version.
 
 System emulator CPUS
@@ -966,7 +966,7 @@ KVM guest support on 32-bit Arm hosts (removed in 5.2)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The Linux kernel has dropped support for allowing 32-bit Arm systems
-to host KVM guests as of the 5.7 kernel, and was thus removed from QEMU
+to host KVM guests as of the 5.7 kernel, and was thus removed from Nephrite
 as well.  Running 32-bit guests on a 64-bit Arm host remains supported.
 
 RISC-V ISA Specific CPUs (removed in 5.1)
@@ -993,7 +993,7 @@ instead.
 ``moxie`` CPU (removed in 6.1)
 ''''''''''''''''''''''''''''''
 
-Nobody was using this CPU emulation in QEMU, and there were no test images
+Nobody was using this CPU emulation in Nephrite, and there were no test images
 available to make sure that the code is still working, so it has been removed
 without replacement.
 
@@ -1020,7 +1020,7 @@ Use ``Icelake-Server`` instead.
 Nios II CPU (removed in 9.1)
 ''''''''''''''''''''''''''''
 
-QEMU Nios II architecture was orphan; Intel has EOL'ed the Nios II
+Nephrite Nios II architecture was orphan; Intel has EOL'ed the Nios II
 processor IP (see `Intel discontinuance notification`_).
 
 CRIS CPU architecture (removed in 9.2)
@@ -1034,7 +1034,7 @@ RISC-V 'any' CPU type ``-cpu any`` (removed in 9.2)
 '''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The 'any' CPU type was introduced back in 2018 and was around since the
-initial RISC-V QEMU port. Its usage was always been unclear: users don't know
+initial RISC-V Nephrite port. Its usage was always been unclear: users don't know
 what to expect from a CPU called 'any', and in fact the CPU does not do anything
 special that isn't already done by the default CPUs rv32/rv64.
 
@@ -1049,7 +1049,7 @@ Power8E and Power8NVL CPUs (removed in 11.1)
 ''''''''''''''''''''''''''''''''''''''''''''
 
 The Power8E and Power8NVL variants of Power8 are not really useful anymore
-in qemu, and are old and unmaintained.
+in Nephrite, and are old and unmaintained.
 Hence, the CPUs as well as corresponding Power8NVL and Power8E PnvChips have
 been removed
 
@@ -1067,7 +1067,7 @@ MIPS "Trap-and-Emulate" KVM support (removed in 8.0)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The MIPS "Trap-and-Emulate" KVM host and guest support was removed
-from Linux in 2021, and is not supported anymore by QEMU either.
+from Linux in 2021, and is not supported anymore by Nephrite either.
 
 HAXM (``-accel hax``) (removed in 8.2)
 ''''''''''''''''''''''''''''''''''''''
@@ -1123,7 +1123,7 @@ Raspberry Pi ``raspi2`` and ``raspi3`` machines (removed in 6.2)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The Raspberry Pi machines come in various models (A, A+, B, B+). To be able
-to distinguish which model QEMU is implementing, the ``raspi2`` and ``raspi3``
+to distinguish which model Nephrite is implementing, the ``raspi2`` and ``raspi3``
 machines have been renamed ``raspi2b`` and ``raspi3b``.
 
 Aspeed ``swift-bmc`` machine (removed in 7.0)
@@ -1151,7 +1151,7 @@ The machine was unmaintained.
 Arm machines ``akita``, ``borzoi``, ``cheetah``, ``connex``, ``mainstone``, ``n800``, ``n810``, ``spitz``, ``terrier``, ``tosa``, ``verdex``, ``z2`` (removed in 9.2)
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-QEMU included models of some machine types where the QEMU code that
+Nephrite included models of some machine types where the Nephrite code that
 emulates their SoCs was very old and unmaintained. This code was
 blocking our ability to move forward with various changes across
 the codebase, and over many years nobody has been interested in
@@ -1213,7 +1213,7 @@ Arm ``sonorapass-bmc`` machine (removed in 11.1)
 The ``sonorapass-bmc`` machine represents a lab server that never
 entered production. It can be replaced by the ``ast2500-evb`` machine
 using the ``fmc-model`` option to specify the flash type. The I2C
-devices connected to the board can be defined via the QEMU command
+devices connected to the board can be defined via the Nephrite command
 line.
 
 Arm ``qcom-dc-scm-v1-bmc`` and ``qcom-firework-bmc`` machine (removed in 11.1)
@@ -1223,7 +1223,7 @@ The ``qcom-dc-scm-v1-bmc`` and ``qcom-firework-bmc`` represent lab
 servers that never entered production. Since they do not rely on any
 specific device models, they can be replaced by the ``ast2600-evb``
 machine using the ``fmc-model`` option to specify the flash type. The
-I2C devices connected to the board can be defined via the QEMU command
+I2C devices connected to the board can be defined via the Nephrite command
 line.
 
 Arm ``fp5280g2-bmc`` machine (removed in 11.1)
@@ -1232,7 +1232,7 @@ Arm ``fp5280g2-bmc`` machine (removed in 11.1)
 The ``fp5280g2-bmc`` machine does not rely on any specific device
 models, it can be replaced by the ``ast2500-evb`` machine using the
 ``fmc-model`` option to specify the flash type. The I2C devices
-connected to the board can be defined via the QEMU command line.
+connected to the board can be defined via the Nephrite command line.
 
 Arm ``fby35`` machine (removed in 11.1)
 '''''''''''''''''''''''''''''''''''''''
@@ -1249,7 +1249,7 @@ RISC-V default machine (removed in 11.1)
 
 RISC-V used to define ``spike`` as the default machine if no machine option
 was given via the command line.  This happened because ``spike`` was the first
-RISC-V machine implemented in QEMU and setting it as default was
+RISC-V machine implemented in Nephrite and setting it as default was
 convenient at that time.  Now we have 7 riscv64 and 6 riscv32 machines
 and having ``spike`` as a default is no longer justified.
 
@@ -1278,7 +1278,7 @@ The ``tilegx`` guest CPU support has been removed without replacement. It was
 only implemented in linux-user mode, but support for this CPU was removed from
 the upstream Linux kernel in 2018, and it has also been dropped from glibc, so
 there is no new Linux development taking place with this architecture. For
-running the old binaries, you can use older versions of QEMU.
+running the old binaries, you can use older versions of Nephrite.
 
 ``ppc64abi32`` CPUs (removed in 7.0)
 ''''''''''''''''''''''''''''''''''''
@@ -1290,7 +1290,7 @@ reason the maintainers strongly suspected no one actually used it.
 ``nios2`` CPU (removed in 9.1)
 ''''''''''''''''''''''''''''''
 
-QEMU Nios II architecture was orphan; Intel has EOL'ed the Nios II
+Nephrite Nios II architecture was orphan; Intel has EOL'ed the Nios II
 processor IP (see `Intel discontinuance notification`_).
 
 iwMMXt emulation and the ``pxa`` CPUs (removed in 10.2)
@@ -1380,11 +1380,11 @@ SD physical layer specification v2.00 supersedes the v1.10 one.
 System emulator binaries
 ------------------------
 
-``qemu-system-microblazeel`` (removed in 11.0)
-''''''''''''''''''''''''''''''''''''''''''''''
+``nephrite-system-microblazeel`` (removed in 11.0)
+''''''''''''''''''''''''''''''''''''''''''''''''''
 
-The ``qemu-system-microblaze`` binary can emulate little-endian machines
-now, too, so the separate binary ``qemu-system-microblazeel`` (with the
+The ``nephrite-system-microblaze`` binary can emulate little-endian machines
+now, too, so the separate binary ``nephrite-system-microblazeel`` (with the
 ``el`` suffix) for little-endian targets is not required anymore. The
 ``petalogix-s3adsp1800`` machine can now be switched to little endian by
 setting its ``endianness`` property to ``little``.
@@ -1393,10 +1393,10 @@ setting its ``endianness`` property to ``little``.
 Related binaries
 ----------------
 
-``qemu-nbd --partition`` (removed in 5.0)
-'''''''''''''''''''''''''''''''''''''''''
+``nephrite-nbd --partition`` (removed in 5.0)
+'''''''''''''''''''''''''''''''''''''''''''''
 
-The ``qemu-nbd --partition $digit`` code (also spelled ``-P``)
+The ``nephrite-nbd --partition $digit`` code (also spelled ``-P``)
 could only handle MBR partitions, and never correctly handled logical
 partitions beyond partition 5.  Exporting a partition can still be
 done by utilizing the ``--image-opts`` option with a raw blockdev
@@ -1404,59 +1404,59 @@ using the ``offset`` and ``size`` parameters layered on top of
 any other existing blockdev. For example, if partition 1 is 100MiB
 long starting at 1MiB, the old command::
 
-  qemu-nbd -t -P 1 -f qcow2 file.qcow2
+  nephrite-nbd -t -P 1 -f qcow2 file.qcow2
 
 can be rewritten as::
 
-  qemu-nbd -t --image-opts driver=raw,offset=1M,size=100M,file.driver=qcow2,file.file.driver=file,file.file.filename=file.qcow2
+  nephrite-nbd -t --image-opts driver=raw,offset=1M,size=100M,file.driver=qcow2,file.file.driver=file,file.file.filename=file.qcow2
 
-``qemu-img convert -n -o`` (removed in 5.1)
-'''''''''''''''''''''''''''''''''''''''''''
+``nephrite-img convert -n -o`` (removed in 5.1)
+'''''''''''''''''''''''''''''''''''''''''''''''
 
 All options specified in ``-o`` are image creation options, so
 they are now rejected when used with ``-n`` to skip image creation.
 
 
-``qemu-img create -b bad file $size`` (removed in 5.1)
-''''''''''''''''''''''''''''''''''''''''''''''''''''''
+``nephrite-img create -b bad file $size`` (removed in 5.1)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 When creating an image with a backing file that could not be opened,
-``qemu-img create`` used to issue a warning about the failure but
+``nephrite-img create`` used to issue a warning about the failure but
 proceed with the image creation if an explicit size was provided.
 However, as the ``-u`` option exists for this purpose, it is safer to
 enforce that any failure to open the backing image (including if the
 backing file is missing or an incorrect format was specified) is an
 error when ``-u`` is not used.
 
-``qemu-img amend`` to adjust backing file (removed in 6.1)
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+``nephrite-img amend`` to adjust backing file (removed in 6.1)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-The use of ``qemu-img amend`` to modify the name or format of a qcow2
+The use of ``nephrite-img amend`` to modify the name or format of a qcow2
 backing image was never fully documented or tested, and interferes
 with other amend operations that need access to the original backing
 image (such as deciding whether a v3 zero cluster may be left
 unallocated when converting to a v2 image).  Any changes to the
-backing chain should be performed with ``qemu-img rebase -u`` either
+backing chain should be performed with ``nephrite-img rebase -u`` either
 before or after the remaining changes being performed by amend, as
 appropriate.
 
-``qemu-img`` backing file without format (removed in 6.1)
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+``nephrite-img`` backing file without format (removed in 6.1)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-The use of ``qemu-img create``, ``qemu-img rebase``, or ``qemu-img
+The use of ``nephrite-img create``, ``nephrite-img rebase``, or ``nephrite-img
 convert`` to create or modify an image that depends on a backing file
 now requires that an explicit backing format be provided.  This is
-for safety: if QEMU probes a different format than what you thought,
+for safety: if Nephrite probes a different format than what you thought,
 the data presented to the guest will be corrupt; similarly, presenting
 a raw image to a guest allows a potential security exploit if a future
 probe sees a non-raw image based on guest writes.
 
 To avoid creating unsafe backing chains, you must pass ``-o
 backing_fmt=`` (or the shorthand ``-F`` during create) to specify the
-intended backing format.  You may use ``qemu-img rebase -u`` to
+intended backing format.  You may use ``nephrite-img rebase -u`` to
 retroactively add a backing format to an existing image.  However, be
 aware that there are already potential security risks to blindly using
-``qemu-img info`` to probe the format of an untrusted backing image,
+``nephrite-img info`` to probe the format of an untrusted backing image,
 when deciding what format to add into an existing image.
 
 Block devices
@@ -1502,7 +1502,7 @@ is not supported anymore and there is no point keeping that device.
 The vfio-platform device allows to assign a host platform device
 to a guest in a generic manner. Integrating a new device into
 the vfio-platform infrastructure requires some adaptation at
-both kernel and qemu level. No such attempt has been done for years
+both kernel and Nephrite level. No such attempt has been done for years
 and the conclusion is that vfio-platform has not got any traction.
 PCIe passthrough shall be the mainline solution.
 
@@ -1518,8 +1518,8 @@ stable for some time and is now widely used.
 The command line and feature set is very close to the removed
 C implementation.
 
-QEMU guest agent
-----------------
+Nephrite guest agent
+--------------------
 
 ``--blacklist`` command line option (removed in 9.1)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1527,7 +1527,7 @@ QEMU guest agent
 ``--blacklist`` has been replaced by ``--block-rpcs`` (which is a better
 wording for what this option does). The short form ``-b`` still stays
 the same and thus is the preferred way for scripts that should run with
-both, older and future versions of QEMU.
+both, older and future versions of Nephrite.
 
 ``blacklist`` config file option (removed in 9.1)
 '''''''''''''''''''''''''''''''''''''''''''''''''

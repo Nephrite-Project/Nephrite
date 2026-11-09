@@ -1,7 +1,7 @@
-QEMU VM templating
-==================
+Nephrite VM templating
+======================
 
-This document explains how to use VM templating in QEMU.
+This document explains how to use VM templating in Nephrite.
 
 For now, the focus is on VM memory aspects, and not about how to save and
 restore other VM state (i.e., migrate-to-file with ``x-ignore-shared``).
@@ -86,10 +86,10 @@ Some features are incompatible with VM templating, as the underlying file
 cannot be modified to discard VM RAM, or to actually share memory with
 another process.
 
-vhost-user and multi-process QEMU
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+vhost-user and multi-process Nephrite
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-vhost-user and multi-process QEMU are incompatible with VM templating.
+vhost-user and multi-process Nephrite are incompatible with VM templating.
 These technologies rely on shared memory, however, the template VMs
 don't actually share memory (``share=off``), even though they are
 file-based.

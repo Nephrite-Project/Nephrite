@@ -1,25 +1,25 @@
 .. _storage-daemon:
 
-===================
-QEMU Storage Daemon
-===================
+=======================
+Nephrite Storage Daemon
+=======================
 
 Synopsis
 --------
 
-**qemu-storage-daemon** [options]
+**nephrite-storage-daemon** [options]
 
 Description
 -----------
 
-``qemu-storage-daemon`` provides disk image functionality from QEMU,
-``qemu-img``, and ``qemu-nbd`` in a long-running process controlled via QMP
+``nephrite-storage-daemon`` provides disk image functionality from Nephrite,
+``nephrite-img``, and ``nephrite-nbd`` in a long-running process controlled via QMP
 commands without running a virtual machine.
 It can export disk images, run block job operations, and
 perform other disk-related operations. The daemon is controlled via a QMP
 monitor and initial configuration from the command-line.
 
-The daemon offers the following subset of QEMU features:
+The daemon offers the following subset of Nephrite features:
 
 * Block nodes
 * Block jobs
@@ -31,7 +31,7 @@ The daemon offers the following subset of QEMU features:
 * IOThreads
 
 Commands can be sent over a QEMU Monitor Protocol (QMP) connection. See the
-:manpage:`qemu-storage-daemon-qmp-ref(7)` manual page for a description of the
+:manpage:`nephrite-storage-daemon-qmp-ref(7)` manual page for a description of the
 commands.
 
 The daemon runs until it is stopped using the ``quit`` QMP command or
@@ -45,7 +45,7 @@ state.
 Options
 -------
 
-.. program:: qemu-storage-daemon
+.. program:: nephrite-storage-daemon
 
 Standard options:
 
@@ -63,13 +63,13 @@ Standard options:
 
 .. option:: --blockdev BLOCKDEVDEF
 
-  is a block node definition. See the :manpage:`qemu(1)` manual page for a
-  description of block node properties and the :manpage:`qemu-block-drivers(7)`
+  is a block node definition. See the :manpage:`nephrite(1)` manual page for a
+  description of block node properties and the :manpage:`nephrite-block-drivers(7)`
   manual page for a description of driver-specific parameters.
 
 .. option:: --chardev CHARDEVDEF
 
-  is a character device definition. See the :manpage:`qemu(1)` manual page for
+  is a character device definition. See the :manpage:`nephrite(1)` manual page for
   a description of character device properties. A common character device
   definition configures a UNIX domain socket::
 
@@ -136,7 +136,7 @@ Standard options:
 
 .. option:: --monitor MONITORDEF
 
-  is a QMP monitor definition. See the :manpage:`qemu(1)` manual page for
+  is a QMP monitor definition. See the :manpage:`nephrite(1)` manual page for
   a description of QMP monitor properties. A common QMP monitor definition
   configures a monitor on character device ``char1``::
 
@@ -160,8 +160,8 @@ Standard options:
   --object <type>,help
   --object <type>[,<property>=<value>...]
 
-  is a QEMU user creatable object definition. List object types with ``help``.
-  List object properties with ``<type>,help``. See the :manpage:`qemu(1)`
+  is a Nephrite user creatable object definition. List object types with ``help``.
+  List object properties with ``<type>,help``. See the :manpage:`nephrite(1)`
   manual page for a description of the object properties.
 
 .. option:: --pidfile PATH
@@ -190,7 +190,7 @@ Examples
 Launch the daemon with QMP monitor socket ``qmp.sock`` so clients can execute
 QMP commands::
 
-  $ qemu-storage-daemon \
+  $ nephrite-storage-daemon \
       --chardev socket,path=qmp.sock,server=on,wait=off,id=char1 \
       --monitor chardev=char1
 
@@ -211,7 +211,7 @@ available::
       fd = listen_sock.fileno()
 
       subprocess.Popen(
-          ['qemu-storage-daemon',
+          ['nephrite-storage-daemon',
            '--chardev', f'socket,fd={fd},server=on,id=char1',
            '--monitor', 'chardev=char1'],
           pass_fds=[fd],
@@ -232,7 +232,7 @@ type=vhost-user-blk,addr.type=fd,addr.str=<fd>`` options.
 
 Export raw image file ``disk.img`` over NBD UNIX domain socket ``nbd.sock``::
 
-  $ qemu-storage-daemon \
+  $ nephrite-storage-daemon \
       --blockdev driver=file,node-name=disk,filename=disk.img \
       --nbd-server addr.type=unix,addr.path=nbd.sock \
       --export type=nbd,id=export,node-name=disk,writable=on
@@ -240,7 +240,7 @@ Export raw image file ``disk.img`` over NBD UNIX domain socket ``nbd.sock``::
 Export a qcow2 image file ``disk.qcow2`` as a vhost-user-blk device over UNIX
 domain socket ``vhost-user-blk.sock``::
 
-  $ qemu-storage-daemon \
+  $ nephrite-storage-daemon \
       --blockdev driver=file,node-name=file,filename=disk.qcow2 \
       --blockdev driver=qcow2,node-name=qcow2,file=file \
       --export type=vhost-user-blk,id=export,addr.type=unix,addr.path=vhost-user-blk.sock,node-name=qcow2
@@ -248,7 +248,7 @@ domain socket ``vhost-user-blk.sock``::
 Export a qcow2 image file ``disk.qcow2`` via FUSE on itself, so the disk image
 file will then appear as a raw image::
 
-  $ qemu-storage-daemon \
+  $ nephrite-storage-daemon \
       --blockdev driver=file,node-name=file,filename=disk.qcow2 \
       --blockdev driver=qcow2,node-name=qcow2,file=file \
       --export type=fuse,id=export,node-name=qcow2,mountpoint=disk.qcow2,writable=on
@@ -256,4 +256,4 @@ file will then appear as a raw image::
 See also
 --------
 
-:manpage:`qemu(1)`, :manpage:`qemu-block-drivers(7)`, :manpage:`qemu-storage-daemon-qmp-ref(7)`
+:manpage:`nephrite(1)`, :manpage:`nephrite-block-drivers(7)`, :manpage:`nephrite-storage-daemon-qmp-ref(7)`

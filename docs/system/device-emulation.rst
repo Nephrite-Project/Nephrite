@@ -3,11 +3,11 @@
 Device Emulation
 ----------------
 
-QEMU supports the emulation of a large number of devices from
+Nephrite supports the emulation of a large number of devices from
 peripherals such network cards and USB devices to integrated systems
 on a chip (SoCs). Configuration of these is often a source of
 confusion so it helps to have an understanding of some of the terms
-used to describes devices within QEMU.
+used to describes devices within Nephrite.
 
 Common Terms
 ~~~~~~~~~~~~
@@ -18,7 +18,7 @@ Device Front End
 A device front end is how a device is presented to the guest. The type
 of device presented should match the hardware that the guest operating
 system is expecting to see. All devices can be specified with the
-``--device`` command line option. Running QEMU with the command line
+``--device`` command line option. Running Nephrite with the command line
 options ``--device help`` will list all devices it is aware of. Using
 the command line ``--device foo,help`` will list the additional
 configuration options available for that device.
@@ -54,7 +54,7 @@ Device Back End
 ===============
 
 The back end describes how the data from the emulated device will be
-processed by QEMU. The configuration of the back end is usually
+processed by Nephrite. The configuration of the back end is usually
 specific to the class of device being emulated. For example serial
 devices will be backed by a ``--chardev`` which can redirect the data
 to a file or socket or some other system. Storage devices are handled

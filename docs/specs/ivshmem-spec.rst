@@ -3,9 +3,9 @@ Device Specification for Inter-VM shared memory device
 ======================================================
 
 The Inter-VM shared memory device (ivshmem) is designed to share a
-memory region between multiple QEMU processes running different guests
+memory region between multiple Nephrite processes running different guests
 and the host.  In order for all guests to be able to pick up the
-shared memory area, it is modeled by QEMU as a PCI device exposing
+shared memory area, it is modeled by Nephrite as a PCI device exposing
 said memory to the guest as a PCI BAR.
 
 The device can use a shared memory object on the host directly, or it
@@ -14,7 +14,7 @@ can obtain one from an ivshmem server.
 In the latter case, the device can additionally interrupt its peers, and
 get interrupted by its peers.
 
-For information on configuring the ivshmem device on the QEMU
+For information on configuring the ivshmem device on the Nephrite
 command line, see :doc:`../system/devices/ivshmem`.
 
 The ivshmem PCI device's guest interface
@@ -181,7 +181,7 @@ Each message consists of a single 8 byte little-endian signed number,
 and may be accompanied by a file descriptor via SCM_RIGHTS.  Both
 client and server close the connection on error.
 
-Note: QEMU currently doesn't close the connection right on error, but
+Note: Nephrite currently doesn't close the connection right on error, but
 only when the character device is destroyed.
 
 On connect, the server sends the following messages in order:

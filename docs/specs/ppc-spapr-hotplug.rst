@@ -9,7 +9,7 @@ host-bridges, which are generally managed by the host/hypervisor and provided
 to guests as virtualized resources. The specifics of dynamic reconfiguration
 are documented extensively in section 13 of the Linux on Power Architecture
 Reference document ([LoPAR]_). This document provides a summary of that
-information as it applies to the implementation within QEMU.
+information as it applies to the implementation within Nephrite.
 
 Dynamic-reconfiguration Connectors
 ==================================
@@ -53,7 +53,7 @@ of ``ibm,drc-indexes``:
     encapsulating device, starting from the chassis down to the individual slot
     for the device, concatenated by a hyphen. This provides a mapping of
     resources to a physical location in a chassis for debugging purposes. For
-    QEMU, this mapping is less important, so we assign a location code that
+    Nephrite, this mapping is less important, so we assign a location code that
     conforms to naming specifications, but is simply a location label for the
     slot by itself to simplify the implementation. The naming convention for
     location labels is documented in detail in the [LoPAR]_ section 12.3.1.5,
@@ -68,7 +68,7 @@ of ``ibm,drc-indexes``:
   Each 4-byte entry: BE-encoded ``<index>`` integer that is unique across all
   DRCs in the machine.
 
-    ``<index>`` is arbitrary, but in the case of QEMU we try to maintain the
+    ``<index>`` is arbitrary, but in the case of Nephrite we try to maintain the
     convention used to assign them to pSeries guests on pHyp (the hypervisor
     portion of PowerVM):
 
@@ -93,7 +93,7 @@ of ``ibm,drc-indexes``:
   First 4-bytes: BE-encoded integer denoting the number of entries.
 
   Each 4-byte entry: 32-bit, BE-encoded ``<index>`` integer that specifies the
-  power domain the resource will be assigned to. In the case of QEMU we
+  power domain the resource will be assigned to. In the case of Nephrite we
   associated all resources with a "live insertion" domain, where the power is
   assumed to be managed automatically. The integer value for this domain is a
   special value of ``-1``.
@@ -200,10 +200,10 @@ associated with a DRC. The types are:
     guest OS.
 
     ``2``: ``exchange``, used to allocate a spare resource to use for fail-over
-    in certain situations. Unused in QEMU.
+    in certain situations. Unused in Nephrite.
 
     ``3``: ``recover``, used to reclaim a previously allocated resource that's
-    not currently allocated to the guest OS. Unused in QEMU.
+    not currently allocated to the guest OS. Unused in Nephrite.
 
 ``rtas-get-sensor-state:``
 --------------------------
@@ -316,7 +316,7 @@ For most DR operations, the hypervisor will issue host->guest add/remove events
 using the EPOW/check-exception notification framework, where the host issues a
 check-exception interrupt, then provides an RTAS event log via an
 rtas-check-exception call issued by the guest in response. This framework is
-documented by PAPR+ v2.7, and already use in by QEMU for generating powerdown
+documented by PAPR+ v2.7, and already use in by Nephrite for generating powerdown
 requests via EPOW events.
 
 For DR, this framework has been extended to include hotplug events, which were
@@ -333,7 +333,7 @@ now deemed a "legacy" format. The formats are similar, but the "modern" format
 contains additional fields/flags, which are denoted for the purposes of this
 documentation with ``#ifdef GUEST_SUPPORTS_MODERN`` guards.
 
-QEMU should assume support only for "legacy" fields/flags unless the guest
+Nephrite should assume support only for "legacy" fields/flags unless the guest
 advertises support for the "modern" format via
 ``ibm,client-architecture-support`` hcall by setting byte 5, bit 6 of it's
 ``ibm,architecture-vec-5`` option vector structure (as described by [LoPAR]_,
@@ -349,7 +349,7 @@ section B.5.12.2.
 Hot plug/unplug event structure
 ===============================
 
-The hot plug specific payload in QEMU is implemented as follows (with all values
+The hot plug specific payload in Nephrite is implemented as follows (with all values
 encoded in big-endian format):
 
 .. code-block:: c
@@ -388,7 +388,7 @@ encoded in big-endian format):
                                             */
    #ifdef GUEST_SUPPORTS_MODERN
        uint8_t capabilities;               /* capability flags, currently unused
-                                            * by QEMU
+                                            * by Nephrite
                                             */
    #else
        uint8_t reserved;
@@ -446,7 +446,7 @@ dynamically reconfigurable logical memory blocks (LMB). This node is generated
 only when the guest advertises the support for it via
 ``ibm,client-architecture-support`` call. Memory that is not dynamically
 reconfigurable is represented by ``/memory`` nodes. The properties of this node
-that are of interest to the sPAPR memory hotplug implementation in QEMU are
+that are of interest to the sPAPR memory hotplug implementation in Nephrite are
 described here.
 
 ``ibm,lmb-size``

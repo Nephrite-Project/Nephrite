@@ -476,7 +476,7 @@ Starting a Linux Guest Configured with an AP Matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To provide a mediated matrix device for use by a guest, the following option
-must be specified on the QEMU command line::
+must be specified on the Nephrite command line::
 
    -device vfio_ap,sysfsdev=$path-to-mdev
 
@@ -515,9 +515,9 @@ facilities:
    The AP facilities feature indicates that AP facilities are installed on the
    guest. This feature will be exposed for use only if the AP facilities
    are installed on the host system. The feature is s390-specific and is
-   represented as a parameter of the -cpu option on the QEMU command line::
+   represented as a parameter of the -cpu option on the Nephrite command line::
 
-      qemu-system-s390x -cpu $model,ap=on|off
+      nephrite-system-s390x -cpu $model,ap=on|off
 
    Where:
 
@@ -538,9 +538,9 @@ facilities:
    configuration of the AP facilities. This facility will be available
    only if the QCI facility is installed on the host system. The feature is
    s390-specific and is represented as a parameter of the -cpu option on the
-   QEMU command line::
+   Nephrite command line::
 
-      qemu-system-s390x -cpu $model,apqci=on|off
+      nephrite-system-s390x -cpu $model,apqci=on|off
 
    Where:
 
@@ -568,9 +568,9 @@ facilities:
    AP facilities available for a given AP queue. This facility will be available
    only if the APFT facility is installed on the host system. The feature is
    s390-specific and is represented as a parameter of the -cpu option on the
-   QEMU command line::
+   Nephrite command line::
 
-      qemu-system-s390x -cpu $model,apft=on|off
+      nephrite-system-s390x -cpu $model,apft=on|off
 
    Where:
 
@@ -601,10 +601,10 @@ Hot plug a vfio-ap device into a running guest
 
 Only one vfio-ap device can be attached to the virtual machine's ap-bus, so a
 vfio-ap device can be hot plugged if and only if no vfio-ap device is attached
-to the bus already, whether via the QEMU command line or a prior hot plug
+to the bus already, whether via the Nephrite command line or a prior hot plug
 action.
 
-To hot plug a vfio-ap device, use the QEMU ``device_add`` command::
+To hot plug a vfio-ap device, use the Nephrite ``device_add`` command::
 
     (nephrite) device_add vfio-ap,sysfsdev="$path-to-mdev",id="$id"
 
@@ -628,10 +628,10 @@ Hot unplug a vfio-ap device from a running guest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A vfio-ap device can be unplugged from a running KVM guest if a vfio-ap device
-has been attached to the virtual machine's ap-bus via the QEMU command line
+has been attached to the virtual machine's ap-bus via the Nephrite command line
 or a prior hot plug action.
 
-To hot unplug a vfio-ap device, use the QEMU ``device_del`` command::
+To hot unplug a vfio-ap device, use the Nephrite ``device_del`` command::
 
     (nephrite) device_del "$id"
 
@@ -862,15 +862,15 @@ These are the steps:
 
 5. Start Guest1::
 
-   /usr/bin/qemu-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid1 ...
+   /usr/bin/nephrite-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid1 ...
 
 7. Start Guest2::
 
-   /usr/bin/qemu-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid2 ...
+   /usr/bin/nephrite-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid2 ...
 
 7. Start Guest3::
 
-   /usr/bin/qemu-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid3 ...
+   /usr/bin/nephrite-system-s390x ... -cpu host,ap=on,apqci=on,apft=on -device vfio-ap,sysfsdev=/sys/devices/vfio_ap/matrix/$uuid3 ...
 
 When the guest is shut down, the mediated matrix devices may be removed.
 

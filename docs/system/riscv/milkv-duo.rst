@@ -36,7 +36,7 @@ Use the following command to boot the system directly to the Linux shell:
 
 .. code-block:: bash
 
-   $ qemu-system-riscv64 -M milkv-duo -nographic \
+   $ nephrite-system-riscv64 -M milkv-duo -nographic \
       -bios pc-bios/opensbi-riscv64-generic-fw_dynamic.bin \
       -dtb /path/to/linux/arch/riscv/boot/dts/sophgo/cv1800b-milkv-duo.dtb \
       -kernel /path/to/linux/arch/riscv/boot/Image \

@@ -4,7 +4,7 @@
 Tools
 -----
 
-This section of the manual documents QEMU's "tools": its
+This section of the manual documents Nephrite's "tools": its
 command line utilities and other standalone programs.
 
 .. toctree::

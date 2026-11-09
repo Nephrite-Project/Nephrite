@@ -60,7 +60,7 @@ it and resize the SD card image to a power of two:
 
 .. code-block:: bash
 
-  $ qemu-img resize sdcard.img 256M
+  $ nephrite-img resize sdcard.img 256M
 
 Now that everything is prepared the machine can be started as follows:
 
@@ -68,7 +68,7 @@ For i.MX 8M Plus EVK:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M imx8mp-evk \
+  $ nephrite-system-aarch64 -M imx8mp-evk \
       -display none -serial null -serial stdio \
       -kernel Image \
       -dtb imx8mp-evk.dtb \
@@ -79,7 +79,7 @@ For i.MX 8M Mini EVK:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M imx8mm-evk \
+  $ nephrite-system-aarch64 -M imx8mm-evk \
       -display none -serial null -serial stdio \
       -kernel Image \
       -dtb imx8mm-evk.dtb \
@@ -94,10 +94,10 @@ To enable hardware-assisted acceleration via KVM, append
 significantly, be aware of the following limitations:
 
 * The ``imx8mp-evk`` and ``imx8mm-evk`` machines are not included
-  under the "virtualization use case" of :doc:`QEMU's security
+  under the "virtualization use case" of :doc:`Nephrite's security
   policy </system/security>`.  This means that you should not trust that
   it can contain malicious guests, whether it is run using TCG or KVM.
-  If you don't trust your guests and you're relying on QEMU to be the
+  If you don't trust your guests and you're relying on Nephrite to be the
   security boundary, you want to choose another machine such as
   ``virt``.
 * Rather than Cortex-A53 CPUs, the same CPU type as the host's will be used.

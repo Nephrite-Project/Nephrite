@@ -46,15 +46,15 @@ These machines can be started through the H2 hypervisor images shipped in
      - ``sa8797p_nsp0``
 
 ``hexagon_booter_<suffix>``
-  H2 plus a loader that reads guest ELF files from the host through QEMU
+  H2 plus a loader that reads guest ELF files from the host through Nephrite
   semihosting::
 
-    qemu-system-hexagon -M qcs6490-cdsp -serial stdio -display none \
+    nephrite-system-hexagon -M qcs6490-cdsp -serial stdio -display none \
         -bios hexagon_booter_qcs6490_cdsp \
         -semihosting-config enable=on,target=native,arg=booter,arg=guest.elf
 
   Guests are loaded at ``0xa2000000``.
 
 ``hexagon_loadlinux_<suffix>``
-  H2 plus a loader that starts a kernel which QEMU has placed at the
+  H2 plus a loader that starts a kernel which Nephrite has placed at the
   ``-kernel`` address in the table above.

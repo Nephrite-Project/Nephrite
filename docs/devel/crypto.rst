@@ -1,8 +1,8 @@
 .. _crypto-ref:
 
-====================
-Cryptography in QEMU
-====================
+========================
+Cryptography in Nephrite
+========================
 
 .. toctree::
    :maxdepth: 2

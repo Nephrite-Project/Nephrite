@@ -22,7 +22,7 @@ Image fuzzer
 Description
 -----------
 
-The goal of the image fuzzer is to catch crashes of qemu-io/qemu-img
+The goal of the image fuzzer is to catch crashes of nephrite-io/nephrite-img
 by providing to them randomly corrupted images.
 Test images are generated from scratch and have valid inner structure with some
 elements, e.g. L1/L2 tables, having random invalid values.
@@ -51,10 +51,10 @@ assumes that core dumps will be generated in the current working directory.
 For comprehensive test results, please, set up your test environment
 properly.
 
-Paths to binaries under test (SUTs) ``qemu-img`` and ``qemu-io`` are retrieved
+Paths to binaries under test (SUTs) ``nephrite-img`` and ``nephrite-io`` are retrieved
 from environment variables. If the environment check fails the runner will
 use SUTs installed in system paths.
-``qemu-img`` is required for creation of backing files, so it's mandatory to set
+``nephrite-img`` is required for creation of backing files, so it's mandatory to set
 the related environment variable if it's not installed in the system path.
 For details about environment variables see qemu-iotests/check.
 
@@ -71,7 +71,7 @@ The runner accepts a list of commands under test as a JSON array via
 the '--command' argument. Each command is a list containing a SUT and all its
 arguments, e.g.
 
-       runner.py -c '[["qemu-io", "$test_img", "-c", "write $off $len"]]'
+       runner.py -c '[["nephrite-io", "$test_img", "-c", "write $off $len"]]'
      /tmp/test ../qcow2
 
 For variable arguments next aliases can be used:
@@ -83,16 +83,16 @@ Values for last two aliases will be generated based on a size of a virtual
 disk of the generated image.
 In case when no commands are specified the runner will execute commands from
 the default list:
-    - qemu-img check
-    - qemu-img info
-    - qemu-img convert
-    - qemu-io -c read
-    - qemu-io -c write
-    - qemu-io -c aio_read
-    - qemu-io -c aio_write
-    - qemu-io -c flush
-    - qemu-io -c discard
-    - qemu-io -c truncate
+    - nephrite-img check
+    - nephrite-img info
+    - nephrite-img convert
+    - nephrite-io -c read
+    - nephrite-io -c write
+    - nephrite-io -c aio_read
+    - nephrite-io -c aio_write
+    - nephrite-io -c flush
+    - nephrite-io -c discard
+    - nephrite-io -c truncate
 
 
 Qcow2 image generator

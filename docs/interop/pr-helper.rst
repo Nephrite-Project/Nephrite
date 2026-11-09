@@ -4,7 +4,7 @@
 Persistent reservation helper protocol
 ======================================
 
-QEMU's SCSI passthrough devices, ``scsi-block`` and ``scsi-generic``,
+Nephrite's SCSI passthrough devices, ``scsi-block`` and ``scsi-generic``,
 can delegate implementation of persistent reservations to an external
 (and typically privileged) program.  Persistent Reservations allow
 restricting access to block devices to specific initiators in a shared
@@ -14,7 +14,7 @@ For a more detailed reference please refer to the SCSI Primary
 Commands standard, specifically the section on Reservations and the
 "PERSISTENT RESERVE IN" and "PERSISTENT RESERVE OUT" commands.
 
-This document describes the socket protocol used between QEMU's
+This document describes the socket protocol used between Nephrite's
 ``pr-manager-helper`` object and the external program.
 
 .. contents::
@@ -26,7 +26,7 @@ All data transmitted on the socket is big-endian.
 
 After connecting to the helper program's socket, the helper starts a simple
 feature negotiation process by writing four bytes corresponding to
-the features it exposes (``supported_features``).  QEMU reads it,
+the features it exposes (``supported_features``).  Nephrite reads it,
 then writes four bytes corresponding to the desired features of the
 helper program (``requested_features``).
 

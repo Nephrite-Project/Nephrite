@@ -7,7 +7,7 @@ They are created by partitioning CPU and memory resources from a parent
 instance and launching a signed Enclave Image Format (EIF) file inside
 a confidential VM managed by the Nitro Hypervisor.
 
-QEMU supports launching Nitro Enclaves on EC2 instances that have
+Nephrite supports launching Nitro Enclaves on EC2 instances that have
 enclave support enabled, using the ``nitro`` accelerator and the
 ``nitro`` machine type.
 
@@ -24,16 +24,16 @@ Quick Start
 
 Launch a Nitro Enclave from a pre-built EIF file::
 
-    $ qemu-system-x86_64 -accel nitro,debug-mode=on -M nitro -nographic \
+    $ nephrite-system-x86_64 -accel nitro,debug-mode=on -M nitro -nographic \
         -smp 2 -m 512M -kernel enclave.eif
 
 Launch an enclave from individual kernel and initrd files::
 
-    $ qemu-system-x86_64 -accel nitro,debug-mode=on -M nitro -nographic \
+    $ nephrite-system-x86_64 -accel nitro,debug-mode=on -M nitro -nographic \
         -smp 2 -m 512M -kernel vmlinuz -initrd initrd.cpio \
         -append "console=ttyS0"
 
-The same commands work with ``qemu-system-aarch64`` on Graviton based EC2
+The same commands work with ``nephrite-system-aarch64`` on Graviton based EC2
 instances.
 
 Accelerator

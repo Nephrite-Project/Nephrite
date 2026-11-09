@@ -24,7 +24,7 @@
 ##
 # @FirmwareOSInterface:
 #     Lists the firmware-OS interface types provided by various
-#     firmware that is commonly used with QEMU virtual machines.
+#     firmware that is commonly used with Nephrite virtual machines.
 #
 # @bios: Traditional x86 BIOS interface.  For example, firmware built
 #     from the SeaBIOS project usually provides this interface.
@@ -97,7 +97,7 @@
 # @FirmwareTarget:
 #     Defines the machine types that firmware may execute on.
 #
-# @architecture: Determines the emulation target (the QEMU system
+# @architecture: Determines the emulation target (the Nephrite system
 #     emulator) that can execute the firmware.
 #
 # @machines: Lists the machine types (known by the emulator that is
@@ -105,7 +105,7 @@
 #     Elements of @machines are supposed to be concrete machine types,
 #     not aliases.  Glob patterns are understood, which is especially
 #     useful for versioned machine types.  (For example, the glob
-#     pattern "pc-i440fx-*" matches "pc-i440fx-2.12".) On the QEMU
+#     pattern "pc-i440fx-*" matches "pc-i440fx-2.12".) On the Nephrite
 #     command line, "-machine type=..." specifies the requested
 #     machine type (but that option does not accept glob patterns).
 #
@@ -140,20 +140,20 @@
 #
 # @amd-sev: The firmware supports running under AMD Secure Encrypted
 #     Virtualization, as specified in the AMD64 Architecture
-#     Programmer's Manual.  QEMU command line options related to this
-#     feature are documented in
+#     Programmer's Manual.  Nephrite command line options related to
+#     this feature are documented in
 #     "docs/system/i386/amd-memory-encryption.rst".
 #
 # @amd-sev-es: The firmware supports running under AMD Secure
 #     Encrypted Virtualization - Encrypted State, as specified in the
-#     AMD64 Architecture Programmer's Manual.  QEMU command line
+#     AMD64 Architecture Programmer's Manual.  Nephrite command line
 #     options related to this feature are documented in
 #     "docs/system/i386/amd-memory-encryption.rst".
 #
 # @amd-sev-snp: The firmware supports running under AMD Secure
 #     Encrypted Virtualization - Secure Nested Paging, as specified in
-#     the AMD64 Architecture Programmer's Manual.  QEMU command line
-#     options related to this feature are documented in
+#     the AMD64 Architecture Programmer's Manual.  Nephrite command
+#     line options related to this feature are documented in
 #     "docs/system/i386/amd-memory-encryption.rst".
 #
 # @intel-tdx: The firmware supports running under Intel Trust Domain
@@ -199,7 +199,7 @@
 #     performance.  With log capture disabled, there is no boot
 #     performance impact.  On the "pc-i440fx-*" and "pc-q35-*" machine
 #     types of the @i386 and @x86_64 emulation targets, firmware log
-#     capture can be enabled with the QEMU command line options
+#     capture can be enabled with the Nephrite command line options
 #     "-chardev file,id=fwdebug,path=LOGFILEPATH -device
 #     isa-debugcon,iobase=0x402,chardev=fwdebug".  @verbose-dynamic is
 #     mutually exclusive with @verbose-static.
@@ -213,7 +213,7 @@
 #     exclusive with @verbose-dynamic.
 #
 # @host-uefi-vars: The firmware expects the host to provide an uefi
-#     variable store.  qemu supports that via "uefi-vars-sysbus"
+#     variable store.  Nephrite supports that via "uefi-vars-sysbus"
 #     (aarch64, riscv64, loongarch64) or "uefi-vars-x64" (x86_64)
 #     devices.  The firmware will not use flash for nvram.  When
 #     loading the firmware into flash the 'stateless' setup should be
@@ -245,7 +245,7 @@
 ##
 # @FirmwareFlashFile:
 #     Defines common properties that are necessary for loading a
-#     firmware file into a pflash chip.  The corresponding QEMU
+#     firmware file into a pflash chip.  The corresponding Nephrite
 #     command line option is "-drive file=@filename,format=@format".
 #     Note however that the option-argument shown here is incomplete;
 #     it is completed under @FirmwareMappingFlash.
@@ -300,8 +300,8 @@
 #
 # @executable: Identifies the firmware executable.  The @mode
 #     indicates whether there will be an associated NVRAM template
-#     present.  The preferred corresponding QEMU command line options
-#     are
+#     present.  The preferred corresponding Nephrite command line
+#     options are
 #
 #     ::
 #
@@ -326,7 +326,7 @@
 #     machines, only individual copies of it are.  An NVRAM file is
 #     typically used for persistently storing the non-volatile UEFI
 #     variables of a virtual machine definition.  The preferred
-#     corresponding QEMU command line options are
+#     corresponding Nephrite command line options are
 #
 #     ::
 #
@@ -354,7 +354,7 @@
 #
 # @filename: Identifies the firmware executable.  The firmware
 #     executable may be shared by multiple virtual machine
-#     definitions.  The corresponding QEMU command line option is
+#     definitions.  The corresponding Nephrite command line option is
 #     "-kernel @filename".
 #
 # Since: 3.0
@@ -375,7 +375,7 @@
 #     individual copies of it are.  The file created by copying
 #     @template is used for persistently storing the non-volatile
 #     UEFI variables of a virtual machine definition.  The
-#     corresponding QEMU command line options are
+#     corresponding Nephrite command line options are
 #
 #     ::
 #
@@ -401,7 +401,7 @@
 #
 # @filename: Identifies the firmware executable.  The firmware
 #     executable may be shared by multiple virtual machine
-#     definitions.  The corresponding QEMU command line option is
+#     definitions.  The corresponding Nephrite command line option is
 #     "-bios @filename".
 #
 # @uefi-vars: Information specific to firmware builds that expect the
@@ -468,15 +468,17 @@
 # sorted in predictable order.  The firmware JSON files should be
 # searched for in three directories:
 #
-# - /usr/share/qemu/firmware -- populated by distro-provided firmware
-#                               packages (XDG_DATA_DIRS covers
-#                               /usr/share by default),
+# - /usr/share/nephrite/firmware -- populated by distro-provided
+#                                   firmware packages (XDG_DATA_DIRS
+#                                   covers /usr/share by default),
 #
-# - /etc/qemu/firmware -- exclusively for sysadmins' local additions,
+# - /etc/nephrite/firmware -- exclusively for sysadmins' local
+#                             additions,
 #
-# - $XDG_CONFIG_HOME/qemu/firmware -- exclusively for per-user local
-#                                     additions (XDG_CONFIG_HOME
-#                                     defaults to $HOME/.config).
+# - $XDG_CONFIG_HOME/nephrite/firmware -- exclusively for per-user
+#                                         local additions
+#                                         (XDG_CONFIG_HOME defaults
+#                                         to $HOME/.config).
 #
 # Top-down, the list of directories goes from general to specific.
 #
@@ -491,26 +493,26 @@
 #
 # For example, if a distro ships
 #
-# - /usr/share/qemu/firmware/50-ovmf.json
+# - /usr/share/nephrite/firmware/50-ovmf.json
 #
-# - /usr/share/qemu/firmware/50-seabios-256k.json
+# - /usr/share/nephrite/firmware/50-seabios-256k.json
 #
 # then the sysadmin can prevent the default OVMF being used at all
 # with
 #
-#   $ touch /etc/qemu/firmware/50-ovmf.json
+#   $ touch /etc/nephrite/firmware/50-ovmf.json
 #
 # The sysadmin can replace/alter the distro default OVMF with
 #
-#   $ vim /etc/qemu/firmware/50-ovmf.json
+#   $ vim /etc/nephrite/firmware/50-ovmf.json
 #
 # or they can provide a parallel OVMF with higher priority
 #
-#   $ vim /etc/qemu/firmware/10-ovmf.json
+#   $ vim /etc/nephrite/firmware/10-ovmf.json
 #
 # or they can provide a parallel OVMF with lower priority
 #
-#   $ vim /etc/qemu/firmware/99-ovmf.json
+#   $ vim /etc/nephrite/firmware/99-ovmf.json
 #
 # @description: Provides a human-readable description of the firmware.
 #     Management software may or may not display @description.
@@ -525,8 +527,9 @@
 # @mapping: Describes the loading / mapping properties of the
 #     firmware.
 #
-# @targets: Collects the target architectures (QEMU system emulators)
-#     and their machine types that may execute the firmware.
+# @targets: Collects the target architectures (Nephrite system
+#     emulators) and their machine types that may execute the
+#     firmware.
 #
 # @features: Lists the features that the firmware supports, and the
 #     platform requirements it presents.

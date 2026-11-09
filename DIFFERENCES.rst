@@ -107,8 +107,12 @@ Names and packaging
 * VNC's and SPICE's SASL authentication take the application name
   ``nephrite``, so that their configuration is
   ``/etc/sasl2/nephrite.conf``, of which ``nephrite.sasl`` is a sample.
-* The documentation's text is QEMU's; its front page says so, and its
-  examples run Nephrite's programs.
+* ``README.rst`` describes Nephrite, and the documentation names Nephrite
+  where it names the program: its examples run Nephrite's programs with
+  Nephrite's paths, its man pages refer to each other by Nephrite's names,
+  and its pages link to their sources in Nephrite's repository. The
+  versions that it names, such as those of machine types and of
+  deprecated and removed features, are QEMU's.
 * QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and
   custom-runner jobs that they started, its Travis and Coverity Scan
   configurations, and the GitHub workflow that closed every pull request.

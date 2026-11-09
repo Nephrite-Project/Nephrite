@@ -2,7 +2,7 @@
 NVMe Emulation
 ==============
 
-QEMU provides NVMe emulation through the ``nvme``, ``nvme-ns`` and
+Nephrite provides NVMe emulation through the ``nvme``, ``nvme-ns`` and
 ``nvme-subsys`` devices.
 
 See the following sections for specific information on
@@ -18,7 +18,7 @@ Adding NVMe Devices
 Controller Emulation
 --------------------
 
-The QEMU emulated NVMe controller implements version 1.4 of the NVM Express
+The Nephrite emulated NVMe controller implements version 1.4 of the NVM Express
 specification. All mandatory features are implement with a couple of exceptions
 and limitations:
 
@@ -26,7 +26,7 @@ and limitations:
     is power cycled.
   * Interrupt Coalescing is not supported and is disabled by default.
 
-The simplest way to attach an NVMe controller on the QEMU PCI bus is to add the
+The simplest way to attach an NVMe controller on the Nephrite PCI bus is to add the
 following parameters:
 
 .. code-block:: console
@@ -49,7 +49,7 @@ parameters.
   Set the Maximum Data Transfer Size of the device.
 
 ``use-intel-id`` (default: ``off``)
-  Since QEMU 5.2, the device uses a QEMU allocated "Red Hat" PCI Device and
+  Since QEMU 5.2, the device uses a Nephrite allocated "Red Hat" PCI Device and
   Vendor ID. Set this to ``on`` to revert to the unallocated Intel ID
   previously used.
 

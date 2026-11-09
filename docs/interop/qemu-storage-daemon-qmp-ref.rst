@@ -1,5 +1,5 @@
-QEMU Storage Daemon QMP Reference Manual
-========================================
+Nephrite Storage Daemon QMP Reference Manual
+============================================
 
 .. contents::
    :local:

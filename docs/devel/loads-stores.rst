@@ -6,7 +6,7 @@
 Load and Store APIs
 ===================
 
-QEMU internally has multiple families of functions for performing
+Nephrite internally has multiple families of functions for performing
 loads and stores. This document attempts to enumerate them all
 and indicate when to use them. It does not provide detailed
 documentation of each API -- for that you should look at the
@@ -331,7 +331,7 @@ Regexes for git grep:
 
 These functions are the primary ones to use when emulating CPU
 or device memory accesses. They take an AddressSpace, which is the
-way QEMU defines the view of memory that a device or CPU has.
+way Nephrite defines the view of memory that a device or CPU has.
 (They generally correspond to being the "master" end of a hardware bus
 or bus fabric.)
 

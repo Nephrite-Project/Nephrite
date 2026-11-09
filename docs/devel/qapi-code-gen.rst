@@ -14,11 +14,11 @@ How to use the QAPI code generator
 Introduction
 ============
 
-QAPI is a native C API within QEMU which provides management-level
+QAPI is a native C API within Nephrite which provides management-level
 functionality to internal and external users.  For external
 users/processes, this interface is made available by a JSON-based wire
-format for the QEMU Monitor Protocol (QMP) for controlling qemu, as
-well as the QEMU Guest Agent (QGA) for communicating with the guest.
+format for the QEMU Monitor Protocol (QMP) for controlling Nephrite, as
+well as the Nephrite Guest Agent (QGA) for communicating with the guest.
 The remainder of this document uses "Client JSON Protocol" when
 referring to the wire contents of a QMP or QGA connection.
 
@@ -589,7 +589,7 @@ before the machine is built.  It defaults to false.  For example::
    'data': { '*enable': [ 'QMPCapability' ] },
    'allow-preconfig': true }
 
-QMP is available before the machine is built only when QEMU was
+QMP is available before the machine is built only when Nephrite was
 started with --preconfig.
 
 Member 'coroutine' tells the QMP dispatcher whether the command handler
@@ -688,7 +688,7 @@ Syntax::
     FEATURE = STRING
             | { 'name': STRING, '*if': COND }
 
-Sometimes, the behaviour of QEMU changes compatibly, but without a
+Sometimes, the behaviour of Nephrite changes compatibly, but without a
 change in the QMP syntax (usually by allowing values or operations
 that previously resulted in an error).  QMP clients may still need to
 know whether the extension is available.
@@ -711,7 +711,7 @@ The feature strings are exposed to clients in introspection, as
 explained in section `Client JSON Protocol introspection`_.
 
 Intended use is to have each feature string signal that this build of
-QEMU shows a certain behaviour.
+Nephrite shows a certain behaviour.
 
 
 Special features
@@ -720,7 +720,7 @@ Special features
 Feature "deprecated" marks a command, event, enum value, or struct
 member as deprecated.  It is not supported elsewhere so far.
 Interfaces so marked may be withdrawn in future releases in accordance
-with QEMU's deprecation policy.
+with Nephrite's deprecation policy.
 
 Feature "unstable" marks a command, event, enum value, or struct
 member as unstable.  It is not supported elsewhere so far.  Interfaces
@@ -1195,17 +1195,17 @@ Client JSON Protocol introspection
 ==================================
 
 Clients of a Client JSON Protocol commonly need to figure out what
-exactly the server (QEMU) supports.
+exactly the server (Nephrite) supports.
 
 For this purpose, QMP provides introspection via command
 query-qmp-schema.  QGA currently doesn't support introspection.
 
 While Client JSON Protocol wire compatibility should be maintained
-between qemu versions, we cannot make the same guarantees for
-introspection stability.  For example, one version of qemu may provide
+between Nephrite versions, we cannot make the same guarantees for
+introspection stability.  For example, one version of Nephrite may provide
 a non-variant optional member of a struct, and a later version rework
 the member to instead be non-optional and associated with a variant.
-Likewise, one version of qemu may list a member with open-ended type
+Likewise, one version of Nephrite may list a member with open-ended type
 'str', and a later version could convert it to a finite set of strings
 via an enum type; or a member may be converted from a specific type to
 an alternate that represents a choice between the original type and

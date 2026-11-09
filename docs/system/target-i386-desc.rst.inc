@@ -1,4 +1,4 @@
-The QEMU PC System emulator simulates the following peripherals:
+The Nephrite PC System emulator simulates the following peripherals:
 
 -  i440FX host PCI bridge and PIIX3 PCI to ISA bridge
 
@@ -39,15 +39,15 @@ The QEMU PC System emulator simulates the following peripherals:
 SMP is supported with a large number of virtual CPUs (upper limit is
 configuration dependent).
 
-QEMU uses the PC BIOS from the Seabios project and the Plex86/Bochs LGPL
+Nephrite uses the PC BIOS from the Seabios project and the Plex86/Bochs LGPL
 VGA BIOS.
 
-QEMU uses YM3812 emulation by Tatsuyuki Satoh.
+Nephrite uses YM3812 emulation by Tatsuyuki Satoh.
 
-QEMU uses GUS emulation (GUSEMU32 http://www.deinmeister.de/gusemu/) by
+Nephrite uses GUS emulation (GUSEMU32 http://www.deinmeister.de/gusemu/) by
 Tibor \"TS\" Schütz.
 
-Note that, by default, GUS shares IRQ(7) with parallel ports and so QEMU
+Note that, by default, GUS shares IRQ(7) with parallel ports and so Nephrite
 must be told to not have parallel ports to have working GUS.
 
 .. parsed-literal::

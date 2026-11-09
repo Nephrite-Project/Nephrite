@@ -1,5 +1,5 @@
-The QEMU throttling infrastructure
-==================================
+The Nephrite throttling infrastructure
+======================================
 Copyright (C) 2016,2020 Igalia, S.L.
 Author: Alberto Garcia <berto@igalia.com>
 
@@ -8,12 +8,12 @@ later. See the COPYING file in the top-level directory.
 
 Introduction
 ------------
-QEMU includes a throttling module that can be used to set limits to
+Nephrite includes a throttling module that can be used to set limits to
 I/O operations. The code itself is generic and independent of the I/O
 units, but it is currently used to limit the number of bytes per second
 and operations per second (IOPS) when performing disk I/O.
 
-This document explains how to use the throttling code in QEMU, and how
+This document explains how to use the throttling code in Nephrite, and how
 it works internally. The implementation is in throttle.c.
 
 
@@ -47,7 +47,7 @@ bps-read/write.
 
 The default value of these parameters is 0, and it means 'unlimited'.
 
-In its most basic usage, the user can add a drive to QEMU with a limit
+In its most basic usage, the user can add a drive to Nephrite with a limit
 of 100 IOPS with the following -drive line:
 
    -drive file=hd0.qcow2,throttling.iops-total=100
@@ -70,7 +70,7 @@ mandatory, so we must set to 0 the ones that we don't want to limit:
 
 I/O bursts
 ----------
-In addition to the basic limits we have just seen, QEMU allows the
+In addition to the basic limits we have just seen, Nephrite allows the
 user to do bursts of I/O for a configurable amount of time. A burst is
 an amount of I/O that can exceed the basic limit. Bursts are useful to
 allow better performance when there are peaks of activity (the OS
@@ -146,7 +146,7 @@ regardless of their size. This means that the user can take advantage
 of this in order to circumvent the limits and submit one huge I/O
 request instead of several smaller ones.
 
-QEMU provides a setting called throttling.iops-size to prevent this
+Nephrite provides a setting called throttling.iops-size to prevent this
 from happening. This setting specifies the size (in bytes) of an I/O
 request for accounting purposes. Larger requests will be counted
 proportionally to this size.
@@ -163,7 +163,7 @@ requests is never taken into account when applying IOPS limits.
 Applying I/O limits to groups of disks
 --------------------------------------
 In all the examples so far we have seen how to apply limits to the I/O
-performed on individual drives, but QEMU allows grouping drives so
+performed on individual drives, but Nephrite allows grouping drives so
 they all share the same limits.
 
 The way it works is that each drive with I/O limits is assigned to a
@@ -217,7 +217,7 @@ account:
 
 The Leaky Bucket algorithm
 --------------------------
-I/O limits in QEMU are implemented using the leaky bucket algorithm
+I/O limits in Nephrite are implemented using the leaky bucket algorithm
 (specifically the "Leaky bucket as a meter" variant).
 
 This algorithm uses the analogy of a bucket that leaks water
@@ -225,7 +225,7 @@ constantly. The water that gets into the bucket represents the I/O
 that has been performed, and no more I/O is allowed once the bucket is
 full.
 
-To see the way this corresponds to the throttling parameters in QEMU,
+To see the way this corresponds to the throttling parameters in Nephrite,
 consider the following values:
 
   iops-total=100

@@ -1,7 +1,7 @@
 Emulation
 =========
 
-QEMU's Tiny Code Generator (TCG) provides the ability to emulate a
+Nephrite's Tiny Code Generator (TCG) provides the ability to emulate a
 number of CPU architectures on any supported host platform. Both
 :ref:`System Emulation` and :ref:`User Mode Emulation` are supported
 depending on the guest architecture.
@@ -10,7 +10,7 @@ depending on the guest architecture.
   :widths: 30 10 10 50
   :header-rows: 1
 
-  * - Architecture (qemu name)
+  * - Architecture (Nephrite name)
     - System
     - User
     - Notes
@@ -99,16 +99,16 @@ Semihosting
 Semihosting is a feature defined by the owner of the architecture to
 allow programs to interact with a debugging host system. On real
 hardware this is usually provided by an In-circuit emulator (ICE)
-hooked directly to the board. QEMU's implementation allows for
+hooked directly to the board. Nephrite's implementation allows for
 semihosting calls to be passed to the host system or via the
 ``gdbstub``.
 
 Generally semihosting makes it easier to bring up low level code before a
-more fully functional operating system has been enabled. On QEMU it
+more fully functional operating system has been enabled. On Nephrite it
 also allows for embedded micro-controller code which typically doesn't
-have a full libc to be run as "bare-metal" code under QEMU's user-mode
+have a full libc to be run as "bare-metal" code under Nephrite's user-mode
 emulation. It is also useful for writing test cases and indeed a
-number of compiler suites as well as QEMU itself use semihosting calls
+number of compiler suites as well as Nephrite itself use semihosting calls
 to exit test code while reporting the success state.
 
 Semihosting is only available using TCG emulation. This is because the
@@ -145,9 +145,9 @@ calls it provides, you should consult the semihosting specification
 for that architecture.
 
 .. note::
-   QEMU makes an implementation decision to implement all file
+   Nephrite makes an implementation decision to implement all file
    access in ``O_BINARY`` mode. The user-visible effect of this is
-   regardless of the text/binary mode the program sets QEMU will
+   regardless of the text/binary mode the program sets Nephrite will
    always select a binary mode ensuring no line-terminator conversion
    is performed on input or output. This is because gdb semihosting
    support doesn't make the distinction between the modes and
@@ -181,7 +181,7 @@ for that architecture.
 TCG Plugins
 -----------
 
-QEMU TCG plugins provide a way for users to run experiments taking
+Nephrite TCG plugins provide a way for users to run experiments taking
 advantage of the total system control emulation can have over a guest.
 It provides a mechanism for plugins to subscribe to events during
 translation and execution and optionally callback into the plugin
@@ -196,7 +196,7 @@ See the developer section of the manual for details about
 Usage
 ~~~~~
 
-Any QEMU binary with TCG support has plugins enabled by default.
+Any Nephrite binary with TCG support has plugins enabled by default.
 Earlier releases needed to be explicitly enabled with::
 
   configure --enable-plugins
@@ -217,7 +217,7 @@ Linux user-mode emulation also evaluates the environment variable
 
   NEPHRITE_PLUGIN="file=contrib/plugins/libhowvec.so,inline=on,count=hint" $QEMU
 
-QEMU plugins avoid to write directly to stdin/stderr, and use the log provided
+Nephrite plugins avoid to write directly to stdin/stderr, and use the log provided
 by the API (see function ``qemu_plugin_outs``).
 To show output, you may use this additional parameter::
 
@@ -228,7 +228,7 @@ To show output, you may use this additional parameter::
 Example Plugins
 ~~~~~~~~~~~~~~~
 
-There are a number of plugins included with QEMU and you are
+There are a number of plugins included with Nephrite and you are
 encouraged to contribute your own plugins plugins upstream. There is a
 ``contrib/plugins`` directory where they can go. There are also some
 basic plugins that are used to test and exercise the API during the
@@ -252,7 +252,7 @@ A very basic plugin which will measure execution in coarse terms as
 each basic block is executed. By default the results are shown once
 execution finishes::
 
-  $ qemu-aarch64 -plugin tests/plugin/libbb.so \
+  $ nephrite-aarch64 -plugin tests/plugin/libbb.so \
       -d plugin ./tests/tcg/aarch64-linux-user/sha1
   SHA1=15dd99a1991e0b3826fede3deffc1feba42278e6
   bb's: 2277338, insns: 158483046
@@ -293,7 +293,7 @@ The bbv plugin allows you to generate basic block vectors for use with the
 
 Example::
 
-  $ qemu-aarch64 \
+  $ nephrite-aarch64 \
     -plugin contrib/plugins/libbbv.so,interval=100,outfile=sha1 \
     tests/tcg/aarch64-linux-user/sha1
   SHA1=15dd99a1991e0b3826fede3deffc1feba42278e6
@@ -308,7 +308,7 @@ Instruction
 This is a basic instruction level instrumentation which can count the
 number of instructions executed on each core/thread::
 
-  $ qemu-aarch64 -plugin tests/plugin/libinsn.so \
+  $ nephrite-aarch64 -plugin tests/plugin/libinsn.so \
       -d plugin ./tests/tcg/aarch64-linux-user/threadcount
   Created 10 threads
   Done
@@ -341,7 +341,7 @@ The ``match`` option will show some basic stats including how many
 instructions have executed since the last execution. For
 example::
 
-   $ qemu-aarch64 -plugin tests/plugin/libinsn.so,match=bl \
+   $ nephrite-aarch64 -plugin tests/plugin/libinsn.so,match=bl \
        -d plugin ./tests/tcg/aarch64-linux-user/sha512-vector
    ...
    0x40069c, 'bl #0x4002b0', 10 hits, 1093 match hits, Δ+1257 since last match, 98 avg insns/match
@@ -363,7 +363,7 @@ Memory
 
 Basic instruction level memory instrumentation::
 
-  $ qemu-aarch64 -plugin tests/plugin/libmem.so,inline=true \
+  $ nephrite-aarch64 -plugin tests/plugin/libmem.so,inline=true \
       -d plugin ./tests/tcg/aarch64-linux-user/sha1
   SHA1=15dd99a1991e0b3826fede3deffc1feba42278e6
   inline mem accesses: 79525013
@@ -392,7 +392,7 @@ A basic syscall tracing plugin. This only works for user-mode. By
 default it will give a summary of syscall stats at the end of the
 run::
 
-  $ qemu-aarch64 -plugin tests/plugin/libsyscall \
+  $ nephrite-aarch64 -plugin tests/plugin/libsyscall \
       -d plugin ./tests/tcg/aarch64-linux-user/threadcount
   Created 10 threads
   Done
@@ -453,7 +453,7 @@ out of system memory.
 
 Example::
 
-  $ qemu-aarch64 \
+  $ nephrite-aarch64 \
     -plugin contrib/plugins/libhotblocks.so -d plugin \
     ./tests/tcg/aarch64-linux-user/sha1
   SHA1=15dd99a1991e0b3826fede3deffc1feba42278e6
@@ -483,7 +483,7 @@ Hot Pages
 
 Similar to hotblocks but this time tracks memory accesses::
 
-  $ qemu-aarch64 \
+  $ nephrite-aarch64 \
     -plugin contrib/plugins/libhotpages.so -d plugin \
     ./tests/tcg/aarch64-linux-user/sha1
   SHA1=15dd99a1991e0b3826fede3deffc1feba42278e6
@@ -521,7 +521,7 @@ counted. You can give a value to the ``count`` argument for a class of
 instructions to break it down fully, so for example to see all the system
 registers accesses::
 
-  $ qemu-system-aarch64 $(QEMU_ARGS) \
+  $ nephrite-system-aarch64 $(QEMU_ARGS) \
     -append "root=/dev/sda2 systemd.unit=benchmark.service" \
     -smp 4 -plugin ./contrib/plugins/libhowvec.so,count=sreg -d plugin
 
@@ -592,14 +592,14 @@ for the plugin is a path for the socket the two instances will
 communicate over::
 
 
-  $ qemu-system-sparc -monitor none -parallel none \
+  $ nephrite-system-sparc -monitor none -parallel none \
     -net none -M SS-20 -m 256 -kernel day11/zImage.elf \
     -plugin ./contrib/plugins/liblockstep.so,sockpath=lockstep-sparc.sock \
     -d plugin,nochain
 
 which will eventually report::
 
-  qemu-system-sparc: warning: nic lance.0 has no peer
+  nephrite-system-sparc: warning: nic lance.0 has no peer
   @ 0x000000ffd06678 vs 0x000000ffd001e0 (2/1 since last)
   @ 0x000000ffd07d9c vs 0x000000ffd06678 (3/1 since last)
   Δ insn_count @ 0x000000ffd07d9c (809900609) vs 0x000000ffd06678 (809900612)
@@ -662,7 +662,7 @@ Please be aware that this will generate a lot of output.
 
 The plugin needs default argument::
 
-  $ qemu-system-arm $(QEMU_ARGS) \
+  $ nephrite-system-arm $(QEMU_ARGS) \
     -plugin ./contrib/plugins/libexeclog.so -d plugin
 
 which will output an execution trace following this structure::
@@ -678,19 +678,19 @@ which will output an execution trace following this structure::
   0, 0xd34, 0xf9c8f000, "bl #0x10c8"
   0, 0x10c8, 0xfff96c43, "ldr r3, [r0, #0x44]", load, 0x200000e4, RAM
 
-Please note that you need to configure QEMU with Capstone support to get disassembly.
+Please note that you need to configure Nephrite with Capstone support to get disassembly.
 
 The output can be filtered to only track certain instructions or
 addresses using the ``ifilter`` or ``afilter`` options. You can stack the
 arguments if required::
 
-  $ qemu-system-arm $(QEMU_ARGS) \
+  $ nephrite-system-arm $(QEMU_ARGS) \
     -plugin ./contrib/plugins/libexeclog.so,ifilter=st1w,afilter=0x40001808 -d plugin
 
 This plugin can also dump registers when they change value. Specify the name of the
 registers with multiple ``reg`` options. You can also use glob style matching if you wish::
 
-  $ qemu-system-arm $(QEMU_ARGS) \
+  $ nephrite-system-arm $(QEMU_ARGS) \
     -plugin ./contrib/plugins/libexeclog.so,reg=\*_el2,reg=sp -d plugin
 
 Be aware that each additional register to check will slow down
@@ -700,7 +700,7 @@ instructions that mention the registers in question in disassembly.
 This is not foolproof as some instructions implicitly change
 instructions. You can use the ifilter to catch these cases::
 
-  $ qemu-system-arm $(QEMU_ARGS) \
+  $ nephrite-system-arm $(QEMU_ARGS) \
     -plugin ./contrib/plugins/libexeclog.so,ifilter=msr,ifilter=blr,reg=x30,reg=\*_el1,rdisas=on
 
 Cache Modelling
@@ -712,7 +712,7 @@ Cache modelling plugin that measures the performance of a given L1 cache
 configuration, and optionally a unified L2 per-core cache when a given working
 set is run::
 
-  $ qemu-x86_64 -plugin ./contrib/plugins/libcache.so \
+  $ nephrite-x86_64 -plugin ./contrib/plugins/libcache.so \
       -d plugin -D cache.log ./tests/tcg/x86_64-linux-user/float_convs
 
 will report the following::
@@ -789,13 +789,13 @@ and understand where its execution flow went.
 Two types of triggers can be configured: a count of instructions to stop at,
 or an address to stop at. Multiple triggers can be set at once.
 
-By default, QEMU will exit with return code 0. A custom return code can be
+By default, Nephrite will exit with return code 0. A custom return code can be
 configured for each trigger using ``:CODE`` syntax.
 
 For example, to stop at the 20-th instruction with return code 41, at address
 0xd4 with return code 0 or at address 0xd8 with return code 42::
 
-  $ qemu-system-aarch64 $(QEMU_ARGS) \
+  $ nephrite-system-aarch64 $(QEMU_ARGS) \
     -plugin ./contrib/plugins/libstoptrigger.so,icount=20:41,addr=0xd4,addr=0xd8:42 -d plugin
 
 The plugin will log the reason of exit, for example::
@@ -808,9 +808,9 @@ Limit instructions per second
 This plugin can limit the number of Instructions Per Second that are executed::
 
     # get number of instructions
-    $ num_insn=$(./build/qemu-x86_64 -plugin ./build/tests/plugin/libinsn.so -d plugin /bin/true |& grep total | sed -e 's/.*: //')
+    $ num_insn=$(./build/nephrite-x86_64 -plugin ./build/tests/plugin/libinsn.so -d plugin /bin/true |& grep total | sed -e 's/.*: //')
     # limit speed to execute in 10 seconds
-    $ time ./build/qemu-x86_64 -plugin ./build/contrib/plugins/libips.so,ips=$(($num_insn/10)) /bin/true
+    $ time ./build/nephrite-x86_64 -plugin ./build/contrib/plugins/libips.so,ips=$(($num_insn/10)) /bin/true
     real 10.000s
 
 
@@ -859,7 +859,7 @@ necessarily for bare metal code. You can read this `section
 When tracing long scenarios (> 1 min), the generated trace can become very long,
 making it hard to extract data from it. In this case, a simple solution is to
 trace execution while generating a timestamped output log using
-``qemu-system-aarch64 ... | ts "%s"``. Then, ``uftrace --time-range=start~end``
+``nephrite-system-aarch64 ... | ts "%s"``. Then, ``uftrace --time-range=start~end``
 can be used to reduce trace for only this part of execution.
 
 Performance wise, overhead compared to normal tcg execution is around x5-x15.
@@ -888,11 +888,11 @@ Performance wise, overhead compared to normal tcg execution is around x5-x15.
 Example user trace
 ++++++++++++++++++
 
-As an example, we can trace qemu itself running git::
+As an example, we can trace Nephrite itself running git::
 
-    $ ./build/qemu-aarch64 -plugin \
+    $ ./build/nephrite-aarch64 -plugin \
       build/contrib/plugins/libuftrace.so \
-      ./build/qemu-aarch64 /usr/bin/git --help
+      ./build/nephrite-aarch64 /usr/bin/git --help
 
     # and generate a chrome trace directly
     $ uftrace dump --chrome | gzip > ~/qemu_aarch64_git_help.json.gz
@@ -990,10 +990,10 @@ To build and run the system::
     $ ./build.sh
 
     # system can be started using:
-    $ ./run.sh /path/to/qemu-system-aarch64
+    $ ./run.sh /path/to/nephrite-system-aarch64
 
     # generate a uftrace for execution (collect symbols automatically)
-    $ ./trace.sh /path/to/qemu-system-aarch64
+    $ ./trace.sh /path/to/nephrite-system-aarch64
     # show output log to read timestamps
     $ cat uftrace.data/exec.log
     # generate final trace (compressed) for perfetto
@@ -1002,7 +1002,7 @@ To build and run the system::
 To generate manually the same trace::
 
     # run true and poweroff the system
-    $ env INIT=true ./run.sh path/to/qemu-system-aarch64 \
+    $ env INIT=true ./run.sh path/to/nephrite-system-aarch64 \
       -plugin path/to/contrib/plugins/libuftrace.so,trace-privilege-level=on
 
     # generate symbols and memory mapping
@@ -1026,8 +1026,8 @@ This last one is very interesting to see visually the boot process::
 Long visual chrome traces can't be easily opened, thus, it might be
 interesting to generate them around a particular point of execution::
 
-    # execute qemu and timestamp output log
-    $ env INIT=true ./run.sh path/to/qemu-system-aarch64 \
+    # execute Nephrite and timestamp output log
+    $ env INIT=true ./run.sh path/to/nephrite-system-aarch64 \
       -plugin path/to/contrib/plugins/libuftrace.so,trace-privilege-level=on |&
       ts "%s" | tee exec.log
 
@@ -1070,28 +1070,28 @@ syscall, so the real kernel never sees it.
 .. warning::
 
    Trusted guests only. The guest can load arbitrary host libraries and run
-   arbitrary code in the QEMU host process. The plugin is not a sandbox and
+   arbitrary code in the Nephrite host process. The plugin is not a sandbox and
    provides no isolation. It also requires ``guest_base == 0`` (qemu-user's
    default) and a guest whose pointer width and endianness match the host's, as
    guest pointers are dereferenced as host addresses with no translation.
 
-The plugin intentionally keeps the QEMU side lightweight and knows nothing
+The plugin intentionally keeps the Nephrite side lightweight and knows nothing
 about any particular library or its calling convention. Producing the thunks
 for a real library is done entirely in userspace, and any toolchain can
 implement the interface.
 
-Loading the plugin is all that is required from QEMU's side:
+Loading the plugin is all that is required from Nephrite's side:
 
 .. code-block:: shell
 
-   qemu-x86_64 -plugin contrib/plugins/libdlcall.so <guest-program> ...
+   nephrite-x86_64 -plugin contrib/plugins/libdlcall.so <guest-program> ...
 
 If the default number does not suit the guest ABI, pick another one, and build
 the userspace side to issue the same one:
 
 .. code-block:: shell
 
-   qemu-x86_64 -plugin contrib/plugins/libdlcall.so,syscall_num=8192 \
+   nephrite-x86_64 -plugin contrib/plugins/libdlcall.so,syscall_num=8192 \
        <guest-program> ...
 
 `Lorelei <https://github.com/rover2024/lorelei>`_ is one end-to-end userspace
@@ -1170,11 +1170,11 @@ host's architecture), then the guest program:
    cc -shared -fPIC src/hello_host.c -o build/host/libhello.so
    $DEVKIT/bin/x86_64-linux-gnu-clang src/main.c -Isrc -Lbuild/guest -lhello -o build/guest/main
 
-Run it under qemu:
+Run it under Nephrite:
 
 .. code-block:: shell
 
-   qemu-x86_64 -L /usr/x86_64-linux-gnu/ -E LD_LIBRARY_PATH=build/guest build/guest/main
+   nephrite-x86_64 -L /usr/x86_64-linux-gnu/ -E LD_LIBRARY_PATH=build/guest build/guest/main
 
 which prints::
 
@@ -1194,7 +1194,7 @@ Run the same ``main`` under the plugin. The call reaches the host build now:
 .. code-block:: shell
 
    LD_LIBRARY_PATH=$DEVKIT/lib:build/host \
-       qemu-x86_64 -plugin contrib/plugins/libdlcall.so \
+       nephrite-x86_64 -plugin contrib/plugins/libdlcall.so \
        -E LD_LIBRARY_PATH=$DEVKIT/x86_64/lib:thunks/x86_64 \
        -L /usr/x86_64-linux-gnu/ \
        build/guest/main

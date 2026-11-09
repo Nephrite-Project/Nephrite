@@ -196,17 +196,18 @@
 # order.  The backend JSON files should be searched for in three
 # directories:
 #
-#   - /usr/share/qemu/vhost-user -- populated by distro-provided
-#                                   packages (XDG_DATA_DIRS covers
-#                                   /usr/share by default),
+#   - /usr/share/nephrite/vhost-user -- populated by distro-provided
+#                                       packages (XDG_DATA_DIRS covers
+#                                       /usr/share by default),
 #
-#   - /etc/qemu/vhost-user -- exclusively for sysadmins' local
-#                             additions,
+#   - /etc/nephrite/vhost-user -- exclusively for sysadmins' local
+#                                 additions,
 #
-#   - $XDG_CONFIG_HOME/qemu/vhost-user -- exclusively for per-user
-#                                         local additions
-#                                         (XDG_CONFIG_HOME defaults to
-#                                         $HOME/.config).
+#   - $XDG_CONFIG_HOME/nephrite/vhost-user -- exclusively for
+#                                             per-user local additions
+#                                             (XDG_CONFIG_HOME
+#                                             defaults to
+#                                             $HOME/.config).
 #
 # Top-down, the list of directories goes from general to specific.
 #
@@ -221,26 +222,26 @@
 #
 # For example, if a distro ships
 #
-#   - /usr/share/qemu/vhost-user/50-qemu-gpu.json
+#   - /usr/share/nephrite/vhost-user/50-qemu-gpu.json
 #
-#   - /usr/share/qemu/vhost-user/50-crosvm-gpu.json
+#   - /usr/share/nephrite/vhost-user/50-crosvm-gpu.json
 #
-# then the sysadmin can prevent the default QEMU GPU being used at all
-# with
+# then the sysadmin can prevent the default Nephrite GPU being used at
+# all with
 #
-#   $ touch /etc/qemu/vhost-user/50-qemu-gpu.json
+#   $ touch /etc/nephrite/vhost-user/50-qemu-gpu.json
 #
-# The sysadmin can replace/alter the distro default QEMU GPU with
+# The sysadmin can replace/alter the distro default Nephrite GPU with
 #
-#   $ vim /etc/qemu/vhost-user/50-qemu-gpu.json
+#   $ vim /etc/nephrite/vhost-user/50-qemu-gpu.json
 #
-# or they can provide a parallel QEMU GPU with higher priority
+# or they can provide a parallel Nephrite GPU with higher priority
 #
-#   $ vim /etc/qemu/vhost-user/10-qemu-gpu.json
+#   $ vim /etc/nephrite/vhost-user/10-qemu-gpu.json
 #
-# or they can provide a parallel QEMU GPU with lower priority
+# or they can provide a parallel Nephrite GPU with lower priority
 #
-#   $ vim /etc/qemu/vhost-user/99-qemu-gpu.json
+#   $ vim /etc/nephrite/vhost-user/99-qemu-gpu.json
 #
 # @type: The vhost user backend type.
 #
@@ -260,9 +261,9 @@
 # .. qmp-example:
 #
 # {
-#   "description": "QEMU vhost-user-gpu",
+#   "description": "Nephrite vhost-user-gpu",
 #   "type": "gpu",
-#   "binary": "/usr/libexec/qemu/vhost-user-gpu",
+#   "binary": "/usr/libexec/nephrite-vhost-user-gpu",
 #   "tags": [
 #     "CONFIG_OPENGL=y",
 #     "CONFIG_GBM=y"

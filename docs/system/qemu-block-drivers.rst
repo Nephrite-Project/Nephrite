@@ -1,14 +1,14 @@
 :orphan:
 
-============================
-QEMU block drivers reference
-============================
+================================
+Nephrite block drivers reference
+================================
 
 --------
 Synopsis
 --------
 
-QEMU block driver reference manual
+Nephrite block driver reference manual
 
 -----------
 Description
@@ -20,5 +20,5 @@ Description
 See also
 --------
 
-The HTML documentation of QEMU for more precise information and Linux
+The HTML documentation of Nephrite for more precise information and Linux
 user mode emulator invocation.

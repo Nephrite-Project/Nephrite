@@ -6,9 +6,9 @@
    parts of the documentation that go in the manpage as well as the
    HTML manual.
 
-=======================
-QEMU User Documentation
-=======================
+===========================
+Nephrite User Documentation
+===========================
 
 --------
 Synopsis
@@ -52,5 +52,5 @@ Notes
 See also
 --------
 
-The HTML documentation of QEMU for more precise information and Linux
+The HTML documentation of Nephrite for more precise information and Linux
 user mode emulator invocation.

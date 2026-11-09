@@ -1,11 +1,11 @@
-Modelling a clock tree in QEMU
-==============================
+Modelling a clock tree in Nephrite
+==================================
 
 What are clocks?
 ----------------
 
 Clocks are QOM objects developed for the purpose of modelling the
-distribution of clocks in QEMU.
+distribution of clocks in Nephrite.
 
 They allow us to model the clock distribution of a platform and detect
 configuration errors in the clock tree such as badly configured PLL, clock
@@ -361,7 +361,7 @@ The caller must free the string with g_free() after use.
 It's also possible to retrieve the clock period from a QTest by
 accessing QOM property ``qtest-clock-period`` using a QMP command.
 This property is only present when the device is being run under
-the ``qtest`` accelerator; it is not available when QEMU is
+the ``qtest`` accelerator; it is not available when Nephrite is
 being run normally.
 
 Calculating expiry deadlines
@@ -429,7 +429,7 @@ change the clock value by doing:
 
 Because updating a clock may trigger any side effects through
 connected clocks and their callbacks, this operation must be done
-while holding the qemu io lock.
+while holding the Nephrite io lock.
 
 For the same reason, one can update clocks only when it is allowed to have
 side effects on other objects. In consequence, it is forbidden:

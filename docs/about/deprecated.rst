@@ -4,11 +4,11 @@ Deprecated features
 ===================
 
 In general features are intended to be supported indefinitely once
-introduced into QEMU. In the event that a feature needs to be removed,
+introduced into Nephrite. In the event that a feature needs to be removed,
 it will be listed in this section. The feature will remain functional for the
 release in which it was deprecated and one further release. After these two
 releases, the feature is liable to be removed. Deprecated features may also
-generate warnings on the console when QEMU starts up, or if activated via a
+generate warnings on the console when Nephrite starts up, or if activated via a
 monitor command, however, this is not a mandatory requirement.
 
 As a special exception to this general timeframe, rather than have an
@@ -220,7 +220,7 @@ System emulator CPUs
 '''''''''''''''''''''''''''''''''''''''''''''''''
 
 The character "+" in device (and thus also CPU) names is not allowed
-in the QEMU object model anymore. ``power5+``, ``power5+_v2.1``,
+in the Nephrite object model anymore. ``power5+``, ``power5+_v2.1``,
 ``power7+`` and ``power7+_v2.1`` are currently still supported via
 an alias, but for consistency these will get removed in a future
 release, too. Use ``power5p_v2.1`` and ``power7p_v2.1`` instead.
@@ -229,7 +229,7 @@ release, too. Use ``power5p_v2.1`` and ``power7p_v2.1`` instead.
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 The character "+" in device (and thus also CPU) names is not allowed
-in the QEMU object model anymore. ``Sun-UltraSparc-IIIi+`` and
+in the Nephrite object model anymore. ``Sun-UltraSparc-IIIi+`` and
 ``Sun-UltraSparc-IV+`` are currently still supported via a workaround,
 but for consistency these will get removed in a future release, too.
 Use ``Sun-UltraSparc-IIIi-plus`` and ``Sun-UltraSparc-IV-plus`` instead.
@@ -237,7 +237,7 @@ Use ``Sun-UltraSparc-IIIi-plus`` and ``Sun-UltraSparc-IV-plus`` instead.
 ``cortex-a53`` and ``cortex-a57`` CPU names with KVM on Arm (since 11.2)
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-QEMU currently allows the CPU name to be set to ``cortex-a53`` or
+Nephrite currently allows the CPU name to be set to ``cortex-a53`` or
 ``cortex-a57`` when using KVM; this is identical to using ``host`` or
 ``max``, but it will only work when the host CPU is a Cortex-A53 or
 Cortex-A57.  These CPUs are now over 10 years old, and the ability to
@@ -276,7 +276,7 @@ appears to have no users.
 '''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Use ``confidential-guest-support`` instead. The ``memory-encryption`` object
-was an early implementation of memory encryption support in QEMU, but it has
+was an early implementation of memory encryption support in Nephrite, but it has
 been superseded by the more comprehensive ``confidential-guest-support``
 object.
 
@@ -366,7 +366,7 @@ in favor of persistent-memdev.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``virtio-blk`` device has a limitation of 20 characters for the serial
-string. Accidentally, QEMU started accepting longer strings on the command line
+string. Accidentally, Nephrite started accepting longer strings on the command line
 in version 0.15.0, but it was still silently truncated to 20 characters for
 guests.
 
@@ -381,7 +381,7 @@ Block device options
 ``"backing": ""`` (since 2.12)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In order to prevent QEMU from automatically opening an image's backing
+In order to prevent Nephrite from automatically opening an image's backing
 chain, use ``"backing": null`` instead.
 
 ``rbd`` keyvalue pair encoded filenames: ``""`` (since 3.1)
@@ -454,12 +454,12 @@ kernel. Distros dropped OABI support fifteen years or more ago.
 The original floating-point coprocessor for 32-bit Arm was the
 FPA11. This was not present in many CPUs but did get baked into the
 OABI for how to pass floating point arguments, and so the Linux kernel
-has support for emulating it via the config option FPE_NWFPE; QEMU
+has support for emulating it via the config option FPE_NWFPE; Nephrite
 follows that. FPA11 support was also removed from GCC in GCC 4.8.
 
-QEMU's NWFPE code is old and untested and not thread-safe; the OABI
+Nephrite's NWFPE code is old and untested and not thread-safe; the OABI
 ABI is long-obsolete. We are therefore deprecating both OABI support
-and NWFPE emulation, and they will be removed in a future QEMU
+and NWFPE emulation, and they will be removed in a future Nephrite
 release.
 
 Build features
@@ -475,7 +475,7 @@ The AF_ALG interface is deprecated by Linux 7.2 and all support
 for hardware accelerators has been removed. It will thus always be
 slower than userspace crypto due to the overhead of copying data
 to kernel space. The GNUTLS, Nettle and GCrypt libraries supported
-by QEMU all include a variety of hardware optimized crypto
+by Nephrite all include a variety of hardware optimized crypto
 implementations which should suffice for typical needs.
 
 For the virtio-crypto device, the 'cryptodev-backend-lkcf' backend
@@ -490,7 +490,7 @@ Backwards compatibility
 Runnability guarantee of CPU models (since 4.1)
 '''''''''''''''''''''''''''''''''''''''''''''''
 
-Previous versions of QEMU never changed existing CPU models in
+Previous versions of Nephrite never changed existing CPU models in
 ways that introduced additional host software or hardware
 requirements to the VM.  This allowed management software to
 safely change the machine type of an existing VM without
@@ -508,7 +508,7 @@ command.
 While those guarantees are kept, the return value of
 ``query-cpu-definitions`` will have existing CPU model aliases
 point to a version that doesn't break runnability guarantees
-(specifically, version 1 of those CPU models).  In future QEMU
+(specifically, version 1 of those CPU models).  In future Nephrite
 versions, aliases will point to newer CPU model versions
 depending on the machine type, so management software must
 resolve CPU model aliases before starting a virtual machine.
@@ -524,5 +524,5 @@ of the intended guest OSs.
 
 If the user requests a modern x86 CPU model (i.e. not one of ``486``,
 ``athlon``, ``kvm32``, ``pentium``, ``pentium2``, ``pentium3``or ``qemu32``)
-a warning will be displayed until a future QEMU version when such CPUs will
+a warning will be displayed until a future Nephrite version when such CPUs will
 be rejected.

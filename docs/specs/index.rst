@@ -3,7 +3,7 @@ System Emulation Guest Hardware Specifications
 ----------------------------------------------
 
 This section of the manual contains specifications of
-guest hardware that is specific to QEMU.
+guest hardware that is specific to Nephrite.
 
 .. toctree::
    :maxdepth: 2

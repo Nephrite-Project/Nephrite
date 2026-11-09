@@ -24,27 +24,27 @@ virtio-gpu requires a guest Linux kernel built with the
 Depending on the 3D mode you are running you may need to override
 distribution supplied libraries with more recent versions or enable
 build options. There are a number of requirements the host must meet
-to be able to be able to support guests. QEMU must be able to access the
+to be able to be able to support guests. Nephrite must be able to access the
 host's GPU and for the best performance be able to reliably share GPU
 memory with the guest. Details of 3D acceleration requirements are
 described in a further sections.
 
-QEMU virtio-gpu variants
-------------------------
+Nephrite virtio-gpu variants
+----------------------------
 
-QEMU virtio-gpu device variants come in the following form:
+Nephrite virtio-gpu device variants come in the following form:
 
  * ``virtio-vga[-BACKEND]``
  * ``virtio-gpu[-BACKEND][-INTERFACE]``
  * ``vhost-user-vga``
  * ``vhost-user-pci``
 
-**Backends:** QEMU provides a 2D virtio-gpu backend, and two accelerated
+**Backends:** Nephrite provides a 2D virtio-gpu backend, and two accelerated
 backends: virglrenderer ('gl' device label) and rutabaga_gfx ('rutabaga'
 device label).  There is a vhost-user backend that runs the graphics stack
 in a separate process for improved isolation.
 
-**Interfaces:** QEMU further categorizes virtio-gpu device variants based
+**Interfaces:** Nephrite further categorizes virtio-gpu device variants based
 on the interface exposed to the guest. The interfaces can be classified
 into VGA and non-VGA variants. The VGA ones are prefixed with virtio-vga
 or vhost-user-vga while the non-VGA ones are prefixed with virtio-gpu or
@@ -123,7 +123,7 @@ of virtio-gpu host memory window. This is typically between 256M and 8G.
     - Kernel Version
     - Libvirglrenderer Version
   * - OpenGL pass-through
-    - Any Linux version compatible with QEMU if not using host blobs feature,
+    - Any Linux version compatible with Nephrite if not using host blobs feature,
       Linux 6.13+ otherwise
     - 0.8.2+
   * - Vulkan pass-through

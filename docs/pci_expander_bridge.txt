@@ -36,14 +36,14 @@ Here you have:
 Limitations
 ===========
 Please observe that we specified the bus "pci.0" for the second and third pxb.
-This is because when no bus is given, another pxb can be selected by QEMU as default bus,
+This is because when no bus is given, another pxb can be selected by Nephrite as default bus,
 however, PXBs can be placed only under the root bus.
 
 Implementation
 ==============
 The PXB is composed by:
 - HostBridge (TYPE_PXB_HOST)
-  The host bridge allows to register and query the PXB's PCI root bus in QEMU.
+  The host bridge allows to register and query the PXB's PCI root bus in Nephrite.
 - PXBDev(TYPE_PXB_DEVICE)
   It is a regular PCI Device that resides on the piix host-bridge bus and its bus uses the same PCI domain.
   However, the bus behind is exposed through ACPI as a primary PCI bus and starts a new PCI hierarchy.

@@ -25,7 +25,7 @@ The ``virt`` machine supports:
 CPU and machine Type
 --------------------
 
-The ``qemu-system-loongarch64`` provides emulation for virt
+The ``nephrite-system-loongarch64`` provides emulation for virt
 machine. You can specify the machine type ``virt`` and
 cpu type ``la464``.
 
@@ -36,7 +36,7 @@ We can boot the LoongArch virt machine by specifying the uefi bios,
 initrd, and linux kernel. And those source codes and binary files
 can be accessed by following steps.
 
-(1) Build qemu-system-loongarch64:
+(1) Build nephrite-system-loongarch64:
 
 .. code-block:: bash
 
@@ -90,7 +90,7 @@ Note: the initrd file is ramdisk
 
 .. code-block:: bash
 
-  $ ./build/qemu-system-loongarch64 -machine virt -m 4G -cpu la464 \
+  $ ./build/nephrite-system-loongarch64 -machine virt -m 4G -cpu la464 \
       -smp 1 -bios QEMU_EFI.fd -kernel vmlinuz.efi -initrd ramdisk \
       -serial stdio   -monitor telnet:localhost:4495,server,nowait \
       -append "root=/dev/ram rdinit=/sbin/init console=ttyS0,115200" \

@@ -2,16 +2,16 @@
    Copyright (c) 2022, Linaro Limited
    Written by Alex Bennée
 
-Writing VirtIO backends for QEMU
-================================
+Writing VirtIO backends for Nephrite
+====================================
 
 This document attempts to outline the information a developer needs to
-know to write device emulations in QEMU. It is specifically focused on
+know to write device emulations in Nephrite. It is specifically focused on
 implementing VirtIO devices. For VirtIO the frontend is the driver
-running on the guest. The backend is the everything that QEMU needs to
+running on the guest. The backend is the everything that Nephrite needs to
 do to handle the emulation of the VirtIO device. This can be done
-entirely in QEMU, divided between QEMU and the kernel (vhost) or
-handled by a separate process which is configured by QEMU
+entirely in Nephrite, divided between Nephrite and the kernel (vhost) or
+handled by a separate process which is configured by Nephrite
 (vhost-user).
 
 VirtIO Transports
@@ -19,7 +19,7 @@ VirtIO Transports
 
 VirtIO supports a number of different transports. While the details of
 the configuration and operation of the device will generally be the
-same QEMU represents them as different devices depending on the
+same Nephrite represents them as different devices depending on the
 transport they use. For example -device virtio-foo represents the foo
 device using mmio and -device virtio-foo-pci is the same class of
 device using the PCI transport.
@@ -27,7 +27,7 @@ device using the PCI transport.
 Using the QEMU Object Model (QOM)
 ---------------------------------
 
-Generally all devices in QEMU are super classes of ``TYPE_DEVICE``
+Generally all devices in Nephrite are super classes of ``TYPE_DEVICE``
 however VirtIO devices should be based on ``TYPE_VIRTIO_DEVICE`` which
 itself is derived from the base class. For example:
 
@@ -165,7 +165,7 @@ Back End Implementations
 There are a number of places where the implementation of the backend
 can be done:
 
-* in QEMU itself
+* in Nephrite itself
 * in the host kernel (a.k.a vhost)
 * in a separate process (a.k.a. vhost-user)
 
@@ -179,7 +179,7 @@ means including a ``struct vhost_dev`` in the main object structure.
 
 For vhost-user devices you also need to add code to track the
 initialisation of the ``chardev`` device used for the control socket
-between QEMU and the external vhost-user process.
+between Nephrite and the external vhost-user process.
 
 If you only need to implement a vhost-user backed the other option is
 a use a QOM-ified version of vhost-user.

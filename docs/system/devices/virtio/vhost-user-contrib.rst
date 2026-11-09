@@ -1,7 +1,7 @@
 vhost-user daemons in contrib
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-QEMU provides a number of :ref:`vhost_user` daemons in the contrib
+Nephrite provides a number of :ref:`vhost_user` daemons in the contrib
 directory. They were often written when vhost-user was initially added
 to the code base. You should also consider if other vhost-user daemons
 such as those from the rust-vmm `vhost-device repository`_ are better
@@ -45,7 +45,7 @@ Description
 The vhost-user-input device implementation was designed to work with a daemon
 polling on input devices and passes input events to the guest.
 
-QEMU provides a backend implementation in contrib/vhost-user-input.
+Nephrite provides a backend implementation in contrib/vhost-user-input.
 
 Linux kernel support
 --------------------
@@ -63,13 +63,13 @@ The backend daemon should be started first:
   host# vhost-user-input --socket-path=input.sock	\
       --evdev-path=/dev/input/event17
 
-The QEMU invocation needs to create a chardev socket to communicate with the
+The Nephrite invocation needs to create a chardev socket to communicate with the
 backend daemon and access the VirtIO queues with the guest over the
 :ref:`shared memory <shared_memory_object>`.
 
 ::
 
-  host# qemu-system								\
+  host# nephrite-system								\
       -chardev socket,path=/tmp/input.sock,id=mouse0				\
       -device vhost-user-input-pci,chardev=mouse0				\
       -m 4096 									\
@@ -97,7 +97,7 @@ vhost-user protocol.
 
 Example
 -------
-For a single QEMU instance that both runs the user-mode net stack (slirp) and
+For a single Nephrite instance that both runs the user-mode net stack (slirp) and
 serves as a vhost-user protocol frontend, i.e. client, simultaneously:
 
 First, start vhost-user-bridge:
@@ -108,11 +108,11 @@ First, start vhost-user-bridge:
                       -l 127.0.0.1:4444 \
                       -r 127.0.0.1:5555
 
-Then, invoke QEMU:
+Then, invoke Nephrite:
 
 ::
 
-  $ qemu-system-x86_64 \
+  $ nephrite-system-x86_64 \
         -m 4G \
         -object memory-backend-memfd,id=mem0,size=4G,share=on,prealloc=on \
         -numa node,memdev=mem0 \

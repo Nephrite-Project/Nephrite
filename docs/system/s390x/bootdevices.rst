@@ -8,11 +8,11 @@ For classical mainframe guests (i.e. LPAR or z/VM installations), you always
 have to explicitly specify the disk where you want to boot from (or "IPL" from,
 in s390x-speak -- IPL means "Initial Program Load").
 
-So for booting an s390x guest in QEMU, you should always mark the
+So for booting an s390x guest in Nephrite, you should always mark the
 device where you want to boot from with the ``bootindex`` property, for
 example::
 
- qemu-system-s390x -drive if=none,id=dr1,file=guest.qcow2 \
+ nephrite-system-s390x -drive if=none,id=dr1,file=guest.qcow2 \
                    -device virtio-blk,drive=dr1,bootindex=1
 
 Multiple devices may have a bootindex. The lowest bootindex is assigned to the
@@ -24,19 +24,19 @@ For booting from a CD-ROM ISO image (which needs to include El-Torito boot
 information in order to be bootable), it is recommended to specify a ``scsi-cd``
 device, for example like this::
 
- qemu-system-s390x -blockdev file,node-name=c1,filename=... \
+ nephrite-system-s390x -blockdev file,node-name=c1,filename=... \
                    -device virtio-scsi \
                    -device scsi-cd,drive=c1,bootindex=1
 
 Note that you really have to use the ``bootindex`` property to select the
-boot device. The old-fashioned ``-boot order=...`` command of QEMU (and
+boot device. The old-fashioned ``-boot order=...`` command of Nephrite (and
 also ``-boot once=...``) is not supported on s390x.
 
 
 Booting without bootindex parameter
 -----------------------------------
 
-The QEMU guest firmware (the so-called s390-ccw bios) has also some rudimentary
+The Nephrite guest firmware (the so-called s390-ccw bios) has also some rudimentary
 support for scanning through the available block devices. So in case you did
 not specify a boot device with the ``bootindex`` property, there is still a
 chance that it finds a bootable device on its own and starts a guest operating
@@ -49,7 +49,7 @@ This also means that you should avoid the classical short-cut commands like
 ``-hda``, ``-cdrom`` or ``-drive if=virtio``, since it is not possible to
 specify the ``bootindex`` with these commands. Note that the convenience
 ``-cdrom`` option even does not give you a real (virtio-scsi) CD-ROM device on
-s390x. Due to technical limitations in the QEMU code base, you will get a
+s390x. Due to technical limitations in the Nephrite code base, you will get a
 virtio-blk device with this parameter instead, which might not be the right
 device type for installing a Linux distribution via ISO image. It is
 recommended to specify a CD-ROM device via ``-device scsi-cd`` (as mentioned
@@ -61,15 +61,15 @@ Selecting kernels with the ``loadparm`` property
 
 The ``s390-ccw-virtio`` machine supports the so-called ``loadparm`` parameter
 which can be used to select the kernel on the disk of the guest that the
-s390-ccw bios should boot. When starting QEMU, it can be specified like this::
+s390-ccw bios should boot. When starting Nephrite, it can be specified like this::
 
- qemu-system-s390x -machine s390-ccw-virtio,loadparm=<string>
+ nephrite-system-s390x -machine s390-ccw-virtio,loadparm=<string>
 
 The first way to use this parameter is to use the word ``PROMPT`` as the
 ``<string>`` here. In that case the s390-ccw bios will show a list of
 installed kernels on the disk of the guest and ask the user to enter a number
 to chose which kernel should be booted -- similar to what can be achieved by
-specifying the ``-boot menu=on`` option when starting QEMU. Note that the menu
+specifying the ``-boot menu=on`` option when starting Nephrite. Note that the menu
 list will only show the names of the installed kernels when using a DASD-like
 disk image with 4k byte sectors. On normal SCSI-style disks with 512-byte
 sectors, there is not enough space for the zipl loader on the disk to store
@@ -88,7 +88,7 @@ between them, an independent ``loadparm`` may be assigned on a per-device basis.
 
 An example guest using per-device ``loadparm``::
 
-  qemu-system-s390x -drive if=none,id=dr1,file=primary.qcow2 \
+  nephrite-system-s390x -drive if=none,id=dr1,file=primary.qcow2 \
                    -device virtio-blk,drive=dr1,bootindex=1 \
                    -drive if=none,id=dr2,file=secondary.qcow2 \
                    -device virtio-blk,drive=dr2,bootindex=2,loadparm=3
@@ -107,14 +107,14 @@ is used when attempting to boot without a ``bootindex``.
 Booting from a network device
 -----------------------------
 
-The firmware that ships with QEMU includes a small TFTP network bootloader
+The firmware that ships with Nephrite includes a small TFTP network bootloader
 for virtio-net-ccw devices.  The ``bootindex`` property is especially
 important for booting via the network. If you don't specify the ``bootindex``
 property here, the network bootloader won't be taken into consideration and
 the network boot will fail. For a successful network boot, try something
 like this::
 
- qemu-system-s390x -netdev user,id=n1,tftp=...,bootfile=... \
+ nephrite-system-s390x -netdev user,id=n1,tftp=...,bootfile=... \
                    -device virtio-net-ccw,netdev=n1,bootindex=1
 
 The network bootloader also has basic support for pxelinux.cfg-style

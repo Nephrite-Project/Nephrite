@@ -13,7 +13,7 @@ of the executable.  Other times obscure errors are raised by a program inside
 the guest.  These issues are extremely hard to trace back to bugs in the block
 driver.
 
-``blkverify`` solves this problem by catching data corruption inside QEMU the first
+``blkverify`` solves this problem by catching data corruption inside Nephrite the first
 time bad data is read and reporting the disk sector that is corrupted.
 
 How it works
@@ -37,7 +37,7 @@ Example
 
 Imagine raw.img has 0xcd repeated throughout its first sector::
 
-    $ ./qemu-io -c 'read -v 0 512' raw.img
+    $ ./nephrite-io -c 'read -v 0 512' raw.img
     00000000:  cd cd cd cd cd cd cd cd cd cd cd cd cd cd cd cd  ................
     00000010:  cd cd cd cd cd cd cd cd cd cd cd cd cd cd cd cd  ................
     [...]
@@ -48,7 +48,7 @@ Imagine raw.img has 0xcd repeated throughout its first sector::
 
 And test.img is corrupt, its first sector is zeroed when it shouldn't be::
 
-    $ ./qemu-io -c 'read -v 0 512' test.img
+    $ ./nephrite-io -c 'read -v 0 512' test.img
     00000000:  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
     00000010:  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
     [...]
@@ -59,15 +59,15 @@ And test.img is corrupt, its first sector is zeroed when it shouldn't be::
 
 This error is caught by ``blkverify``::
 
-    $ ./qemu-io -c 'read 0 512' blkverify:a.img:b.img
+    $ ./nephrite-io -c 'read 0 512' blkverify:a.img:b.img
     blkverify: read sector_num=0 nb_sectors=4 contents mismatch in sector 0
 
 A more realistic scenario is verifying the installation of a guest OS::
 
-    $ ./qemu-img create raw.img 16G
-    $ ./qemu-img create -f qcow2 test.qcow2 16G
-    $ ./qemu-system-x86_64 -cdrom debian.iso \
+    $ ./nephrite-img create raw.img 16G
+    $ ./nephrite-img create -f qcow2 test.qcow2 16G
+    $ ./nephrite-system-x86_64 -cdrom debian.iso \
           -drive file=blkverify:raw.img:test.qcow2
 
-If the installation is aborted when ``blkverify`` detects corruption, use ``qemu-io``
+If the installation is aborted when ``blkverify`` detects corruption, use ``nephrite-io``
 to explore the contents of the disk image at the sector in question.

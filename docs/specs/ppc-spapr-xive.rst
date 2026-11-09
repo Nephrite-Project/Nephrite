@@ -7,7 +7,7 @@ Engine". It supports a larger number of interrupt sources and offers
 virtualization features which enables the HW to deliver interrupts
 directly to virtual processors without hypervisor assistance.
 
-A QEMU ``pseries`` machine (which is PAPR compliant) using POWER9
+A Nephrite ``pseries`` machine (which is PAPR compliant) using POWER9
 processors can run under two interrupt modes:
 
 - *Legacy Compatibility Mode*
@@ -15,7 +15,7 @@ processors can run under two interrupt modes:
   the hypervisor provides identical interfaces and similar
   functionality to PAPR+ Version 2.7.  This is the default mode
 
-  It is also referred as *XICS* in QEMU.
+  It is also referred as *XICS* in Nephrite.
 
 - *XIVE native exploitation mode*
 
@@ -33,7 +33,7 @@ layout.
 CAS Negotiation
 ---------------
 
-QEMU advertises the supported interrupt modes in the device tree
+Nephrite advertises the supported interrupt modes in the device tree
 property ``ibm,arch-vec-5-platform-support`` in byte 23 and the OS
 Selection for XIVE is indicated in the ``ibm,architecture-vec-5``
 property byte 23.
@@ -53,17 +53,17 @@ KVM negotiation
 ---------------
 
 When the guest starts under KVM, the capabilities of the host kernel
-and QEMU are also negotiated. Depending on the version of the host
-kernel, KVM will advertise the XIVE capability to QEMU or not.
+and Nephrite are also negotiated. Depending on the version of the host
+kernel, KVM will advertise the XIVE capability to Nephrite or not.
 
 Nevertheless, the available interrupt modes in the machine should not
 depend on the XIVE KVM capability of the host. On older kernels
-without XIVE KVM support, QEMU will use the emulated XIVE device as a
+without XIVE KVM support, Nephrite will use the emulated XIVE device as a
 fallback and on newer kernels (>=5.2), the KVM XIVE device.
 
 XIVE native exploitation mode is not supported for KVM nested guests,
 VMs running under a L1 hypervisor (KVM on pSeries). In that case, the
-hypervisor will not advertise the KVM capability and QEMU will use the
+hypervisor will not advertise the KVM capability and Nephrite will use the
 emulated XIVE device, same as for older versions of KVM.
 
 As a final refinement, the user can also switch the use of the KVM
@@ -90,18 +90,18 @@ xics            XICS KVM       XICS emul.     XICS KVM
 For legacy guest OSes without XIVE support, the resulting interrupt
 modes are the following:
 
-==============  =============  =============  ================
-ic-mode                            kernel_irqchip
---------------  ----------------------------------------------
-/               allowed        off            on
+==============  =================  =================  =================
+ic-mode                             kernel_irqchip
+--------------  -------------------------------------------------------
+/               allowed            off                on
                 (default)
-==============  =============  =============  ================
-dual (default)  XICS KVM       XICS emul.     XICS KVM
-xive            QEMU error(3)  QEMU error(3)  QEMU error(3)
-xics            XICS KVM       XICS emul.     XICS KVM
-==============  =============  =============  ================
+==============  =================  =================  =================
+dual (default)  XICS KVM           XICS emul.         XICS KVM
+xive            Nephrite error(3)  Nephrite error(3)  Nephrite error(3)
+xics            XICS KVM           XICS emul.         XICS KVM
+==============  =================  =================  =================
 
-(3) QEMU fails at CAS with ``Guest requested unavailable interrupt
+(3) Nephrite fails at CAS with ``Guest requested unavailable interrupt
     mode (XICS), either don't set the ic-mode machine property or try
     ic-mode=xics or ic-mode=dual``
 
@@ -112,46 +112,48 @@ No XIVE support in KVM
 For guest OSes supporting XIVE, the resulting interrupt modes on host
 kernels without XIVE KVM support are the following:
 
-==============  =============  =============  ================
-ic-mode                            kernel_irqchip
---------------  ----------------------------------------------
+==============  =============  =============  ==================
+ic-mode                          kernel_irqchip
+--------------  ------------------------------------------------
 /               allowed        off            on
                 (default)
-==============  =============  =============  ================
-dual (default)  XIVE emul.(1)  XIVE emul.     QEMU error (2)
-xive            XIVE emul.(1)  XIVE emul.     QEMU error (2)
+==============  =============  =============  ==================
+dual (default)  XIVE emul.(1)  XIVE emul.     Nephrite error (2)
+xive            XIVE emul.(1)  XIVE emul.     Nephrite error (2)
 xics            XICS KVM       XICS emul.     XICS KVM
-==============  =============  =============  ================
+==============  =============  =============  ==================
 
 
-(1) QEMU warns with ``warning: kernel_irqchip requested but unavailable:
+(1) Nephrite warns with ``warning: kernel_irqchip requested but unavailable:
     IRQ_XIVE capability must be present for KVM``
     In some cases (old host kernels or KVM nested guests), one may hit a
-    QEMU/KVM incompatibility due to device destruction in reset. QEMU fails
-    with ``KVM is incompatible with ic-mode=dual,kernel-irqchip=on``
-(2) QEMU fails with ``kernel_irqchip requested but unavailable:
+    Nephrite/KVM incompatibility due to device destruction in reset.
+    Nephrite fails with ``KVM is incompatible with
+    ic-mode=dual,kernel-irqchip=on``
+(2) Nephrite fails with ``kernel_irqchip requested but unavailable:
     IRQ_XIVE capability must be present for KVM``
 
 
 For legacy guest OSes without XIVE support, the resulting interrupt
 modes are the following:
 
-==============  =============  =============  ================
-ic-mode                            kernel_irqchip
---------------  ----------------------------------------------
-/               allowed        off            on
+==============  =================  =================  =================
+ic-mode                             kernel_irqchip
+--------------  -------------------------------------------------------
+/               allowed            off                on
                 (default)
-==============  =============  =============  ================
-dual (default)  QEMU error(4)  XICS emul.     QEMU error(4)
-xive            QEMU error(3)  QEMU error(3)  QEMU error(3)
-xics            XICS KVM       XICS emul.     XICS KVM
-==============  =============  =============  ================
+==============  =================  =================  =================
+dual (default)  Nephrite error(4)  XICS emul.         Nephrite error(4)
+xive            Nephrite error(3)  Nephrite error(3)  Nephrite error(3)
+xics            XICS KVM           XICS emul.         XICS KVM
+==============  =================  =================  =================
 
-(3) QEMU fails at CAS with ``Guest requested unavailable interrupt
+(3) Nephrite fails at CAS with ``Guest requested unavailable interrupt
     mode (XICS), either don't set the ic-mode machine property or try
     ic-mode=xics or ic-mode=dual``
-(4) QEMU/KVM incompatibility due to device destruction in reset. QEMU fails
-    with ``KVM is incompatible with ic-mode=dual,kernel-irqchip=on``
+(4) Nephrite/KVM incompatibility due to device destruction in reset.
+    Nephrite fails with ``KVM is incompatible with
+    ic-mode=dual,kernel-irqchip=on``
 
 
 XIVE Device tree properties
@@ -224,7 +226,7 @@ for each CPU :
    CPU[0000]: PHYS    00   00  00    00   00  00  00   ff  00000000
    ...
 
-In the case of a ``pseries`` machine, QEMU acts as the hypervisor and only
+In the case of a ``pseries`` machine, Nephrite acts as the hypervisor and only
 the O/S and USER register rings make sense. ``W2`` contains the vCPU CAM
 line which is set to the VP identifier.
 

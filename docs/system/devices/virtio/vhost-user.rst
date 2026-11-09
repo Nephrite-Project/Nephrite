@@ -4,7 +4,7 @@ vhost-user back ends
 --------------------
 
 vhost-user back ends are way to service the request of VirtIO devices
-outside of QEMU itself. To do this there are a number of things
+outside of Nephrite itself. To do this there are a number of things
 required.
 
 vhost-user device
@@ -86,7 +86,7 @@ specify all the required parameters including:
 vhost-user daemon
 =================
 
-This is a separate process that is connected to by QEMU via a socket
+This is a separate process that is connected to by Nephrite via a socket
 following the :ref:`vhost_user_proto`. There are a number of daemons
 that can be built when enabled by the project although any daemon that
 meets the specification for a given device can be used.
@@ -115,7 +115,7 @@ First start your daemon.
 
   $ virtio-foo --socket-path=/var/run/foo.sock $OTHER_ARGS
 
-Then you start your QEMU instance specifying the device, chardev and
+Then you start your Nephrite instance specifying the device, chardev and
 memory objects.
 
 .. parsed-literal::

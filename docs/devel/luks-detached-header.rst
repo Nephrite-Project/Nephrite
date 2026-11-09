@@ -12,7 +12,7 @@ Background
 ==========
 
 The LUKS format has ability to store the header in a separate volume from
-the payload. We could extend the LUKS driver in QEMU to support this use
+the payload. We could extend the LUKS driver in Nephrite to support this use
 case.
 
 Normally a LUKS volume has a layout:
@@ -94,16 +94,16 @@ as previously mentioned.
 Usage
 =====
 
-Create a LUKS disk with a detached header using qemu-img
---------------------------------------------------------
+Create a LUKS disk with a detached header using nephrite-img
+------------------------------------------------------------
 
 Shell commandline::
 
-  # qemu-img create --object secret,id=sec0,data=abc123 -f luks \
+  # nephrite-img create --object secret,id=sec0,data=abc123 -f luks \
     -o cipher-alg=aes-256,cipher-mode=xts -o key-secret=sec0 \
     -o detached-header=true test-header.img
-  # qemu-img create -f qcow2 test-payload.qcow2 200G
-  # qemu-img info 'json:{"driver":"luks","file":{"filename": \
+  # nephrite-img create -f qcow2 test-payload.qcow2 200G
+  # nephrite-img info 'json:{"driver":"luks","file":{"filename": \
     "test-payload.img"},"header":{"filename":"test-header.img"}}'
 
 Set up a VM's LUKS volume with a detached header
@@ -111,7 +111,7 @@ Set up a VM's LUKS volume with a detached header
 
 Qemu commandline::
 
-  # qemu-system-x86_64 ... \
+  # nephrite-system-x86_64 ... \
     -object '{"qom-type":"secret","id":"libvirt-3-format-secret", \
     "data":"abc123"}' \
     -blockdev '{"driver":"file","filename":"/path/to/test-header.img", \

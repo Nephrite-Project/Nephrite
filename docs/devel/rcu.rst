@@ -9,10 +9,10 @@ extremely fast.
 RCU supports concurrency between a single writer and multiple readers,
 thus it is not used alone.  Typically, the write-side will use a lock to
 serialize multiple updates, but other approaches are possible (e.g.,
-restricting updates to a single task).  In QEMU, when a lock is used,
-this will often be the "iothread mutex", also known as the "big QEMU
+restricting updates to a single task).  In Nephrite, when a lock is used,
+this will often be the "iothread mutex", also known as the "big Nephrite
 lock" (BQL).  Also, restricting updates to a single task is done in
-QEMU using the "bottom half" API.
+Nephrite using the "bottom half" API.
 
 RCU is fundamentally a "wait-to-finish" mechanism.  The read side marks
 sections of code with "critical sections", and the update side will wait
@@ -233,7 +233,7 @@ Here are some frequently-used RCU idioms that are worth noting.
 RCU list processing
 ^^^^^^^^^^^^^^^^^^^
 
-TBD (not yet used in QEMU)
+TBD (not yet used in Nephrite)
 
 
 RCU reference counting

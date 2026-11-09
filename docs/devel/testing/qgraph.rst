@@ -4,7 +4,7 @@ Qtest Driver Framework
 ======================
 
 In order to test a specific driver, plain libqos tests need to
-take care of booting QEMU with the right machine and devices.
+take care of booting Nephrite with the right machine and devices.
 This makes each test "hardcoded" for a specific configuration, reducing
 the possible coverage that it can reach.
 
@@ -20,7 +20,7 @@ properly anymore and need to be adjusted.
 
 The aim of qgraph is to create a graph of drivers, machines and tests such that
 a test aimed to a certain driver does not have to care of
-booting the right QEMU machine, pick the right device, build the command line
+booting the right Nephrite machine, pick the right device, build the command line
 and so on. Instead, it only defines what type of device it is testing
 (interface in qgraph terms) and the framework takes care of
 covering all supported types of devices and machine architectures.
@@ -61,7 +61,7 @@ Notes for the nodes:
   "memory". The function can also return ``NULL`` if the allocator
   is not set.
 - QNODE_DRIVER:  driver names must be unique, and machines and nodes
-  planned to be "consumed" by other nodes must match QEMU
+  planned to be "consumed" by other nodes must match Nephrite
   drivers name, otherwise they won't be discovered
 
 Edges
@@ -80,9 +80,9 @@ The basic framework steps are the following:
 
 - All nodes and edges are created in their respective
   machine/driver/test files
-- The framework starts QEMU and asks for a list of available devices
+- The framework starts Nephrite and asks for a list of available devices
   and machines (note that only machines and "consumed" nodes are mapped
-  1:1 with QEMU devices)
+  1:1 with Nephrite devices)
 - The framework walks the graph starting from the available machines and
   performs a Depth First Search for tests
 - Once a test is found, the path is walked again and all drivers are
@@ -90,7 +90,7 @@ The basic framework steps are the following:
 - The test is executed
 - Unused objects are cleaned and the path discovery is continued
 
-Depending on the QEMU binary used, only some drivers/machines will be
+Depending on the Nephrite binary used, only some drivers/machines will be
 available and only test that are reached by them will be executed.
 
 Command line
@@ -126,10 +126,10 @@ There are three types of command line arguments:
 
 While adding command line in edges is always used, not all nodes names are
 used in every path walk: this is because the contained or produced ones
-are already added by QEMU, so only nodes that "consumes" will be used to
+are already added by Nephrite, so only nodes that "consumes" will be used to
 build the command line. Also, nodes that will have ``{ "abstract" : true }``
 as QMP attribute will loose their command line, since they are not proper
-devices to be added in QEMU.
+devices to be added in Nephrite.
 
 Example::
 
@@ -154,12 +154,12 @@ Troubleshooting unavailable tests
 If there is no path from an available machine to a test then that test will be
 unavailable and won't execute. This can happen if a test or driver did not set
 up its qgraph node correctly. It can also happen if the necessary machine type
-or device is missing from the QEMU binary because it was compiled out or
+or device is missing from the Nephrite binary because it was compiled out or
 otherwise.
 
 It is possible to troubleshoot unavailable tests by running::
 
-  $ QTEST_QEMU_BINARY=build/qemu-system-x86_64 build/tests/qtest/qos-test --verbose
+  $ QTEST_QEMU_BINARY=build/nephrite-system-x86_64 build/tests/qtest/qos-test --verbose
   # ALL QGRAPH EDGES: {
   #   src='virtio-net'
   #      |-> dest='virtio-net-tests/vhost-user/multiqueue' type=2 (node=0x559142109e30)
@@ -194,8 +194,8 @@ there.
 
 The ``arm/raspi2b`` machine node is listed as "UNAVAILABLE". Although it is
 reachable from the root via '' -> 'arm/raspi2b' the node is unavailable because
-the QEMU binary did not list it when queried by the framework. This is expected
-because we used the ``qemu-system-x86_64`` binary which does not support Arm
+the Nephrite binary did not list it when queried by the framework. This is expected
+because we used the ``nephrite-system-x86_64`` binary which does not support Arm
 machine types.
 
 If a test is unexpectedly listed as "UNAVAILABLE", first check that the "ALL
@@ -204,7 +204,7 @@ If there is no connectivity then the qgraph nodes were not set up correctly and
 the driver or test code is incorrect. If there is connectivity, check the
 availability of each node in the path in the "ALL QGRAPH NODES" output. The
 first unavailable node in the path is the reason why the test is unavailable.
-Typically this is because the QEMU binary lacks support for the necessary
+Typically this is because the Nephrite binary lacks support for the necessary
 machine type or device.
 
 Creating a new driver and its interface
@@ -216,7 +216,7 @@ Here we continue the ``sdhci`` use case, with the following scenario:
   offered by the ``sdhci`` drivers.
 - The current ``sdhci`` device is supported by both ``x86_64/pc`` and Arm
   (in this example we focus on the ``arm-raspi2b``) machines.
-- QEMU offers 2 types of drivers: ``QSDHCI_MemoryMapped`` for Arm and
+- Nephrite offers 2 types of drivers: ``QSDHCI_MemoryMapped`` for Arm and
   ``QSDHCI_PCI`` for ``x86_64/pc``. Both implement the
   ``read[q,w], writeq`` functions.
 
@@ -612,11 +612,11 @@ or inverting the consumes edge in consumed_by::
             arm/raspi2b --contains--> generic-sdhci
 
 Assuming there the binary is
-``QTEST_QEMU_BINARY=./qemu-system-x86_64``
+``QTEST_QEMU_BINARY=./nephrite-system-x86_64``
 a valid test path will be:
 ``/x86_64/pc/1440FX-pcihost/pci-bus-pc/pci-bus/sdhci-pc/sdhci/sdhci-test``
 
-and for the binary ``QTEST_QEMU_BINARY=./qemu-system-arm``:
+and for the binary ``QTEST_QEMU_BINARY=./nephrite-system-arm``:
 
 ``/arm/raspi2b/generic-sdhci/sdhci/sdhci-test``
 

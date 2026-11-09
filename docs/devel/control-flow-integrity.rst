@@ -5,15 +5,15 @@ Control-Flow Integrity (CFI)
 ============================
 
 This document describes the current control-flow integrity (CFI) mechanism in
-QEMU. How it can be enabled, its benefits and deficiencies, and how it affects
-new and existing code in QEMU
+Nephrite. How it can be enabled, its benefits and deficiencies, and how it affects
+new and existing code in Nephrite
 
 Basics
 ------
 
 CFI is a hardening technique that focusing on guaranteeing that indirect
 function calls have not been altered by an attacker.
-The type used in QEMU is a forward-edge control-flow integrity that ensures
+The type used in Nephrite is a forward-edge control-flow integrity that ensures
 function calls performed through function pointers, always call a "compatible"
 function. A compatible function is a function with the same signature of the
 function pointer declared in the source code.
@@ -25,7 +25,7 @@ As of now, the only compiler that provides support for CFI is Clang.
 CFI is best used on production binaries, to protect against unknown attack
 vectors.
 
-In case of a CFI violation (i.e. call to a non-compatible function) QEMU will
+In case of a CFI violation (i.e. call to a non-compatible function) Nephrite will
 terminate abruptly, to stop the possible attack.
 
 Building with CFI
@@ -48,8 +48,8 @@ CFI is enabled on every binary produced.
 If desired, an additional flag to increase the verbosity of the output in case
 of a CFI violation is offered (``--enable-debug-cfi``).
 
-Using QEMU built with CFI
--------------------------
+Using Nephrite built with CFI
+-----------------------------
 
 A binary with CFI will work exactly like a standard binary. In case of a CFI
 violation, the binary will terminate with an illegal instruction signal.
@@ -68,7 +68,7 @@ create false-positives. The two main patterns that can cause issues are:
 * Libraries loaded dynamically, e.g. with dlopen/dlsym, since the library was
   not known at compile time.
 
-Current areas of QEMU that are not entirely compatible with CFI are:
+Current areas of Nephrite that are not entirely compatible with CFI are:
 
 1. TCG, since the idea of TCG is to pre-compile groups of instructions at
    runtime to speed-up interpretation, quite similarly to a JIT compiler
@@ -79,7 +79,7 @@ Current areas of QEMU that are not entirely compatible with CFI are:
 
 4. Modules, since they are implemented as an external library
 
-5. Directly calling signal handlers from the QEMU source code, since the
+5. Directly calling signal handlers from the Nephrite source code, since the
    signal handler may have been provided by an external library or even plugged
    at runtime.
 

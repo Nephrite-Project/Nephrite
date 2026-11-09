@@ -59,7 +59,7 @@ Capability layout (defined in include/hw/pci/pci_bridge.h):
 If any reservation field is -1 then this kind of reservation is not
 needed and must be ignored by firmware.
 
-At the moment this capability is used only in QEMU generic PCIe root port
+At the moment this capability is used only in Nephrite generic PCIe root port
 (-device pcie-root-port). Capability construction function takes all reservation
 fields values from corresponding device properties. By default all of them are
 set to -1 to leave root port's default behavior unchanged.
@@ -84,12 +84,12 @@ device_add e1000,bus=br3,addr=1
 
 Here you have:
  (1) Cold-plugged:
-    - Root ports: 1 QEMU generic root port with the capability mentioned above,
-                  2 QEMU generic root ports without this capability;
+    - Root ports: 1 Nephrite generic root port with the capability mentioned above,
+                  2 Nephrite generic root ports without this capability;
     - 2 PCIE-PCI bridges plugged into 2 different root ports;
     - e1000 plugged into the first bridge.
  (2) Hot-plugged:
-    - PCIE-PCI bridge, plugged into QEMU generic root port;
+    - PCIE-PCI bridge, plugged into Nephrite generic root port;
     - 2 e1000 cards, one plugged into the cold-plugged PCIE-PCI bridge,
                      another plugged into the hot-plugged bridge.
 

@@ -1,13 +1,13 @@
 .. _secret data:
 
-Providing secret data to QEMU
------------------------------
+Providing secret data to Nephrite
+---------------------------------
 
-There are a variety of objects in QEMU which require secret data to be provided
+There are a variety of objects in Nephrite which require secret data to be provided
 by the administrator or management application. For example, network block
 devices often require a password, LUKS block devices require a passphrase to
 unlock key material, remote desktop services require an access password.
-QEMU has a general purpose mechanism for providing secret data to QEMU in a
+Nephrite has a general purpose mechanism for providing secret data to Nephrite in a
 secure manner, using the ``secret`` object type.
 
 At startup this can be done using the ``-object secret,...`` command line
@@ -28,7 +28,7 @@ or bug reporting tools. QMP/HMP commands and their arguments are also often
 logged and attached to bug reports. This all risks compromising secrets that
 are passed inline.**
 
-For the convenience of people debugging / developing with QEMU, it is possible
+For the convenience of people debugging / developing with Nephrite, it is possible
 to pass secret data inline on the command line.
 
 ::
@@ -65,7 +65,7 @@ important not to mistakenly add any trailing newline character in the file if
 this newline is not intended to be part of the secret data.
 
 In some cases it might be more convenient to pass the secret data in base64
-format and have QEMU decode to get the raw bytes before use:
+format and have Nephrite decode to get the raw bytes before use:
 
 ::
 
@@ -73,9 +73,9 @@ format and have QEMU decode to get the raw bytes before use:
 
 
 The file should generally be given mode ``0600`` or ``0400`` permissions, and
-have its user/group ownership set to the same account that the QEMU process
+have its user/group ownership set to the same account that the Nephrite process
 will be launched under. If using mandatory access control such as SELinux, then
-the file should be labelled to only grant access to the specific QEMU process
+the file should be labelled to only grant access to the specific Nephrite process
 that needs access. This will prevent other processes/users from compromising the
 secret data.
 
@@ -98,7 +98,7 @@ storage mechanism:
 In this case the ``masterkey.data`` file would be initialized with 32
 cryptographically secure random bytes, which are then base64 encoded.
 The contents of this file will by used as an AES-256 key to encrypt the
-real secret that can now be safely passed to QEMU inline as cipher text
+real secret that can now be safely passed to Nephrite inline as cipher text
 
 ::
 
@@ -116,15 +116,15 @@ critical that a different initialization vector is used for every secret**.
 Passing secrets via the Linux keyring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The earlier mechanisms described are platform agnostic. If using QEMU on a Linux
-host, it is further possible to pass secrets to QEMU using the Linux keyring:
+The earlier mechanisms described are platform agnostic. If using Nephrite on a Linux
+host, it is further possible to pass secrets to Nephrite using the Linux keyring:
 
 ::
 
    -object secret_keyring,id=secvnc0,serial=1729
 
 
-This instructs QEMU to load data from the Linux keyring secret identified by
+This instructs Nephrite to load data from the Linux keyring secret identified by
 the serial number ``1729``. It is possible to combine use of the keyring with
 other features mentioned earlier such as base64 encoding:
 
@@ -146,17 +146,17 @@ Best practice
 It is recommended for production deployments to use a master key secret, and
 then pass all subsequent inline secrets encrypted with the master key.
 
-Each QEMU instance must have a distinct master key, and that must be generated
+Each Nephrite instance must have a distinct master key, and that must be generated
 from a cryptographically secure random data source. The master key should be
-deleted immediately upon QEMU shutdown. If passing the master key as a file,
+deleted immediately upon Nephrite shutdown. If passing the master key as a file,
 the key file must have access control rules applied that restrict access to
-just the one QEMU process that is intended to use it. Alternatively the Linux
-keyring can be used to pass the master key to QEMU.
+just the one Nephrite process that is intended to use it. Alternatively the Linux
+keyring can be used to pass the master key to Nephrite.
 
-The secrets for individual QEMU device backends must all then be encrypted
+The secrets for individual Nephrite device backends must all then be encrypted
 with this master key.
 
-This procedure helps ensure that the individual secrets for QEMU backends will
+This procedure helps ensure that the individual secrets for Nephrite backends will
 not be compromised, even if ``-object`` CLI args or ``object_add`` monitor
 commands are collected in log files and attached to public bug support tickets.
 The only item that needs strongly protecting is the master key file.

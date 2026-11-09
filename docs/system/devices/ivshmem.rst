@@ -26,7 +26,7 @@ syntax when using the shared memory server is:
    # First start the ivshmem server once and for all
    ivshmem-server -p pidfile -S path -m shm-name -l shm-size -n vectors
 
-   # Then start your qemu instances with matching arguments
+   # Then start your Nephrite instances with matching arguments
    |qemu_system_x86| -device ivshmem-doorbell,vectors=vectors,chardev=id
                     -chardev socket,path=path,id=id
 

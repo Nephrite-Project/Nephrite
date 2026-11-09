@@ -4,7 +4,7 @@
 The 3270 is the classic 'green-screen' console of the mainframes (see the
 `IBM 3270 Wikipedia article <https://en.wikipedia.org/wiki/IBM_3270>`__).
 
-The 3270 data stream is not implemented within QEMU; the device only provides
+The 3270 data stream is not implemented within Nephrite; the device only provides
 TN3270 (a telnet extension; see `RFC 854 <https://tools.ietf.org/html/rfc854>`__
 and `RFC 1576 <https://tools.ietf.org/html/rfc1576>`__) and leaves the heavy
 lifting to an external 3270 terminal emulator (such as ``x3270``) to make a
@@ -22,7 +22,7 @@ Example configuration
   ``CONFIG_TN3270`` and at least one of ``CONFIG_TN3270_TTY`` (for additional
   ttys) or ``CONFIG_TN3270_CONSOLE`` (for a 3270 console).
 
-* Add a ``tn3270`` chardev and a ``x-terminal3270`` to the QEMU command line::
+* Add a ``tn3270`` chardev and a ``x-terminal3270`` to the Nephrite command line::
 
    -chardev socket,id=ch0,host=0.0.0.0,port=2300,wait=off,server=on,tn3270=on
    -device x-terminal3270,chardev=ch0,devno=fe.0.000a,id=terminal0

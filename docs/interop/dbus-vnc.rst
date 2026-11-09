@@ -1,7 +1,7 @@
 D-Bus VNC
 =========
 
-The ``qemu-vnc`` standalone VNC server exposes a D-Bus interface for management
+The ``nephrite-vnc`` standalone VNC server exposes a D-Bus interface for management
 and monitoring of VNC connections.
 
 The service is available on the bus under the well-known name ``org.nephrite.vnc``.

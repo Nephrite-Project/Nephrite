@@ -1,16 +1,16 @@
-QEMU Virtual NVDIMM
-===================
+Nephrite Virtual NVDIMM
+=======================
 
 This document explains the usage of virtual NVDIMM (vNVDIMM) feature
 which is available since QEMU v2.6.0.
 
-The current QEMU only implements the persistent memory mode of vNVDIMM
+The current Nephrite only implements the persistent memory mode of vNVDIMM
 device and not the block window mode.
 
 Basic Usage
 -----------
 
-The storage of a vNVDIMM device in QEMU is provided by the memory
+The storage of a vNVDIMM device in Nephrite is provided by the memory
 backend (i.e. memory-backend-file and memory-backend-ram). A simple
 way to create a vNVDIMM device at startup time is done via the
 following command line options:
@@ -67,17 +67,17 @@ Note:
 
 1. Prior to QEMU v2.8.0, if memory-backend-file is used and the actual
    backend file size is not equal to the size given by "size" option,
-   QEMU will truncate the backend file by ftruncate(2), which will
+   Nephrite will truncate the backend file by ftruncate(2), which will
    corrupt the existing data in the backend file, especially for the
    shrink case.
 
    QEMU v2.8.0 and later check the backend file size and the "size"
-   option. If they do not match, QEMU will report errors and abort in
+   option. If they do not match, Nephrite will report errors and abort in
    order to avoid the data corruption.
 
 2. QEMU v2.6.0 only puts a basic alignment requirement on the "size"
    option of memory-backend-file, e.g. 4KB alignment on x86.  However,
-   QEMU v.2.7.0 puts an additional alignment requirement, which may
+   Nephrite v.2.7.0 puts an additional alignment requirement, which may
    require a larger value than the basic one, e.g. 2MB on x86. This
    change breaks the usage of memory-backend-file that only satisfies
    the basic alignment.
@@ -137,7 +137,7 @@ Note:
 Alignment
 ---------
 
-QEMU uses mmap(2) to maps vNVDIMM backends and aligns the mapping
+Nephrite uses mmap(2) to maps vNVDIMM backends and aligns the mapping
 address to the page size (getpagesize(2)) by default. However, some
 types of backends may require an alignment different than the page
 size. In that case, QEMU v2.12.0 and later provide 'align' option to
@@ -154,7 +154,7 @@ In order to get the proper 'align' of device dax, you need to install
 the library 'libdaxctl'.
 
 For example, device dax require the 2 MB alignment, so we can use
-following QEMU command line options to use it (/dev/dax0.0) as the
+following Nephrite command line options to use it (/dev/dax0.0) as the
 backend of vNVDIMM:
 
  -object memory-backend-file,id=mem1,share=on,mem-path=/dev/dax0.0,size=4G,align=2M
@@ -163,7 +163,7 @@ backend of vNVDIMM:
 Guest Data Persistence
 ----------------------
 
-Though QEMU supports multiple types of vNVDIMM backends on Linux,
+Though Nephrite supports multiple types of vNVDIMM backends on Linux,
 the only backend that can guarantee the guest write persistence is:
 
 A. DAX device (e.g., /dev/dax0.0, ) or
@@ -215,7 +215,7 @@ mounted with the "dax" mount option:
     ndctl create-namespace -f -e namespace0.0 -m fsdax
     (partition /dev/pmem0 with name pmem0p1)
     mount -o dax /dev/pmem0p1 /mnt
-    (create or copy a disk image file with qemu-img(1), cp(1), or dd(1)
+    (create or copy a disk image file with nephrite-img(1), cp(1), or dd(1)
      in /mnt)
 
 Then the new file in /mnt could be used in "mem-path" option.
@@ -242,14 +242,14 @@ There are currently two valid values for this option:
 
 If the vNVDIMM backend is in host persistent memory that can be accessed in
 SNIA NVM Programming Model [1] (e.g., Intel NVDIMM), it's suggested to set
-the 'pmem' option of memory-backend-file to 'on'. When 'pmem' is 'on' and QEMU
-is built with libpmem [2] support (configured with --enable-libpmem), QEMU
+the 'pmem' option of memory-backend-file to 'on'. When 'pmem' is 'on' and Nephrite
+is built with libpmem [2] support (configured with --enable-libpmem), Nephrite
 will take necessary operations to guarantee the persistence of its own writes
 to the vNVDIMM backend(e.g., in vNVDIMM label emulation and live migration).
-If 'pmem' is 'on' while there is no libpmem support, qemu will exit and report
+If 'pmem' is 'on' while there is no libpmem support, Nephrite will exit and report
 a "lack of libpmem support" message to ensure the persistence is available.
 For example, if we want to ensure the persistence for some backend file,
-use the QEMU command line:
+use the Nephrite command line:
 
     -object memory-backend-file,id=nv_mem,mem-path=/XXX/yyy,size=4G,pmem=on
 

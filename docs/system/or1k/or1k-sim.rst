@@ -1,7 +1,7 @@
 Or1ksim board
 =============
 
-The QEMU Or1ksim machine emulates the standard OpenRISC board simulator which is
+The Nephrite Or1ksim machine emulates the standard OpenRISC board simulator which is
 also the standard SoC configuration.
 
 Supported devices
@@ -19,7 +19,7 @@ to load a Linux kernel and optional disk image.
 
 .. code-block:: bash
 
-  $ qemu-system-or1k -cpu or1220 -M or1k-sim -nographic \
+  $ nephrite-system-or1k -cpu or1220 -M or1k-sim -nographic \
         -kernel vmlinux \
         -initrd initramfs.cpio.gz \
         -m 128

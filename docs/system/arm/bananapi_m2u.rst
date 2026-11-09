@@ -46,7 +46,7 @@ The Banana Pi M2U machine can start using the standard -kernel functionality
 for loading a Linux kernel or ELF executable. Additionally, the Banana Pi M2U
 machine can also emulate the BootROM which is present on an actual Allwinner R40
 based SoC, which loads the bootloader from a SD card, specified via the -sd
-argument to qemu-system-arm.
+argument to nephrite-system-arm.
 
 Running mainline Linux
 """"""""""""""""""""""
@@ -59,11 +59,11 @@ simply configure the kernel using the sunxi_defconfig configuration:
   $ ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- make mrproper
   $ ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- make sunxi_defconfig
 
-To boot the newly build linux kernel in QEMU with the Banana Pi M2U machine, use:
+To boot the newly build linux kernel in Nephrite with the Banana Pi M2U machine, use:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M bpim2u -nographic \
+  $ nephrite-system-arm -M bpim2u -nographic \
       -kernel /path/to/linux/arch/arm/boot/zImage \
       -append 'console=ttyS0,115200' \
       -dtb /path/to/linux/arch/arm/boot/dts/sun8i-r40-bananapi-m2-ultra.dtb
@@ -81,14 +81,14 @@ can be downloaded from:
    https://downloads.openwrt.org/releases/22.03.3/targets/sunxi/cortexa7/
 
 When using an image as an SD card, it must be resized to a power of two. This can be
-done with the ``qemu-img`` command. It is recommended to only increase the image size
+done with the ``nephrite-img`` command. It is recommended to only increase the image size
 instead of shrinking it to a power of two, to avoid loss of data. For example,
 to prepare a downloaded Armbian image, first extract it and then increase
 its size to one gigabyte as follows:
 
 .. code-block:: bash
 
-  $ qemu-img resize \
+  $ nephrite-img resize \
     openwrt-22.03.3-sunxi-cortexa7-sinovoip_bananapi-m2-ultra-ext4-sdcard.img \
     1G
 
@@ -99,7 +99,7 @@ argument and remove the -kernel, -append, -dbt and -initrd arguments:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M bpim2u -nic user -nographic \
+  $ nephrite-system-arm -M bpim2u -nic user -nographic \
     -sd openwrt-22.03.3-sunxi-cortexa7-sinovoip_bananapi-m2-ultra-ext4-sdcard.img
 
 Running U-Boot
@@ -123,13 +123,13 @@ And then boot it.
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M bpim2u -nographic -sd sd.img
+  $ nephrite-system-arm -M bpim2u -nographic -sd sd.img
 
 Banana Pi M2U functional tests
 """"""""""""""""""""""""""""""
 
 The Banana Pi M2U machine has several functional tests included.
-To run the whole set of tests, build QEMU from source and simply
+To run the whole set of tests, build Nephrite from source and simply
 provide the following command:
 
 .. code-block:: bash

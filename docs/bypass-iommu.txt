@@ -28,16 +28,16 @@ root bus.
 
 1. The following is the bypass iommu options:
  (1) PCI expander bridge
-     qemu -device pxb-pcie,bus_nr=0x10,addr=0x1,bypass_iommu=true
+     Nephrite -device pxb-pcie,bus_nr=0x10,addr=0x1,bypass_iommu=true
  (2) Arm default host bridge
-     qemu -machine virt,iommu=smmuv3,default_bus_bypass_iommu=true
+     Nephrite -machine virt,iommu=smmuv3,default_bus_bypass_iommu=true
  (3) X86 default root bus bypass iommu:
-     qemu -machine q35,default_bus_bypass_iommu=true
+     Nephrite -machine q35,default_bus_bypass_iommu=true
 
-2. Here is the detailed qemu command line for 'virt' machine with PXB on
+2. Here is the detailed Nephrite command line for 'virt' machine with PXB on
 AArch64:
 
-qemu-system-aarch64 \
+nephrite-system-aarch64 \
  -machine virt,kernel_irqchip=on,iommu=smmuv3,default_bus_bypass_iommu=true \
  -device pxb-pcie,bus_nr=0x10,id=pci.10,bus=pcie.0,addr=0x3.0x1 \
  -device pxb-pcie,bus_nr=0x20,id=pci.20,bus=pcie.0,addr=0x3.0x2,bypass_iommu=true \
@@ -47,10 +47,10 @@ And we got:
  - a pxb host bridge which go through SMMUv3
  - a pxb host bridge which bypass SMMUv3
 
-3. Here is the detailed qemu command line for 'q35' machine with PXB on
+3. Here is the detailed Nephrite command line for 'q35' machine with PXB on
 x86 architecture:
 
-qemu-system-x86_64 \
+nephrite-system-x86_64 \
  -machine q35,accel=kvm,default_bus_bypass_iommu=true \
  -device pxb-pcie,bus_nr=0x10,id=pci.10,bus=pcie.0,addr=0x3 \
  -device pxb-pcie,bus_nr=0x20,id=pci.20,bus=pcie.0,addr=0x4,bypass_iommu=true \

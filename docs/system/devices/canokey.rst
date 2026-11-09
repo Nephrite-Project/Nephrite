@@ -1,7 +1,7 @@
 .. _canokey:
 
-CanoKey QEMU
-------------
+CanoKey Nephrite
+----------------
 
 CanoKey [1]_ is an open-source secure key with supports of
 
@@ -21,19 +21,19 @@ including both hardware implementations and virtual cards:
 * (virt-card) CanoKey USB/IP
 * (virt-card) CanoKey FunctionFS
 
-In QEMU, yet another CanoKey virt-card is implemented.
-CanoKey QEMU exposes itself as a USB device to the guest OS.
+In Nephrite, yet another CanoKey virt-card is implemented.
+CanoKey Nephrite exposes itself as a USB device to the guest OS.
 
 With the same software configuration as a hardware key,
 the guest OS can use all the functionalities of a secure key as if
 there was actually an hardware key plugged in.
 
-CanoKey QEMU provides much convenience for debugging:
+CanoKey Nephrite provides much convenience for debugging:
 
 * libcanokey-qemu supports debugging output thus developers can
   inspect what happens inside a secure key
-* CanoKey QEMU supports trace event thus event
-* QEMU USB stack supports pcap thus USB packet between the guest
+* CanoKey Nephrite supports trace event thus event
+* Nephrite USB stack supports pcap thus USB packet between the guest
   and key can be captured and analysed
 
 Then for developers:
@@ -49,7 +49,7 @@ on code coping with secure key.
 Building
 ========
 
-libcanokey-qemu is required to use CanoKey QEMU.
+libcanokey-qemu is required to use CanoKey Nephrite.
 
 .. code-block:: shell
 
@@ -75,11 +75,11 @@ Then configuring and building:
     export PKG_CONFIG_PATH=/path/to/your/place/lib/pkgconfig:$PKG_CONFIG_PATH
     ./configure --enable-canokey && make
 
-Using CanoKey QEMU
-==================
+Using CanoKey Nephrite
+======================
 
-CanoKey QEMU stores all its data on a file of the host specified by the argument
-when invoking qemu.
+CanoKey Nephrite stores all its data on a file of the host specified by the argument
+when invoking Nephrite.
 
 .. parsed-literal::
 
@@ -88,25 +88,25 @@ when invoking qemu.
 Note: you should keep this file carefully as it may contain your private key!
 
 The first time when the file is used, it is created and initialized by CanoKey,
-afterwards CanoKey QEMU would just read this file.
+afterwards CanoKey Nephrite would just read this file.
 
 After the guest OS boots, you can check that there is a USB device.
 
 For example, If the guest OS is an Linux machine. You may invoke lsusb
-and find CanoKey QEMU there:
+and find CanoKey Nephrite there:
 
 .. code-block:: shell
 
     $ lsusb
-    Bus 001 Device 002: ID 20a0:42d4 Clay Logic CanoKey QEMU
+    Bus 001 Device 002: ID 20a0:42d4 Clay Logic CanoKey Nephrite
 
 You may setup the key as guided in [6]_. The console for the key is at [7]_.
 
 Debugging
 =========
 
-CanoKey QEMU consists of two parts, ``libcanokey-qemu.so`` and ``canokey.c``,
-the latter of which resides in QEMU. The former provides core functionality
+CanoKey Nephrite consists of two parts, ``libcanokey-qemu.so`` and ``canokey.c``,
+the latter of which resides in Nephrite. The former provides core functionality
 of a secure key while the latter provides platform-dependent functions:
 USB packet handling.
 
@@ -135,15 +135,15 @@ Limitations
 ===========
 
 Currently libcanokey-qemu.so has dozens of global variables as it was originally
-designed for embedded systems. Thus one qemu instance can not have
-multiple CanoKey QEMU running, namely you can not
+designed for embedded systems. Thus one Nephrite instance can not have
+multiple CanoKey Nephrite running, namely you can not
 
 .. parsed-literal::
 
     |qemu_system| -usb -device canokey,file=$HOME/.canokey-file \\
          -device canokey,file=$HOME/.canokey-file2
 
-Also, there is no lock on canokey-file, thus two CanoKey QEMU instance
+Also, there is no lock on canokey-file, thus two CanoKey Nephrite instance
 can not read one canokey-file at the same time.
 
 References

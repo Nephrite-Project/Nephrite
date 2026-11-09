@@ -1,7 +1,7 @@
 Supported CPU model configurations on MIPS hosts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-QEMU supports variety of MIPS CPU models:
+Nephrite supports variety of MIPS CPU models:
 
 Supported CPU models for MIPS32 hosts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

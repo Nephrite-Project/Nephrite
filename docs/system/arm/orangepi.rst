@@ -47,7 +47,7 @@ The Orange Pi PC machine can start using the standard -kernel functionality
 for loading a Linux kernel or ELF executable. Additionally, the Orange Pi PC
 machine can also emulate the BootROM which is present on an actual Allwinner H3
 based SoC, which loads the bootloader from a SD card, specified via the -sd argument
-to qemu-system-arm.
+to nephrite-system-arm.
 
 Machine-specific options
 """"""""""""""""""""""""
@@ -67,12 +67,12 @@ The following machine-specific options are supported:
   The Security Identifier value can be read by the guest.
   For example, U-Boot uses it to determine a unique MAC address.
 
-The above machine-specific options can be specified in qemu-system-arm
+The above machine-specific options can be specified in nephrite-system-arm
 via the '-global' argument, for example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -sd mycard.img \
+  $ nephrite-system-arm -M orangepi-pc -sd mycard.img \
        -global allwinner-rtc.base-year=2000
 
 Running mainline Linux
@@ -104,11 +104,11 @@ Build the Linux kernel with:
 
   $ ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- make
 
-To boot the newly build linux kernel in QEMU with the Orange Pi PC machine, use:
+To boot the newly build linux kernel in Nephrite with the Orange Pi PC machine, use:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -nic user -nographic \
+  $ nephrite-system-arm -M orangepi-pc -nic user -nographic \
       -kernel /path/to/linux/arch/arm/boot/zImage \
       -append 'console=ttyS0,115200' \
       -dtb /path/to/linux/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dtb
@@ -130,14 +130,14 @@ Alternatively, you can also choose to build you own image with buildroot
 using the orangepi_pc_defconfig. Also see https://buildroot.org for more information.
 
 When using an image as an SD card, it must be resized to a power of two. This can be
-done with the ``qemu-img`` command. It is recommended to only increase the image size
+done with the ``nephrite-img`` command. It is recommended to only increase the image size
 instead of shrinking it to a power of two, to avoid loss of data. For example,
 to prepare a downloaded Armbian image, first extract it and then increase
 its size to one gigabyte as follows:
 
 .. code-block:: bash
 
-  $ qemu-img resize Armbian_19.11.3_Orangepipc_bionic_current_5.3.9.img 1G
+  $ nephrite-img resize Armbian_19.11.3_Orangepipc_bionic_current_5.3.9.img 1G
 
 You can choose to attach the selected image either as an SD card or as USB mass storage.
 For example, to boot using the Orange Pi PC Debian image on SD card, simply add the -sd
@@ -145,7 +145,7 @@ argument and provide the proper root= kernel parameter:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -nic user -nographic \
+  $ nephrite-system-arm -M orangepi-pc -nic user -nographic \
       -kernel /path/to/linux/arch/arm/boot/zImage \
       -append 'console=ttyS0,115200 root=/dev/mmcblk0p2' \
       -dtb /path/to/linux/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dtb \
@@ -166,7 +166,7 @@ argument and remove the -kernel, -append, -dbt and -initrd arguments:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -nic user -nographic \
+  $ nephrite-system-arm -M orangepi-pc -nic user -nographic \
        -sd Armbian_19.11.3_Orangepipc_buster_current_5.3.9.img
 
 Note that both the official Orange Pi PC images and Armbian images start
@@ -193,7 +193,7 @@ u-boot binary to the -kernel argument:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -nic user -nographic \
+  $ nephrite-system-arm -M orangepi-pc -nic user -nographic \
       -kernel /path/to/uboot/u-boot -sd disk.img
 
 Use the following U-boot commands to load and boot a Linux kernel from SD card:
@@ -230,13 +230,13 @@ will not conclude the NetBSD partition is larger than the emulated SD card:
 
 .. code-block:: bash
 
-  $ qemu-img resize armv7.img 2G
+  $ nephrite-img resize armv7.img 2G
 
 Start the machine using the following command:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M orangepi-pc -nic user -nographic \
+  $ nephrite-system-arm -M orangepi-pc -nic user -nographic \
         -sd armv7.img -global allwinner-rtc.base-year=2000
 
 At the U-Boot stage, interrupt the automatic boot process by pressing a key
@@ -256,7 +256,7 @@ Orange Pi PC functional tests
 """""""""""""""""""""""""""""
 
 The Orange Pi PC machine has several functional tests included.
-To run the whole set of tests, build QEMU from source and simply
+To run the whole set of tests, build Nephrite from source and simply
 provide the following command from the build directory:
 
 .. code-block:: bash

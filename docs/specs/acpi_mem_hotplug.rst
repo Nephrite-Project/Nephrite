@@ -1,5 +1,5 @@
-QEMU<->ACPI BIOS memory hotplug interface
-=========================================
+Nephrite<->ACPI BIOS memory hotplug interface
+=============================================
 
 ACPI BIOS GPE.3 handler is dedicated for notifying OS about memory hot-add
 and hot-remove events.
@@ -90,7 +90,7 @@ Memory hot remove process diagram
 ::
 
    +-------------+     +-----------------------+      +------------------+
-   |  1. QEMU    |     | 2. QEMU               |      |3. QEMU           |
+   |  1. Nephrite|     | 2. Nephrite           |      |3. Nephrite       |
    |  device_del +---->+ device unplug request +----->+Send SCI to guest,|
    |             |     |         cb            |      |return control to |
    |             |     |                       |      |management        |
@@ -114,14 +114,14 @@ Memory hot remove process diagram
              |failure                         |
              v                                v
    +------------------------+      +-----------------------+
-   | OSPM:                  |      | QEMU:                 |
+   | OSPM:                  |      | Nephrite:             |
    | set OST event & status |      | call device unplug cb |
    | fields                 |      |                       |
    +------------------------+      +-----------------------+
             |                                  |
             v                                  v
    +------------------+              +-------------------+
-   |QEMU:             |              |QEMU:              |
+   |Nephrite:         |              |Nephrite:          |
    |Send OST QMP event|              |Send device deleted|
    |                  |              |QMP event          |
    +------------------+              |                   |

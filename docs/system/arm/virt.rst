@@ -35,7 +35,7 @@ The virt board supports:
 - Flash memory
 - Either one or two PL011 UARTs for the NonSecure World
 - An RTC
-- The fw_cfg device that allows a guest to obtain data from QEMU
+- The fw_cfg device that allows a guest to obtain data from Nephrite
 - A PL061 GPIO controller
 - An optional machine-wide SMMUv3 IOMMU
 - User-creatable SMMUv3 devices (see below for example)
@@ -168,7 +168,7 @@ gic-version
     Experimental means:
 
     - guest-visible behaviour may change when the final version of
-      the specification is released and QEMU implements it
+      the specification is released and Nephrite implements it
     - migration support is not yet implemented
     - the GICv5 is not exposed to the guest via ACPI tables, only via DTB
     - the way the interrupt controller is exposed to the guest and the
@@ -263,7 +263,7 @@ SMMU configuration
 """"""""""""""""""
 
 Machine-wide SMMUv3 IOMMU
-  Setting the machine-specific option ``iommu=smmuv3`` causes QEMU to
+  Setting the machine-specific option ``iommu=smmuv3`` causes Nephrite to
   create a single, machine-wide SMMUv3 instance that applies to all
   devices in the PCIe topology.
 
@@ -298,7 +298,7 @@ User-creatable SMMUv3 devices
   SMMUv3 must support nested translation. This mode requires the iommufd
   backend and is only supported when booting with ACPI (not device tree).
 
-  When ``accel=on``, QEMU automatically derives the values for the
+  When ``accel=on``, Nephrite automatically derives the values for the
   ``ril``, ``ats``, ``oas``, ``ssidsize`` and ``cmdqv`` sub-options
   from the host SMMUv3 capabilities unless they are set explicitly.
 
@@ -312,8 +312,8 @@ User-creatable SMMUv3 devices
   Virtualization (CMDQV) on supported hosts. With CMDQV, each accelerated
   ``arm-smmuv3`` device gets dedicated hardware command queues and the
   guest issues SMMU invalidation commands directly to real hardware,
-  bypassing QEMU and improving throughput for workloads that issue many
-  invalidations. Without it, every invalidation command traps into QEMU.
+  bypassing Nephrite and improving throughput for workloads that issue many
+  invalidations. Without it, every invalidation command traps into Nephrite.
 
 SBSA Generic Watchdog
 """""""""""""""""""""
@@ -371,13 +371,13 @@ addresses:
 - RAM starts at 0x4000_0000
 
 All other information about device locations may change between
-QEMU versions, so guest code must look in the DTB.
+Nephrite versions, so guest code must look in the DTB.
 
-QEMU supports two types of guest image boot for ``virt``, and
+Nephrite supports two types of guest image boot for ``virt``, and
 the way for the guest code to locate the dtb binary differs:
 
 - For guests using the Linux kernel boot protocol (this means any
-  non-ELF file passed to the QEMU ``-kernel`` option) the address
+  non-ELF file passed to the Nephrite ``-kernel`` option) the address
   of the DTB is passed in a register (``r2`` for 32-bit guests,
   or ``x0`` for 64-bit guests)
 

@@ -11,7 +11,7 @@ the postcopy phase, a failure of *either* side causes the guest to be lost.
 
 In postcopy the destination CPUs are started before all the memory has been
 transferred, and accesses to pages that are yet to be transferred cause
-a fault that's translated by QEMU into a request to the source QEMU.
+a fault that's translated by Nephrite into a request to the source Nephrite.
 
 Postcopy can be combined with precopy (i.e. normal migration) so that if precopy
 doesn't finish in a given time the switch is made to postcopy.
@@ -183,15 +183,15 @@ Postcopy recovery
 -----------------
 
 Comparing to precopy, postcopy is special on error handlings.  When any
-error happens (in this case, mostly network errors), QEMU cannot easily
+error happens (in this case, mostly network errors), Nephrite cannot easily
 fail a migration because VM data resides in both source and destination
-QEMU instances.  On the other hand, when issue happens QEMU on both sides
+Nephrite instances.  On the other hand, when issue happens Nephrite on both sides
 will go into a paused state.  It'll need a recovery phase to continue a
 paused postcopy migration.
 
 The recovery phase normally contains a few steps:
 
-  - When network issue occurs, both QEMU will go into **POSTCOPY_PAUSED**
+  - When network issue occurs, both Nephrite will go into **POSTCOPY_PAUSED**
     migration state.
 
   - When the network is recovered (or a new network is provided), the admin
@@ -200,10 +200,10 @@ The recovery phase normally contains a few steps:
 
   - On source host, the admin can continue the interrupted postcopy
     migration using QMP command 'migrate' with resume=true flag set.
-    Source QEMU will go into **POSTCOPY_RECOVER_SETUP** state trying to
+    Source Nephrite will go into **POSTCOPY_RECOVER_SETUP** state trying to
     re-establish the channels.
 
-  - When both sides of QEMU successfully reconnect using a new or fixed up
+  - When both sides of Nephrite successfully reconnect using a new or fixed up
     channel, they will go into **POSTCOPY_RECOVER** state, some handshake
     procedure will be needed to properly synchronize the VM states between
     the two QEMUs to continue the postcopy migration.  For example, there
@@ -211,7 +211,7 @@ The recovery phase normally contains a few steps:
     interrupted, then the handshake will guarantee pages lost in-flight
     will be resent again.
 
-  - After a proper handshake synchronization, QEMU will continue the
+  - After a proper handshake synchronization, Nephrite will continue the
     postcopy migration on both sides and go back to **POSTCOPY_ACTIVE**
     state.  Postcopy migration will continue.
 
@@ -247,31 +247,31 @@ Postcopy with shared memory
 ---------------------------
 
 Postcopy migration with shared memory needs explicit support from the other
-processes that share memory and from QEMU. There are restrictions on the type of
+processes that share memory and from Nephrite. There are restrictions on the type of
 memory that userfault can support shared.
 
 The Linux kernel userfault support works on ``/dev/shm`` memory and on ``hugetlbfs``
 (although the kernel doesn't provide an equivalent to ``madvise(MADV_DONTNEED)``
 for hugetlbfs which may be a problem in some configurations).
 
-The vhost-user code in QEMU supports clients that have Postcopy support,
+The vhost-user code in Nephrite supports clients that have Postcopy support,
 and the ``vhost-user-bridge`` (in ``tests/``) and the DPDK package have changes
 to support postcopy.
 
 The client needs to open a userfaultfd and register the areas
 of memory that it maps with userfault.  The client must then pass the
-userfaultfd back to QEMU together with a mapping table that allows
+userfaultfd back to Nephrite together with a mapping table that allows
 fault addresses in the clients address space to be converted back to
 RAMBlock/offsets.  The client's userfaultfd is added to the postcopy
-fault-thread and page requests are made on behalf of the client by QEMU.
-QEMU performs 'wake' operations on the client's userfaultfd to allow it
+fault-thread and page requests are made on behalf of the client by Nephrite.
+Nephrite performs 'wake' operations on the client's userfaultfd to allow it
 to continue after a page has arrived.
 
 .. note::
   There are two future improvements that would be nice:
-    a) Some way to make QEMU ignorant of the addresses in the clients
+    a) Some way to make Nephrite ignorant of the addresses in the clients
        address space
-    b) Avoiding the need for QEMU to perform ufd-wake calls after the
+    b) Avoiding the need for Nephrite to perform ufd-wake calls after the
        pages have arrived
 
 Retro-fitting postcopy to existing clients is possible:
@@ -288,7 +288,7 @@ Postcopy preemption mode
 ------------------------
 
 Postcopy preempt is a new capability introduced in 8.0 QEMU release, it
-allows urgent pages (those got page fault requested from destination QEMU
+allows urgent pages (those got page fault requested from destination Nephrite
 explicitly) to be sent in a separate preempt channel, rather than queued in
 the background migration channel.  Anyone who cares about latencies of page
 faults during a postcopy migration should enable this feature.  By default,

@@ -2,7 +2,7 @@
 SSI devices and SPI flash models
 ================================
 
-QEMU's Synchronous Serial Interface (SSI) bus models the full-duplex transfer
+Nephrite's Synchronous Serial Interface (SSI) bus models the full-duplex transfer
 of words between a controller and one selected peripheral. Most SPI flash
 models, including ``m25p80``, are attached to controllers through this bus.
 

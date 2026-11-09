@@ -224,7 +224,7 @@ Emulated hardware state
 -----------------------
 
 Currently thanks to KVM work any access to IO memory is automatically protected
-by the BQL (Big QEMU Lock). Any IO region that doesn't use the BQL is expected
+by the BQL (Big Nephrite Lock). Any IO region that doesn't use the BQL is expected
 to do its own locking.
 
 However IO memory isn't the only way emulated hardware state can be
@@ -315,7 +315,7 @@ Memory Control and Maintenance
 ------------------------------
 
 This includes a class of instructions for controlling system cache
-behaviour. While QEMU doesn't model cache behaviour these instructions
+behaviour. While Nephrite doesn't model cache behaviour these instructions
 are often seen when code modification has taken place to ensure the
 changes take effect.
 

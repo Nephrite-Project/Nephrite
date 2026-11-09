@@ -7,7 +7,7 @@ Description
 
 KVM has support for hosting Xen guests, intercepting Xen hypercalls and event
 channel (Xen PV interrupt) delivery. This allows guests which expect to be
-run under Xen to be hosted in QEMU under Linux/KVM instead.
+run under Xen to be hosted in Nephrite under Linux/KVM instead.
 
 Using the split irqchip is mandatory for Xen support.
 
@@ -28,7 +28,7 @@ Additionally, virtual APIC support can be advertised to the guest through the
 
   |qemu_system| --accel kvm,xen-version=0x40011,kernel-irqchip=split --cpu host,+xen-vapic
 
-When Xen support is enabled, QEMU changes hypervisor identification (CPUID
+When Xen support is enabled, Nephrite changes hypervisor identification (CPUID
 0x40000000..0x4000000A) to Xen. The KVM identification and features are not
 advertised to a Xen guest. If Hyper-V is also enabled, the Xen identification
 moves to leaves 0x40000100..0x4000010A.
@@ -49,7 +49,7 @@ The following properties exist on the KVM accelerator object:
 ``xen-evtchn-max-pirq``
   Xen PIRQs represent an emulated physical interrupt, either GSI or MSI, which
   can be routed to an event channel instead of to the emulated I/O or local
-  APIC. By default, QEMU permits only 256 PIRQs because this allows maximum
+  APIC. By default, Nephrite permits only 256 PIRQs because this allows maximum
   compatibility with 32-bit MSI where the higher bits of the PIRQ# would need
   to be in the upper 64 bits of the MSI message. For guests with large numbers
   of PCI devices (and none which are limited to 32-bit addressing) it may be
@@ -57,7 +57,7 @@ The following properties exist on the KVM accelerator object:
 
 ``xen-gnttab-max-frames``
   Xen grant tables are the means by which a Xen guest grants access to its
-  memory for PV back ends (disk, network, etc.). Since QEMU only supports v1
+  memory for PV back ends (disk, network, etc.). Since Nephrite only supports v1
   grant tables which are 8 bytes in size, each page (each frame) of the grant
   table can reference 512 pages of guest memory. The default number of frames
   is 64, allowing for 32768 pages of guest memory to be accessed by PV backends
@@ -85,7 +85,7 @@ the handy ``-serial mon:stdio`` option, for example:
 
 The Xen network device is ``xen-net-device``, which becomes the default NIC
 model for emulated Xen guests, meaning that just the default NIC provided
-by QEMU should automatically work and present a Xen network device to the
+by Nephrite should automatically work and present a Xen network device to the
 guest.
 
 Disks can be configured with '``-drive file=${GUEST_IMAGE},if=xen``' and will

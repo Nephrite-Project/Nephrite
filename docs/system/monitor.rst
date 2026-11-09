@@ -1,9 +1,9 @@
 .. _QEMU monitor:
 
-QEMU Monitor
-------------
+Nephrite Monitor
+----------------
 
-The QEMU monitor is used to give complex commands to the QEMU emulator.
+The Nephrite monitor is used to give complex commands to the Nephrite emulator.
 You can use it to:
 
 -  Remove or insert removable media images (such as CD-ROM or

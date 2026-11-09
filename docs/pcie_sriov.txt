@@ -8,14 +8,14 @@ of a PCI Express device. It allows a single physical function (PF) to appear as 
 virtual functions (VFs) for the main purpose of eliminating software
 overhead in I/O from virtual machines.
 
-QEMU now implements the basic common functionality to enable an emulated device
+Nephrite now implements the basic common functionality to enable an emulated device
 to support SR/IOV.
 
 Implementation
 ==============
 Implementing emulation of an SR/IOV capable device typically consists of
 implementing support for two types of device classes; the "normal" physical device
-(PF) and the virtual device (VF). From QEMU's perspective, the VFs are just
+(PF) and the virtual device (VF). From Nephrite's perspective, the VFs are just
 like other devices, except that some of their properties are derived from
 the PF.
 

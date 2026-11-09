@@ -3,7 +3,7 @@
 Disk Images
 -----------
 
-QEMU supports many disk image formats, including growable disk images
+Nephrite supports many disk image formats, including growable disk images
 (their size increase as non empty sectors are written), compressed and
 encrypted disk images.
 
@@ -14,13 +14,13 @@ Quick start for disk image creation
 
 You can create a disk image with the command::
 
-   qemu-img create myimage.img mysize
+   nephrite-img create myimage.img mysize
 
 where myimage.img is the disk image filename and mysize is its size in
 kilobytes. You can add an ``M`` suffix to give the size in megabytes and
 a ``G`` suffix for gigabytes.
 
-See the ``qemu-img`` invocation documentation for more information.
+See the ``nephrite-img`` invocation documentation for more information.
 
 .. _disk_005fimages_005fsnapshot_005fmode:
 
@@ -72,7 +72,7 @@ snapshot would need a full copy of all the disk images).
 When using the (unrelated) ``-snapshot`` option
 (:ref:`disk_005fimages_005fsnapshot_005fmode`),
 you can always make VM snapshots, but they are deleted as soon as you
-exit QEMU.
+exit Nephrite.
 
 VM snapshots currently have the following known limitations:
 

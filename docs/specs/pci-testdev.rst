@@ -1,6 +1,6 @@
-====================
-QEMU PCI test device
-====================
+========================
+Nephrite PCI test device
+========================
 
 ``pci-testdev`` is a device used for testing low level IO.
 

@@ -1,6 +1,6 @@
-===========================================
-QEMU Firmware Configuration (fw_cfg) Device
-===========================================
+===============================================
+Nephrite Firmware Configuration (fw_cfg) Device
+===============================================
 
 Guest-side Hardware Interface
 =============================
@@ -156,7 +156,7 @@ Firmware configuration items stored at selector keys 0x0020 or higher
 (``FW_CFG_FILE_FIRST`` or higher) have an associated entry in a directory
 structure, which makes it easier for guest-side firmware to identify
 and retrieve them. The format of this file directory (from ``fw_cfg.h`` in
-the QEMU source tree) is shown here, slightly annotated for clarity::
+the Nephrite source tree) is shown here, slightly annotated for clarity::
 
     struct FWCfgFiles {		/* the entire file directory fw_cfg item */
         uint32_t count;		/* number of entries, in big-endian format */
@@ -173,7 +173,7 @@ the QEMU source tree) is shown here, slightly annotated for clarity::
 All Other Data Items
 ~~~~~~~~~~~~~~~~~~~~
 
-Please consult the QEMU source for the most up-to-date and authoritative list
+Please consult the Nephrite source for the most up-to-date and authoritative list
 of selector keys and their respective items' purpose, format and writeability.
 
 Ranges
@@ -240,7 +240,7 @@ physical RAM address specified by the ``address`` field.
 
 If the ``control`` field has bit 4 set (and not bit 1), a write operation will be
 performed. ``length`` bytes will be copied from the physical RAM address
-specified by the ``address`` field to the current selector and offset. QEMU
+specified by the ``address`` field to the current selector and offset. Nephrite
 prevents starting or finishing the write beyond the end of the item associated
 with the current selector (i.e., the item cannot be resized). Truncated writes
 are dropped entirely. Writes to read-only items are also rejected. All of these
@@ -266,7 +266,7 @@ Externally Provided Items
 
 Since v2.4, "file" fw_cfg items (i.e., items with selector keys above
 ``FW_CFG_FILE_FIRST``, and with a corresponding entry in the fw_cfg file
-directory structure) may be inserted via the QEMU command line, using
+directory structure) may be inserted via the Nephrite command line, using
 the following syntax::
 
     -fw_cfg [name=]<item_name>,file=<path>
@@ -275,18 +275,18 @@ Or::
 
     -fw_cfg [name=]<item_name>,string=<string>
 
-Since v5.1, QEMU allows some objects to generate fw_cfg-specific content,
+Since v5.1, Nephrite allows some objects to generate fw_cfg-specific content,
 the content is then associated with a "file" item using the 'gen_id' option
 in the command line, using the following syntax::
 
     -object <generator-type>,id=<generated_id>,[generator-specific-options] \
     -fw_cfg [name=]<item_name>,gen_id=<generated_id>
 
-See QEMU man page for more documentation.
+See Nephrite man page for more documentation.
 
 Using item_name with plain ASCII characters only is recommended.
 
-Item names beginning with ``opt/`` are reserved for users.  QEMU will
+Item names beginning with ``opt/`` are reserved for users.  Nephrite will
 never create entries with such names unless explicitly ordered by the
 user.
 
@@ -298,10 +298,10 @@ be appropriate.
 
 For historical reasons, ``opt/ovmf/`` is reserved for OVMF firmware.
 
-Prefix ``opt/org.qemu/`` is reserved for QEMU itself.
+Prefix ``opt/org.qemu/`` is reserved for Nephrite itself.
 
 Use of names not beginning with ``opt/`` is potentially dangerous and
-entirely unsupported.  QEMU will warn if you try.
+entirely unsupported.  Nephrite will warn if you try.
 
 Use of names not beginning with ``opt/`` is tolerated with 'gen_id' (that
 is, the warning is suppressed), but you must know exactly what you're

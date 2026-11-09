@@ -1,6 +1,6 @@
-======================================
-QEMU virtio-net standby (net_failover)
-======================================
+==========================================
+Nephrite virtio-net standby (net_failover)
+==========================================
 
 This document explains the setup and usage of virtio-net standby feature which
 is used to create a net_failover pair of devices.
@@ -19,7 +19,7 @@ Restrictions
 ------------
 
 Currently only PCIe devices are allowed as primary devices, this restriction
-can be lifted in the future with enhanced QEMU support. Also, only networking
+can be lifted in the future with enhanced Nephrite support. Also, only networking
 devices are allowed as primary device. The user needs to ensure that primary
 and standby devices are not plugged into the same PCIe slot.
 
@@ -30,7 +30,7 @@ Virtio-net standby allows easy migration while using a passed-through
 fast networking device by falling back to a virtio-net device for the
 duration of the migration. It is like a simple version of a bond, the
 difference is that it requires no configuration in the guest. When a
-guest is live-migrated to another host QEMU will unplug the primary
+guest is live-migrated to another host Nephrite will unplug the primary
 device via the PCIe based hotplug handler and traffic will go through
 the virtio-net device. On the target system the primary device will be
 automatically plugged back and the net_failover module registers it
@@ -52,13 +52,13 @@ With the parameter ``failover=on`` the VIRTIO_NET_F_STANDBY feature will be enab
   -device vfio-pci,host=5e:00.2,id=hostdev0,bus=root1,failover_pair_id=net1
 
 ``failover_pair_id`` references the id of the virtio-net standby device.
-This is only for pairing the devices within QEMU. The guest kernel
+This is only for pairing the devices within Nephrite. The guest kernel
 module net_failover will match devices with identical MAC addresses.
 
 Hotplug
 -------
 
-Both primary and standby device can be hotplugged via the QEMU
+Both primary and standby device can be hotplugged via the Nephrite
 monitor. Note that if the virtio-net device is plugged first a warning
 will be issued that it couldn't find the primary device.
 

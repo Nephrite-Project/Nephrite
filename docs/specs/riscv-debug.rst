@@ -45,7 +45,7 @@ The effort done in QEMU version 11.2 to support Debug versions 0.13 and
 to 1.0" from the ratified `1.0 spec`_.  Here's how the proposed changes in
 that section were implemented in QEMU 11.2:
 
-Changes that aren't applicable due to either being SBI related or not present/supported in QEMU:
+Changes that aren't applicable due to either being SBI related or not present/supported in Nephrite:
     * "Make haltsum0 optional if there is only one hart."
     * "System bus autoincrement only happens if an access actually takes place (sbdata0)."
     * "Require debugger to poll dmactive after lowering it."
@@ -57,7 +57,7 @@ Already implemented in the legacy Debug 0.13 base code:
 All "hitN" fields are hardwired 0 thus no changes made:
     * "If version is greater than 0, then hit0 (previously called mcontrol6.hit) now contains 0 when a trigger fires more than one instruction after the instruction that matched. (This information is now reflected in hit1.)"
 
-QEMU doesn't support encoding sizes greater than 64 bit so no change made:
+Nephrite doesn't support encoding sizes greater than 64 bit so no change made:
     * "If version is greater than 0, then the encodings of size for sizes greater than 64 bit have changed."
 
 Changes made in the 0.13 codebase to support Debug 1.0:

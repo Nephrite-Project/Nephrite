@@ -1,8 +1,8 @@
-=================
-QEMU UI subsystem
-=================
+=====================
+Nephrite UI subsystem
+=====================
 
-QEMU Clipboard
---------------
+Nephrite Clipboard
+------------------
 
 .. kernel-doc:: include/ui/clipboard.h

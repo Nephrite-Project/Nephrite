@@ -11,7 +11,7 @@ https://zonedstorage.io/docs/introduction/zoned-storage
 
 1. Block layer APIs for zoned storage
 -------------------------------------
-QEMU block layer supports three zoned storage models:
+Nephrite block layer supports three zoned storage models:
 - BLK_Z_HM: The host-managed zoned model only allows sequential writes access
 to zones. It supports ZBD-specific I/O commands that can be used by a host to
 manage the zones of a device.
@@ -21,7 +21,7 @@ zones, making it backward compatible with regular block devices.
 regular and drive-managed ZBD devices. ZBD-specific I/O commands are not
 supported.
 
-The block device information resides inside BlockDriverState. QEMU uses
+The block device information resides inside BlockDriverState. Nephrite uses
 BlockLimits struct(BlockDriverState::bl) that is continuously accessed by the
 block layer while processing I/O requests. A BlockBackend has a root pointer to
 a BlockDriverState graph(for example, raw format on top of file-posix). The
@@ -38,9 +38,9 @@ When the BlockBackend's BlockLimits model reports a zoned storage device, users
 like the virtio-blk emulation or the qemu-io-cmds.c utility can use block layer
 APIs for zoned storage emulation or testing.
 
-For example, to test zone_report on a null_blk device using qemu-io is::
+For example, to test zone_report on a null_blk device using nephrite-io is::
 
-  $ path/to/qemu-io --image-opts -n driver=host_device,filename=/dev/nullb0 -c "zrp offset nr_zones"
+  $ path/to/nephrite-io --image-opts -n driver=host_device,filename=/dev/nullb0 -c "zrp offset nr_zones"
 
 To expose the host's zoned block device through virtio-blk, the command line
 can be (includes the -device parameter)::
@@ -52,11 +52,11 @@ Or only use the -drive parameter::
 
   -driver driver=host_device,file=/dev/nullb0,if=virtio,cache.direct=on
 
-Additionally, QEMU has several ways of supporting zoned storage, including:
+Additionally, Nephrite has several ways of supporting zoned storage, including:
 (1) Using virtio-scsi: --device scsi-block allows for the passing through of
-SCSI ZBC devices, enabling the attachment of ZBC or ZAC HDDs to QEMU.
+SCSI ZBC devices, enabling the attachment of ZBC or ZAC HDDs to Nephrite.
 (2) PCI device pass-through: While NVMe ZNS emulation is available for testing
 purposes, it cannot yet pass through a zoned device from the host. To pass on
 the NVMe ZNS device to the guest, use VFIO PCI pass the entire NVMe PCI adapter
-through to the guest. Likewise, an HDD HBA can be passed on to QEMU all HDDs
+through to the guest. Likewise, an HDD HBA can be passed on to Nephrite all HDDs
 attached to the HBA.

@@ -47,7 +47,7 @@ The following is the image of block replication workflow:
            +--------------+           +----------------+
 
     1) Primary write requests will be copied and forwarded to Secondary
-       QEMU.
+       Nephrite.
     2) Before Primary write requests are written to Secondary disk, the
        original sector content will be read from Secondary disk and
        buffered in the Disk buffer, but it will not overwrite the existing
@@ -59,7 +59,7 @@ The following is the image of block replication workflow:
 
 == Architecture ==
 We are going to implement block replication from many basic
-blocks that are already in QEMU.
+blocks that are already in Nephrite.
 
          virtio-blk       ||
              ^            ||                            .----------
@@ -90,7 +90,7 @@ NBD.
 2) The new block filter (the name is replication) will control the block
 replication.
 
-3) The secondary disk receives writes from the primary VM through QEMU's
+3) The secondary disk receives writes from the primary VM through Nephrite's
 embedded NBD server (speculative write-through).
 
 4) The disk on the secondary is represented by a custom block device
@@ -129,13 +129,13 @@ in Secondary's write operation (what decides which target to write).
 We add four block driver interfaces to control block replication:
 a. replication_start_all()
    Start block replication, called in migration/checkpoint thread.
-   We must call block_replication_start_all() in secondary QEMU before
-   calling block_replication_start_all() in primary QEMU. The caller
+   We must call block_replication_start_all() in secondary Nephrite before
+   calling block_replication_start_all() in primary Nephrite. The caller
    must hold the I/O mutex lock if it is in migration/checkpoint
    thread.
 b. replication_do_checkpoint_all()
    This interface is called after all VM state is transferred to
-   Secondary QEMU. The Disk buffer will be dropped in this interface.
+   Secondary Nephrite. The Disk buffer will be dropped in this interface.
    The caller must hold the I/O mutex lock if it is in migration/checkpoint
    thread.
 c. replication_get_error_all()
@@ -155,7 +155,7 @@ Primary:
          children.0.file.filename=1.raw,\
          children.0.driver=raw
 
-  Run qmp command in primary qemu:
+  Run qmp command in primary Nephrite:
     { "execute": "human-monitor-command",
       "arguments": {
           "command-line": "drive_add -n buddy driver=replication,mode=primary,file.driver=nbd,file.host=xxxx,file.port=xxxx,file.export=colo1,node-name=nbd_client1"
@@ -174,7 +174,7 @@ Primary:
   4. It is all a single argument to -drive and you should ignore the
      leading whitespace.
   5. The qmp command line must be run after running qmp command line in
-     secondary qemu.
+     secondary Nephrite.
   6. After primary failover we need remove children.1 (replication driver).
 
 Secondary:
@@ -188,7 +188,7 @@ Secondary:
   -drive if=xxx,driver=quorum,read-pattern=fifo,id=top-disk1,\
          vote-threshold=1,children.0=childs1
 
-  Then run qmp command in secondary qemu:
+  Then run qmp command in secondary Nephrite:
     { "execute": "nbd-server-start",
       "arguments": {
           "addr": {
@@ -208,11 +208,11 @@ Secondary:
     }
 
   Note:
-  1. The export name in secondary QEMU command line is the secondary
+  1. The export name in secondary Nephrite command line is the secondary
      disk's id.
   2. The export name for the same disk must be the same
   3. The qmp command nbd-server-start and nbd-server-add must be run
-     before running the qmp command migrate on primary QEMU
+     before running the qmp command migrate on primary Nephrite
   4. Active disk, hidden disk and nbd target's length should be the
      same.
   5. It is better to put active disk and hidden disk in ramdisk.

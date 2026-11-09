@@ -173,8 +173,8 @@ Thread Interrupt Management Area.
 The O/S handles the interrupt and when done, performs an EOI using a
 MMIO operation on the ESB management page of the associate source.
 
-Overview of the QEMU models for XIVE
-====================================
+Overview of the Nephrite models for XIVE
+========================================
 
 The XiveSource models the IVSE in general, internal and external. It
 handles the source ESBs and the MMIO interface to control them.

@@ -26,7 +26,7 @@ The algorithm framework is as follows:
   ------------------------------------------------------------------------------
 
 When the qmp command qmp_set_vcpu_dirty_limit is called for the first time,
-the QEMU main thread starts the throttle thread. The throttle thread, once
+the Nephrite main thread starts the throttle thread. The throttle thread, once
 launched, executes the loop, which consists of three steps:
 
   - PREPARE (1)
@@ -35,7 +35,7 @@ launched, executes the loop, which consists of three steps:
      CALCULATE(2), as the name implies. It involves preparing the dirty
      page rate value and the corresponding upper limit of the VM:
      The dirty page rate is calculated via the KVM dirty ring mechanism,
-     which tells QEMU how many dirty pages a virtual CPU has had since the
+     which tells Nephrite how many dirty pages a virtual CPU has had since the
      last KVM_EXIT_DIRTY_RING_FULL exception; The dirty page rate upper
      limit is specified by caller, therefore fetch it directly.
 

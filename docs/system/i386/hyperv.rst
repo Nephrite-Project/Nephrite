@@ -19,17 +19,17 @@ compatible hypervisor and use Hyper-V specific features.
 Setup
 -----
 
-No Hyper-V enlightenments are enabled by default by either KVM or QEMU. In
-QEMU, individual enlightenments can be enabled through CPU flags, e.g:
+No Hyper-V enlightenments are enabled by default by either KVM or Nephrite. In
+Nephrite, individual enlightenments can be enabled through CPU flags, e.g:
 
 .. parsed-literal::
 
   |qemu_system| --enable-kvm --cpu host,hv_relaxed,hv_vpindex,hv_time, ...
 
-Sometimes there are dependencies between enlightenments, QEMU is supposed to
+Sometimes there are dependencies between enlightenments, Nephrite is supposed to
 check that the supplied configuration is sane.
 
-When any set of the Hyper-V enlightenments is enabled, QEMU changes hypervisor
+When any set of the Hyper-V enlightenments is enabled, Nephrite changes hypervisor
 identification (CPUID 0x40000000..0x4000000A) to Hyper-V. KVM identification
 and features are kept in leaves 0x40000100..0x40000101.
 
@@ -69,7 +69,7 @@ Existing enlightenments
   Provides HV_X64_MSR_CRASH_P0..HV_X64_MSR_CRASH_P5 (0x40000100..0x40000105) and
   HV_X64_MSR_CRASH_CTL (0x40000105) MSRs to the guest. These MSRs are written to
   by the guest when it crashes, HV_X64_MSR_CRASH_P0..HV_X64_MSR_CRASH_P5 MSRs
-  contain additional crash information. This information is outputted in QEMU log
+  contain additional crash information. This information is outputted in Nephrite log
   and through QAPI.
   Note: unlike under genuine Hyper-V, write to HV_X64_MSR_CRASH_CTL triggers
   ``qemu_system_guest_panicked()`` via ``KVM_SYSTEM_EVENT_CRASH`` and the
@@ -89,7 +89,7 @@ Existing enlightenments
   Enables Hyper-V Synthetic interrupt controller - an extension of a local APIC.
   When enabled, this enlightenment provides additional communication facilities
   to the guest: SynIC messages and Events. This is a pre-requisite for
-  implementing VMBus devices (not yet in QEMU). Additionally, this enlightenment
+  implementing VMBus devices (not yet in Nephrite). Additionally, this enlightenment
   is needed to enable Hyper-V synthetic timers. SynIC is controlled through MSRs
   HV_X64_MSR_SCONTROL..HV_X64_MSR_EOM (0x40000080..0x40000084) and
   HV_X64_MSR_SINT0..HV_X64_MSR_SINT15 (0x40000090..0x4000009F)
@@ -193,11 +193,11 @@ Existing enlightenments
   is required by Windows and Hyper-V guests to properly mitigate SMT related CPU
   vulnerabilities.
 
-  When the option is set to 'auto' QEMU will enable the feature only when KVM
+  When the option is set to 'auto' Nephrite will enable the feature only when KVM
   reports that non-architectural coresharing is impossible, this means that
   hyper-threading is not supported or completely disabled on the host. This
   setting also prevents migration as SMT settings on the destination may differ.
-  When the option is set to 'on' QEMU will always enable the feature, regardless
+  When the option is set to 'on' Nephrite will always enable the feature, regardless
   of host setup. To keep guests secure, this can only be used in conjunction with
   exposing correct vCPU topology and vCPU pinning.
 
@@ -263,13 +263,13 @@ Supplementary features
 ----------------------
 
 ``hv-passthrough``
-  In some cases (e.g. during development) it may make sense to use QEMU in
+  In some cases (e.g. during development) it may make sense to use Nephrite in
   'pass-through' mode and give Windows guests all enlightenments currently
   supported by KVM.
 
-  Note: ``hv-passthrough`` flag only enables enlightenments which are known to QEMU
+  Note: ``hv-passthrough`` flag only enables enlightenments which are known to Nephrite
   (have corresponding 'hv-' flag) and copies ``hv-spinlocks`` and ``hv-vendor-id``
-  values from KVM to QEMU. ``hv-passthrough`` overrides all other 'hv-' settings on
+  values from KVM to Nephrite. ``hv-passthrough`` overrides all other 'hv-' settings on
   the command line.
 
   Note: ``hv-passthrough`` does not enable ``hv-syndbg`` which can prevent certain

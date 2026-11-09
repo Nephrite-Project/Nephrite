@@ -5,7 +5,7 @@
 Hexagon System emulator
 -----------------------
 
-Use the ``qemu-system-hexagon`` executable to simulate a 32-bit Hexagon
+Use the ``nephrite-system-hexagon`` executable to simulate a 32-bit Hexagon
 machine.
 
 Hexagon Machines
@@ -19,7 +19,7 @@ below.  Instructions are loaded into DDR before the DSP is brought out of
 reset and the first instructions are fetched from DDR via the EVB/reset vector.
 
 In a real system, a TBU/SMMU would normally arbitrate AXI accesses but
-we don't have a need to model that for QEMU.
+we don't have a need to model that for Nephrite.
 
 Hexagon DSP cores use simultaneous multithreading (SMT) with as many as 8
 hardware threads.
@@ -60,7 +60,7 @@ hardware threads.
 
 Components
 ----------
-Other than l2vic and HVX, the components below are not implemented in QEMU.
+Other than l2vic and HVX, the components below are not implemented in Nephrite.
 
 * L2VIC: the L2 vectored interrupt controller.  Supports 1024 input
   interrupts, edge- or level-triggered.  The core ISA has system registers
@@ -76,16 +76,16 @@ Other than l2vic and HVX, the components below are not implemented in QEMU.
 * VTCM: DSP-exclusive vector tightly-coupled memory.  This memory is accessed
   by some HVX instructions.
 * HVX: the vector coprocessor supports 64 and 128-byte vector registers.
-  64-byte mode is not implemented in QEMU.
+  64-byte mode is not implemented in Nephrite.
 
 
 Bootstrapping
 -------------
 Hexagon systems do not generally have access to a block device.  So, for
-QEMU the typical use case involves loading a binary or ELF file into memory
+Nephrite the typical use case involves loading a binary or ELF file into memory
 and executing from the indicated start address::
 
-    $ qemu-system-hexagon -kernel ./prog -append 'arg1 arg2'
+    $ nephrite-system-hexagon -kernel ./prog -append 'arg1 arg2'
 
 Semihosting
 -----------

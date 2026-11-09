@@ -3,7 +3,7 @@
 Direct Linux Boot
 -----------------
 
-This section explains how to launch a Linux kernel inside QEMU without
+This section explains how to launch a Linux kernel inside Nephrite without
 having to make a full bootable image. It is very useful for fast Linux
 kernel testing.
 
@@ -35,7 +35,7 @@ distro install media.  You might find a second shim copy in the
 ``EFI/$distro/`` directory.
 
 If you do not need graphical output, you can disable it and redirect the
-virtual serial port and the QEMU monitor to the console with the
+virtual serial port and the Nephrite monitor to the console with the
 ``-nographic`` option. The typical command line is:
 
 .. parsed-literal::

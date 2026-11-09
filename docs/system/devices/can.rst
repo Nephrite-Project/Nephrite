@@ -28,14 +28,14 @@ slot by Jin Yang under our mentoring  The initial idea was to provide generic
 CAN subsystem for RTEMS. But lack of common environment for code and RTEMS
 testing lead to goal change to provide environment which provides complete
 emulated environment for testing and RTEMS GSoC slot has been donated
-to work on CAN hardware emulation on QEMU.
+to work on CAN hardware emulation on Nephrite.
 
 Examples how to use CAN emulation for SJA1000 based boards
 ----------------------------------------------------------
-When QEMU with CAN PCI support is compiled then one of the next
+When Nephrite with CAN PCI support is compiled then one of the next
 CAN boards can be selected
 
-(1) CAN bus Kvaser PCI CAN-S (single SJA1000 channel) board. QEMU startup options::
+(1) CAN bus Kvaser PCI CAN-S (single SJA1000 channel) board. Nephrite startup options::
 
     -object can-bus,id=canbus0
     -device kvaser_pci,canbus=canbus0
@@ -63,9 +63,9 @@ The ''kvaser_pci'' board/device model is compatible with and has been tested wit
 the ''kvaser_pci'' driver included in mainline Linux kernel.
 The tested setup was Linux 4.9 kernel on the host and guest side.
 
-Example for qemu-system-x86_64::
+Example for nephrite-system-x86_64::
 
-    qemu-system-x86_64 -accel kvm -kernel /boot/vmlinuz-4.9.0-4-amd64 \
+    nephrite-system-x86_64 -accel kvm -kernel /boot/vmlinuz-4.9.0-4-amd64 \
       -initrd ramdisk.cpio \
       -virtfs local,path=shareddir,security_model=none,mount_tag=shareddir \
       -object can-bus,id=canbus0 \
@@ -73,9 +73,9 @@ Example for qemu-system-x86_64::
       -device kvaser_pci,canbus=canbus0 \
       -nographic -append "console=ttyS0"
 
-Example for qemu-system-arm::
+Example for nephrite-system-arm::
 
-    qemu-system-arm -cpu arm1176 -m 256 -M versatilepb \
+    nephrite-system-arm -cpu arm1176 -m 256 -M versatilepb \
       -kernel kernel-qemu-arm1176-versatilepb \
       -hda rpi-wheezy-overlay \
       -append "console=ttyAMA0 root=/dev/sda2 ro init=/sbin/init-overlay" \
@@ -118,7 +118,7 @@ Linux system (SocketCAN used) and to both CTU CAN FD cores emulated
 on the corresponding PCI card expects that host system CAN bus
 is setup according to the previous SJA1000 section::
 
-  qemu-system-x86_64 -enable-kvm -kernel /boot/vmlinuz-4.19.52+ \
+  nephrite-system-x86_64 -enable-kvm -kernel /boot/vmlinuz-4.19.52+ \
       -initrd ramdisk.cpio \
       -virtfs local,path=shareddir,security_model=none,mount_tag=shareddir \
       -vga cirrus \
@@ -175,7 +175,7 @@ also possible.
 
 Examples on how to use CAN emulation for FlexCAN on SabreLite board
 -------------------------------------------------------------------
-FlexCANs are connected to QEMU CAN buses by passing the bus IDs as machine
+FlexCANs are connected to Nephrite CAN buses by passing the bus IDs as machine
 properties:
 
 * property ``canbus0`` for connecting ``flexcan1``
@@ -184,11 +184,11 @@ properties:
 Note that upstream Linux SabreLite DTs have only a single FlexCAN (``flexcan1``)
 enabled.
 
-An example command to run QEMU emulating a Sabrelite development board
-with both FlexCANs connected to a single QEMU CAN bus (called ``qcan0``),
+An example command to run Nephrite emulating a Sabrelite development board
+with both FlexCANs connected to a single Nephrite CAN bus (called ``qcan0``),
 bridged to host system ``can0`` interface::
 
-  qemu-system-arm -M sabrelite -smp 4 -m 1G \
+  nephrite-system-arm -M sabrelite -smp 4 -m 1G \
     -object can-bus,id=qcan0 \
     -machine canbus0=qcan0 -machine canbus1=qcan0 \
     -object can-host-socketcan,if=can0,canbus=qcan0,id=qcan0-socketcan \

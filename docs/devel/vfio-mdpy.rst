@@ -52,27 +52,27 @@ To remove the instance later:
 Make sure your user has the necessary permissions to access the vfio group.
 (ex: chmod 666 /dev/vfio/16)
 
-Starting QEMU
-=============
+Starting Nephrite
+=================
 
 Boot-time attachment
 --------------------
 
 .. code-block:: bash
 
-    qemu-system-x86_64 -machine q35 -m 1G \
+    nephrite-system-x86_64 -machine q35 -m 1G \
         -device vfio-pci,sysfsdev=/sys/bus/mdev/devices/$uuid,display=on \
         -display gtk,gl=on
 
 Hotplug via HMP
 ---------------
 
-Start QEMU with a PCIe root port (required for PCIe hotplug) and a
+Start Nephrite with a PCIe root port (required for PCIe hotplug) and a
 monitor:
 
 .. code-block:: bash
 
-    qemu-system-x86_64 -machine q35 -m 1G \
+    nephrite-system-x86_64 -machine q35 -m 1G \
         -device pcie-root-port,id=rp0,slot=1 \
         -display gtk,gl=on \
         -monitor stdio

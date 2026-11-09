@@ -3,7 +3,7 @@
 Sparc32 System emulator
 -----------------------
 
-Use the executable ``qemu-system-sparc`` to simulate the following Sun4m
+Use the executable ``nephrite-system-sparc`` to simulate the following Sun4m
 architecture machines:
 
 -  SPARCstation 4
@@ -27,12 +27,12 @@ architecture machines:
 The emulation is somewhat complete. SMP up to 16 CPUs is supported, but
 Linux limits the number of usable CPUs to 4.
 
-The list of available CPUs can be viewed by starting QEMU with ``-cpu help``.
+The list of available CPUs can be viewed by starting Nephrite with ``-cpu help``.
 Optional boolean features can be added with a "+" in front of the feature name,
 or disabled with a "-" in front of the name, for example
 ``-cpu TI-SuperSparc-II,+float128``.
 
-QEMU emulates the following sun4m peripherals:
+Nephrite emulates the following sun4m peripherals:
 
 -  IOMMU
 
@@ -55,7 +55,7 @@ The number of peripherals is fixed in the architecture. Maximum memory
 size depends on the machine type, for SS-5 it is 256MB and for others
 2047MB.
 
-Since version 0.8.2, QEMU uses OpenBIOS https://www.openbios.org/.
+Since version 0.8.2, Nephrite uses OpenBIOS https://www.openbios.org/.
 OpenBIOS is a free (GPL v2) portable firmware implementation. The goal
 is to implement a 100% IEEE 1275-1994 (referred to as Open Firmware)
 compliant firmware.

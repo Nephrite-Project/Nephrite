@@ -26,7 +26,7 @@ Tests based on ``qemu_test.QemuSystemTest`` can easily:
  * Customize the command line arguments given to the convenience
    ``self.vm`` attribute (a QEMUMachine instance)
 
- * Interact with the QEMU monitor, send QMP commands and check
+ * Interact with the Nephrite monitor, send QMP commands and check
    their results
 
  * Interact with the guest OS, using the convenience console device
@@ -59,7 +59,7 @@ binary as an env variable.
 Assuming the current working directory is the top level source checkout
 and the build directory is './build'::
 
-  $ export QEMU_TEST_QEMU_BINARY=qemu-system-x86_64
+  $ export QEMU_TEST_QEMU_BINARY=nephrite-system-x86_64
 
 Run all tests from a test file::
 
@@ -97,7 +97,7 @@ There are usually three log files:
   by the calls to the logging functions in the test code (e.g. by calling
   the ``self.log.info()`` or ``self.log.debug()`` functions).
 * ``console.log`` contains the output of the serial console of the guest.
-* ``default.log`` contains the output of QEMU. This file could be named
+* ``default.log`` contains the output of Nephrite. This file could be named
   differently if the test chooses to use a different identifier for
   the guest VM (e.g. when the test spins up multiple VMs).
 
@@ -140,7 +140,7 @@ that are worth being mentioned.
 
 First of all, it attempts to give each test a ready to use QEMUMachine
 instance, available at ``self.vm``.  Because many tests will tweak the
-QEMU command line, launching the QEMUMachine (by using ``self.vm.launch()``)
+Nephrite command line, launching the QEMUMachine (by using ``self.vm.launch()``)
 is left to the test writer.
 
 The base test class has also support for tests with more than one
@@ -186,9 +186,9 @@ QEMUMachine
 
 The QEMUMachine API is already widely used in the Python iotests,
 device-crash-test and other Python scripts.  It's a wrapper around the
-execution of a QEMU binary, giving its users:
+execution of a Nephrite binary, giving its users:
 
- * the ability to set command line arguments to be given to the QEMU
+ * the ability to set command line arguments to be given to the Nephrite
    binary
 
  * a ready to use QMP connection and interface, which can be used to
@@ -198,23 +198,23 @@ execution of a QEMU binary, giving its users:
  * convenience methods to set commonly used command line arguments in
    a more succinct and intuitive way
 
-QEMU binary selection
-^^^^^^^^^^^^^^^^^^^^^
+Nephrite binary selection
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The QEMU binary used for the ``self.vm`` QEMUMachine instance will
+The Nephrite binary used for the ``self.vm`` QEMUMachine instance will
 primarily depend on the value of the ``qemu_bin`` instance attribute.
 If it is not explicitly set by the test code, its default value will
 be the result the QEMU_TEST_QEMU_BINARY environment variable.
 
-Debugging hung QEMU
-^^^^^^^^^^^^^^^^^^^
+Debugging hung Nephrite
+^^^^^^^^^^^^^^^^^^^^^^^
 
-When test cases go wrong it may be helpful to debug a stalled QEMU
+When test cases go wrong it may be helpful to debug a stalled Nephrite
 process. While the QEMUMachine class owns the primary QMP monitor
 socket, it is possible to request a second QMP monitor be created
 by setting the ``QEMU_TEST_QMP_BACKDOOR`` env variable to refer
 to a UNIX socket name. The ``qmp-shell`` command can then be
-attached to the stalled QEMU to examine its live state.
+attached to the stalled Nephrite to examine its live state.
 
 Attribute reference
 -------------------
@@ -228,7 +228,7 @@ instance.
 arch
 """"
 
-The target architecture of the QEMU binary.
+The target architecture of the Nephrite binary.
 
 Tests are also free to use this attribute value, for their own needs.
 A test may, for instance, use this value when selecting the architecture
@@ -250,7 +250,7 @@ QemuSystemTest
 ^^^^^^^^^^^^^^
 
 The QemuSystemTest class can be used for running tests via one of the
-qemu-system-* binaries.
+nephrite-system-* binaries.
 
 vm
 ""
@@ -271,7 +271,7 @@ The machine type that will be set to all QEMUMachine instances created
 by the test. By using the set_machine() function of the QemuSystemTest
 class to set this attribute, you can automatically check whether the
 machine is available to skip the test in case it is not built into the
-QEMU binary.
+Nephrite binary.
 
 Asset handling
 --------------
@@ -388,7 +388,7 @@ or eventually removed.
 QEMU_TEST_ALLOW_SLOW
 ^^^^^^^^^^^^^^^^^^^^
 Tests that have a very long runtime and might run into timeout issues
-e.g. if the QEMU binary has been compiled with debugging options enabled.
+e.g. if the Nephrite binary has been compiled with debugging options enabled.
 To avoid these timeout issues by default and to save some precious CPU
 cycles during normal testing, such tests are disabled by default unless
 the QEMU_TEST_ALLOW_SLOW environment variable has been set.

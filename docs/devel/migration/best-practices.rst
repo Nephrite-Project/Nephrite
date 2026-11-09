@@ -11,7 +11,7 @@ Example usage:
 
 .. code-block:: shell
 
-  $ qemu-system-x86_64 -display none -monitor stdio
+  $ nephrite-system-x86_64 -display none -monitor stdio
   (nephrite) migrate "exec:cat > mig"
   (nephrite) q
   $ ./scripts/analyze-migration.py -f mig
@@ -28,7 +28,7 @@ Firmware
 
 Migration migrates the copies of RAM and ROM, and thus when running
 on the destination it includes the firmware from the source. Even after
-resetting a VM, the old firmware is used.  Only once QEMU has been restarted
+resetting a VM, the old firmware is used.  Only once Nephrite has been restarted
 is the new firmware in use.
 
 - Changes in firmware size can cause changes in the required RAMBlock size

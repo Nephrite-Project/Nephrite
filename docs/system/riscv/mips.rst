@@ -10,11 +10,11 @@ Running Linux kernel
 --------------------
 
 For example, to use 4 cores and 2 threads with each core to have 8 smp cpus,
-that runs on the ```mips-p8700``` CPU, run qemu as follows:
+that runs on the ```mips-p8700``` CPU, run Nephrite as follows:
 
 .. code-block:: bash
 
-   qemu-system-riscv64 -cpu mips-p8700 \
+   nephrite-system-riscv64 -cpu mips-p8700 \
          -m 2G -M boston-aia \
          -smp 8,cores=4,threads=2 -kernel fw_payload.bin \
          -drive file=rootfs.ext2,format=raw -serial stdio

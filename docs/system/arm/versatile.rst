@@ -55,7 +55,7 @@ You can then boot with a command line like:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -machine type=versatilepb \
+  $ nephrite-system-arm -machine type=versatilepb \
       -serial mon:stdio \
       -drive if=scsi,driver=file,filename=debian-buster-armel-rootfs.ext4 \
       -kernel zImage \

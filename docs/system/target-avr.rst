@@ -3,7 +3,7 @@
 AVR System emulator
 -------------------
 
-Use the executable ``qemu-system-avr`` to emulate a AVR 8 bit based machine.
+Use the executable ``nephrite-system-avr`` to emulate a AVR 8 bit based machine.
 These can have one of the following cores: avr1, avr2, avr25, avr3, avr31,
 avr35, avr4, avr5, avr51, avr6, avrtiny, xmega2, xmega3, xmega4, xmega5,
 xmega6 and xmega7.
@@ -19,11 +19,11 @@ AVR cpu
 
 - Continuous non interrupted execution::
 
-   qemu-system-avr -machine mega2560 -bios demo.elf
+   nephrite-system-avr -machine mega2560 -bios demo.elf
 
 - Continuous non interrupted execution with serial output into telnet window::
 
-   qemu-system-avr -M mega2560 -bios demo.elf -nographic \
+   nephrite-system-avr -M mega2560 -bios demo.elf -nographic \
                    -serial tcp::5678,server=on,wait=off
 
   and then in another shell::
@@ -32,7 +32,7 @@ AVR cpu
 
 - Debugging with GDB debugger::
 
-   qemu-system-avr -machine mega2560 -bios demo.elf -s -S
+   nephrite-system-avr -machine mega2560 -bios demo.elf -s -S
 
   and then in another shell::
 
@@ -45,4 +45,4 @@ AVR cpu
 - Print out executed instructions (that have not been translated by the JIT
   compiler yet)::
 
-   qemu-system-avr -machine mega2560 -bios demo.elf -d in_asm
+   nephrite-system-avr -machine mega2560 -bios demo.elf -d in_asm

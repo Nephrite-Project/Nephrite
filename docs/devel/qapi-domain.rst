@@ -289,7 +289,7 @@ Example::
    .. qapi:enum:: QapiErrorClass
       :since: 1.2
 
-      QEMU error classes
+      Nephrite error classes
 
       :value GenericError: this is used for errors that don't require a specific
           error class.  This should be the default case for most errors

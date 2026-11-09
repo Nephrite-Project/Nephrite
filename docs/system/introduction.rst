@@ -2,7 +2,7 @@ Introduction
 ============
 
 .. note::
-   QEMU supports many different target CPU architectures and many
+   Nephrite supports many different target CPU architectures and many
    different machine types for each architecture. Options, properties,
    and command lines that work for one architecture or machine type
    will not necessarily work on another. The examples shown in this
@@ -15,7 +15,7 @@ Introduction
 Virtualisation Accelerators
 ---------------------------
 
-QEMU's system emulation provides a virtual model of a machine (CPU,
+Nephrite's system emulation provides a virtual model of a machine (CPU,
 memory and emulated devices) to run a guest OS. It supports a number
 of hypervisors (known as accelerators) as well as a JIT known as the
 Tiny Code Generator (TCG) capable of emulating many CPUs.
@@ -55,9 +55,9 @@ System emulation provides a wide range of device models to emulate
 various hardware components you may want to add to your machine. This
 includes a wide number of VirtIO devices which are specifically tuned
 for efficient operation under virtualisation. Some of the device
-emulation can be offloaded from the main QEMU process using either
+emulation can be offloaded from the main Nephrite process using either
 vhost-user (for VirtIO) or :ref:`Multi-process QEMU`. If the platform
-supports it QEMU also supports directly passing devices through to
+supports it Nephrite also supports directly passing devices through to
 guest VMs to eliminate the device emulation overhead. See
 :ref:`device-emulation` for more details.
 
@@ -69,7 +69,7 @@ snapshots and migration support.
 The flexible ``chardev`` system allows for handling IO from character
 like devices using stdio, files, unix sockets and TCP networking.
 
-QEMU provides a number of management interfaces including a line based
+Nephrite provides a number of management interfaces including a line based
 :ref:`Human Monitor Protocol (HMP)<QEMU monitor>` that allows you to
 dynamically add and remove devices as well as introspect the system
 state. The :ref:`QEMU Monitor Protocol<QMP Ref>` (QMP) is a well
@@ -79,14 +79,14 @@ the interface used by higher level tools interfaces such as `Virt
 Manager <https://virt-manager.org/>`_ using the `libvirt framework
 <https://libvirt.org>`_.
 
-For the common accelerators QEMU, supported debugging with its
+For the common accelerators Nephrite, supported debugging with its
 :ref:`gdbstub<GDB usage>` which allows users to connect GDB and debug
 system software images.
 
 Running
 -------
 
-QEMU provides a rich and complex API which can be overwhelming to
+Nephrite provides a rich and complex API which can be overwhelming to
 understand. While some architectures can boot something with just a
 disk image, those examples elide a lot of details with defaults that
 may not be optimal for modern systems.
@@ -103,7 +103,7 @@ experience. Those built around the ``libvirt`` framework can make use
 of feature probing to build modern VM images tailored to run on the
 hardware you have.
 
-That said, the general form of a QEMU command line can be expressed
+That said, the general form of a Nephrite command line can be expressed
 as:
 
 .. parsed-literal::
@@ -122,7 +122,7 @@ Most options will generate some help information. So for example:
 
    $ |qemu_system| -M help
 
-will list the machine types supported by that QEMU binary. ``help``
+will list the machine types supported by that Nephrite binary. ``help``
 can also be passed as an argument to another option. For example:
 
 .. parsed-literal::
@@ -152,7 +152,7 @@ that can control the behaviour of the ``scsi-hd`` device.
     - Additional devices that are not defined by default with the
       machine type.
   * - Backends
-    - Backends are how QEMU deals with the guest's data, for example
+    - Backends are how Nephrite deals with the guest's data, for example
       how a block device is stored, how network devices see the
       network or how a serial device is directed to the outside world.
   * - Interfaces
@@ -169,13 +169,13 @@ names so we can override the defaults later.
 
 .. code::
 
- $ qemu-system-aarch64 \
+ $ nephrite-system-aarch64 \
     -machine type=virt,virtualization=on,pflash0=rom,pflash1=efivars \
     -m 4096 \
 
 We then define the 4 vCPUs using the ``max`` option which gives us all
-the Arm features QEMU is capable of emulating. We explicitly specify
-TCG acceleration even though QEMU would default to it anyway.
+the Arm features Nephrite is capable of emulating. We explicitly specify
+TCG acceleration even though Nephrite would default to it anyway.
 
 .. code::
 
@@ -208,7 +208,7 @@ set aside for our guest.
 
  -blockdev driver=raw,node-name=hd,file.driver=host_device,file.filename=/dev/lvm-disk/debian-bullseye-arm64 \
 
-We then tell QEMU to multiplex the :ref:`QEMU monitor` with the serial
+We then tell Nephrite to multiplex the :ref:`QEMU monitor` with the serial
 port output (we can switch between the two using :ref:`keys in the
 character backend multiplexer`). As there is no default graphical
 device we disable the display as we can work entirely in the terminal.
@@ -226,4 +226,4 @@ our system.
 .. code::
 
  -blockdev node-name=rom,driver=file,filename=(pwd)/pc-bios/edk2-aarch64-code.fd,read-only=true \
- -blockdev node-name=efivars,driver=file,filename=$HOME/images/qemu-arm64-efivars
+ -blockdev node-name=efivars,driver=file,filename=$HOME/images/nephrite-arm64-efivars

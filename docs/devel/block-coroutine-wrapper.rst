@@ -2,7 +2,7 @@
 block-coroutine-wrapper
 =======================
 
-A lot of functions in QEMU block layer (see ``block/*``) can only be
+A lot of functions in Nephrite block layer (see ``block/*``) can only be
 called in coroutine context. Such functions are normally marked by the
 coroutine_fn specifier. Still, sometimes we need to call them from
 non-coroutine context; for this we need to start a coroutine, run the

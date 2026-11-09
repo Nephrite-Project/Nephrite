@@ -2,7 +2,7 @@ PVPANIC DEVICE
 ==============
 
 pvpanic device is a simulated device, through which a guest panic
-event is sent to qemu, and a QMP event is generated. This allows
+event is sent to Nephrite, and a QMP event is generated. This allows
 management apps (e.g. libvirt) to be notified and respond to the event.
 
 The management app has the option of waiting for GUEST_PANICKED events,

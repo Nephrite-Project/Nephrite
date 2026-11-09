@@ -15,7 +15,7 @@ Power Architecture Reference document ([LoPAR]_). An internal ACR has been filed
 to reserve a hypercall number range specific to this use case to avoid any
 future conflicts with the IBM internally maintained Power Architecture Platform
 Reference (PAPR+) documentation specification. This document summarizes some of
-these details as they relate to QEMU.
+these details as they relate to Nephrite.
 
 Hypercalls needed by the ultravisor
 ===================================
@@ -24,7 +24,7 @@ Switching to SVM mode involves a number of hcalls issued by the ultravisor to
 the hypervisor to orchestrate the movement of guest memory to secure memory and
 various other aspects of the SVM mode. Numbers are assigned for these hcalls
 within the reserved range ``0xEF00-0xEF80``. The below documents the hcalls
-relevant to QEMU.
+relevant to Nephrite.
 
 ``H_TPM_COMM`` (``0xef10``)
 ---------------------------

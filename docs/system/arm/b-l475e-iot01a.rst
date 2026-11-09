@@ -42,5 +42,5 @@ option to load a firmware. Example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -M b-l475e-iot01a -kernel firmware.bin
+  $ nephrite-system-arm -M b-l475e-iot01a -kernel firmware.bin
 

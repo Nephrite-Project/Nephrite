@@ -27,7 +27,7 @@ Building
 --------
 The cryptographic functions and access to the physical card is done via the
 libcacard library, whose development package must be installed prior to
-building QEMU:
+building Nephrite:
 
 In redhat/fedora::
 
@@ -44,9 +44,9 @@ Configuring and building::
 Using ccid-card-emulated with hardware
 --------------------------------------
 Assuming you have a working smartcard on the host with the current
-user, using libcacard, QEMU acts as another client using ccid-card-emulated::
+user, using libcacard, Nephrite acts as another client using ccid-card-emulated::
 
-  qemu -usb -device usb-ccid -device ccid-card-emulated
+  nephrite-system-x86_64 -usb -device usb-ccid -device ccid-card-emulated
 
 Using ccid-card-emulated with certificates stored in files
 ----------------------------------------------------------
@@ -65,7 +65,7 @@ Note: you must have exactly three certificates.
 
 You can use the emulated card type with the certificates backend::
 
-  qemu -usb -device usb-ccid -device ccid-card-emulated,backend=certificates,db=sql:$PWD,cert1=id-cert,cert2=signing-cert,cert3=encryption-cert
+  nephrite-system-x86_64 -usb -device usb-ccid -device ccid-card-emulated,backend=certificates,db=sql:$PWD,cert1=id-cert,cert2=signing-cert,cert3=encryption-cert
 
 To use the certificates in the guest, export the CA certificate::
 
@@ -100,10 +100,10 @@ Using ccid-card-passthru with client side hardware
 --------------------------------------------------
 On the host specify the ccid-card-passthru device with a suitable chardev::
 
-  qemu -chardev socket,server=on,host=0.0.0.0,port=2001,id=ccid,wait=off \
+  nephrite-system-x86_64 -chardev socket,server=on,host=0.0.0.0,port=2001,id=ccid,wait=off \
        -usb -device usb-ccid -device ccid-card-passthru,chardev=ccid
 
-On the client run vscclient, built when you built QEMU::
+On the client run vscclient, built when you built Nephrite::
 
   vscclient <qemu-host> 2001
 
@@ -112,12 +112,12 @@ Using ccid-card-passthru with client side certificates
 This case is not particularly useful, but you can use it to debug
 your setup.
 
-Follow instructions above, except run QEMU and vscclient as follows.
+Follow instructions above, except run Nephrite and vscclient as follows.
 
-Run qemu as per above, and run vscclient from the "fake-smartcard"
+Run Nephrite as per above, and run vscclient from the "fake-smartcard"
 directory as follows::
 
-  qemu -chardev socket,server=on,host=0.0.0.0,port=2001,id=ccid,wait=off \
+  nephrite-system-x86_64 -chardev socket,server=on,host=0.0.0.0,port=2001,id=ccid,wait=off \
        -usb -device usb-ccid -device ccid-card-passthru,chardev=ccid
   vscclient -e "db=\"sql:$PWD\" use_hw=no soft=(,Test,CAC,,id-cert,signing-cert,encryption-cert)" <qemu-host> 2001
 

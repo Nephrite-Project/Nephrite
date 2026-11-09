@@ -1,9 +1,9 @@
 .. _testing:
 
-Testing in QEMU
-===============
+Testing in Nephrite
+===================
 
-QEMU's testing infrastructure is fairly complex as it covers
+Nephrite's testing infrastructure is fairly complex as it covers
 everything from unit testing and exercising specific sub-systems all
 the way to full blown functional tests. To get an overview of the
 tests you can run ``make check-help`` from either the source or build
@@ -37,7 +37,7 @@ groups.
 Testing with "make check"
 -------------------------
 
-The "make check" testing family includes most of the C based tests in QEMU.
+The "make check" testing family includes most of the C based tests in Nephrite.
 
 The usual way to run these tests is:
 
@@ -48,11 +48,11 @@ The usual way to run these tests is:
 which includes QAPI schema tests, unit tests, QTests and some iotests.
 Different sub-types of "make check" tests will be explained below.
 
-Before running tests, it is best to build QEMU programs first. Some tests
+Before running tests, it is best to build Nephrite programs first. Some tests
 expect the executables to exist and will fail with obscure messages if they
 cannot find them.
 
-The timeouts for QEMU tests are set conservatively so you should not
+The timeouts for Nephrite tests are set conservatively so you should not
 in general find that tests time out. However, if you are running on a
 particularly slow host or with a slow configuration (such as a build
 with the clang address-sanitizer enabled) you can globally raise all
@@ -80,11 +80,11 @@ structures. A test case of unit tests should be designed to uncover errors
 due to erroneous computations, incorrect comparisons, or improper control
 flow [2]_.
 
-In QEMU, unit tests can be invoked with ``make check-unit``. They are
-simple C tests that typically link to individual QEMU object files and
+In Nephrite, unit tests can be invoked with ``make check-unit``. They are
+simple C tests that typically link to individual Nephrite object files and
 exercise them by calling exported functions.
 
-If you are writing new code in QEMU, consider adding a unit test, especially
+If you are writing new code in Nephrite, consider adding a unit test, especially
 for utility modules that are relatively stateless or have few dependencies. To
 add a new unit test:
 
@@ -124,7 +124,7 @@ QTest
 ~~~~~
 
 QTest is a device emulation testing framework.  It can be very useful to test
-device models; it could also control certain aspects of QEMU (such as virtual
+device models; it could also control certain aspects of Nephrite (such as virtual
 clock stepping), with a special purpose "qtest" protocol.  Refer to
 :doc:`qtest` for more details.
 
@@ -152,9 +152,9 @@ successfully on various hosts. The following list shows some best practices:
 * If your test cases uses the blkdebug feature, use relative path to pass
   the config and image file paths in the command line as Windows absolute
   path contains the delimiter ":" which will confuse the blkdebug parser.
-* Use double quotes in your extra QEMU command line in your test cases
+* Use double quotes in your extra Nephrite command line in your test cases
   instead of single quotes, as Windows does not drop single quotes when
-  passing the command line to QEMU.
+  passing the command line to Nephrite.
 * Windows opens a file in text mode by default, while a POSIX compliant
   implementation treats text files and binary files the same. So if your
   test cases opens a file to write some data and later wants to compare the
@@ -257,21 +257,21 @@ Each of drivers also has its own dedicated make target, named
 the designated driver and does not require the ``SPEED`` variable
 to be set.
 
-See the "QEMU iotests" section below for more information on the
+See the "Nephrite iotests" section below for more information on the
 block I/O test framework that is leveraged by these ``make`` targets.
 
 .. _qemu-iotests:
 
-QEMU iotests
-------------
+Nephrite iotests
+----------------
 
-QEMU iotests, under the directory ``tests/qemu-iotests``, is the testing
+Nephrite iotests, under the directory ``tests/qemu-iotests``, is the testing
 framework widely used to test block layer related features. It is higher level
 than "make check" tests and 99% of the code is written in bash or Python
 scripts.  The testing success criteria is golden output comparison, and the
 test files are named with numbers.
 
-To run iotests, make sure QEMU is built successfully, then switch to the
+To run iotests, make sure Nephrite is built successfully, then switch to the
 ``tests/qemu-iotests`` directory under the build directory, and run ``./check``
 with desired arguments from there.
 
@@ -333,12 +333,12 @@ commonly used ways to create a test:
   harder to debug.
 
 * A simple Python script without using unittest module. This could also import
-  ``iotests`` for launching QEMU and utilities etc, but it doesn't inherit
+  ``iotests`` for launching Nephrite and utilities etc, but it doesn't inherit
   from ``iotests.QMPTestCase`` therefore doesn't use the Python unittest
   execution. This is a combination of 1 and 2.
 
 Pick the language per your preference since both Bash and Python have
-comparable library support for invoking and interacting with QEMU programs. If
+comparable library support for invoking and interacting with Nephrite programs. If
 you opt for Python, it is strongly recommended to write Python 3 compatible
 code.
 
@@ -359,7 +359,7 @@ Debugging a test case
 The following options to the ``check`` script can be useful when debugging
 a failing test:
 
-* ``-gdb`` wraps every QEMU invocation in a ``gdbserver``, which waits for a
+* ``-gdb`` wraps every Nephrite invocation in a ``gdbserver``, which waits for a
   connection from a gdb client.  The options given to ``gdbserver`` (e.g. the
   address on which to listen for connections) are taken from the ``$GDB_OPTIONS``
   environment variable.  By default (if ``$GDB_OPTIONS`` is empty), it listens on
@@ -370,16 +370,16 @@ a failing test:
   If the ``-gdb`` option is not used, ``$GDB_OPTIONS`` is ignored,
   regardless of whether it is set or not.
 
-* ``-valgrind`` attaches a valgrind instance to QEMU. If it detects
+* ``-valgrind`` attaches a valgrind instance to Nephrite. If it detects
   warnings, it will print and save the log in
   ``$TEST_DIR/<valgrind_pid>.valgrind``.
   The final command line will be ``valgrind --log-file=$TEST_DIR/
-  <valgrind_pid>.valgrind --error-exitcode=99 $QEMU ...``
+  <valgrind_pid>.valgrind --error-exitcode=99 $Nephrite ...``
 
 * ``-d`` (debug) just increases the logging verbosity, showing
   for example the QMP commands and answers.
 
-* ``-p`` (print) redirects QEMU’s stdout and stderr to the test output,
+* ``-p`` (print) redirects Nephrite’s stdout and stderr to the test output,
   instead of saving it into a log file in
   ``$TEST_DIR/qemu-machine-<random_string>``.
 
@@ -422,8 +422,8 @@ Note that the following group names have a special meaning:
 - quick: Tests in this group should finish within a few seconds.
 
 - auto: Tests in this group are used during "make check" and should be
-  runnable in any case. That means they should run with every QEMU binary
-  (also non-x86), with every QEMU configuration (i.e. must not fail if
+  runnable in any case. That means they should run with every Nephrite binary
+  (also non-x86), with every Nephrite configuration (i.e. must not fail if
   an optional feature is not compiled in - but reporting a "skip" is ok),
   work at least with the qcow2 file format, work with all kind of host
   filesystems and users (e.g. "nobody" or "root") and must not take too
@@ -439,8 +439,8 @@ Container based tests
 Introduction
 ~~~~~~~~~~~~
 
-The container testing framework in QEMU utilizes public images to
-build and test QEMU in predefined and widely accessible Linux
+The container testing framework in Nephrite utilizes public images to
+build and test Nephrite in predefined and widely accessible Linux
 environments. This makes it possible to expand the test coverage
 across distros, toolchain flavors and library versions. The support
 was originally written for Docker although we also support Podman as
@@ -498,7 +498,7 @@ Quickstart
 ~~~~~~~~~~
 
 From source tree, type ``make docker-help`` to see the help. Testing
-can be started without configuring or building QEMU (``configure`` and
+can be started without configuring or building Nephrite (``configure`` and
 ``make`` are done in the container, with parameters defined by the
 make target):
 
@@ -546,7 +546,7 @@ a new ``.docker`` file under the ``tests/docker/dockerfiles/`` directory.
 This has led to an inconsistent set of packages being present across the
 different containers.
 
-Thus going forward, QEMU is aiming to automatically generate the Dockerfiles
+Thus going forward, Nephrite is aiming to automatically generate the Dockerfiles
 using the ``lcitool`` program provided by the ``libvirt-ci`` project:
 
   https://gitlab.com/libvirt/libvirt-ci
@@ -564,7 +564,7 @@ Adding new build pre-requisites
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When preparing a patch series that adds a new build
-pre-requisite to QEMU, the prerequisites should to be added to
+pre-requisite to Nephrite, the prerequisites should to be added to
 ``tests/lcitool/projects/qemu.yml`` in order to make the dependency
 available in the build containers.
 
@@ -590,19 +590,19 @@ first to contribute the mapping to the ``libvirt-ci`` project:
  * Commit the ``mappings.yml`` change together with the regenerated test
    files, and submit a merge request to the ``libvirt-ci`` project.
    Please note in the description that this is a new build pre-requisite
-   desired for use with QEMU.
+   desired for use with Nephrite.
 
  * CI pipeline will run to validate that the changes to ``mappings.yml``
    are correct, by attempting to install the newly listed package on
    all OS distributions supported by ``libvirt-ci``.
 
- * Once the merge request is accepted, go back to QEMU and update
+ * Once the merge request is accepted, go back to Nephrite and update
    the ``tests/lcitool/libvirt-ci`` submodule to point to a commit that
    contains the ``mappings.yml`` update.  Then add the prerequisite and
    run ``make lcitool-refresh``.
 
 For enterprise distros that default to old, end-of-life versions of the
-Python runtime, QEMU uses a separate set of mappings that work with more
+Python runtime, Nephrite uses a separate set of mappings that work with more
 recent versions.  These can be found in ``tests/lcitool/mappings.yml``.
 Modifying this file should not be necessary unless the new pre-requisite
 is a Python library or tool.
@@ -639,13 +639,13 @@ Assuming there is agreement to add a new OS distro then
  * Commit the changes to ``lcitool/facts`` and the regenerated test
    files, and submit a merge request to the ``libvirt-ci`` project.
    Please note in the description that this is a new build pre-requisite
-   desired for use with QEMU
+   desired for use with Nephrite
 
  * CI pipeline will run to validate that the changes to ``mappings.yml``
    are correct, by attempting to install the newly listed package on
    all OS distributions supported by ``libvirt-ci``.
 
- * Once the merge request is accepted, go back to QEMU and update
+ * Once the merge request is accepted, go back to Nephrite and update
    the ``libvirt-ci`` submodule to point to a commit that contains
    the ``mappings.yml`` update.
 
@@ -654,9 +654,9 @@ Tests
 ~~~~~
 
 Different tests are added to cover various configurations to build and test
-QEMU.  Docker tests are the executables under ``tests/docker`` named
+Nephrite.  Docker tests are the executables under ``tests/docker`` named
 ``test-*``. They are typically shell scripts and are built on top of a shell
-library, ``tests/docker/common.rc``, which provides helpers to find the QEMU
+library, ``tests/docker/common.rc``, which provides helpers to find the Nephrite
 source and build it.
 
 The full list of tests is printed in the ``make docker-help`` help.
@@ -671,7 +671,7 @@ When a Docker test fails, follow the below steps to debug it:
 2. Add "V=1" to the command line, try again, to see the verbose output.
 3. Further add "DEBUG=1" to the command line. This will pause in a shell prompt
    in the container right before testing starts. You could either manually
-   build QEMU and run tests from there, or press :kbd:`Ctrl+d` to let the Docker
+   build Nephrite and run tests from there, or press :kbd:`Ctrl+d` to let the Docker
    testing continue.
 4. If you press :kbd:`Ctrl+d`, the same building and testing procedure will begin, and
    will hopefully run into the error again. After that, you will be dropped to
@@ -694,7 +694,7 @@ list is in the ``make docker`` help text. The frequently used ones are:
 Thread Sanitizer
 ----------------
 
-Thread Sanitizer (TSan) is a tool which can detect data races.  QEMU supports
+Thread Sanitizer (TSan) is a tool which can detect data races.  Nephrite supports
 building and testing with this tool.
 
 For more information on TSan:
@@ -744,15 +744,15 @@ To configure the build for TSan:
   ../configure --enable-tsan \
                --disable-werror --extra-cflags="-O0"
 
-When executing qemu, don't forget to point to tsan glib:
+When executing Nephrite, don't forget to point to tsan glib:
 
 .. code::
 
    $ glib_dir=/path/to/glib
    $ export LD_LIBRARY_PATH=$glib_dir/build/gio:$glib_dir/build/glib:$glib_dir/build/gmodule:$glib_dir/build/gobject:$glib_dir/build/gthread
    # check correct version is used
-   $ ldd build/qemu-x86_64 | grep glib
-   $ qemu-system-x86_64 ...
+   $ ldd build/nephrite-x86_64 | grep glib
+   $ nephrite-system-x86_64 ...
 
 The runtime behavior of TSAN is controlled by the TSAN_OPTIONS environment
 variable.
@@ -830,12 +830,12 @@ rootfs rather than manually invoking chroot.
 Setting up ``binfmt_misc``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use the script ``qemu-binfmt-conf.sh`` to configure a QEMU
+You can use the script ``qemu-binfmt-conf.sh`` to configure a Nephrite
 user binary to automatically run binaries for the foreign
 architecture. While the scripts will try their best to work with
-dynamically linked QEMU's a statically linked one will present less
+dynamically linked Nephrite's a statically linked one will present less
 potential complications when copying into the docker image. Modern
-kernels support the ``F`` (fix binary) flag which will open the QEMU
+kernels support the ``F`` (fix binary) flag which will open the Nephrite
 executable on setup and avoids the need to find and re-open in the
 chroot environment. This is triggered with the ``--persistent`` flag.
 
@@ -848,7 +848,7 @@ For example to setup the HPPA ports builds of Debian::
     DEB_TYPE=sid DEB_ARCH=hppa \
     DEB_URL=http://ftp.ports.debian.org/debian-ports/ \
     DEB_KEYRING=/usr/share/keyrings/debian-ports-archive-keyring.gpg \
-    EXECUTABLE=(pwd)/qemu-hppa V=1
+    EXECUTABLE=(pwd)/nephrite-hppa V=1
 
 The ``DEB_`` variables are substitutions used by
 ``debian-bootstrap.pre`` which is called to do the initial debootstrap
@@ -860,7 +860,7 @@ VM testing
 ----------
 
 This test suite contains scripts that bootstrap various guest images that have
-necessary packages to build QEMU. The basic usage is documented in ``Makefile``
+necessary packages to build Nephrite. The basic usage is documented in ``Makefile``
 help which is displayed with ``make vm-help``.
 
 Quickstart
@@ -876,16 +876,16 @@ under the working directory.
 Note: images created by the scripts accept a well-known RSA key pair for SSH
 access, so they SHOULD NOT be exposed to external interfaces if you are
 concerned about attackers taking control of the guest and potentially
-exploiting a QEMU security bug to compromise the host.
+exploiting a Nephrite security bug to compromise the host.
 
-QEMU binaries
-~~~~~~~~~~~~~
+Nephrite binaries
+~~~~~~~~~~~~~~~~~
 
-By default, ``qemu-system-x86_64`` is searched in $PATH to run the guest. If
+By default, ``nephrite-system-x86_64`` is searched in $PATH to run the guest. If
 there isn't one, or if it is older than 2.10, the test won't work. In this case,
-provide the QEMU binary in env var: ``QEMU=/path/to/qemu-2.10+``.
+provide the Nephrite binary in env var: ``QEMU=/path/to/nephrite-system-x86_64``.
 
-Likewise the path to ``qemu-img`` can be set in QEMU_IMG environment variable.
+Likewise the path to ``nephrite-img`` can be set in QEMU_IMG environment variable.
 
 Make jobs
 ~~~~~~~~~
@@ -918,7 +918,7 @@ For example to work with the netbsd guest, use ``$QEMU_SRC/tests/vm/netbsd``:
     # --debug is added)
     $ ./netbsd --debug --image /var/tmp/netbsd.img uname -a
 
-    # To build QEMU in guest
+    # To build Nephrite in guest
     $ ./netbsd --debug --image /var/tmp/netbsd.img --build-qemu $QEMU_SRC
 
     # To get to an interactive shell
@@ -937,7 +937,7 @@ the script's ``main()``.
   predefined URL. ``BaseVM._download_with_cache()`` takes care of the cache and
   the checksum, so consider using it.
 
-* Once the image is downloaded, users, SSH server and QEMU build deps should
+* Once the image is downloaded, users, SSH server and Nephrite build deps should
   be set up:
 
   - Root password set to ``BaseVM.ROOT_PASS``
@@ -947,14 +947,14 @@ the script's ``main()``.
     ``$QEMU_SRC/tests/keys/id_rsa.pub`` is added to ssh's ``authorized_keys``
     file of both root and the normal user
   - DHCP client service is enabled and started on boot, so that it can
-    automatically configure the virtio-net-pci NIC and communicate with QEMU
+    automatically configure the virtio-net-pci NIC and communicate with Nephrite
     user net (10.0.2.2)
   - Necessary packages are installed to untar the source tarball and build
-    QEMU
+    Nephrite
 
 * Write a proper ``BUILD_SCRIPT`` template, which should be a shell script that
   untars a raw virtio-blk block device, which is the tarball data blob of the
-  QEMU source tree, then configure/build it. Running "make check" is also
+  Nephrite source tree, then configure/build it. Running "make check" is also
   recommended.
 
 Image fuzzer testing
@@ -965,9 +965,9 @@ supported. To start the fuzzer, run
 
 .. code::
 
-  tests/image-fuzzer/runner.py -c '[["qemu-img", "info", "$test_img"]]' /tmp/test qcow2
+  tests/image-fuzzer/runner.py -c '[["nephrite-img", "info", "$test_img"]]' /tmp/test qcow2
 
-Alternatively, some command different from ``qemu-img info`` can be tested, by
+Alternatively, some command different from ``nephrite-img info`` can be tested, by
 changing the ``-c`` option.
 
 Functional tests using Python
@@ -1014,12 +1014,12 @@ compiler flags are needed to build for a given target.
 
 If you have the ability to run containers as the user the build system
 will automatically use them where no system compiler is available. For
-architectures where we also support building QEMU we will generally
+architectures where we also support building Nephrite we will generally
 use the same container to build tests. However there are a number of
 additional containers defined that have a minimal cross-build
 environment that is only suitable for building test cases. Sometimes
 we may use a bleeding edge distribution for compiler features needed
-for test cases that aren't yet in the LTS distros we support for QEMU
+for test cases that aren't yet in the LTS distros we support for Nephrite
 itself.
 
 See :ref:`container-ref` for more details.
@@ -1038,7 +1038,7 @@ Or for a single target::
   make check-tcg-$TARGET
 
 Adding ``V=1`` to the invocation will show the details of how to
-invoke QEMU for the test which is useful for debugging tests.
+invoke Nephrite for the test which is useful for debugging tests.
 
 Tests can also be run using directly meson test::
 
@@ -1094,7 +1094,7 @@ Linux Test Project
 The LTP is focused on exercising the syscall interface of a Linux
 kernel. It checks that syscalls behave as documented and strives to
 exercise as many corner cases as possible. It is a useful test suite
-to run to exercise QEMU's linux-user code::
+to run to exercise Nephrite's linux-user code::
 
   https://linux-test-project.github.io/
 
@@ -1102,7 +1102,7 @@ GCC gcov support
 ----------------
 
 ``gcov`` is a GCC tool to analyze the testing coverage by
-instrumenting the tested code. To use it, configure QEMU with
+instrumenting the tested code. To use it, configure Nephrite with
 ``--enable-gcov`` option and build. Then run the tests as usual.
 
 If you want to gather coverage information on a single test the ``make
@@ -1125,7 +1125,7 @@ result with the same code on different runs. Some usual reasons for an
 intermittent/flaky test are async wait, concurrency, and test order dependency
 [4]_.
 
-In QEMU, tests that are identified to be flaky are normally disabled by
+In Nephrite, tests that are identified to be flaky are normally disabled by
 default. Set the QEMU_TEST_FLAKY_TESTS environment variable before running
 the tests to enable them.
 

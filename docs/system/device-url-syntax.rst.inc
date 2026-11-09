@@ -1,17 +1,17 @@
 
 In addition to using normal file images for the emulated storage
-devices, QEMU can also use networked resources such as iSCSI devices.
+devices, Nephrite can also use networked resources such as iSCSI devices.
 These are specified using a special URL syntax.
 
 ``iSCSI``
-   iSCSI support allows QEMU to access iSCSI resources directly and use
+   iSCSI support allows Nephrite to access iSCSI resources directly and use
    as images for the guest storage. Both disk and cdrom images are
    supported.
 
    Syntax for specifying iSCSI LUNs is
    "iscsi://<target-ip>[:<port>]/<target-iqn>/<lun>"
 
-   By default qemu will use the iSCSI initiator-name
+   By default Nephrite will use the iSCSI initiator-name
    'iqn.2008-11.org.linux-kvm[:<name>]' but this can also be set from
    the command line or a configuration file.
 
@@ -44,7 +44,7 @@ These are specified using a special URL syntax.
       |qemu_system| -drive file=iscsi://192.0.2.1/iqn.2001-04.com.example/1
 
 ``NBD``
-   QEMU supports NBD (Network Block Devices) both using TCP protocol as
+   Nephrite supports NBD (Network Block Devices) both using TCP protocol as
    well as Unix Domain Sockets. With TCP, the default port is 10809.
 
    Syntax for specifying a NBD device using TCP, in preferred URI form:
@@ -73,7 +73,7 @@ These are specified using a special URL syntax.
       |qemu_system| --drive file=nbd:unix:/tmp/nbd-socket
 
 ``SSH``
-   QEMU supports SSH (Secure Shell) access to remote disks.
+   Nephrite supports SSH (Secure Shell) access to remote disks.
 
    Examples:
 
@@ -86,7 +86,7 @@ These are specified using a special URL syntax.
    authentication methods may be supported in future.
 
 ``HTTP/HTTPS/FTP/FTPS``
-   QEMU supports read-only access to files accessed over http(s) and
+   Nephrite supports read-only access to files accessed over http(s) and
    ftp(s).
 
    Syntax using a single filename:
@@ -146,7 +146,7 @@ These are specified using a special URL syntax.
       is especially useful for S3 presigned URLs where HEAD requests
       are unauthorized. It defaults to 'false'.
 
-   Note that when passing options to qemu explicitly, ``driver`` is the
+   Note that when passing options to Nephrite explicitly, ``driver`` is the
    value of <protocol>.
 
    Example: boot from a remote Fedora 20 live ISO image
@@ -162,7 +162,7 @@ These are specified using a special URL syntax.
 
    .. parsed-literal::
 
-      qemu-img create -f qcow2 -o backing_file='json:{"file.driver":"http",, "file.url":"http://archives.fedoraproject.org/pub/archive/fedora/linux/releases/20/Images/x86_64/Fedora-x86_64-20-20131211.1-sda.qcow2",, "file.readahead":"64k"}' /tmp/Fedora-x86_64-20-20131211.1-sda.qcow2
+      nephrite-img create -f qcow2 -o backing_file='json:{"file.driver":"http",, "file.url":"http://archives.fedoraproject.org/pub/archive/fedora/linux/releases/20/Images/x86_64/Fedora-x86_64-20-20131211.1-sda.qcow2",, "file.readahead":"64k"}' /tmp/Fedora-x86_64-20-20131211.1-sda.qcow2
 
       |qemu_system_x86| -drive file=/tmp/Fedora-x86_64-20-20131211.1-sda.qcow2,copy-on-read=on
 
@@ -172,6 +172,6 @@ These are specified using a special URL syntax.
 
    .. parsed-literal::
 
-      qemu-img create -f qcow2 -o backing_file='json:{"file.driver":"https",, "file.url":"https://user:password@vsphere.example.com/folder/test/test-flat.vmdk?dcPath=Datacenter&dsName=datastore1",, "file.sslverify":"off",, "file.readahead":"64k",, "file.timeout":10}' /tmp/test.qcow2
+      nephrite-img create -f qcow2 -o backing_file='json:{"file.driver":"https",, "file.url":"https://user:password@vsphere.example.com/folder/test/test-flat.vmdk?dcPath=Datacenter&dsName=datastore1",, "file.sslverify":"off",, "file.readahead":"64k",, "file.timeout":10}' /tmp/test.qcow2
 
       |qemu_system_x86| -drive file=/tmp/test.qcow2

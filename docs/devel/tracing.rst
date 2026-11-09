@@ -7,7 +7,7 @@ Tracing
 Introduction
 ============
 
-This document describes the tracing infrastructure in QEMU and how to use it
+This document describes the tracing infrastructure in Nephrite and how to use it
 for debugging, profiling, and observing execution.
 
 Quickstart
@@ -16,7 +16,7 @@ Quickstart
 Enable tracing of ``memory_region_ops_read`` and ``memory_region_ops_write``
 events::
 
-    $ qemu --trace "memory_region_ops_*" ...
+    $ nephrite-system-x86_64 --trace "memory_region_ops_*" ...
     ...
     719585@1608130130.441188:memory_region_ops_read cpu 0 mr 0x562fdfbb3820 addr 0x3cc value 0x67 size 1
     719585@1608130130.441190:memory_region_ops_write cpu 0 mr 0x562fdfbd2f00 addr 0x3d4 value 0x70e size 2
@@ -26,14 +26,14 @@ This output comes from the "log" trace backend that is enabled by default when
 
 Multiple patterns can be specified by repeating the ``--trace`` option::
 
-    $ qemu --trace "kvm_*" --trace "virtio_*" ...
+    $ nephrite-system-x86_64 --trace "kvm_*" --trace "virtio_*" ...
 
 When patterns are used frequently it is more convenient to store them in a
 file to avoid long command-line options::
 
     $ echo "memory_region_ops_*" >/tmp/events
     $ echo "kvm_*" >>/tmp/events
-    $ qemu --trace events=/tmp/events ...
+    $ nephrite-system-x86_64 --trace events=/tmp/events ...
 
 Trace events
 ============
@@ -48,7 +48,7 @@ file. During build, the "trace-events" file in each listed subdirectory will be
 processed by the "tracetool" script to generate code for the trace events.
 
 The individual "trace-events" files are merged into a "trace-events-all" file,
-which is also installed into "/usr/share/qemu".
+which is also installed into "/usr/share/nephrite".
 This merged file is to be used by the "simpletrace.py" script to later analyse
 traces in the simpletrace data format.
 
@@ -175,7 +175,7 @@ You can programmatically query and control the state of trace events through a
 backend-agnostic interface provided by the header "trace/control.h".
 
 Note that some of the backends do not provide an implementation for some parts
-of this interface, in which case QEMU will just print a warning (please refer to
+of this interface, in which case Nephrite will just print a warning (please refer to
 header "trace/control.h" to see which routines are backend-dependent).
 
 The state of events can also be queried and modified through monitor commands:
@@ -266,7 +266,7 @@ binary trace::
 
     ./scripts/simpletrace.py trace-events-all trace-12345
 
-You must ensure that the same "trace-events-all" file was used to build QEMU,
+You must ensure that the same "trace-events-all" file was used to build Nephrite,
 otherwise trace event declarations may have changed and output will not be
 consistent.
 
@@ -274,14 +274,14 @@ Ftrace
 ------
 
 The "ftrace" backend writes trace data to ftrace marker. This effectively
-sends trace events to ftrace ring buffer, and you can compare qemu trace
+sends trace events to ftrace ring buffer, and you can compare Nephrite trace
 data and kernel(especially kvm.ko when using KVM) trace data.
 
 if you use KVM, enable kvm events in ftrace::
 
    # echo 1 > /sys/kernel/debug/tracing/events/kvm/enable
 
-After running qemu by root user, you can get the trace::
+After running Nephrite by root user, you can get the trace::
 
    # cat /sys/kernel/debug/tracing/trace
 
@@ -292,7 +292,7 @@ Syslog
 
 The "syslog" backend sends trace events using the POSIX syslog API. The log
 is opened specifying the LOG_DAEMON facility and LOG_PID option (so events
-are tagged with the pid of the particular QEMU process that generated
+are tagged with the pid of the particular Nephrite process that generated
 them). All events are logged at LOG_INFO level.
 
 NOTE: syslog may squash duplicate consecutive trace events and apply rate
@@ -304,15 +304,15 @@ LTTng Userspace Tracer
 ----------------------
 
 The "ust" backend uses the LTTng Userspace Tracer library.  There are no
-monitor commands built into QEMU, instead UST utilities should be used to list,
+monitor commands built into Nephrite, instead UST utilities should be used to list,
 enable/disable, and dump traces.
 
 Package lttng-tools is required for userspace tracing. You must ensure that the
 current user belongs to the "tracing" group, or manually launch the
 lttng-sessiond daemon for the current user prior to running any instance of
-QEMU.
+Nephrite.
 
-While running an instrumented QEMU, LTTng should be able to list all available
+While running an instrumented Nephrite, LTTng should be able to list all available
 events::
 
     lttng list -u
@@ -360,7 +360,7 @@ probes::
                          qemu.stp
 
 To facilitate simple usage of systemtap where there merely needs to be printf
-logging of certain probes, a helper script "qemu-trace-stap" is provided.
+logging of certain probes, a helper script "nephrite-trace-stap" is provided.
 Consult its manual page for guidance on its usage.
 
 Trace event conditions

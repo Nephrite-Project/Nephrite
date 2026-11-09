@@ -34,7 +34,7 @@ contain information available for post-mortem debugging.
 
 Two common storage backends for the pstore filesystem are ACPI ERST
 and UEFI. Most BIOS implement ACPI ERST. UEFI is not utilized in all
-guests. With QEMU supporting ACPI ERST, it becomes a viable pstore
+guests. With Nephrite supporting ACPI ERST, it becomes a viable pstore
 storage backend for virtual machines (as it is now for bare metal
 machines).
 
@@ -53,7 +53,7 @@ Configuration|Usage
 To use ACPI ERST, a memory-backend-file object and acpi-erst device
 can be created, for example:
 
- qemu ...
+ Nephrite ...
  -object memory-backend-file,id=erstnvram,mem-path=acpi-erst.backing,size=0x10000,share=on \
  -device acpi-erst,memdev=erstnvram
 

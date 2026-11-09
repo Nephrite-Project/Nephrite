@@ -13,11 +13,11 @@ Parallels Disk Format
    See the COPYING file in the top-level directory.
 
 This specification contains minimal information about Parallels Disk Format,
-which is enough to properly work with QEMU. Nevertheless, Parallels Cloud Server
+which is enough to properly work with Nephrite. Nevertheless, Parallels Cloud Server
 and Parallels Desktop are able to add some unspecified nodes to the xml and use
 them, but they are for internal work and don't affect functionality. Also it
 uses auxiliary xml ``Snapshot.xml``, which allows storage of optional snapshot
-information, but this doesn't influence open/read/write functionality. QEMU and
+information, but this doesn't influence open/read/write functionality. Nephrite and
 other software should not use fields not covered in this document or the
 ``Snapshot.xml`` file, and must leave them as is.
 
@@ -104,7 +104,7 @@ The ``Disk_Parameters`` element MUST contain the following child elements:
   values MUST be equal to the value of the Disk_size parameter.
 * ``Padding``   - must be 0. Parallels Cloud Server and Parallels Desktop may
   use padding set to 1; however this case is not covered
-  by this specification. QEMU and other software should not open
+  by this specification. Nephrite and other software should not open
   such disks and should not create them.
 
 ``StorageData`` element
@@ -186,7 +186,7 @@ opened read-only.
 
 There is another predefined GUID,
 ``BackupID = {704718e1-2314-44c8-9087-d78ed36b0f4e}``, which is used by
-original and some third-party software for backup. QEMU and other
+original and some third-party software for backup. Nephrite and other
 software may operate with images with ``GUID = BackupID`` as usual.
 However, it is not recommended to use this
 GUID for new disks. The Top snapshot cannot have this GUID.

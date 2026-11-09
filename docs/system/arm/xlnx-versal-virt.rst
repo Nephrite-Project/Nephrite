@@ -6,7 +6,7 @@ AMD Versal is a family of heterogeneous multi-core SoCs
 peripherals in a Processing System (PS) with runtime programmable
 FPGA logic (PL) and an Artificial Intelligence Engine (AIE).
 
-QEMU implements the following Versal SoCs variants:
+Nephrite implements the following Versal SoCs variants:
 
 - Versal (the ``amd-versal-virt`` machine, the alias ``xlnx-versal-virt`` is
   kept for backward compatibility)
@@ -19,7 +19,7 @@ The family of Versal SoCs share a single architecture but come in
 different parts with different speed grades, amounts of PL and
 other differences.
 
-The AMD Versal Virt board in QEMU is a model of a virtual board
+The AMD Versal Virt board in Nephrite is a model of a virtual board
 (does not exist in reality) with a virtual Versal SoC without I/O
 limitations. Currently, we support the following cores and devices:
 
@@ -69,15 +69,15 @@ Implemented devices:
 - OSPI controller
 - TRNG controller
 
-QEMU does not yet model any other devices, including the PL and the AI Engine.
+Nephrite does not yet model any other devices, including the PL and the AI Engine.
 
-Other differences between the hardware and the QEMU model:
+Other differences between the hardware and the Nephrite model:
 
-- QEMU allows the amount of DDR memory provided to be specified with the
-  ``-m`` argument. If a DTB is provided on the command line then QEMU will
+- Nephrite allows the amount of DDR memory provided to be specified with the
+  ``-m`` argument. If a DTB is provided on the command line then Nephrite will
   edit it to include suitable entries describing the Versal DDR memory ranges.
 
-- QEMU provides 8 virtio-mmio virtio transports. They use reserved memory
+- Nephrite provides 8 virtio-mmio virtio transports. They use reserved memory
   regions and IRQ pins to avoid conflicts with real SoC peripherals.
 
 Running
@@ -87,7 +87,7 @@ to use the ``-kernel`` command line option.
 
 Users can load firmware or boot-loaders with the ``-device loader`` options.
 
-When loading an OS, QEMU generates a DTB and selects an appropriate address
+When loading an OS, Nephrite generates a DTB and selects an appropriate address
 where it gets loaded. This DTB will be passed to the kernel in register x0.
 
 If there's no ``-kernel`` option, we generate a DTB and place it at 0x1000
@@ -96,14 +96,14 @@ DTB, one can use the ``dumpdtb`` machine option:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M amd-versal-virt,dumpdtb=example.dtb -m 2G
+  $ nephrite-system-aarch64 -M amd-versal-virt,dumpdtb=example.dtb -m 2G
 
 
 If users want to provide their own DTB, they can use the ``-dtb`` option.
-These DTBs will have their memory nodes modified to match QEMU's
+These DTBs will have their memory nodes modified to match Nephrite's
 selected ram_size option before they get passed to the kernel or FW.
 
-When loading an OS, we turn on QEMU's PSCI implementation with SMC
+When loading an OS, we turn on Nephrite's PSCI implementation with SMC
 as the PSCI conduit. When there's no ``-kernel`` option, we assume the user
 provides EL3 firmware to handle PSCI.
 
@@ -113,7 +113,7 @@ Direct Linux boot of a generic ARM64 upstream Linux kernel:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M amd-versal-virt -m 2G \
+  $ nephrite-system-aarch64 -M amd-versal-virt -m 2G \
       -serial mon:stdio -display none \
       -kernel arch/arm64/boot/Image \
       -nic user -nic user \
@@ -126,7 +126,7 @@ Direct Linux boot of PetaLinux 2019.2:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64  -M amd-versal-virt -m 2G \
+  $ nephrite-system-aarch64  -M amd-versal-virt -m 2G \
       -serial mon:stdio -display none \
       -kernel petalinux-v2019.2/Image \
       -append "rdinit=/sbin/init console=ttyAMA0,115200n8 earlycon=pl011,mmio,0xFF000000,115200n8" \
@@ -139,7 +139,7 @@ version of ATF tries to configure the CCI which we don't model) and U-boot:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M amd-versal-virt -m 2G \
+  $ nephrite-system-aarch64 -M amd-versal-virt -m 2G \
       -serial stdio -display none \
       -device loader,file=petalinux-v2018.3/bl31.elf,cpu-num=0 \
       -device loader,file=petalinux-v2019.2/u-boot.elf \
@@ -164,7 +164,7 @@ Boot Linux as DOM0 on Xen via U-Boot:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M amd-versal-virt -m 4G \
+  $ nephrite-system-aarch64 -M amd-versal-virt -m 4G \
       -serial stdio -display none \
       -device loader,file=petalinux-v2019.2/u-boot.elf,cpu-num=0 \
       -device loader,addr=0x30000000,file=linux/2018-04-24/xen \
@@ -192,7 +192,7 @@ Boot Linux as Dom0 on Xen via Arm Trusted Firmware and U-Boot:
 
 .. code-block:: bash
 
-  $ qemu-system-aarch64 -M amd-versal-virt -m 4G \
+  $ nephrite-system-aarch64 -M amd-versal-virt -m 4G \
       -serial stdio -display none \
       -device loader,file=petalinux-v2018.3/bl31.elf,cpu-num=0 \
       -device loader,file=petalinux-v2019.2/u-boot.elf \
@@ -242,7 +242,7 @@ eFUSE File Backend
 """"""""""""""""""
 
 .. note::
-   The eFUSE device is not implemented in the Versal Gen 2 QEMU model
+   The eFUSE device is not implemented in the Versal Gen 2 Nephrite model
    yet.
 
 eFUSE can have an optional file backend, which must be a seekable
@@ -263,7 +263,7 @@ To use a different index value, N, from default of 1, add:
 
 .. warning::
   In actual physical Versal, BBRAM and eFUSE contain sensitive data.
-  The QEMU device models do **not** encrypt nor obfuscate any data
+  The Nephrite device models do **not** encrypt nor obfuscate any data
   when holding them in models' memory or when writing them to their
   file backends.
 
@@ -275,7 +275,7 @@ To use a different index value, N, from default of 1, add:
 
 Using CANFDs for Versal Virt
 """"""""""""""""""""""""""""
-Versal CANFD controller is developed based on SocketCAN and QEMU CAN bus
+Versal CANFD controller is developed based on SocketCAN and Nephrite CAN bus
 implementation. Bus connection and socketCAN connection for each CAN module
 can be set through command lines.
 

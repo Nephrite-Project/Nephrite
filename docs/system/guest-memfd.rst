@@ -24,23 +24,23 @@ Usage
 -----
 
 For Confidential Guests, guest-memfd is currently utilized internally
-by QEMU to handle private guest memory, independently of whatever
+by Nephrite to handle private guest memory, independently of whatever
 memory backend the user has configured for normal/non-private/shared
-guest memory. To avoid doubling memory, QEMU discards memory in
+guest memory. To avoid doubling memory, Nephrite discards memory in
 response to the guest converting GPA ranges between shared/private.
 (e.g. if GPA X is converted from private to shared, the guest-memfd FD
 offset corresponding to GPA x will be truncated since the memory will
 be provided by the memory backend the user configured for shared
 memory, and vice-versa). This is handled automatically/internally for
 Confidential Guests that rely on this handling and is not directly
-exposed by QEMU command-line options.
+exposed by Nephrite command-line options.
 
 For non-Confidential guests, guest-memfd can be used in a manner that
 is somewhat interchangeable with a normal memfd. Currently, this is
 handled by using the same memory-backend implementation as memfd, but
 with an additional 'guest-memfd=on' option. E.g.::
 
-    qemu ... \
+    nephrite-system-x86_64 ... \
       -object memory-backend-memfd,id=ID,size=SIZE,share=on,guest-memfd=on
 
 Note that the share=on option is required for guest-memfd, since it

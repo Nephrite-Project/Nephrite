@@ -25,9 +25,9 @@ message.
 
 The protocol defines 2 sides of the communication, *front-end* and
 *back-end*. The *front-end* is the application that shares its virtqueues, in
-our case QEMU. The *back-end* is the consumer of the virtqueues.
+our case Nephrite. The *back-end* is the consumer of the virtqueues.
 
-In the current implementation QEMU is the *front-end*, and the *back-end*
+In the current implementation Nephrite is the *front-end*, and the *back-end*
 is the external process consuming the virtio queues, for example a
 software Ethernet switch running in user space, such as Snabbswitch,
 or a block device back-end processing read & write to a virtual
@@ -54,11 +54,11 @@ is supported on any platform that provides the following features:
   so it can be passed over a UNIX domain socket and then mapped by the
   other process.
 
-- AF_UNIX sockets with SCM_RIGHTS, so QEMU and the other process can
+- AF_UNIX sockets with SCM_RIGHTS, so Nephrite and the other process can
   exchange messages through it, including ancillary data when needed.
 
 - Either eventfd or pipe/pipe2. On platforms where eventfd is not
-  available, QEMU will automatically fall back to pipe2 or, as a last
+  available, Nephrite will automatically fall back to pipe2 or, as a last
   resort, pipe. Each file descriptor will be used for receiving or
   sending events by reading or writing (respectively) an 8-byte value
   to the corresponding it. The 8-value itself has no meaning and
@@ -421,7 +421,7 @@ VIRTIO Shared Memory Region configuration
 C structure
 -----------
 
-In QEMU the vhost-user message is implemented with the following struct:
+In Nephrite the vhost-user message is implemented with the following struct:
 
 .. code:: c
 
@@ -1267,7 +1267,7 @@ Front-end message types
   event.
 
 .. Note::
-   ``NEED_REPLY_MASK`` is not set in this case.  QEMU will then
+   ``NEED_REPLY_MASK`` is not set in this case.  Nephrite will then
    reply back to the list of mappings with an empty
    ``VHOST_USER_SET_MEM_TABLE`` as an acknowledgement; only upon
    reception of this message may the guest start accessing the memory
@@ -1629,7 +1629,7 @@ Front-end message types
   When ``VHOST_USER_PROTOCOL_F_INFLIGHT_SHMFD`` protocol feature has
   been successfully negotiated, this message is submitted by the front-end to
   get a shared buffer from back-end. The shared buffer will be used to
-  track inflight I/O by back-end. QEMU should retrieve a new one when vm
+  track inflight I/O by back-end. Nephrite should retrieve a new one when vm
   reset.
 
 ``VHOST_USER_SET_INFLIGHT_FD``
@@ -1691,7 +1691,7 @@ Front-end message types
   feature has been successfully negotiated, this message is submitted
   by the front-end to the back-end. The back-end should return the message with a
   u64 payload containing the maximum number of memory slots for
-  QEMU to expose to the guest. The value returned by the back-end
+  Nephrite to expose to the guest. The value returned by the back-end
   will be capped at the maximum number of ram slots which can be
   supported by the target platform.
 
@@ -1940,10 +1940,10 @@ is sent by the front-end.
   VFIO device fd) which is passed as ancillary data and the size
   (which is mmap size and should be the same as host page size) and
   offset (which is mmap offset) carried in the vring area
-  description. QEMU can mmap the file descriptor based on the size and
+  description. Nephrite can mmap the file descriptor based on the size and
   offset to get a memory range. Registering a host notifier means
   mapping this memory range to the VM as the specified queue's notify
-  MMIO region. The back-end sends this request to tell QEMU to de-register
+  MMIO region. The back-end sends this request to tell Nephrite to de-register
   the existing notifier if any and register the new notifier if the
   request is sent with a file descriptor.
 
@@ -2076,15 +2076,15 @@ commands. This differs from the vhost protocol implementation where
 commands are sent over an ``ioctl()`` call and block until the back-end
 has completed.
 
-With this protocol extension negotiated, the sender (QEMU) can set the
+With this protocol extension negotiated, the sender (Nephrite) can set the
 ``need_reply`` [Bit 3] flag to any command. This indicates that the
 back-end MUST respond with a Payload ``VhostUserMsg`` indicating success
 or failure. The payload should be set to zero on success or non-zero
 on failure, unless the message already has an explicit reply body.
 
-The reply payload gives QEMU a deterministic indication of the result
-of the command. Today, QEMU is expected to terminate the main vhost-user
-loop upon receiving such errors. In future, qemu could be taught to be more
+The reply payload gives Nephrite a deterministic indication of the result
+of the command. Today, Nephrite is expected to terminate the main vhost-user
+loop upon receiving such errors. In future, Nephrite could be taught to be more
 resilient for selective requests.
 
 For the message types that already solicit a reply from the back-end,
@@ -2100,7 +2100,7 @@ Backend program conventions
 vhost-user back-ends can provide various devices & services and may
 need to be configured manually depending on the use case. However, it
 is a good idea to follow the conventions listed here when
-possible. Users, QEMU or libvirt, can then rely on some common
+possible. Users, Nephrite or libvirt, can then rely on some common
 behaviour to avoid heterogeneous configuration and management of the
 back-end programs and facilitate interoperability.
 

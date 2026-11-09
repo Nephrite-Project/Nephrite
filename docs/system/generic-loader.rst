@@ -8,7 +8,7 @@ Generic Loader
 --------------
 
 The 'loader' device allows the user to load multiple images or values into
-QEMU at startup.
+Nephrite at startup.
 
 Loading Data into Memory Values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -21,7 +21,7 @@ can be done by following the syntax below::
 ``<addr>``
   The address to store the data in.
 
-  Note that as usual with QEMU numeric option values, the default is to
+  Note that as usual with Nephrite numeric option values, the default is to
   treat the argument as decimal.  To specify a value in hex, prefix it
   with '0x'.
 
@@ -57,7 +57,7 @@ can be done by following the syntax below::
 ``<addr>``
   The value to use as the CPU's PC.
 
-  Note that as usual with QEMU numeric option values, the default is to
+  Note that as usual with Nephrite numeric option values, the default is to
   treat the argument as decimal.  To specify a value in hex, prefix it
   with '0x'.
 
@@ -84,7 +84,7 @@ shown below:
   The memory address where the file should be loaded. This is required
   for raw images and ignored for non-raw files.
 
-  Note that as usual with QEMU numeric option values, the default is to
+  Note that as usual with Nephrite numeric option values, the default is to
   treat the argument as decimal.  To specify a value in hex, prefix it
   with '0x'.
 

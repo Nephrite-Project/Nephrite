@@ -34,4 +34,4 @@ Example:
 
 .. code-block:: bash
 
-  $ qemu-system-arm -machine max78000fthr -kernel max78000.bin -device loader,file=max78000.bin,addr=0x10000000
+  $ nephrite-system-arm -machine max78000fthr -kernel max78000.bin -device loader,file=max78000.bin,addr=0x10000000

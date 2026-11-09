@@ -1,8 +1,8 @@
 .. _coding-style:
 
-=================
-QEMU Coding Style
-=================
+=====================
+Nephrite Coding Style
+=====================
 
 .. contents:: Table of Contents
 
@@ -25,7 +25,7 @@ can tell the difference between a tab and eight spaces from a distance
 of approximately fifteen parsecs.  Many a flamewar has been fought and
 lost on this issue.
 
-QEMU indents are four spaces.  Tabs are never used, except in Makefiles
+Nephrite indents are four spaces.  Tabs are never used, except in Makefiles
 where they have been irreversibly coded into the syntax.
 Spaces of course are superior to tabs because:
 
@@ -38,7 +38,7 @@ Spaces of course are superior to tabs because:
   to use tab stops of eight positions.
 * Tabs are rendered badly in patches, causing off-by-one errors in almost
   every line.
-* It is the QEMU coding style.
+* It is the Nephrite coding style.
 
 Do not leave whitespace dangling off the ends of lines.
 
@@ -90,7 +90,7 @@ Line width
 
 Lines should be 80 characters; try not to make them longer.
 
-Sometimes it is hard to do, especially when dealing with QEMU subsystems
+Sometimes it is hard to do, especially when dealing with Nephrite subsystems
 that use long function or symbol names. If wrapping the line at 80 columns
 is obviously less readable and more awkward, prefer not to wrap it; better
 to have an 85 character line than one which is awkwardly wrapped.
@@ -108,7 +108,7 @@ Rationale:
   line length.  Eighty is traditional.
 * The four-space indentation makes the most common excuse ("But look
   at all that white space on the left!") moot.
-* It is the QEMU coding style.
+* It is the Nephrite coding style.
 
 Naming
 ======
@@ -124,7 +124,7 @@ Variable Naming Conventions
 ---------------------------
 
 A number of short naming conventions exist for variables that use
-common QEMU types. For example, the architecture independent CPUState
+common Nephrite types. For example, the architecture independent CPUState
 is often held as a ``cs`` pointer variable, whereas the concrete
 CPUArchState is usually held in a pointer called ``env``.
 
@@ -197,7 +197,7 @@ and clarity it comes on a line by itself:
 
 Rationale: a consistent (except for functions...) bracing style reduces
 ambiguity and avoids needless churn when lines are added or removed.
-Furthermore, it is the QEMU coding style.
+Furthermore, it is the Nephrite coding style.
 
 Declarations
 ============
@@ -290,12 +290,12 @@ Order include directives as follows:
 
     #include "qemu/osdep.h"  /* Always first... */
     #include <...>           /* then system headers... */
-    #include "..."           /* and finally QEMU headers. */
+    #include "..."           /* and finally Nephrite headers. */
 
 The "qemu/osdep.h" header contains preprocessor macros that affect the behavior
 of core system headers like <stdint.h>.  It must be the first include so that
 core system headers included by external libraries get the preprocessor macros
-that QEMU depends on.
+that Nephrite depends on.
 
 Do not include "qemu/osdep.h" from header files since the .c file will have
 already included it.
@@ -310,7 +310,7 @@ Cyclic inclusion is forbidden.
 Generative Includes
 -------------------
 
-QEMU makes fairly extensive use of the macro pre-processor to
+Nephrite makes fairly extensive use of the macro pre-processor to
 instantiate multiple similar functions. While such abuse of the macro
 processor isn't discouraged it can make debugging and code navigation
 harder. You should consider carefully if the same effect can be
@@ -351,7 +351,7 @@ mandatory for VMState fields.
 Don't use Linux kernel internal types like u32, __u32 or __le32.
 
 Use hwaddr for guest physical addresses except pcibus_t
-for PCI addresses.  In addition, ram_addr_t is a QEMU internal address
+for PCI addresses.  In addition, ram_addr_t is a Nephrite internal address
 space that maps guest RAM physical addresses into an intermediate
 address space that can map to host virtual address spaces.  Generally
 speaking, the size of guest memory can always fit into ram_addr_t but
@@ -446,10 +446,10 @@ Low level memory management
 ===========================
 
 Use of the ``malloc/free/realloc/calloc/valloc/memalign/posix_memalign``
-or ``alloca/g_alloca/g_newa/g_newa0`` APIs is not allowed in the QEMU codebase.
+or ``alloca/g_alloca/g_newa/g_newa0`` APIs is not allowed in the Nephrite codebase.
 Instead of these routines, use the GLib memory allocation routines
 ``g_malloc/g_malloc0/g_new/g_new0/g_realloc/g_free``
-or QEMU's ``qemu_memalign/qemu_blockalign/qemu_vfree`` APIs.
+or Nephrite's ``qemu_memalign/qemu_blockalign/qemu_vfree`` APIs.
 
 Please note that ``g_malloc`` will exit on allocation failure, so
 there is no need to test for failure (as you would have to with
@@ -513,7 +513,7 @@ Don't use strcat because it can't check for buffer overflows, but:
 The same limitation exists with sprintf and vsprintf, so use snprintf and
 vsnprintf.
 
-QEMU provides other useful string functions:
+Nephrite provides other useful string functions:
 
 .. code-block:: c
 
@@ -540,7 +540,7 @@ of arguments.
 C standard, implementation defined and undefined behaviors
 ==========================================================
 
-C code in QEMU should be written to the C11 language specification. A
+C code in Nephrite should be written to the C11 language specification. A
 copy of the final version of the C11 standard formatted as a draft,
 can be downloaded from:
 
@@ -548,7 +548,7 @@ can be downloaded from:
 
 The C language specification defines regions of undefined behavior and
 implementation defined behavior (to give compiler authors enough leeway to
-produce better code).  In general, code in QEMU should follow the language
+produce better code).  In general, code in Nephrite should follow the language
 specification and avoid both undefined and implementation defined
 constructs. ("It works fine on the gcc I tested it with" is not a valid
 argument...) However there are a few areas where we allow ourselves to
@@ -560,7 +560,7 @@ painful. These are:
 * you may assume that right shift of a signed integer duplicates
   the sign bit (ie it is an arithmetic shift, not a logical shift)
 
-In addition, QEMU assumes that the compiler does not use the latitude
+In addition, Nephrite assumes that the compiler does not use the latitude
 given in C99 and C11 to treat aspects of signed '<<' as undefined, as
 documented in the GNU Compiler Collection manual starting at version 4.0.
 
@@ -569,7 +569,7 @@ documented in the GNU Compiler Collection manual starting at version 4.0.
 Automatic memory deallocation
 =============================
 
-QEMU has a mandatory dependency on either the GCC or the Clang compiler. As
+Nephrite has a mandatory dependency on either the GCC or the Clang compiler. As
 such it has the freedom to make use of a C language extension for
 automatically running a cleanup function when a stack variable goes
 out of scope. This can be used to simplify function cleanup paths,
@@ -654,8 +654,8 @@ are still some caveats to beware of
     }
 
 
-QEMU Specific Idioms
-********************
+Nephrite Specific Idioms
+************************
 
 QEMU Object Model Declarations
 ==============================
@@ -694,10 +694,10 @@ Note that there is no need to provide typedefs for QOM structures
 since these are generated automatically by the QOM declaration macros.
 See :ref:`qom` for more details.
 
-QEMU GUARD macros
-=================
+Nephrite GUARD macros
+=====================
 
-QEMU provides a number of ``_GUARD`` macros intended to make the
+Nephrite provides a number of ``_GUARD`` macros intended to make the
 handling of multiple exit paths easier. For example using
 ``QEMU_LOCK_GUARD`` to take a lock will ensure the lock is released on
 exit from the function.
@@ -802,7 +802,7 @@ monitor commands should never exit().
 Do not call exit() or abort() to handle an error that can be triggered
 by the guest (e.g., some unimplemented corner case in guest code
 translation or device emulation).  Guests should not be able to
-terminate QEMU.
+terminate Nephrite.
 
 Note that &error_fatal is just another way to exit(1), and &error_abort
 is just another way to abort().
@@ -839,7 +839,7 @@ Rationale: hex numbers are hard to read in logs when there is no 0x prefix,
 especially when (occasionally) the representation doesn't contain any letters
 and especially in one line with other decimal numbers. Number groups are allowed
 to not use '0x' because for some things notations like %x.%x.%x are used not
-only in QEMU. Also dumping raw data bytes with '0x' is less readable.
+only in Nephrite. Also dumping raw data bytes with '0x' is less readable.
 
 '#' printf flag
 ---------------

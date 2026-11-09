@@ -1,10 +1,10 @@
 .. |msrv| replace:: 1.83.0
 
-Rust in QEMU
-============
+Rust in Nephrite
+================
 
-Rust in QEMU is a project to enable using the Rust programming language
-to add new functionality to QEMU.
+Rust in Nephrite is a project to enable using the Rust programming language
+to add new functionality to Nephrite.
 
 Right now, the focus is on making it possible to write devices that inherit
 from ``SysBusDevice`` in `*safe*`__ Rust.  Later, it may become possible
@@ -13,22 +13,22 @@ complete boards, or backends (e.g. block device formats).
 
 __ https://doc.rust-lang.org/nomicon/meet-safe-and-unsafe.html
 
-Building the Rust in QEMU code
-------------------------------
+Building the Rust in Nephrite code
+----------------------------------
 
-The Rust in QEMU code is included in the emulators via Meson.  Meson
+The Rust in Nephrite code is included in the emulators via Meson.  Meson
 invokes rustc directly, building static libraries that are then linked
 together with the C code.  This is completely automatic when you run
 ``make`` or ``ninja``.
 
 However, Meson is able to consume ``Cargo.toml`` files and tries
 to be easy to use for people who are accustomed to the more "normal"
-Cargo-based development workflow.  In the case of QEMU, in addition,
+Cargo-based development workflow.  In the case of Nephrite, in addition,
 it is possible to use ``cargo`` for common Rust-specific coding
 tasks, in particular to invoke ``clippy``, ``rustfmt`` and ``rustdoc``.
 
-To this end, QEMU includes a ``build.rs`` build script that picks up
-generated sources from QEMU's build directory and puts it in Cargo's
+To this end, Nephrite includes a ``build.rs`` build script that picks up
+generated sources from Nephrite's build directory and puts it in Cargo's
 output directory (typically ``target/``).  A vanilla invocation
 of Cargo will complain that it cannot find the generated sources,
 which can be fixed in different ways:
@@ -54,14 +54,14 @@ A target for ``rustfmt`` is also declared in ``rust/meson.build``:
 
 __ https://mesonbuild.com/Commands.html#devenv
 
-* by pointing the ``MESON_BUILD_ROOT`` to the top of your QEMU build
+* by pointing the ``MESON_BUILD_ROOT`` to the top of your Nephrite build
   tree.  This third method is useful if you are using ``rust-analyzer``;
   you can set the environment variable through the
   ``rust-analyzer.cargo.extraEnv`` setting.
 
 As shown above, you can use the ``--tests`` option as usual to operate on test
 code.  Note however that you cannot *build* or run tests via ``cargo``, because
-they need support C code from QEMU that Cargo does not know about.  Tests can
+they need support C code from Nephrite that Cargo does not know about.  Tests can
 be run via Meson (``pyvenv/bin/meson test``) or ``make``::
 
    make check-rust
@@ -71,7 +71,7 @@ Note that doctests require all ``.o`` files from the build to be available.
 Supported tools
 '''''''''''''''
 
-QEMU supports rustc version 1.83.0 and newer.  The following features
+Nephrite supports rustc version 1.83.0 and newer.  The following features
 from relatively new versions of Rust are not used for historical reasons;
 patches are welcome:
 
@@ -82,7 +82,7 @@ patches are welcome:
 
 * NUL-terminated file names with ``#[track_caller]`` are scheduled for
   inclusion as ``#![feature(location_file_nul)]``, but it will be a while
-  before QEMU can use them.  For now, there is special code in
+  before Nephrite can use them.  For now, there is special code in
   ``util/error.c`` to support non-NUL-terminated file names.
 
 Associated const equality would be nice to have for some users of
@@ -91,20 +91,20 @@ are used instead.
 
 __ https://github.com/rust-lang/rust/pull/125258
 
-QEMU also supports version 0.60.x of bindgen, which is missing option
+Nephrite also supports version 0.60.x of bindgen, which is missing option
 ``--generate-cstr``.  This option requires version 0.66.x and will
 be adopted as soon as supporting these older versions is not necessary
 anymore.
 
-Writing Rust code in QEMU
--------------------------
+Writing Rust code in Nephrite
+-----------------------------
 
-QEMU includes several crates:
+Nephrite includes several crates:
 
 * ``common`` provides Rust-only utilities
 
 * ``bql``, ``chardev``, ``hw/core``, ``migration``, ``qom``, ``system``,
-  ``util`` for bindings to respective QEMU C library APIs
+  ``util`` for bindings to respective Nephrite C library APIs
 
 * ``qemu_macros`` defines several procedural macros that are useful when
   writing C code
@@ -240,7 +240,7 @@ These rules can be tested with `MIRI`__, for example.
 
 __ https://github.com/rust-lang/miri
 
-Almost all Rust code in QEMU will involve QOM objects, and pointers to these
+Almost all Rust code in Nephrite will involve QOM objects, and pointers to these
 objects are *shared*, for example because they are part of the QOM composition
 tree.  This creates exactly the above scenario:
 
@@ -262,12 +262,12 @@ Whenever C code provides you with an opaque ``void *``, avoid converting it
 to a Rust mutable reference, and use a shared reference instead.  The
 ``bql::cell`` module provides wrappers that can be used to tell the
 Rust compiler about interior mutability, and optionally to enforce locking
-rules for the "Big QEMU Lock".  In the future, similar cell types might
+rules for the "Big Nephrite Lock".  In the future, similar cell types might
 also be provided for ``AioContext``-based locking as well.
 
 In particular, device code will usually rely on the ``BqlRefCell`` and
 ``BqlCell`` type to ensure that data is accessed correctly under the
-"Big QEMU Lock".  These cell types are also known to the ``vmstate``
+"Big Nephrite Lock".  These cell types are also known to the ``vmstate``
 crate, which is able to "look inside" them when building an in-memory
 representation of a ``struct``'s layout.  Note that the same is not true
 of a ``RefCell`` or ``Mutex``.
@@ -283,7 +283,7 @@ example as follows::
 
 where the special ``derive`` macro provides useful methods such as
 ``from_raw``, ``as_ptr`, ``as_mut_ptr`` and ``raw_get``.  The bindings will
-then manually check for the big QEMU lock with assertions, which allows
+then manually check for the big Nephrite lock with assertions, which allows
 the wrapper to be declared thread-safe::
 
     unsafe impl Send for Object {}
@@ -292,7 +292,7 @@ the wrapper to be declared thread-safe::
 Writing bindings to C code
 ''''''''''''''''''''''''''
 
-Here are some things to keep in mind when working on the QEMU Rust crate.
+Here are some things to keep in mind when working on the Nephrite Rust crate.
 
 **Look at existing code**
   Very often, similar idioms in C code correspond to similar tricks in
@@ -325,7 +325,7 @@ Here are some things to keep in mind when working on the QEMU Rust crate.
 
 **Keep locking in mind**.
   When marking a type ``Sync``, be careful of whether it needs the big
-  QEMU lock.  Use ``BqlCell`` and ``BqlRefCell`` for interior data,
+  Nephrite lock.  Use ``BqlCell`` and ``BqlRefCell`` for interior data,
   or assert ``bql_locked()``.
 
 **Don't be afraid of complexity, but document and isolate it**
@@ -338,8 +338,8 @@ Here are some things to keep in mind when working on the QEMU Rust crate.
 FFI Binding Generation
 ''''''''''''''''''''''
 
-QEMU's Rust integration uses multiple ``*-sys`` crates that contain raw FFI
-bindings to different QEMU subsystems. These crates mirror the dependency
+Nephrite's Rust integration uses multiple ``*-sys`` crates that contain raw FFI
+bindings to different Nephrite subsystems. These crates mirror the dependency
 structure that meson.build uses for C code, and which is reflected in
 ``static_library()`` declarations. For example:
 
@@ -453,7 +453,7 @@ Right now, only the nightly version of ``rustfmt`` is supported.  This
 might change in the future.  While CI checks for correct formatting via
 ``cargo fmt --check``, maintainers can fix this for you when applying patches.
 
-It is expected that QEMU Rust crates provides full ``rustdoc`` documentation for
+It is expected that Nephrite Rust crates provides full ``rustdoc`` documentation for
 bindings that are in their final shape or close.
 
 Adding dependencies
@@ -461,17 +461,17 @@ Adding dependencies
 
 Generally, the set of dependent crates is kept small.  Think twice before
 adding a new external crate, especially if it comes with a large set of
-dependencies itself.  Sometimes QEMU only needs a small subset of the
-functionality; see for example QEMU's ``assertions`` module.  Also,
-choose a version of the crate that works with QEMU's minimum supported
+dependencies itself.  Sometimes Nephrite only needs a small subset of the
+functionality; see for example Nephrite's ``assertions`` module.  Also,
+choose a version of the crate that works with Nephrite's minimum supported
 Rust version (|msrv|).
 
-On top of this recommendation, adding external crates to QEMU is a
+On top of this recommendation, adding external crates to Nephrite is a
 slightly complicated process, mostly due to the need to teach Meson how
-to download them.  While QEMU uses Meson's support for parsing ``Cargo.toml``
+to download them.  While Nephrite uses Meson's support for parsing ``Cargo.toml``
 files, it ships ``.wrap`` files instead of using ``Cargo.lock``; this way,
 distros can adjust the set of dependencies to the exact versions they use.
-The versions specified in QEMU's ``Cargo.lock`` must be the same as the
+The versions specified in Nephrite's ``Cargo.lock`` must be the same as the
 one in the wrap file.
 
 The wrap file must be named ``NAME-SEMVER-rs.wrap``, where ``NAME``

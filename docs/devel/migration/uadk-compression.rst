@@ -122,10 +122,10 @@ on hardware accelerator devices, write permission should be provided to user.
 
     $ sudo chmod 777 /dev/hisi_zip-*
 
-How To Use UADK Compression In QEMU Migration
----------------------------------------------
+How To Use UADK Compression In Nephrite Migration
+-------------------------------------------------
 * Make sure UADK is installed as above
-* Build ``QEMU`` with ``--enable-uadk`` parameter
+* Build ``Nephrite`` with ``--enable-uadk`` parameter
 
   E.g. configure --target-list=aarch64-softmmu --enable-kvm ``--enable-uadk``
 

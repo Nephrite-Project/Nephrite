@@ -50,8 +50,8 @@ below.
     [root@host ~]# echo "7e270a25-e163-4922-af60-757fc8ed48c6" > \
     /sys/bus/css/devices/0.0.0313/mdev_supported_types/vfio_ccw-io/create
 
-Step 2: configure QEMU
-~~~~~~~~~~~~~~~~~~~~~~
+Step 2: configure Nephrite
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Reference the created mediated device and (optionally) pick a device id to
   be presented in the guest (here, ``fe.0.1234``, which will end up visible

@@ -7,21 +7,21 @@ protecting guest OS against various CPU hardware flaws, and optionally
 enabling live migration between hosts with heterogeneous CPU models.
 
 
-Two ways to configure CPU models with QEMU / KVM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Two ways to configure CPU models with Nephrite / KVM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (1) **Host passthrough**
 
     This passes the host CPU model features, model, stepping, exactly to
     the guest. Note that KVM may filter out some host CPU model features
     if they cannot be supported with virtualization. Live migration is
-    unsafe when this mode is used as libvirt / QEMU cannot guarantee a
+    unsafe when this mode is used as libvirt / Nephrite cannot guarantee a
     stable CPU is exposed to the guest across hosts. This is the
     recommended CPU to use, provided live migration is not required.
 
 (2) **Named model**
 
-    QEMU comes with a number of predefined named CPU models, that
+    Nephrite comes with a number of predefined named CPU models, that
     typically refer to specific generations of hardware released by
     Intel and AMD.  These allow the guest VMs to have a degree of
     isolation from the host CPU, allowing greater flexibility in live
@@ -31,7 +31,7 @@ In both cases, it is possible to optionally add or remove individual CPU
 features, to alter what is presented to the guest by default.
 
 Libvirt supports a third way to configure CPU models known as "Host
-model".  This uses the QEMU "Named model" feature, automatically picking
+model".  This uses the Nephrite "Named model" feature, automatically picking
 a CPU model that is similar the host CPU, and then adding extra features
 to approximate the host model as closely as possible. This does not
 guarantee the CPU family, stepping, etc will precisely match the host
@@ -47,7 +47,7 @@ defined. Traditionally most operating systems and toolchains would
 only target the original baseline ABI. It is expected that in
 future OS and toolchains are likely to target newer ABIs. The
 table that follows illustrates which ABI compatibility levels
-can be satisfied by the QEMU CPU models. Note that the table only
+can be satisfied by the Nephrite CPU models. Note that the table only
 lists the long term stable CPU model versions (eg Haswell-v4).
 In addition to what is listed, there are also many CPU model
 aliases which resolve to a different CPU model version,
@@ -349,7 +349,7 @@ features are included if using "Host passthrough" or "Host model".
   This should be provided to guests, even if amd-ssbd is also provided,
   for maximum guest compatibility.
 
-  Note for some QEMU / libvirt versions, this must be force enabled when
+  Note for some Nephrite / libvirt versions, this must be force enabled when
   when using "Host model", because this is a virtual feature that
   doesn't exist in the physical host CPUs.
 
@@ -388,7 +388,7 @@ features are included if using "Host passthrough" or "Host model".
 Default x86 CPU models
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The default QEMU CPU models are designed such that they can run on all
+The default Nephrite CPU models are designed such that they can run on all
 hosts.  If an application does not wish to do perform any host
 compatibility checks before launching guests, the default is guaranteed
 to work.
@@ -403,7 +403,7 @@ not needed.
     Nephrite Virtual CPU version 2.5+ (32 & 64 bit variants)
 
 ``qemu64`` is used for x86_64 guests and ``qemu32`` is used for i686
-guests, when no ``-cpu`` argument is given to QEMU, or no ``<cpu>`` is
+guests, when no ``-cpu`` argument is given to Nephrite, or no ``<cpu>`` is
 provided in libvirt XML.
 
 Other non-recommended x86 CPUs
@@ -429,10 +429,10 @@ Syntax for configuring CPU models
 =================================
 
 The examples below illustrate the approach to configuring the various
-CPU models / features in QEMU and libvirt.
+CPU models / features in Nephrite and libvirt.
 
-QEMU command line
-^^^^^^^^^^^^^^^^^
+Nephrite command line
+^^^^^^^^^^^^^^^^^^^^^
 
 Host passthrough:
 

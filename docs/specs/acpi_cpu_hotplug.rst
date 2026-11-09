@@ -1,8 +1,8 @@
-QEMU<->ACPI BIOS CPU hotplug interface
-======================================
+Nephrite<->ACPI BIOS CPU hotplug interface
+==========================================
 
-QEMU supports CPU hotplug via ACPI. This document
-describes the interface between QEMU and the ACPI BIOS.
+Nephrite supports CPU hotplug via ACPI. This document
+describes the interface between Nephrite and the ACPI BIOS.
 
 ACPI BIOS GPE.2 handler is dedicated for notifying OS about CPU hot-add
 and hot-remove events.
@@ -32,7 +32,7 @@ The last stored value in 'CPU selector' must refer to a possible CPU, otherwise
 - reads from any register return 0
 - writes to any other register are ignored until valid value is stored into it
 
-On QEMU start, 'CPU selector' is initialized to a valid value, on reset it
+On Nephrite start, 'CPU selector' is initialized to a valid value, on reset it
 keeps the current value.
 
 Read access behavior
@@ -140,10 +140,10 @@ offset[0x5]
 
   1:
     following writes to 'Command data' register set OST event
-    register in QEMU
+    register in Nephrite
   2:
     following writes to 'Command data' register set OST status
-    register in QEMU
+    register in Nephrite
   3:
     following reads from 'Command data' and 'Command data 2' return
     architecture specific CPU ID value for currently selected CPU.
@@ -162,7 +162,7 @@ offset [0x8]
     stores value into OST event register
   2:
     stores value into OST status register, triggers
-    ACPI_DEVICE_OST QMP event from QEMU to external applications
+    ACPI_DEVICE_OST QMP event from Nephrite to external applications
     with current values of OST event and status registers.
   other values:
     reserved
@@ -173,7 +173,7 @@ Typical usecases
 (x86) Detecting and enabling modern CPU hotplug interface
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-QEMU starts with modern CPU hotplug interface enabled. Use following steps to
+Nephrite starts with modern CPU hotplug interface enabled. Use following steps to
 detect modern CPU hotplug interface:
 
 #. Store 0x0 to the 'CPU selector' register, to ensure valid selector value
