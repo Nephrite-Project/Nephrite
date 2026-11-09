@@ -188,7 +188,7 @@ Secondary(ip:3.3.3.8):
 If you want to use virtio-net-pci or other driver with vnet_header:
 
 Primary(ip:3.3.3.3):
--netdev tap,id=hn0,vhost=off,script=/etc/qemu-ifup,downscript=/etc/qemu-ifdown
+-netdev tap,id=hn0,vhost=off,script=/etc/nephrite-ifup,downscript=/etc/nephrite-ifdown
 -device e1000,id=e0,netdev=hn0,mac=52:a4:00:12:78:66
 -chardev socket,id=mirror0,host=3.3.3.3,port=9003,server=on,wait=off
 -chardev socket,id=compare1,host=3.3.3.3,port=9004,server=on,wait=off

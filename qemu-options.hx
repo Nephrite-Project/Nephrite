@@ -3559,8 +3559,8 @@ SRST
     Use the network script file to configure it and the network script
     dfile to deconfigure it. If name is not provided, the OS
     automatically provides one. The default network configure script is
-    ``<sysconfdir>/qemu-ifup`` and the default network deconfigure script is
-    ``<sysconfdir>/qemu-ifdown``, where ``<sysconfdir>`` is the system
+    ``<sysconfdir>/nephrite-ifup`` and the default network deconfigure
+    script is ``<sysconfdir>/nephrite-ifdown``, where ``<sysconfdir>`` is the system
     configuration directory at build time (typically ``/etc``).
     Use ``[down]script=`` to disable script execution.
     Using ``[down]script=no`` is deprecated; it disables script

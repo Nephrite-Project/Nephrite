@@ -339,8 +339,8 @@ int net_hub_id_for_client(NetClientState *nc, int *id);
 
 NetworkClientInfo *net_client_info(NetClientState *nc);
 
-#define DEFAULT_NETWORK_SCRIPT CONFIG_SYSCONFDIR "/qemu-ifup"
-#define DEFAULT_NETWORK_DOWN_SCRIPT CONFIG_SYSCONFDIR "/qemu-ifdown"
+#define DEFAULT_NETWORK_SCRIPT CONFIG_SYSCONFDIR "/nephrite-ifup"
+#define DEFAULT_NETWORK_DOWN_SCRIPT CONFIG_SYSCONFDIR "/nephrite-ifdown"
 #define DEFAULT_BRIDGE_HELPER CONFIG_QEMU_HELPERDIR "/nephrite-bridge-helper"
 #define DEFAULT_BRIDGE_INTERFACE "br0"
 

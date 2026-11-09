@@ -394,7 +394,7 @@
 #
 # @script: script to initialize the interface.  An empty string
 #     disables script execution.  Defaults to
-#     ``<sysconfdir>/qemu-ifup``, where ``<sysconfdir>`` is the
+#     ``<sysconfdir>/nephrite-ifup``, where ``<sysconfdir>`` is the
 #     system configuration directory at build time (typically /etc).
 #     Using "no" to disable script execution is deprecated (since
 #     11.2); use an empty string instead.  In a future version, "no"
@@ -402,7 +402,7 @@
 #
 # @downscript: script to shut down the interface.  An empty string
 #     disables script execution.  Defaults to
-#     ``<sysconfdir>/qemu-ifdown``, where ``<sysconfdir>`` is the
+#     ``<sysconfdir>/nephrite-ifdown``, where ``<sysconfdir>`` is the
 #     system configuration directory at build time (typically /etc).
 #     Using "no" to disable script execution is deprecated (since
 #     11.2); use an empty string instead.  In a future version, "no"

@@ -22,8 +22,8 @@ Linux host
 ^^^^^^^^^^
 
 A distribution will generally provide specific helper scripts when it
-packages QEMU. By default these are found at ``/etc/qemu-ifup`` and
-``/etc/qemu-ifdown`` and are called appropriately when QEMU wants to
+packages QEMU. By default these are found at ``/etc/nephrite-ifup`` and
+``/etc/nephrite-ifdown`` and are called appropriately when QEMU wants to
 change the network state.
 
 If QEMU is being run as a non-privileged user you may need properly
