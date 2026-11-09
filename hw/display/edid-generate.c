@@ -397,7 +397,7 @@ void qemu_edid_generate(uint8_t *edid, size_t size,
         info->vendor = "RHT";
     }
     if (!info->name) {
-        info->name = "QEMU Monitor";
+        info->name = "Nephrite";
     }
     if (!info->prefx) {
         info->prefx = 1280;

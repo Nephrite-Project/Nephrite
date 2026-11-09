@@ -654,7 +654,7 @@ static PGDisplayDescriptor *apple_gfx_prepare_display_descriptor(AppleGFXState *
 {
     PGDisplayDescriptor *disp_desc = [PGDisplayDescriptor new];
 
-    disp_desc.name = @"QEMU display";
+    disp_desc.name = @"Nephrite display";
     disp_desc.sizeInMillimeters = NSMakeSize(400., 300.); /* A 20" display */
     disp_desc.queue = dispatch_get_main_queue();
     disp_desc.newFrameEventHandler = ^(void) {

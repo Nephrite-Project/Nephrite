@@ -84,9 +84,9 @@ Names and packaging
   as ``Nephrite HARDDISK`` and ``Nephrite DVD-ROM`` on IDE, ``Nephrite
   DISK`` and ``Nephrite CD-ROM`` on SCSI, and ``Nephrite NVMe Ctrl``, name
   Nephrite, as do the manufacturer and product strings of the USB devices,
-  such as ``Nephrite USB Tablet``, and the names of the virtio input
-  devices; vendor identifiers, such as the SCSI vendor ``QEMU`` and the USB
-  vendor ID 46F4h, stay QEMU's.
+  such as ``Nephrite USB Tablet``, the names of the virtio input devices,
+  and the monitor name in the EDID, ``Nephrite``; vendor identifiers, such
+  as the SCSI vendor ``QEMU`` and the USB vendor ID 46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
   Nephrite's name, such as ``Nephrite PS/2 Mouse``.
 * QEMU's names stay where guests, drivers, management tools, or existing
