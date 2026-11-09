@@ -46,7 +46,7 @@
 #define QIO_CHANNEL_WEBSOCK_UPGRADE_WEBSOCKET "websocket"
 
 #define QIO_CHANNEL_WEBSOCK_HANDSHAKE_RES_COMMON \
-    "Server: QEMU VNC\r\n"                       \
+    "Server: Nephrite VNC\r\n"                       \
     "Date: %s\r\n"
 
 #define QIO_CHANNEL_WEBSOCK_HANDSHAKE_WITH_PROTO_RES_OK \

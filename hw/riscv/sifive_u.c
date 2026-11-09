@@ -670,8 +670,8 @@ static void sifive_u_machine_class_init(ObjectClass *oc, const void *data)
                                    sifive_u_machine_get_start_in_flash,
                                    sifive_u_machine_set_start_in_flash);
     object_class_property_set_description(oc, "start-in-flash",
-                                          "Set on to tell QEMU's ROM to jump to "
-                                          "flash. Otherwise QEMU will jump to DRAM "
+                                          "Set on to tell Nephrite's ROM to jump to "
+                                          "flash. Otherwise Nephrite will jump to DRAM "
                                           "or L2LIM depending on the msel value");
 }
 

@@ -276,7 +276,7 @@ static void patch_and_save_context(WinDumpHeader *h, bool x64,
         WinContext ctx;
 
         if (i >= WIN_DUMP_FIELD(NumberProcessors)) {
-            warn_report("win-dump: number of QEMU CPUs is bigger than"
+            warn_report("win-dump: number of Nephrite CPUs is bigger than"
                         " NumberProcessors (%u) in guest Windows",
                         WIN_DUMP_FIELD(NumberProcessors));
             return;

@@ -138,7 +138,8 @@ host_memory_backend_set_host_nodes(Object *obj, Visitor *v, const char *name,
 out:
     qapi_free_uint16List(host_nodes);
 #else
-    error_setg(errp, "NUMA node binding are not supported by this QEMU");
+    error_setg(errp, "NUMA node binding are not supported by this "
+               "Nephrite build");
 #endif
 }
 
@@ -157,7 +158,8 @@ host_memory_backend_set_policy(Object *obj, int policy, Error **errp)
 
 #ifndef CONFIG_NUMA
     if (policy != HOST_MEM_POLICY_DEFAULT) {
-        error_setg(errp, "NUMA policies are not supported by this QEMU");
+        error_setg(errp, "NUMA policies are not supported by this "
+                   "Nephrite build");
     }
 #endif
 }
@@ -562,7 +564,7 @@ host_memory_backend_class_init(ObjectClass *oc, const void *data)
     object_class_property_add_bool(oc, "share",
         host_memory_backend_get_share, host_memory_backend_set_share);
     object_class_property_set_description(oc, "share",
-        "Mark the memory as private to QEMU or shared");
+        "Mark the memory as private to Nephrite or shared");
 #ifdef CONFIG_LINUX
     object_class_property_add_bool(oc, "reserve",
         host_memory_backend_get_reserve, host_memory_backend_set_reserve);

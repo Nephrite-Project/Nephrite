@@ -59,7 +59,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(Exynos4210I2CState, EXYNOS4_I2C)
 
 #if EXYNOS4_I2C_DEBUG
 #define DPRINT(fmt, args...)              \
-    do { fprintf(stderr, "QEMU I2C: "fmt, ## args); } while (0)
+    do { fprintf(stderr, "Nephrite I2C: "fmt, ## args); } while (0)
 
 static const char *exynos4_i2c_get_regname(unsigned offset)
 {

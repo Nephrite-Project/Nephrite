@@ -87,7 +87,7 @@ static int vhost_scsi_start(VHostSCSI *s)
     if (abi_version > VHOST_SCSI_ABI_VERSION) {
         error_report("vhost-scsi: The running tcm_vhost kernel abi_version:"
                      " %d is greater than vhost_scsi userspace supports: %d,"
-                     " please upgrade your version of QEMU", abi_version,
+                     " please upgrade your version of Nephrite", abi_version,
                      VHOST_SCSI_ABI_VERSION);
         return -ENOSYS;
     }

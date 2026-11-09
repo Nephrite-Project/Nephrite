@@ -4152,7 +4152,7 @@ static bool setup_cdrom(char *bsd_path, Error **errp)
 static void print_unmounting_directions(const char *file_name)
 {
     error_report("If device %s is mounted on the desktop, unmount"
-                 " it first before using it in QEMU", file_name);
+                 " it first before using it in Nephrite", file_name);
     error_report("Command to unmount device: diskutil unmountDisk %s",
                  file_name);
     error_report("Command to mount device: diskutil mountDisk %s", file_name);

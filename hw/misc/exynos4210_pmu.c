@@ -406,7 +406,7 @@ struct Exynos4210PmuState {
 
 static void exynos4210_pmu_poweroff(void)
 {
-    PRINT_DEBUG("QEMU PMU: PS_HOLD bit down, powering off\n");
+    PRINT_DEBUG("Nephrite PMU: PS_HOLD bit down, powering off\n");
     qemu_system_shutdown_request(SHUTDOWN_CAUSE_GUEST_SHUTDOWN);
 }
 
@@ -425,7 +425,8 @@ static uint64_t exynos4210_pmu_read(void *opaque, hwaddr offset,
         }
         reg_p++;
     }
-    PRINT_DEBUG("QEMU PMU ERROR: bad read offset 0x%04x\n", (uint32_t)offset);
+    PRINT_DEBUG("Nephrite PMU ERROR: bad read offset 0x%04x\n",
+                (uint32_t)offset);
     return 0;
 }
 
@@ -452,7 +453,8 @@ static void exynos4210_pmu_write(void *opaque, hwaddr offset,
         }
         reg_p++;
     }
-    PRINT_DEBUG("QEMU PMU ERROR: bad write offset 0x%04x\n", (uint32_t)offset);
+    PRINT_DEBUG("Nephrite PMU ERROR: bad write offset 0x%04x\n",
+                (uint32_t)offset);
 }
 
 static const MemoryRegionOps exynos4210_pmu_ops = {

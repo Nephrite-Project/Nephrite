@@ -225,7 +225,7 @@ static void main_loop_update_params(EventLoopBase *base, Error **errp)
     ERRP_GUARD();
 
     if (!qemu_aio_context) {
-        error_setg(errp, "qemu aio context not ready");
+        error_setg(errp, "Nephrite aio context not ready");
         return;
     }
 

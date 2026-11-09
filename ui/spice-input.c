@@ -41,7 +41,7 @@ static uint8_t kbd_get_leds(SpiceKbdInstance *sin);
 
 static const SpiceKbdInterface kbd_interface = {
     .base.type          = SPICE_INTERFACE_KEYBOARD,
-    .base.description   = "qemu keyboard",
+    .base.description   = "nephrite keyboard",
     .base.major_version = SPICE_INTERFACE_KEYBOARD_MAJOR,
     .base.minor_version = SPICE_INTERFACE_KEYBOARD_MINOR,
     .push_scan_freg     = kbd_push_key,

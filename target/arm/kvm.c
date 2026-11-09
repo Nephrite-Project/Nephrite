@@ -316,7 +316,8 @@ static uint32_t kvm_arm_sve_get_vls(int fd)
         }
     }
     if (vq > ARM_MAX_VQ) {
-        warn_report("KVM supports vector lengths larger than QEMU can enable");
+        warn_report("KVM supports vector lengths larger than Nephrite can "
+                    "enable");
     }
     return vls[0] & MAKE_64BIT_MASK(0, ARM_MAX_VQ);
 }
@@ -2588,7 +2589,7 @@ void kvm_arch_on_sigbus_vcpu(CPUState *c, int code, void *addr)
         }
         if (code == BUS_MCEERR_AO) {
             error_report("Hardware memory error at addr %p for memory used by "
-                "QEMU itself instead of guest system!", addr);
+                "Nephrite itself instead of guest system!", addr);
         }
     }
 

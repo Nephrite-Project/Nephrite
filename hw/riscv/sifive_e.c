@@ -157,7 +157,7 @@ static void sifive_e_machine_class_init(ObjectClass *oc, const void *data)
     object_class_property_add_bool(oc, "revb", sifive_e_machine_get_revb,
                                    sifive_e_machine_set_revb);
     object_class_property_set_description(oc, "revb",
-                                          "Set on to tell QEMU that it should model "
+                                          "Set on to tell Nephrite that it should model "
                                           "the revB HiFive1 board");
 }
 

@@ -365,7 +365,7 @@ static int vuf_check_migration_support(void *opaque)
 
     if (!vhost_supports_device_state(&fs->vhost_dev)) {
         error_report("Back-end of %s device %s (tag: \"%s\") does not support "
-                     "migration through qemu",
+                     "migration through Nephrite",
                      vdev->name, vdev->parent_obj.canonical_path,
                      fs->conf.tag ?: "<none>");
         return -ENOTSUP;

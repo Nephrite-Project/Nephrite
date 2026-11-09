@@ -1347,7 +1347,7 @@ static void pc_machine_device_pre_plug_cb(const HotplugHandler *hotplug_dev,
         PCMachineState *pcms = PC_MACHINE(hotplug_dev);
 
         if (pcms->iommu) {
-            error_setg(errp, "QEMU does not support multiple vIOMMUs "
+            error_setg(errp, "Nephrite does not support multiple vIOMMUs "
                        "for x86 yet.");
             return;
         }

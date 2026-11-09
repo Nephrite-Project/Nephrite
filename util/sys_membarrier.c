@@ -37,12 +37,14 @@ void smp_mb_global_init(void)
 #ifdef CONFIG_LINUX
     int ret = membarrier(MEMBARRIER_CMD_QUERY, 0);
     if (ret < 0) {
-        error_report("This QEMU binary requires the membarrier system call.");
+        error_report("This Nephrite binary requires the membarrier system "
+                     "call.");
         error_report("Please upgrade your system to a newer version of Linux");
         exit(1);
     }
     if (!(ret & MEMBARRIER_CMD_SHARED)) {
-        error_report("This QEMU binary requires MEMBARRIER_CMD_SHARED support.");
+        error_report("This Nephrite binary requires MEMBARRIER_CMD_SHARED "
+                     "support.");
         error_report("Please upgrade your system to a newer version of Linux");
         exit(1);
     }

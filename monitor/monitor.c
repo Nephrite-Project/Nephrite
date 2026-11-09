@@ -696,7 +696,7 @@ int monitor_new(MonitorOptions *opts, bool allow_hmp, Error **errp)
         opts->mode = allow_hmp ? MONITOR_MODE_READLINE : MONITOR_MODE_CONTROL;
 #else
         if (allow_hmp) {
-            error_setg(errp, "HMP support is not built in this QEMU");
+            error_setg(errp, "HMP support is not built in this Nephrite build");
             return -1;
         }
         opts->mode = MONITOR_MODE_CONTROL;

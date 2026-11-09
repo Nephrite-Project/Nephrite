@@ -976,8 +976,8 @@ static int tdx_validate_attributes(TdxGuest *tdx, Error **errp)
     }
 
     if (tdx->attributes & ~TDX_SUPPORTED_TD_ATTRS) {
-        error_setg(errp, "Some QEMU unsupported TD attribute bits being "
-                    "requested: 0x%"PRIx64" (QEMU supported: 0x%"PRIx64")",
+        error_setg(errp, "Some Nephrite unsupported TD attribute bits being "
+                    "requested: 0x%"PRIx64" (Nephrite supported: 0x%"PRIx64")",
                     tdx->attributes, (uint64_t)TDX_SUPPORTED_TD_ATTRS);
         return -1;
     }

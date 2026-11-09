@@ -732,7 +732,7 @@ static void sim_handle_trap0(CPUHexagonState *env)
         semi_cb(cs, -1, ENOSYS);
         qemu_log_mask(LOG_UNIMP,
                       "SWI call %" PRIx32
-                      " is unimplemented in QEMU\n",
+                      " is unimplemented in Nephrite\n",
                       (uint32_t)what_swi);
         break;
 

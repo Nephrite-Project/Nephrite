@@ -1589,7 +1589,7 @@ static void i82596_init_dump_area(I82596State *s, uint8_t *buffer)
 {
     memset(buffer, 0, DUMP_BUF_SZ);
 
-    printf("This is the dump area function for i82596 QEMU side\n"
+    printf("This is the dump area function for i82596 Nephrite side\n"
             "If you are seeing this message, please contact:\n"
             "Soumyajyotii Sarkar <soumyajyotisarkar23@gmail.com>\n"
             "With the process in which you encountered this issue:\n"

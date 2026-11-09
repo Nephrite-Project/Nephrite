@@ -88,7 +88,7 @@ smmuv3_accel_check_hw_compatible(SMMUv3State *s,
     if (FIELD_EX32(info->idr[0], IDR0, STLEVEL) !=
                 FIELD_EX32(s->idr[0], IDR0, STLEVEL)) {
         error_setg(errp, "Host SMMUv3 Stream Table format mismatch "
-                   "(host STLEVEL=%u, QEMU STLEVEL=%u)",
+                   "(host STLEVEL=%u, Nephrite STLEVEL=%u)",
                    FIELD_EX32(info->idr[0], IDR0, STLEVEL),
                    FIELD_EX32(s->idr[0], IDR0, STLEVEL));
         return false;
@@ -114,7 +114,7 @@ smmuv3_accel_check_hw_compatible(SMMUv3State *s,
     if (FIELD_EX32(info->idr[1], IDR1, SIDSIZE) <
                 FIELD_EX32(s->idr[1], IDR1, SIDSIZE)) {
         error_setg(errp, "Host SMMUv3 SIDSIZE not compatible "
-                   "(host=%u, QEMU=%u)",
+                   "(host=%u, Nephrite=%u)",
                    FIELD_EX32(info->idr[1], IDR1, SIDSIZE),
                    FIELD_EX32(s->idr[1], IDR1, SIDSIZE));
         return false;
@@ -124,7 +124,7 @@ smmuv3_accel_check_hw_compatible(SMMUv3State *s,
     if (FIELD_EX32(info->idr[1], IDR1, SSIDSIZE) <
                 FIELD_EX32(s->idr[1], IDR1, SSIDSIZE)) {
         error_setg(errp, "Host SMMUv3 SSIDSIZE not compatible "
-                   "(host=%u, QEMU=%u)",
+                   "(host=%u, Nephrite=%u)",
                    FIELD_EX32(info->idr[1], IDR1, SSIDSIZE),
                    FIELD_EX32(s->idr[1], IDR1, SSIDSIZE));
         return false;

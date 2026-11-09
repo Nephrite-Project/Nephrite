@@ -305,7 +305,7 @@ abi_long do_bsd_ioctl(int fd, abi_long cmd, abi_long arg)
     ie = ioctl_entries;
     for (;;) {
         if (ie->target_cmd == 0) {
-            gemu_log("QEMU unsupported ioctl: ");
+            gemu_log("Nephrite unsupported ioctl: ");
             log_unsupported_ioctl(cmd);
             return -TARGET_ENOSYS;
         }
@@ -385,7 +385,7 @@ abi_long do_bsd_ioctl(int fd, abi_long cmd, abi_long arg)
         break;
 
     default:
-        gemu_log("QEMU unknown ioctl: type=%d ", arg_type[0]);
+        gemu_log("Nephrite unknown ioctl: type=%d ", arg_type[0]);
         log_unsupported_ioctl(cmd);
         ret = -TARGET_ENOSYS;
         break;

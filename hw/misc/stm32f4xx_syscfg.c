@@ -94,12 +94,12 @@ static void stm32f4xx_syscfg_write(void *opaque, hwaddr addr,
     case SYSCFG_MEMRMP:
         qemu_log_mask(LOG_UNIMP,
                       "%s: Changing the memory mapping isn't supported " \
-                      "in QEMU\n", __func__);
+                      "in Nephrite\n", __func__);
         return;
     case SYSCFG_PMC:
         qemu_log_mask(LOG_UNIMP,
                       "%s: Changing the memory mapping isn't supported " \
-                      "in QEMU\n", __func__);
+                      "in Nephrite\n", __func__);
         return;
     case SYSCFG_EXTICR1...SYSCFG_EXTICR4:
         s->syscfg_exticr[addr / 4 - SYSCFG_EXTICR1 / 4] = (value & 0xFFFF);

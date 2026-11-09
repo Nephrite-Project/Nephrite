@@ -232,7 +232,8 @@ out:
     g_free(bitmap);
     qapi_free_uint16List(host_nodes);
 #else
-    error_setg(errp, "NUMA node affinity is not supported by this QEMU");
+    error_setg(errp, "NUMA node affinity is not supported by this "
+               "Nephrite build");
 #endif
 }
 

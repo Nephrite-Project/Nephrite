@@ -3148,7 +3148,7 @@ alloc_refblock(BlockDriverState *bs, uint64_t **reftable,
         if (new_reftable_size > QCOW_MAX_REFTABLE_SIZE / REFTABLE_ENTRY_SIZE) {
             error_setg(errp,
                        "This operation would make the refcount table grow "
-                       "beyond the maximum size supported by QEMU, aborting");
+                       "beyond the maximum size supported by Nephrite, aborting");
             return -ENOTSUP;
         }
 

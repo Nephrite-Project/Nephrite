@@ -765,7 +765,7 @@ static void emit_hypervisor_memory_failure(MemoryFailureAction action, bool ar)
 static void hardware_memory_error(void *host_addr)
 {
     emit_hypervisor_memory_failure(MEMORY_FAILURE_ACTION_FATAL, true);
-    error_report("QEMU got Hardware memory error at addr %p", host_addr);
+    error_report("Nephrite got Hardware memory error at addr %p", host_addr);
     exit(1);
 }
 
@@ -796,11 +796,11 @@ void kvm_arch_on_sigbus_vcpu(CPUState *c, int code, void *addr)
              * could be another source to identify the PA and MCE details.
              */
             if (code == BUS_MCEERR_AR) {
-                error_report("Guest MCE Memory Error at QEMU addr %p and "
+                error_report("Guest MCE Memory Error at Nephrite addr %p and "
                     "GUEST addr 0x%" HWADDR_PRIx " of type %s injected",
                     addr, paddr, "BUS_MCEERR_AR");
             } else {
-                 warn_report("Guest MCE Memory Error at QEMU addr %p and "
+                 warn_report("Guest MCE Memory Error at Nephrite addr %p and "
                      "GUEST addr 0x%" HWADDR_PRIx " of type %s injected",
                      addr, paddr, "BUS_MCEERR_AO");
             }
@@ -810,7 +810,7 @@ void kvm_arch_on_sigbus_vcpu(CPUState *c, int code, void *addr)
 
         if (code == BUS_MCEERR_AO) {
             warn_report("Hardware memory error at addr %p of type %s "
-                "for memory used by QEMU itself instead of guest system!",
+                "for memory used by Nephrite itself instead of guest system!",
                  addr, "BUS_MCEERR_AO");
         }
     }
@@ -1744,7 +1744,7 @@ static int hyperv_init_vcpu(X86CPU *cpu)
         }
 
         if (value != hyperv_vp_index(CPU(cpu))) {
-            error_report("kernel's vp_index != QEMU's vp_index");
+            error_report("kernel's vp_index != Nephrite's vp_index");
             return -ENXIO;
         }
     }
@@ -2428,7 +2428,8 @@ int kvm_arch_init_vcpu(CPUState *cs, Error **errp)
         }
 
         if (banks < (env->mcg_cap & MCG_CAP_BANKS_MASK)) {
-            error_setg(errp, "kvm: Unsupported MCE bank count (QEMU = %d, KVM = %d)",
+            error_setg(errp, "kvm: Unsupported MCE bank count "
+                       "(Nephrite = %d, KVM = %d)",
                          (int)(env->mcg_cap & MCG_CAP_BANKS_MASK), banks);
             return -ENOTSUP;
         }
@@ -3449,7 +3450,7 @@ static int xen_init(MachineState *ms, KVMState *s)
     ret = kvm_xen_init(s, msr);
     return ret;
 #else
-    error_report("kvm: Xen support not enabled in qemu");
+    error_report("kvm: Xen support not enabled in Nephrite");
     return -ENOTSUP;
 #endif
 }

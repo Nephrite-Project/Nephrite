@@ -3965,7 +3965,7 @@ static void vfio_pci_class_init(ObjectClass *klass, const void *data)
                                           "Host PCI address [domain:]<bus:slot.function> of assigned device");
     object_class_property_set_description(klass, /* 1.3 */
                                           "x-intx-mmap-timeout-ms",
-                                          "When EOI is not provided by KVM/QEMU, wait time "
+                                          "When EOI is not provided by KVM/Nephrite, wait time "
                                           "(milliseconds) to re-enable device direct access "
                                           "after INTx (DEBUG)");
     object_class_property_set_description(klass, /* 1.5 */

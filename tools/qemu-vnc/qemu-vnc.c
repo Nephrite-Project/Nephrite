@@ -221,7 +221,7 @@ on_owner_vanished(GDBusConnection *connection,
             return;
         }
         error_report("D-Bus name %s not found. "
-                     "Is QEMU running? "
+                     "Is Nephrite running? "
                      "Use --wait to wait for it to appear.", name);
         state->terminate_reason =
             g_strdup_printf("D-Bus name %s not found", name);
@@ -450,7 +450,7 @@ main(int argc, char *argv[])
         { "keyboard-layout", 'k', 0, G_OPTION_ARG_STRING, &keyboard_layout,
           "Keyboard layout", "LAYOUT" },
         { "trace", 'T', 0, G_OPTION_ARG_STRING, &trace_opt,
-          "Trace options (same as QEMU -trace)", "PATTERN" },
+          "Trace options (same as Nephrite -trace)", "PATTERN" },
         { "version", 'V', 0, G_OPTION_ARG_NONE, &show_version,
           "Print version information and exit", NULL },
         { "password", 0, 0, G_OPTION_ARG_NONE, &password,
@@ -479,7 +479,7 @@ main(int argc, char *argv[])
 
     context = g_option_context_new(NULL);
     g_option_context_set_summary(context,
-        "Standalone VNC server connecting to a QEMU instance via the\n"
+        "Standalone VNC server connecting to a Nephrite instance via the\n"
         "D-Bus display interface (org.nephrite.Display1).");
     g_option_context_add_main_entries(context, entries, NULL);
     if (!g_option_context_parse(context, &argc, &argv, &err)) {

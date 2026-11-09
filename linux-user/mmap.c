@@ -725,7 +725,7 @@ static abi_long mmap_h_lt_g(abi_ulong start, abi_ulong len, int host_prot,
                  */
                 if (!(flags & MAP_FIXED_NOREPLACE) &&
                     !page_check_range_empty(start, start + len - 1)) {
-                    qemu_log("QEMU target_mmap late failure: %s",
+                    qemu_log("Nephrite target_mmap late failure: %s",
                              strerror(save_errno));
                 }
 

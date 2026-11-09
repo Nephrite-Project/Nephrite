@@ -1990,7 +1990,7 @@ static bool smmu_validate_property(SMMUv3State *s, Error **errp)
 {
     if (s->oas != OAS_MODE_44 && s->oas != OAS_MODE_48 &&
         s->oas != OAS_MODE_AUTO) {
-        error_setg(errp, "QEMU SMMUv3 model only implements auto, "
+        error_setg(errp, "Nephrite's SMMUv3 model only implements auto, "
                    "44 bit, or 48 bit OAS. Other OasMode values are "
                    "not supported.");
         return false;

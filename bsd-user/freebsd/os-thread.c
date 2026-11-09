@@ -230,7 +230,7 @@ static abi_long _umtx_wait_uint(uint32_t *addr, uint32_t target_val,
                 return ret;
             }
             if (cnt++ > DEADLOCK_TO) {
-                fprintf(stderr, "QEMU: Deadlock in %s from %s\n",
+                fprintf(stderr, "Nephrite: Deadlock in %s from %s\n",
                         __func__, where);
                 abort();
             }
@@ -279,7 +279,7 @@ static abi_long _umtx_wait_uint_private(uint32_t *addr, uint32_t target_val,
                 return ret;
             }
             if (cnt++ > DEADLOCK_TO) {
-                fprintf(stderr, "QEMU: Deadlock in %s from %s\n", __func__,
+                fprintf(stderr, "Nephrite: Deadlock in %s from %s\n", __func__,
                         where);
                 abort();
             }
@@ -331,7 +331,7 @@ static abi_long _umtx_wait(abi_ulong *addr, abi_ulong target_val, size_t tsz,
             }
 
             if (cnt++ > DEADLOCK_TO) {
-                fprintf(stderr, "QEMU: Deadlock in %s from %s\n", __func__,
+                fprintf(stderr, "Nephrite: Deadlock in %s from %s\n", __func__,
                         where);
                 abort();
             }
@@ -553,12 +553,14 @@ abi_long freebsd_umtx_sem2_wait(abi_ulong obj, size_t tsz, void *t)
                 __get_user(count, &t__usem2->_count);
                 unlock_user_struct(t__usem2, obj, 0);
                 if (USEM_COUNT(count) != 0) {
-                    fprintf(stderr, "QEMU:(%s) TIMEOUT (count!=0)\n", __func__);
+                    fprintf(stderr, "Nephrite:(%s) TIMEOUT (count!=0)\n",
+                            __func__);
                     ret = 0;
                     break;
                 }
                 if (ret == -ETIMEDOUT) {
-                    fprintf(stderr, "QEMU:(%s) TIMEOUT (exiting)\n", __func__);
+                    fprintf(stderr, "Nephrite:(%s) TIMEOUT (exiting)\n",
+                            __func__);
                     exit(-1);
                 }
             }
@@ -595,12 +597,14 @@ abi_long freebsd_umtx_sem2_wait(abi_ulong obj, size_t tsz, void *t)
                 __get_user(count, &t__usem2->_count);
                 unlock_user_struct(t__usem2, obj, 0);
                 if (USEM_COUNT(count) != 0) {
-                    fprintf(stderr, "QEMU:(%s) TIMEOUT (count!=0)\n", __func__);
+                    fprintf(stderr, "Nephrite:(%s) TIMEOUT (count!=0)\n",
+                            __func__);
                     ret = 0;
                     break;
                 }
                 if (ret == -ETIMEDOUT) {
-                    fprintf(stderr, "QEMU:(%s) TIMEOUT (exiting)\n", __func__);
+                    fprintf(stderr, "Nephrite:(%s) TIMEOUT (exiting)\n",
+                            __func__);
                     exit(-1);
                 }
             }

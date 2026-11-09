@@ -957,7 +957,7 @@ void die_from_signal(siginfo_t *info)
         code = codebuf;
     }
 
-    error_report("QEMU internal SIG%s {code=%s, addr=%p}",
+    error_report("Nephrite internal SIG%s {code=%s, addr=%p}",
                  sig, code, info->si_addr);
     die_with_signal(info->si_signo);
 }

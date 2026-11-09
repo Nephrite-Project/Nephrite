@@ -378,7 +378,7 @@ qcow2_read_extensions(BlockDriverState *bs, uint64_t start_offset,
             if (bitmaps_ext.nb_bitmaps > QCOW2_MAX_BITMAPS) {
                 error_setg(errp,
                            "bitmaps_ext: Image has %" PRIu32 " bitmaps, "
-                           "exceeding the QEMU supported maximum of %d",
+                           "exceeding the Nephrite supported maximum of %d",
                            bitmaps_ext.nb_bitmaps, QCOW2_MAX_BITMAPS);
                 return -EINVAL;
             }

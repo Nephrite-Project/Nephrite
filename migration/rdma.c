@@ -3630,7 +3630,7 @@ int rdma_registration_stop(QEMUFile *f, uint64_t flags)
         if (local->nb_blocks != nb_dest_blocks) {
             error_report("ram blocks mismatch (Number of blocks %d vs %d)",
                          local->nb_blocks, nb_dest_blocks);
-            error_printf("Your QEMU command line parameters are probably "
+            error_printf("Your Nephrite command line parameters are probably "
                          "not identical on both the source and destination.");
             rdma->errored = true;
             return -1;

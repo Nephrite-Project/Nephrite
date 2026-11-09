@@ -271,7 +271,7 @@ static void channel_event(int event, SpiceChannelEventInfo *info)
 
 static SpiceCoreInterface core_interface = {
     .base.type          = SPICE_INTERFACE_CORE,
-    .base.description   = "qemu core services",
+    .base.description   = "nephrite core services",
     .base.major_version = SPICE_INTERFACE_CORE_MAJOR,
     .base.minor_version = SPICE_INTERFACE_CORE_MINOR,
 

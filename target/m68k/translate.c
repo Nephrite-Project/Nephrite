@@ -5720,7 +5720,7 @@ register_opcode (disas_proc proc, uint16_t opcode, uint16_t mask)
   /* Sanity check.  All set bits must be included in the mask.  */
   if (opcode & ~mask) {
       fprintf(stderr,
-              "qemu internal error: bogus opcode definition %04x/%04x\n",
+              "Nephrite internal error: bogus opcode definition %04x/%04x\n",
               opcode, mask);
       abort();
   }

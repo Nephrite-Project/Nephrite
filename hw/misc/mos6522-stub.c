@@ -13,6 +13,7 @@
 #ifdef CONFIG_HMP
 void hmp_info_via(MonitorHMP *hmp, const QDict *qdict)
 {
-    monitor_hmp_printf(hmp, "MOS6522 VIA is not available in this QEMU\n");
+    monitor_hmp_printf(hmp, "MOS6522 VIA is not available in this "
+                       "Nephrite build\n");
 }
 #endif

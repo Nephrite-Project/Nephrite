@@ -502,7 +502,7 @@ static bool check_compatibility(const S390CPUModel *max_model,
     error_prepend(errp, "Some features requested in the CPU model are not "
                   "available in the current configuration: ");
     error_append_hint(errp,
-                      "Consider a different accelerator, QEMU, or kernel version\n");
+                      "Consider a different accelerator, Nephrite, or kernel version\n");
     return false;
 }
 

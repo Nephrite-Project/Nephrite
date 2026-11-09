@@ -33,9 +33,9 @@
 #if ENABLE_DEBUG
 #define DBG(x)          x
 #define NCR710_DPRINTF(fmt, ...) \
-    fprintf(stderr, "QEMU: " fmt, ## __VA_ARGS__)
+    fprintf(stderr, "Nephrite: " fmt, ## __VA_ARGS__)
 #define BADF(fmt, ...) \
-    fprintf(stderr, "QEMU: error: " fmt, ## __VA_ARGS__)
+    fprintf(stderr, "Nephrite: error: " fmt, ## __VA_ARGS__)
 #else
 #define DBG(x)         do { } while (0)
 #define NCR710_DPRINTF(fmt, ...) do { } while (0)

@@ -78,8 +78,11 @@ Names and packaging
 * Nephrite has its own logo, a green chip, in its icons, windows,
   documentation, and installers.
 * Version and help texts, window titles and menus, the names that VNC,
-  D-Bus, SPICE, and audio clients show, and the monitor's banner and
-  prompt say Nephrite.
+  D-Bus, SPICE, and audio clients show, the monitor's banner and prompt,
+  and the programs' messages and descriptions, such as the machines' and
+  devices' descriptions, say Nephrite, as do the HTTP clients' and
+  servers' names (curl's ``User-Agent``, the WebSocket ``Server``) and
+  the version that usbredir announces.
 * The product names that guests show for emulated disks and drives, such
   as ``Nephrite HARDDISK`` and ``Nephrite DVD-ROM`` on IDE, ``Nephrite
   DISK`` and ``Nephrite CD-ROM`` on SCSI, and ``Nephrite NVMe Ctrl``, name

@@ -277,7 +277,7 @@ static void xen_pvh_init(MachineState *ms)
     MemoryRegion *sysmem = get_system_memory();
 
     if (ms->ram_size == 0) {
-        warn_report("%s: ram size not specified. QEMU machine started"
+        warn_report("%s: ram size not specified. Nephrite machine started"
                     " without IOREQ (no emulated devices including virtio)",
                     MACHINE_CLASS(object_get_class(OBJECT(ms)))->desc);
         return;

@@ -6901,12 +6901,12 @@ static void init_ppc_proc(PowerPCCPU *cpu)
 #endif
     if (env->check_pow == NULL) {
         warn_report("no power management check handler registered."
-                    " Attempt QEMU to crash very soon !");
+                    " Attempt Nephrite to crash very soon !");
     }
 
     if (env->check_attn == NULL) {
         warn_report("no attn check handler registered."
-                    " Attempt QEMU to crash very soon !");
+                    " Attempt Nephrite to crash very soon !");
     }
 }
 

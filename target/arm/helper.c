@@ -343,9 +343,9 @@ static void arm_check_cpreg_coverage(ARMCPU *cpu)
     g_hash_table_foreach(cpu->cp_regs, check_cpreg, &data);
 
     if (data.warned) {
-        error_printf("check_cpreg errors are a QEMU bug that may cause "
+        error_printf("check_cpreg errors are a Nephrite bug that may cause "
                      "migration to fail. Please report this with the full "
-                     "QEMU command line and version.\n");
+                     "Nephrite command line and version.\n");
     }
 #endif
 }
@@ -9929,8 +9929,8 @@ const char *arm_exception_name(int excp)
         [EXCP_IRQ] = "IRQ",
         [EXCP_FIQ] = "FIQ",
         [EXCP_BKPT] = "Breakpoint",
-        [EXCP_EXCEPTION_EXIT] = "QEMU v7M exception exit",
-        [EXCP_KERNEL_TRAP] = "QEMU intercept of kernel commpage",
+        [EXCP_EXCEPTION_EXIT] = "Nephrite v7M exception exit",
+        [EXCP_KERNEL_TRAP] = "Nephrite intercept of kernel commpage",
         [EXCP_HVC] = "Hypervisor Call",
         [EXCP_HYP_TRAP] = "Hypervisor Trap",
         [EXCP_SMC] = "Secure Monitor Call",

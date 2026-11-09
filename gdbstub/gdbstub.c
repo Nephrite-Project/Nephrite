@@ -1457,7 +1457,7 @@ static void handle_v_kill(GArray *params, void *user_ctx)
 {
     /* Kill the target */
     gdb_put_packet("OK");
-    error_report("QEMU: Terminated via GDBstub");
+    error_report("Nephrite: Terminated via GDBstub");
     gdb_exit(0);
     gdb_qemu_exit(0);
 }
@@ -2119,7 +2119,7 @@ static int gdb_handle_packet(const char *line_buf)
         break;
     case 'k':
         /* Kill the target */
-        error_report("QEMU: Terminated via GDBstub");
+        error_report("Nephrite: Terminated via GDBstub");
         gdb_exit(0);
         gdb_qemu_exit(0);
         break;

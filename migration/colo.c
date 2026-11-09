@@ -121,7 +121,8 @@ static void secondary_vm_do_failover(void)
     }
 
     if (!autostart) {
-        error_report("\"-S\" qemu option will be ignored in secondary side");
+        error_report("\"-S\" Nephrite option will be ignored in secondary "
+                     "side");
         /* recover runstate to normal migration finish state */
         autostart = true;
     }

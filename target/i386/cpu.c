@@ -8396,7 +8396,7 @@ static void x86_cpu_parse_featurestr(const char *typename, char *features,
 
     if (ambiguous) {
         warn_report("Compatibility of ambiguous CPU model "
-                    "strings won't be kept on future QEMU versions");
+                    "strings won't be kept on future Nephrite versions");
     }
 }
 

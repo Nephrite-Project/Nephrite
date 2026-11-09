@@ -213,12 +213,12 @@ static int plugin_load(struct qemu_plugin_desc *desc, const qemu_info_t *info, E
         int version = *(int *)sym;
         if (version < QEMU_PLUGIN_MIN_VERSION) {
             error_setg(errp, "Could not load plugin %s: plugin requires API version %d, but "
-                       "this QEMU supports only a minimum version of %d",
+                       "this Nephrite supports only a minimum version of %d",
                        desc->path, version, QEMU_PLUGIN_MIN_VERSION);
             goto err_symbol;
         } else if (version > QEMU_PLUGIN_VERSION) {
             error_setg(errp, "Could not load plugin %s: plugin requires API version %d, but "
-                       "this QEMU supports only up to version %d",
+                       "this Nephrite supports only up to version %d",
                        desc->path, version, QEMU_PLUGIN_VERSION);
             goto err_symbol;
         }

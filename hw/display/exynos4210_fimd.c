@@ -46,20 +46,20 @@
     #define DPRINT_L2(fmt, args...)       do { } while (0)
 #elif EXYNOS4210_FIMD_DEBUG == 1
     #define DPRINT_L1(fmt, args...) \
-        do {fprintf(stderr, "QEMU FIMD: "fmt, ## args); } while (0)
+        do {fprintf(stderr, "Nephrite FIMD: "fmt, ## args); } while (0)
     #define DPRINT_L2(fmt, args...)       do { } while (0)
 #else
     #define DPRINT_L1(fmt, args...) \
-        do {fprintf(stderr, "QEMU FIMD: "fmt, ## args); } while (0)
+        do {fprintf(stderr, "Nephrite FIMD: "fmt, ## args); } while (0)
     #define DPRINT_L2(fmt, args...) \
-        do {fprintf(stderr, "QEMU FIMD: "fmt, ## args); } while (0)
+        do {fprintf(stderr, "Nephrite FIMD: "fmt, ## args); } while (0)
 #endif
 
 #if EXYNOS4210_FIMD_MODE_TRACE == 0
     #define DPRINT_TRACE(fmt, args...)        do { } while (0)
 #else
     #define DPRINT_TRACE(fmt, args...)        \
-        do {fprintf(stderr, "QEMU FIMD: "fmt, ## args); } while (0)
+        do {fprintf(stderr, "Nephrite FIMD: "fmt, ## args); } while (0)
 #endif
 
 #define NUM_OF_WINDOWS              5
@@ -1022,7 +1022,7 @@ static inline void exynos4210_fimd_trace_bppmode(Exynos4210fimdState *s,
     Exynos4210fimdWindow *w = &s->window[win_num];
 
     if (w->winmap & FIMD_WINMAP_EN) {
-        printf("QEMU FIMD: Window %d is mapped with MAPCOLOR=0x%x\n",
+        printf("Nephrite FIMD: Window %d is mapped with MAPCOLOR=0x%x\n",
                 win_num, w->winmap & 0xFFFFFF);
         return;
     }
@@ -1030,7 +1030,7 @@ static inline void exynos4210_fimd_trace_bppmode(Exynos4210fimdState *s,
     if ((val != 0xFFFFFFFF) && ((w->wincon >> 2) & 0xF) == ((val >> 2) & 0xF)) {
         return;
     }
-    printf("QEMU FIMD: Window %d BPP mode set to %s\n", win_num,
+    printf("Nephrite FIMD: Window %d BPP mode set to %s\n", win_num,
         exynos4210_fimd_get_bppmode((val >> 2) & 0xF));
 }
 #else

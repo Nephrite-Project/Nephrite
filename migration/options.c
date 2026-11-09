@@ -635,7 +635,7 @@ bool migrate_caps_check(bool *old_caps, bool *new_caps, Error **errp)
     }
 #else
     if (new_caps[MIGRATION_CAPABILITY_X_COLO]) {
-        error_setg(errp, "QEMU compiled without replication module"
+        error_setg(errp, "Nephrite compiled without replication module"
                    " can't enable COLO");
         error_append_hint(errp, "Please enable replication before COLO.\n");
         return false;

@@ -165,7 +165,7 @@ static void usage(const char *name)
 {
     (printf) (
 "Usage: %s [OPTIONS] FILE\n"
-"Virtual RAPL MSR helper program for QEMU\n"
+"Virtual RAPL MSR helper program for Nephrite\n"
 "\n"
 "  -h, --help                display this help and exit\n"
 "  -V, --version             output version information and exit\n"

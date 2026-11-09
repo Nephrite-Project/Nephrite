@@ -402,7 +402,8 @@ static QemuOptsList qemu_name_opts = {
         }, {
             .name = "process",
             .type = QEMU_OPT_STRING,
-            .help = "Sets the name of the QEMU process, as shown in top etc",
+            .help = "Sets the name of the Nephrite process, as shown in top "
+                    "etc",
         }, {
             .name = "debug-threads",
             .type = QEMU_OPT_BOOL,
@@ -2057,7 +2058,8 @@ static void qemu_create_early_backends(void)
         error_report("OpenGL is not supported by display backend '%s'",
                      DisplayType_str(dpy.type));
 #else
-        error_report("OpenGL support was not enabled in this build of QEMU");
+        error_report("OpenGL support was not enabled in this build of "
+                     "Nephrite");
 #endif
         exit(1);
     }
@@ -3260,7 +3262,7 @@ void qemu_init(int argc, char **argv)
                     "'-mon' is deprecated. Switch to either "
                     "'-object monitor-hmp,id=ID,chardev=CHR-ID' or "
                     "'-object monitor-qmp,id=ID,chardev=CHR-ID' instead. "
-                    "See '-object' docs in the QEMU manual for further "
+                    "See '-object' docs in the Nephrite manual for further "
                     "configuration guidance: "
                     "https://www.qemu.org/docs/master/system/invocation.html");
                 if (!qemu_opts_parse_noisily(qemu_find_opts("mon"), optarg,
@@ -3453,7 +3455,7 @@ void qemu_init(int argc, char **argv)
                                                      optarg, true);
                 optarg = qemu_opt_get(accel_opts, "accel");
                 if (!optarg || is_help_option(optarg)) {
-                    printf("Accelerators supported in QEMU binary:\n");
+                    printf("Accelerators supported in Nephrite binary:\n");
                     GSList *el, *accel_list = object_class_get_list(TYPE_ACCEL,
                                                                     false);
                     for (el = accel_list; el; el = el->next) {
@@ -3643,7 +3645,7 @@ void qemu_init(int argc, char **argv)
                 if (!olist) {
 #ifndef CONFIG_SECCOMP
                     error_report("-sandbox support is not enabled "
-                                 "in this QEMU binary");
+                                 "in this Nephrite binary");
 #endif
                     exit(1);
                 }

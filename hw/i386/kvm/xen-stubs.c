@@ -43,11 +43,13 @@ void xen_primary_console_set_be_port(uint16_t port)
 #ifdef CONFIG_HMP
 void hmp_xen_event_list(MonitorHMP *hmp, const QDict *qdict)
 {
-    monitor_hmp_printf(hmp, "XEN emulation is not available in this QEMU\n");
+    monitor_hmp_printf(hmp, "XEN emulation is not available in this "
+                       "Nephrite build\n");
 }
 
 void hmp_xen_event_inject(MonitorHMP *hmp, const QDict *qdict)
 {
-    monitor_hmp_printf(hmp, "XEN emulation is not available in this QEMU\n");
+    monitor_hmp_printf(hmp, "XEN emulation is not available in this "
+                       "Nephrite build\n");
 }
 #endif

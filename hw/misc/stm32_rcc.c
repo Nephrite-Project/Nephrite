@@ -140,7 +140,7 @@ static void stm32_rcc_write(void *opaque, hwaddr addr,
     default:
         qemu_log_mask(
             LOG_UNIMP,
-            "%s: The RCC peripheral only supports enable and reset in QEMU\n",
+            "%s: The RCC peripheral only supports enable and reset in Nephrite\n",
             __func__
         );
         s->regs[addr >> 2] = value;

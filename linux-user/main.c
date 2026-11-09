@@ -494,7 +494,7 @@ static const struct qemu_argument arg_table[] = {
     {"0",          "NEPHRITE_ARGV0",       true,  handle_arg_argv0,
      "argv0",      "forces target process argv[0] to be 'argv0'"},
     {"r",          "NEPHRITE_UNAME",       true,  handle_arg_uname,
-     "uname",      "set qemu uname release string to 'uname'"},
+     "uname",      "set Nephrite's uname release string to 'uname'"},
     {"B",          "NEPHRITE_GUEST_BASE",  true,  handle_arg_guest_base,
      "address",    "set guest_base address to 'address'"},
     {"R",          "NEPHRITE_RESERVED_VA", true,  handle_arg_reserved_va,

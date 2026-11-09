@@ -2589,7 +2589,7 @@ static int vhost_user_backend_init(struct vhost_dev *dev, void *opaque,
             if (virtio_has_feature(protocol_features,
                                    VHOST_USER_PROTOCOL_F_CONFIG)) {
                 warn_report("vhost-user backend supports "
-                            "VHOST_USER_PROTOCOL_F_CONFIG but QEMU does not.");
+                            "VHOST_USER_PROTOCOL_F_CONFIG but Nephrite does not.");
                 protocol_features &= ~(1ULL << VHOST_USER_PROTOCOL_F_CONFIG);
             }
         }

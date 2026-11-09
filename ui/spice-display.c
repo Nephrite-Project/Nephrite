@@ -698,7 +698,7 @@ static int interface_client_monitors_config(QXLInstance *sin,
 
 static const QXLInterface dpy_interface = {
     .base.type               = SPICE_INTERFACE_QXL,
-    .base.description        = "qemu simple display",
+    .base.description        = "nephrite simple display",
     .base.major_version      = SPICE_INTERFACE_QXL_MAJOR,
     .base.minor_version      = SPICE_INTERFACE_QXL_MINOR,
 

@@ -216,10 +216,10 @@ static CGEventRef handleTapEvent(CGEventTapProxy proxy, CGEventType type, CGEven
     QemuCocoaView *view = userInfo;
     NSEvent *event = [NSEvent eventWithCGEvent:cgEvent];
     if ([view isMouseGrabbed] && [view handleEvent:event]) {
-        COCOA_DEBUG("Global events tap: qemu handled the event, capturing!\n");
+        COCOA_DEBUG("Global events tap: Nephrite handled the event, capturing!\n");
         return NULL;
     }
-    COCOA_DEBUG("Global events tap: qemu did not handle the event, letting it through...\n");
+    COCOA_DEBUG("Global events tap: Nephrite did not handle the event, letting it through...\n");
 
     return cgEvent;
 }

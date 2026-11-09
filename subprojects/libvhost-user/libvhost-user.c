@@ -711,7 +711,7 @@ static void
 vu_log_kick(VuDev *dev)
 {
     if (dev->log_call_fd != -1) {
-        DPRINT("Kicking the QEMU's log...\n");
+        DPRINT("Kicking Nephrite's log...\n");
         if (eventfd_write(dev->log_call_fd, 1) < 0) {
             vu_panic(dev, "Error writing eventfd: %s", strerror(errno));
         }

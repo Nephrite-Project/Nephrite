@@ -1449,7 +1449,7 @@ static void virt_class_init(ObjectClass *oc, const void *data)
     mc->init = virt_init;
     mc->default_cpu_type = LOONGARCH_CPU_TYPE_NAME("la464");
     mc->default_ram_id = "loongarch.ram";
-    mc->desc = "QEMU LoongArch Virtual Machine";
+    mc->desc = "Nephrite LoongArch Virtual Machine";
     mc->max_cpus = LOONGARCH_MAX_CPUS;
     mc->default_kernel_irqchip_split = false;
     mc->block_default_type = IF_VIRTIO;
@@ -1528,7 +1528,8 @@ static void virt_class_init(ObjectClass *oc, const void *data)
     { \
         MachineClass *mc = MACHINE_CLASS(oc); \
         MACHINE_VER_SYM(options, virt, __VA_ARGS__)(mc); \
-        mc->desc = "QEMU " MACHINE_VER_STR(__VA_ARGS__) " LoongArch Virtual Machine"; \
+        mc->desc = "Nephrite " MACHINE_VER_STR(__VA_ARGS__) \
+                   " LoongArch Virtual Machine"; \
         MACHINE_VER_DEPRECATION(__VA_ARGS__); \
         if (latest) { \
             mc->alias = "virt"; \

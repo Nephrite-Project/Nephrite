@@ -1652,7 +1652,7 @@ static uint32_t m25p80_transfer8(SSIPeripheral *ss, uint32_t tx)
         if (s->len >= M25P80_INTERNAL_DATA_BUFFER_SZ) {
             qemu_log_mask(LOG_GUEST_ERROR,
                           "M25P80: Write overrun internal data buffer. "
-                          "SPI controller (QEMU emulator or guest driver) "
+                          "SPI controller (Nephrite emulator or guest driver) "
                           "is misbehaving\n");
             s->len = s->pos = 0;
             s->state = STATE_IDLE;
@@ -1672,7 +1672,7 @@ static uint32_t m25p80_transfer8(SSIPeripheral *ss, uint32_t tx)
         if (s->pos >= M25P80_INTERNAL_DATA_BUFFER_SZ) {
             qemu_log_mask(LOG_GUEST_ERROR,
                           "M25P80: Read overrun internal data buffer. "
-                          "SPI controller (QEMU emulator or guest driver) "
+                          "SPI controller (Nephrite emulator or guest driver) "
                           "is misbehaving\n");
             s->len = s->pos = 0;
             s->state = STATE_IDLE;

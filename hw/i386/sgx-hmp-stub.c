@@ -12,5 +12,5 @@
 
 void hmp_info_sgx(MonitorHMP *hmp, const QDict *qdict)
 {
-    monitor_hmp_printf(hmp, "SGX is not available in this QEMU\n");
+    monitor_hmp_printf(hmp, "SGX is not available in this Nephrite build\n");
 }

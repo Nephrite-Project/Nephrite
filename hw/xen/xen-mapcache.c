@@ -158,7 +158,7 @@ void xen_map_cache_init(phys_offset_to_gaddr_t f, void *opaque)
         rlimit_as.rlim_cur = rlimit_as.rlim_max;
 
         if (rlimit_as.rlim_max != RLIM_INFINITY) {
-            warn_report("QEMU's maximum size of virtual"
+            warn_report("Nephrite's maximum size of virtual"
                         " memory is not infinity");
         }
         if (rlimit_as.rlim_max < MCACHE_MAX_SIZE + NON_MCACHE_MEMORY_SIZE) {

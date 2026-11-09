@@ -476,7 +476,8 @@ static void pmu_dispatch_cmd(PMUState *s)
                       s->cmd_rsp, &s->cmd_rsp_sz);
 
         if (s->rsplen != -1 && s->rsplen != s->cmd_rsp_sz) {
-            trace_pmu_debug_protocol_string("QEMU internal cmd resp mismatch!");
+            trace_pmu_debug_protocol_string(
+                "Nephrite internal cmd resp mismatch!");
         } else {
             trace_pmu_debug_protocol_resp_size(s->cmd_rsp_sz);
         }

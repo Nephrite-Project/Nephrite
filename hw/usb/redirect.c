@@ -189,7 +189,7 @@ static void usbredir_buffered_bulk_packet(void *priv, uint64_t id,
 static void usbredir_handle_status(USBRedirDevice *dev, USBPacket *p,
     int status);
 
-#define VERSION "qemu usb-redir guest " QEMU_VERSION
+#define VERSION "nephrite usb-redir guest " NEPHRITE_VERSION
 
 /*
  * Logging stuff

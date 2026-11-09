@@ -581,7 +581,7 @@ static bool do_populate_cpu_state(FadumpSection *region)
         qemu_log_mask(LOG_GUEST_ERROR,
                 "FADump: Mismatch in CPU State region's length exported:"
                 " Kernel expected: 0x%" PRIx64 " bytes,"
-                " QEMU exported: 0x%" PRIx64 " bytes\n",
+                " Nephrite exported: 0x%" PRIx64 " bytes\n",
                 be64_to_cpu(region->source_len),
                 be64_to_cpu(region->bytes_dumped));
     }

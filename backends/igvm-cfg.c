@@ -103,7 +103,7 @@ static void igvm_cfg_class_init(ObjectClass *oc, const void *data)
                                           "Set the command line for the "
                                           "software loaded from the IGVM "
                                           "file (copied verbatim, not "
-                                          "parsed by QEMU)");
+                                          "parsed by Nephrite)");
 
     igvmc->process = qigvm_process_file;
 

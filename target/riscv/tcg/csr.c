@@ -4894,10 +4894,11 @@ static RISCVException write_hstatus(CPURISCVState *env, int csrno,
 
     if (riscv_cpu_mxl(env) != MXL_RV32 && get_field(val, HSTATUS_VSXL) != 2) {
         qemu_log_mask(LOG_UNIMP,
-                      "QEMU does not support mixed HSXLEN options.");
+                      "Nephrite does not support mixed HSXLEN options.");
     }
     if (get_field(val, HSTATUS_VSBE) != 0) {
-        qemu_log_mask(LOG_UNIMP, "QEMU does not support big endian guests.");
+        qemu_log_mask(LOG_UNIMP,
+                      "Nephrite does not support big endian guests.");
     }
     return RISCV_EXCP_NONE;
 }

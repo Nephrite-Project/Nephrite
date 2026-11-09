@@ -1134,7 +1134,7 @@ static void arm_setup_firmware_boot(ARMCPU *cpu, struct arm_boot_info *info)
         if (!fw_cfg) {
             error_report("This machine type does not support loading both "
                          "a guest firmware/BIOS image and a guest kernel at "
-                         "the same time. You should change your QEMU command "
+                         "the same time. You should change your Nephrite command "
                          "line to specify one or the other, but not both.");
             exit(1);
         }

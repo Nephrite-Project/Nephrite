@@ -251,7 +251,8 @@ static void xenfb_mouse_event(DeviceState *dev, QemuConsole *src,
         } else {
             con = qemu_console_lookup_by_index(0);
             if (!con) {
-                xen_pv_printf(&xenfb->c.xendev, 0, "No QEMU console available");
+                xen_pv_printf(&xenfb->c.xendev, 0,
+                              "No Nephrite console available");
                 return;
             }
             surface = qemu_console_surface(con);

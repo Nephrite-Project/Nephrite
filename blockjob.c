@@ -365,7 +365,7 @@ BlockJobInfo *block_job_query_locked(BlockJob *job, Error **errp)
     GLOBAL_STATE_CODE();
 
     if (block_job_is_internal(job)) {
-        error_setg(errp, "Cannot query QEMU internal jobs");
+        error_setg(errp, "Cannot query Nephrite internal jobs");
         return NULL;
     }
 
