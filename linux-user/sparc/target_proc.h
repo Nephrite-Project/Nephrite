@@ -18,7 +18,7 @@ static int open_cpuinfo(CPUArchState *cpu_env, int fd)
         cpu_type = "sun4u";
     }
 
-    dprintf(fd, "cpu\t\t: %s (QEMU)\n", cpu_env->def.name);
+    dprintf(fd, "cpu\t\t: %s (Nephrite)\n", cpu_env->def.name);
     dprintf(fd, "type\t\t: %s\n", cpu_type);
     dprintf(fd, "ncpus probed\t: %d\n", num_cpus);
     dprintf(fd, "ncpus active\t: %d\n", num_cpus);

@@ -83,15 +83,16 @@ Names and packaging
   devices' descriptions, say Nephrite, as do the HTTP clients' and
   servers' names (curl's ``User-Agent``, the WebSocket ``Server``) and
   the version that usbredir announces.
-* The product names that guests show for emulated disks and drives, such
-  as ``Nephrite HARDDISK`` and ``Nephrite DVD-ROM`` on IDE, ``Nephrite
-  DISK`` and ``Nephrite CD-ROM`` on SCSI, and ``Nephrite NVMe Ctrl``, name
-  Nephrite, as do the manufacturer and product strings of the USB devices,
-  such as ``Nephrite USB Tablet``, the names of the virtio input devices,
-  the monitor name in the EDID, ``Nephrite``, and the x86 CPU models'
-  brand strings, ``Nephrite Virtual CPU version 2.5+`` and, under TCG's
-  ``max``, ``Nephrite TCG CPU version 2.5+``; vendor identifiers, such
-  as the SCSI vendor ``QEMU`` and the USB vendor ID 46F4h, stay QEMU's.
+* What guests show of the emulated hardware names Nephrite: the product
+  names of disks and drives (``Nephrite HARDDISK`` and ``Nephrite
+  DVD-ROM`` on IDE, ``Nephrite DISK`` and ``Nephrite CD-ROM`` on SCSI,
+  ``Nephrite NVMe Ctrl``), the USB devices' manufacturer and product
+  strings (``Nephrite USB Tablet``), the virtio input devices' names, the
+  EDID's monitor name (``Nephrite``), the x86 CPU models' brand strings
+  (``Nephrite Virtual CPU version 2.5+``, and ``Nephrite TCG CPU version
+  2.5+`` for TCG's ``max``), and user mode's ``/proc/cpuinfo``. Vendor
+  identifiers, such as the SCSI vendor ``QEMU`` and the USB vendor ID
+  46F4h, stay QEMU's.
 * The input devices that ``query-mice`` and ``info mice`` list take
   Nephrite's name, such as ``Nephrite PS/2 Mouse``.
 * QEMU's names stay where guests, drivers, management tools, or existing

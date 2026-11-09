@@ -92,7 +92,7 @@ static int open_cpuinfo(CPUArchState *cpu_env, int fd)
     }
 
     if (arch < 8) {
-        dprintf(fd, "Hardware\t: QEMU v%s %s\n", QEMU_VERSION,
+        dprintf(fd, "Hardware\t: Nephrite v%s %s\n", NEPHRITE_VERSION,
                 cpu->dtb_compatible ? : "");
         dprintf(fd, "Revision\t: 0000\n");
         dprintf(fd, "Serial\t\t: 0000000000000000\n");

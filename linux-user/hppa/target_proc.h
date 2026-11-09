@@ -17,7 +17,7 @@ static int open_cpuinfo(CPUArchState *cpu_env, int fd)
         dprintf(fd, "cpu\t\t: PA7300LC (PCX-L2)\n");
         dprintf(fd, "capabilities\t: os32\n");
         dprintf(fd, "model\t\t: 9000/778/B160L - "
-                    "Merlin L2 160 QEMU (9000/778/B160L)\n\n");
+                    "Merlin L2 160 Nephrite (9000/778/B160L)\n\n");
     }
     return 0;
 }
