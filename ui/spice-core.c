@@ -831,7 +831,7 @@ static void qemu_spice_init(void)
 
     seamless_migration = qemu_opt_get_bool(opts, "seamless-migration", 0);
     spice_server_set_seamless_migration(spice_server, seamless_migration);
-    spice_server_set_sasl_appname(spice_server, "qemu");
+    spice_server_set_sasl_appname(spice_server, "nephrite");
     if (spice_server_init(spice_server, &core_interface) != 0) {
         error_report("failed to initialize spice server");
         exit(1);
@@ -896,7 +896,7 @@ static int qemu_spice_add_interface(SpiceBaseInstance *sin)
          * With a command line like '-vnc :0 -vga qxl' you'll end up here.
          */
         spice_server = spice_server_new();
-        spice_server_set_sasl_appname(spice_server, "qemu");
+        spice_server_set_sasl_appname(spice_server, "nephrite");
         spice_server_init(spice_server, &core_interface);
         vm_change_entry =
             qemu_add_vm_change_state_handler(vm_change_state_handler, NULL);

@@ -9,11 +9,11 @@
 # required at all.
 #
 # NB, previously DIGEST-MD5 was set as the default mechanism for
-# QEMU VNC. Per RFC 6331 this is vulnerable to many serious security
+# Nephrite VNC. Per RFC 6331 this is vulnerable to many serious security
 # flaws as should no longer be used. Thus GSSAPI is now the default.
 #
-# To use GSSAPI requires that a QEMU service principal is
-# added to the Kerberos server for each host running QEMU.
+# To use GSSAPI requires that a vnc service principal is
+# added to the Kerberos server for each host running Nephrite.
 # This principal needs to be exported to the keytab file listed below
 mech_list: gssapi
 
@@ -32,10 +32,10 @@ mech_list: gssapi
 # This file needs to be populated with the service principal that
 # was created on the Kerberos v5 server. If switching to a non-gssapi
 # mechanism this can be commented out.
-keytab: /etc/qemu/krb5.tab
+keytab: /etc/nephrite/krb5.tab
 
 # If using scram-sha-256 for username/passwds, then this is the file
-# containing the passwds. Use 'saslpasswd2 -a qemu [username]'
+# containing the passwds. Use 'saslpasswd2 -a nephrite [username]'
 # to add entries, and 'sasldblistusers2 -f [sasldb_path]' to browse it.
 # Note that this file stores passwords in clear text.
-#sasldb_path: /etc/qemu/passwd.db
+#sasldb_path: /etc/nephrite/passwd.db

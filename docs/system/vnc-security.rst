@@ -157,7 +157,7 @@ The following documentation assumes use of the Cyrus SASL implementation
 on a Linux host, but the principles should apply to any other SASL
 implementation or host. When SASL is enabled, the mechanism
 configuration will be loaded from system default SASL service config
-/etc/sasl2/qemu.conf. If running QEMU as an unprivileged user, an
+/etc/sasl2/nephrite.conf. If running QEMU as an unprivileged user, an
 environment variable SASL_CONF_PATH can be used to make it search
 alternate locations for the service config file.
 
@@ -177,12 +177,12 @@ When not using TLS the recommended configuration is
 ::
 
    mech_list: gssapi
-   keytab: /etc/qemu/krb5.tab
+   keytab: /etc/nephrite/krb5.tab
 
 This says to use the 'GSSAPI' mechanism with the Kerberos v5 protocol,
-with the server principal stored in /etc/qemu/krb5.tab. For this to work
+with the server principal stored in /etc/nephrite/krb5.tab. For this to work
 the administrator of your KDC must generate a Kerberos principal for the
-server, with a name of ``qemu/somehost.example.com@EXAMPLE.COM`` replacing
+server, with a name of ``vnc/somehost.example.com@EXAMPLE.COM`` replacing
 ``somehost.example.com`` with the fully qualified host name of the machine
 running QEMU, and ``EXAMPLE.COM`` with the Kerberos Realm.
 
@@ -192,7 +192,7 @@ reasonable configuration is
 ::
 
    mech_list: scram-sha-256
-   sasldb_path: /etc/qemu/passwd.db
+   sasldb_path: /etc/nephrite/passwd.db
 
 The ``saslpasswd2`` program can be used to populate the ``passwd.db``
 file with accounts. Note that the ``passwd.db`` file stores passwords

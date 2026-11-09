@@ -784,7 +784,7 @@ static char *
 create_sasl_config(const char *dir, const char *username,
                    const char *password)
 {
-    g_autofree char *conf_path = g_strdup_printf("%s/qemu.conf", dir);
+    g_autofree char *conf_path = g_strdup_printf("%s/nephrite.conf", dir);
     g_autofree char *db_path = g_strdup_printf("%s/sasldb2", dir);
     g_autoptr(GError) err = NULL;
     g_autoptr(GSubprocess) proc = NULL;
@@ -805,7 +805,7 @@ create_sasl_config(const char *dir, const char *username,
         G_SUBPROCESS_FLAGS_STDOUT_SILENCE |
         G_SUBPROCESS_FLAGS_STDERR_SILENCE,
         &err,
-        "saslpasswd2", "-f", db_path, "-a", "qemu", "-p", "-c",
+        "saslpasswd2", "-f", db_path, "-a", "nephrite", "-p", "-c",
         username, NULL);
     if (!proc) {
         return NULL;
@@ -827,7 +827,7 @@ create_sasl_config(const char *dir, const char *username,
 static void
 cleanup_sasl_config(const char *dir, const char *db_path)
 {
-    g_autofree char *conf = g_strdup_printf("%s/qemu.conf", dir);
+    g_autofree char *conf = g_strdup_printf("%s/nephrite.conf", dir);
 
     unlink(conf);
     if (db_path) {

@@ -66,8 +66,10 @@ Names and packaging
   prompt say Nephrite.
 * QEMU's names stay where guests, drivers, management tools, or existing
   configurations depend on them: device and CPU model names and IDs, the
-  fw_cfg signature, SASL's ``qemu`` application name, and ``QEMU_*``
-  environment variables.
+  fw_cfg signature and ``QEMU_*`` environment variables.
+* VNC's and SPICE's SASL authentication take the application name
+  ``nephrite``, so that their configuration is
+  ``/etc/sasl2/nephrite.conf``, of which ``nephrite.sasl`` is a sample.
 * The documentation's text is QEMU's; its front page says so, and its
   examples run Nephrite's programs.
 * QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and

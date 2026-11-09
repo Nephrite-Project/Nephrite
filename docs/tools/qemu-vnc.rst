@@ -99,8 +99,8 @@ Options
 
   Require that the client use SASL to authenticate with the VNC server. The
   exact choice of authentication method used is controlled from the system /
-  user's SASL configuration file for the 'qemu' service. This is typically found
-  in ``/etc/sasl2/qemu.conf``. If running QEMU as an unprivileged user, an
+  user's SASL configuration file for the 'nephrite' service. This is typically found
+  in ``/etc/sasl2/nephrite.conf``. If running QEMU as an unprivileged user, an
   environment variable ``SASL_CONF_PATH`` can be used to make it search
   alternate locations for the service config. While some SASL auth methods can
   also provide data encryption (eg GSSAPI), it is recommended that SASL always
