@@ -6,10 +6,10 @@ governs contributions to QEMU, not to Nephrite.
 
 ## Contributions
 
-- Follow QEMU's coding style (`docs/devel/style.rst`) and run
+- Follow the coding style in `docs/devel/style.rst` and run
   `scripts/checkpatch.pl` on every commit.
-- Make one logical change per commit. Subjects use QEMU's prefixes, such
-  as `target/i386:` or `hw/i386/amd_iommu:`, and bodies explain why,
+- Make one logical change per commit. Subjects use subsystem prefixes,
+  such as `target/i386:` or `hw/i386/amd_iommu:`, and bodies explain why,
   citing hardware documentation by document number and revision (for
   example, Intel's SDM 325462-093 or AMD's APM 24593 rev. 3.45).
 - Name the AI tool in an `Assisted-by:` trailer, such as

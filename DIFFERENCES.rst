@@ -136,8 +136,8 @@ Names and packaging
   policies are not Nephrite's, which has none of its own yet.
 * ``scripts/checkpatch.pl`` accepts trailers that credit AI tools, checks
   ``Fixes:`` tags against Nephrite's trunk instead of QEMU's master, and no
-  longer asks about ``MAINTAINERS``, and ``AGENTS.md`` gives agents
-  Nephrite's guidelines instead of QEMU's.
+  longer asks about ``MAINTAINERS``, and ``AGENTS.md`` and the skill in
+  ``.agents`` give agents Nephrite's guidelines instead of QEMU's.
 
 
 Firmware

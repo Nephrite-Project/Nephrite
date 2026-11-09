@@ -1,15 +1,15 @@
 ---
-name: qemu-codebase
+name: nephrite-codebase
 description: >-
-  Route broad or unfamiliar QEMU tasks to relevant subsystem,
+  Route broad or unfamiliar Nephrite tasks to relevant subsystem,
   documentation, build, and test entry points. Do not use for work
   where the files, subsystems and abstractions are already known.
 ---
 
-# Finding your way around QEMU
+# Finding your way around Nephrite
 
-Use this skill for orientation, not as a general prerequisite for QEMU
-work. Start from the code and nearby tests when the request already
+Use this skill for orientation, not as a general prerequisite for
+Nephrite work. Start from the code and nearby tests when the request already
 identifies a file, function, subsystem, or commit.
 
 ## Finding the subsystem
@@ -43,7 +43,7 @@ in the source; inspect those comments without building the documentation.
 
 ## Building and testing
 
-QEMU builds out of tree and a checkout may have several build
+Nephrite builds out of tree and a checkout may have several build
 directories. When building or testing, find the applicable configured
 tree from context (for example, directories containing `meson-info`)
 instead of assuming one. Use that build directory's `run` wrapper for
