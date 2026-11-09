@@ -39,9 +39,10 @@ Names and packaging
   ``libnephrite_plugin_api.a``, whose delay-loaded imports name
   ``nephrite.exe``.
 * ``scripts/qemu-binfmt-conf.sh`` registers Nephrite's user-mode programs
-  as the interpreters of binfmt_misc's ``qemu-<cpu>`` entries, whose names
-  stay QEMU's so that QEMU's and Nephrite's emulators do not both register
-  for one architecture.
+  as the interpreters of binfmt_misc entries named ``nephrite-<cpu>``,
+  which its systemd and Debian outputs take as their file and package
+  names. Where QEMU's emulators are registered too, the kernel takes
+  whichever entry came first.
 * Nephrite has version numbers of its own, starting at 0.1.0, in
   ``NEPHRITE_VERSION``; ``VERSION`` keeps the version of QEMU that
   Nephrite is based on. Its programs, and QMP's ``package`` member, show

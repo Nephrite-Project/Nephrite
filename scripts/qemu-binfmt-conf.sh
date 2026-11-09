@@ -190,7 +190,7 @@ Usage: qemu-binfmt-conf.sh [--qemu-path PATH][--debian][--systemd CPU]
        Configure binfmt_misc to use Nephrite's user-mode programs
 
        --help:          display this usage
-       --qemu-path:     set path to qemu interpreter ($QEMU_PATH)
+       --qemu-path:     set path to the interpreters ($QEMU_PATH)
        --qemu-suffix:   add a suffix to the default interpreter name
        --debian:        don't write into /proc,
                         instead generate update-binfmts templates
@@ -212,11 +212,13 @@ Usage: qemu-binfmt-conf.sh [--qemu-path PATH][--debian][--systemd CPU]
 
     To import templates with update-binfmts, use :
 
-        sudo update-binfmts --importdir ${EXPORTDIR:-$DEBIANDIR} --import qemu-CPU
+        sudo update-binfmts --importdir ${EXPORTDIR:-$DEBIANDIR} \\
+            --import nephrite-CPU
 
     To remove interpreter, use :
 
-        sudo update-binfmts --package qemu-CPU --remove qemu-CPU $QEMU_PATH
+        sudo update-binfmts --package nephrite-CPU \\
+            --remove nephrite-CPU $QEMU_PATH
 
     With systemd, binfmt files are loaded by systemd-binfmt.service
 
@@ -285,7 +287,7 @@ qemu_generate_register() {
         flags="${flags}P"
     fi
 
-    echo ":qemu-$cpu:M::$magic:$mask:$qemu:$flags"
+    echo ":nephrite-$cpu:M::$magic:$mask:$qemu:$flags"
 }
 
 qemu_register_interpreter() {
@@ -295,12 +297,12 @@ qemu_register_interpreter() {
 
 qemu_generate_systemd() {
     echo "Setting $qemu as binfmt interpreter for $cpu for systemd-binfmt.service"
-    qemu_generate_register > "$EXPORTDIR/qemu-$cpu.conf"
+    qemu_generate_register > "$EXPORTDIR/nephrite-$cpu.conf"
 }
 
 qemu_generate_debian() {
-    cat > "$EXPORTDIR/qemu-$cpu" <<EOF
-package qemu-$cpu
+    cat > "$EXPORTDIR/nephrite-$cpu" <<EOF
+package nephrite-$cpu
 interpreter $qemu
 magic $magic
 mask $mask
