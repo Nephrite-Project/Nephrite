@@ -24,7 +24,7 @@ Some of the main QEMU subsystems are:
 
 - `Accelerators<Accelerators>`
 - Block devices and `disk images<disk images>` support
-- `CI<ci>` and `Tests<testing>`
+- `Tests<testing>`
 - `Devices<device-emulation>` & Board models
 - `Documentation <documentation-root>`
 - `GDB support<GDB usage>`
@@ -102,8 +102,6 @@ yet, so sometimes the source code is all you have.
 * `linux-user <https://gitlab.com/qemu-project/qemu/-/tree/master/linux-user>`_:
   `User mode <user-mode>` implementation. Contains one folder per target
   architecture.
-* `.gitlab-ci.d <https://gitlab.com/qemu-project/qemu/-/tree/master/.gitlab-ci.d>`_:
-  `CI <ci>` yaml and scripts.
 * `include <https://gitlab.com/qemu-project/qemu/-/tree/master/include>`_:
   All headers associated to different subsystems in QEMU. The hierarchy used
   mirrors source code organization and naming.
@@ -183,7 +181,7 @@ yet, so sometimes the source code is all you have.
   - `decode <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/decode>`_:
     Testsuite for :ref:`decodetree <decodetree>` implementation.
   - `docker <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/docker>`_:
-    Code and scripts to create `containers <container-ref>` used in `CI <ci>`.
+    Code and scripts to create `containers <container-ref>` for builds and tests.
   - `fp <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/fp>`_:
     QEMU testsuite for soft float implementation.
   - `functional <https://gitlab.com/qemu-project/qemu/-/tree/master/tests/functional>`_:

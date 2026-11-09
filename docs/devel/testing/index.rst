@@ -1,8 +1,7 @@
 Testing QEMU
 ------------
 
-Details about how to test QEMU and how it is integrated into our CI
-testing infrastructure.
+Details about how to test QEMU.
 
 .. toctree::
    :maxdepth: 3
@@ -11,7 +10,6 @@ testing infrastructure.
    qtest
    functional
    acpi-bits
-   ci
    fuzzing
    blkdebug
    blkverify

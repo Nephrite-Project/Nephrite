@@ -81,9 +81,8 @@ rm -f config.log
 # Print a helpful header at the top of config.log
 echo "# QEMU configure log $(date)" >> config.log
 printf "# Configured with:" >> config.log
-# repeat the invocation to log and stdout for CI
+# repeat the invocation to the log
 invoke=$(printf " '%s'" "$0" "$@")
-test -n "$GITLAB_CI" && echo "configuring with: $invoke"
 { echo "$invoke"; echo; echo "#"; } >> config.log
 
 quote_sh() {

@@ -561,7 +561,7 @@ Adding new build pre-requisites
 When preparing a patch series that adds a new build
 pre-requisite to QEMU, the prerequisites should to be added to
 ``tests/lcitool/projects/qemu.yml`` in order to make the dependency
-available in the CI build environments.
+available in the build containers.
 
 In the simple case where the pre-requisite is already known to ``libvirt-ci``
 the following steps are needed:
@@ -595,12 +595,6 @@ first to contribute the mapping to the ``libvirt-ci`` project:
    the ``tests/lcitool/libvirt-ci`` submodule to point to a commit that
    contains the ``mappings.yml`` update.  Then add the prerequisite and
    run ``make lcitool-refresh``.
-
- * Please also trigger gitlab container generation pipelines on your change
-   for as many OS distros as practical to make sure that there are no
-   obvious breakages when adding the new pre-requisite. Please see
-   `CI <https://www.qemu.org/docs/master/devel/ci.html>`__ documentation
-   page on how to trigger gitlab CI pipelines on your change.
 
 For enterprise distros that default to old, end-of-life versions of the
 Python runtime, QEMU uses a separate set of mappings that work with more

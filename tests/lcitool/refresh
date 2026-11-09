@@ -82,23 +82,10 @@ def generate_dockerfile(host, target, project="qemu", cross=None, trailer=None,
     generate(filename, cmd, trailer)
 
 
-def generate_vars(target, trailer=None):
-    filename = Path(src_dir, ".gitlab-ci.d", target + ".vars")
-    cmd = lcitool_cmd + ["variables", "--format", "shell", target, "qemu"]
-    generate(filename, cmd, trailer)
-
-
 def generate_pkglist(vm, target, project="qemu"):
     filename = Path(src_dir, "tests", "vm", "generated", vm + ".json")
     cmd = lcitool_cmd + ["variables", "--format", "json", target, project]
     generate(filename, cmd, None)
-
-
-def generate_yaml(os, target, arch, trailer=None):
-    filename = Path(src_dir, "scripts", "ci", "setup", os, f"{target}-{arch}.yaml")
-    cmd = lcitool_cmd + ["variables", "--format", "yaml", "-a",
-                         arch, target, "qemu"]
-    generate(filename, cmd, trailer)
 
 
 alpine_extras = r"""
@@ -334,22 +321,10 @@ try:
                         trailer=debian_all_test_cross_compilers)
 
     #
-    # GitLab packages lists
-    #
-    generate_vars("macos-14")
-
-    #
     # VM packages lists
     #
     generate_pkglist("freebsd", "freebsd-14")
     generate_pkglist("openbsd", "openbsd-78", project="qemu-minimal")
-
-    #
-    # Ansible package lists
-    #
-    generate_yaml("ubuntu", "ubuntu-2404", "aarch64")
-    generate_yaml("ubuntu", "ubuntu-2404", "s390x")
-    generate_yaml("debian", "debian-13", "ppc64le")
 
 
     sys.exit(0)

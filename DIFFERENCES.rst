@@ -63,8 +63,10 @@ Names and packaging
   and Windows service and VSS provider.
 * The documentation's text is QEMU's; its front page says so, and its
   examples run Nephrite's programs.
-* QEMU's GitHub workflow that closed every pull request is gone. Pushing a
-  version tag releases it on GitHub, with its source tarball.
+* QEMU's CI is gone: its GitLab pipelines and the Cirrus CI and
+  custom-runner jobs that they started, its Travis and Coverity Scan
+  configurations, and the GitHub workflow that closed every pull request.
+  Pushing a version tag releases it on GitHub, with its source tarball.
 * The source tarball has every crate of the Rust workspace, which
   ``scripts/make-release`` takes from their wraps; QEMU lists the crates by
   hand, and its list had fallen behind them, so that building its tarball

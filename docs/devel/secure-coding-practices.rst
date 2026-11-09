@@ -30,10 +30,9 @@ classes of security bugs are mentioned:
 * Integer overflows
 * Format string vulnerabilities
 
-Some of these classes of bugs can be detected by analyzers.  Static analysis is
-performed regularly by Coverity and the most obvious of these bugs are even
-reported by compilers.  Dynamic analysis is possible with valgrind, tsan, and
-asan.
+Some of these classes of bugs can be detected by analyzers.  The most obvious of
+these bugs are reported by compilers.  Dynamic analysis is possible with
+valgrind, tsan, and asan.
 
 Input Validation
 ----------------
