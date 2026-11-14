@@ -1057,12 +1057,10 @@ static gboolean gd_motion_event(GtkWidget *widget, GdkEventMotion *motion,
     if (!qemu_input_is_absolute(vc->gfx.dcl.con) && s->ptr_owner == vc) {
         GdkScreen *screen = gtk_widget_get_screen(vc->gfx.drawing_area);
         GdkDisplay *dpy = gtk_widget_get_display(widget);
-        GdkWindow *win = gtk_widget_get_window(widget);
-        GdkMonitor *monitor = gdk_display_get_monitor_at_window(dpy, win);
         GdkRectangle geometry;
-
         int xr = (int)motion->x_root;
         int yr = (int)motion->y_root;
+        GdkMonitor *monitor = gdk_display_get_monitor_at_point(dpy, xr, yr);
 
         gdk_monitor_get_geometry(monitor, &geometry);
 
