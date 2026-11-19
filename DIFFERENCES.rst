@@ -308,6 +308,11 @@ Devices:
 Bug fixes
 =========
 
+* GTK's captured relative mouse uses the monitor containing the pointer
+  when checking for screen edges. A window spanning multiple monitors no
+  longer causes spurious pointer warps when the pointer is on a different
+  monitor from most of the window.
+
 Processor emulation (TCG):
 
 * Segment limits and types are checked, as are the stack's room in far
