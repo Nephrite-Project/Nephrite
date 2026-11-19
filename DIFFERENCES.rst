@@ -183,6 +183,9 @@ with fixes, among them:
 * The MP tables list the first logical CPU of each core rather than of
   each package; Windows NT 4.0 used to run on one processor of a
   multi-core package.
+* The standard VGA's video BIOS reaches the DISPI ports through the
+  device's I/O BAR where it has one, so that it has VBE modes behind a
+  bridge too.
 
 The images say ``-nephrite`` in their version, which SeaBIOS's banner
 shows. What ReBIOS's SeaBIOS adds for ReBIOS itself is built only into its
