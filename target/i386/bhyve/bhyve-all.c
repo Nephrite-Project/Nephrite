@@ -1012,6 +1012,10 @@ static int bhyve_vcpu_run(CPUState *cpu)
     cpu_exec_start(cpu);
 
     while (rc == 0) {
+        if (qatomic_read(&cpu->exit_request)) {
+            cpu->exception_index = EXCP_INTERRUPT;
+            break;
+        }
         if (qcpu->dirty) {
             vmm_set_registers(cpu);
             qcpu->dirty = false;
@@ -1041,8 +1045,16 @@ static int bhyve_vcpu_run(CPUState *cpu)
             bql_unlock();
             break;
         case VM_EXITCODE_DEBUG:
-            usleep(1000);
-            dump_registers(qcpu->vcpu);
+            /*
+             * bhyve_ipi_signal() kicked the vCPU out of VM_RUN with
+             * vm_suspend_cpu(): resume it, and return to the main loop
+             * if that is what the kick was for.
+             */
+            vm_resume_cpu(qcpu->vcpu);
+            if (qatomic_read(&cpu->exit_request)) {
+                cpu->exception_index = EXCP_INTERRUPT;
+                rc = 1;
+            }
             break;
         case VM_EXITCODE_INOUT:
         case VM_EXITCODE_INOUT_STR:
