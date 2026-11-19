@@ -1078,6 +1078,8 @@ static int bhyve_vcpu_run(CPUState *cpu)
             }
             break;
         case VM_EXITCODE_BOGUS:
+        case VM_EXITCODE_REQIDLE:
+            /* Another thread froze the vCPU for a moment; enter again. */
             break;
         case VM_EXITCODE_SUSPENDED:
             how = vme.u.suspended.how;
