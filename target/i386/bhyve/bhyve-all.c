@@ -782,26 +782,33 @@ static int bhyve_amd_rdmsr(uint32_t num, uint64_t *val)
 static int bhyve_rdmsr(struct vcpu *vcpu, struct vm_exit *vme)
 {
     struct bhyve_machine *mach = get_bhyve_mach();
-    int error;
+    int error = -1;
     uint32_t num = vme->u.msr.code;
-    uint64_t val;
+    uint64_t val = 0;
 
     switch (mach->cpu_vendor) {
     case VENDOR_INTEL:
         error = bhyve_intel_rdmsr(num, &val);
-        goto finish;
+        break;
     case VENDOR_AMD:
         error = bhyve_amd_rdmsr(num, &val);
-        goto finish;
+        break;
     case VENDOR_UNKNOWN:
-        return -1;
+        break;
     }
 
-finish:
-    error = vm_set_register(vcpu, VM_REG_GUEST_RAX, val);
-    error = vm_set_register(vcpu, VM_REG_GUEST_RDX, val >> 32);
+    if (error) {
+        /* As bhyve(8) -w: MSRs that nothing models read as zero. */
+        warn_report_once("bhyve: RDMSR of unhandled MSR 0x%x reads as 0",
+                         num);
+        val = 0;
+    }
 
-    return error;
+    if (vm_set_register(vcpu, VM_REG_GUEST_RAX, (uint32_t)val) ||
+        vm_set_register(vcpu, VM_REG_GUEST_RDX, val >> 32)) {
+        return -1;
+    }
+    return 0;
 }
 
 static int bhyve_intel_wrmsr(uint32_t num)
@@ -861,19 +868,19 @@ static int bhyve_amd_wrmsr(uint32_t num)
 static int bhyve_wrmsr(struct vm_exit *vme)
 {
     struct bhyve_machine *mach = get_bhyve_mach();
-    int error;
     uint32_t num = vme->u.msr.code;
+
     switch (mach->cpu_vendor) {
     case VENDOR_INTEL:
-        error = bhyve_intel_wrmsr(num);
-        return error;
+        return bhyve_intel_wrmsr(num);
     case VENDOR_AMD:
-        error = bhyve_amd_wrmsr(num);
-        return error;
+        return bhyve_amd_wrmsr(num);
     case VENDOR_UNKNOWN:
-        return -1;
+        break;
     }
-
+    /* As bhyve(8) -w: writes to MSRs that nothing models are dropped. */
+    warn_report_once("bhyve: WRMSR of unhandled MSR 0x%x ignored", num);
+    return 0;
 }
 
 /* -------------------------------------------------------------------------- */

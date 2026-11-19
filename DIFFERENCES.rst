@@ -326,6 +326,9 @@ installed system-wide.
 
 * A triple fault, which vmm turns into a reset of its VM, ends Nephrite
   instead of resetting the machine.
+* MSRs that neither vmm nor Nephrite models read as zero and ignore
+  writes, as with bhyve(8)'s ``-w``, where the processor raises #GP.
+
 
 Bug fixes
 =========
