@@ -739,7 +739,7 @@ do_check_protect_pse36:
         flags = probe_access_full_mmu(env, paddr, 0, access_type,
                                       idx, &pte_trans.haddr, &full);
         if (unlikely(flags & TLB_INVALID_MASK)) {
-            x86_vmx_ept_guest_page(env, ptep);
+            x86_vmx_ept_guest_page(env, ptep, ss);
             *err = (TranslateFault){
                 .error_code = env->error_code,
                 .cr2 = paddr,

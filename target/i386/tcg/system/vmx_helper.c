@@ -4507,6 +4507,7 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPT_ACCESSED (1ULL << 8)
 #define EPT_DIRTY (1ULL << 9)
 #define EPTP_AD (1ULL << 6)
+#define EPT_QUAL_SHADOW_STACK (1 << 13)
 #define VMX_EXIT_EPT_VIOLATION 48
 #define VMX_EXIT_EPT_MISCONFIG 49
 #define VMX_EXIT_PML_FULL 62
@@ -4530,16 +4531,24 @@ bool x86_vmx_ept_mbec(CPUX86State *env)
 }
 
 /*
- * Advanced VM-exit information of an EPT violation in the translation of a
- * linear address: whether paging makes its page user-mode, read/write, and
- * execute-disable, from FLAGS, the paging-structure entries' U/S, R/W, and
- * XD combined (Intel SDM 325462-093 Vol. 3C, Table 30-7).
+ * What an EPT violation in the translation of a linear address tells of
+ * it: whether it was a shadow-stack access, SHADOW_STACK, and as advanced
+ * VM-exit information whether paging makes its page user-mode, read/write,
+ * and execute-disable, from FLAGS, the paging-structure entries' U/S, R/W,
+ * and XD combined (Intel SDM 325462-093 Vol. 3C, Table 30-7).
  */
-void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags)
+void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags,
+                            bool shadow_stack)
 {
     uint64_t caps = env->features[FEAT_VMX_EPT_VPID_CAPS];
 
-    if (x86_vmx_ept_active(env) && (caps & MSR_VMX_EPT_ADVANCED_VMEXIT_INFO)) {
+    if (!x86_vmx_ept_active(env)) {
+        return;
+    }
+    if (shadow_stack) {
+        env->vmx.ept_qual |= EPT_QUAL_SHADOW_STACK;
+    }
+    if (caps & MSR_VMX_EPT_ADVANCED_VMEXIT_INFO) {
         env->vmx.ept_qual |= (flags & PG_USER_MASK ? 1 << 9 : 0) |
                              (flags & PG_RW_MASK ? 1 << 10 : 0) |
                              (flags & PG_NX_MASK ? 1 << 11 : 0);

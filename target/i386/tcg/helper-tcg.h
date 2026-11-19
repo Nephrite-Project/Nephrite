@@ -235,7 +235,8 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
                            hwaddr *hpa, int *prot, int *page_size,
                            int *memtype);
-void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags);
+void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags,
+                            bool shadow_stack);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                                  target_ulong linear, bool final,
                                  uintptr_t ra);

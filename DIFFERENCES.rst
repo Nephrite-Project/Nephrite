@@ -201,8 +201,8 @@ Intel VMX, which QEMU's TCG does not have:
 * VMX operation and VMCS access, VMX non-root operation with the full
   VM-entry checks, VM exits, and VMX aborts.
 * EPT with 4-level and 5-level tables, accessed and dirty flags,
-  mode-based execute control, and the advanced information on EPT
-  violations; VPID.
+  mode-based execute control, and EPT violations' advanced information
+  and shadow-stack bit; VPID.
 * The TPR shadow, the APIC-access page, APIC-register virtualization,
   virtual-interrupt delivery, posted-interrupt processing, x2APIC
   virtualization, and IPI virtualization with the tertiary controls.
