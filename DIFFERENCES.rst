@@ -313,6 +313,20 @@ Devices:
   machine types before 11.2 do.
 
 
+FreeBSD vmm accelerator
+=======================
+
+``-accel bhyve`` runs x86 guests on FreeBSD's vmm(4), the hypervisor under
+bhyve(8), with vmm's local APIC, I/O APIC, and 8259 PICs and Nephrite's
+other devices, after Abhinav Chavali's ``accel-vmm`` branch. It needs a
+vmm.ko and libvmmapi with a QEMU mode (``VM_OP_F_QEMU``) that stock
+FreeBSD does not have yet; configure enables it only where libvmmapi has
+that interface, and ``--vmmapi-libdir`` points it at one that is not
+installed system-wide.
+
+* A triple fault, which vmm turns into a reset of its VM, ends Nephrite
+  instead of resetting the machine.
+
 Bug fixes
 =========
 

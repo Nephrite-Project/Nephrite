@@ -40,6 +40,7 @@
 #include "hw/core/qdev-properties.h"
 #include "hw/core/boards.h"
 #include "system/xen.h"
+#include "system/bhyve.h"
 #include "system/kvm.h"
 #include "system/tcg.h"
 #include "system/qtest.h"
@@ -2204,9 +2205,16 @@ static void ram_block_add(RAMBlock *new_block, Error **errp)
                 return;
             }
         } else {
-            new_block->host = qemu_anon_ram_alloc(new_block->max_length,
+            if (bhyve_enabled()) {
+                new_block->host = bhyve_ram_alloc(new_block->max_length,
                                                   &new_block->mr->align,
-                                                  shared, noreserve);
+                                                  shared | (noreserve << 1),
+                                                  new_block->mr->name);
+            } else {
+                new_block->host = qemu_anon_ram_alloc(new_block->max_length,
+                                                      &new_block->mr->align,
+                                                      shared, noreserve);
+            }
             if (!new_block->host) {
                 g_autofree char *size_s = size_to_str(new_block->max_length);
                 error_setg_errno(errp, errno,

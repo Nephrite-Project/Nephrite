@@ -320,6 +320,7 @@ elif cpu == 'x86_64'
   accelerator_targets += {
     'CONFIG_HVF': ['x86_64-softmmu'],
     'CONFIG_NITRO': ['x86_64-softmmu'],
+    'CONFIG_BHYVE': ['i386-softmmu', 'x86_64-softmmu'],
     'CONFIG_NVMM': ['i386-softmmu', 'x86_64-softmmu'],
     'CONFIG_WHPX': ['x86_64-softmmu'],
     'CONFIG_MSHV': ['x86_64-softmmu'],
@@ -927,6 +928,29 @@ if get_option('nitro').allowed() and host_os == 'linux'
   accelerators += 'CONFIG_NITRO'
 endif
 
+bhyve = not_found
+if get_option('bhyve').allowed() and host_os == 'freebsd'
+  # -accel bhyve needs vmm.ko and libvmmapi with the QEMU-mode interface
+  # (VM_OP_F_QEMU, vm_setup_qmemory(), vm_assist_qio()/vm_assist_qmem());
+  # stock FreeBSD does not have it yet.  vmmapi_libdir points at a patched
+  # libvmmapi that is not installed system-wide.
+  vmmapi_dirs = get_option('vmmapi_libdir') != '' ? [get_option('vmmapi_libdir')] : []
+  bhyve = cc.find_library('vmmapi', required: get_option('bhyve'), static: false,
+                          dirs: vmmapi_dirs)
+  if bhyve.found() and not cc.has_function('vm_setup_qmemory',
+                                           prefix: '#include <sys/types.h>\n' +
+                                                   '#include <vmmapi.h>',
+                                           dependencies: bhyve)
+    if get_option('bhyve').enabled()
+      error('libvmmapi lacks the QEMU-mode interface needed by -accel bhyve')
+    endif
+    bhyve = not_found
+  endif
+  if bhyve.found()
+    accelerators += 'CONFIG_BHYVE'
+  endif
+endif
+
 nvmm = not_found
 if host_os == 'netbsd'
   nvmm = cc.find_library('nvmm', required: get_option('nvmm'))
@@ -970,6 +994,9 @@ if 'CONFIG_HVF' not in accelerators and get_option('hvf').enabled()
 endif
 if 'CONFIG_NITRO' not in accelerators and get_option('nitro').enabled()
   error('NITRO not available on this platform')
+endif
+if 'CONFIG_BHYVE' not in accelerators and get_option('bhyve').enabled()
+  error('Bhyve not available on this platform')
 endif
 if 'CONFIG_NVMM' not in accelerators and get_option('nvmm').enabled()
   error('NVMM not available on this platform')
@@ -4885,6 +4912,7 @@ if have_system
   summary_info += {'Nitro support':     config_all_accel.has_key('CONFIG_NITRO')}
   summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
   summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
+  summary_info += {'Bhyve support':     config_all_accel.has_key('CONFIG_BHYVE')}
   summary_info += {'NVMM support':      config_all_accel.has_key('CONFIG_NVMM')}
   summary_info += {'MSHV support':      config_all_accel.has_key('CONFIG_MSHV')}
   summary_info += {'Xen support':       xen.found()}
