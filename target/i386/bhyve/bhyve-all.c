@@ -12,6 +12,7 @@
 #include "hw/core/boards.h"
 #include "qemu/typedefs.h"
 #include "system/runstate.h"
+#include "system/system.h"
 #include "system/bhyve.h"
 #include "cpu.h"
 #include "host-cpu.h"
@@ -38,7 +39,6 @@
 
 /* -------------------------------------------------------------------------- */
 
-#define VM_NAME "vm0"
 
 struct AccelCPUState {
     struct vcpu *vcpu;
@@ -852,6 +852,7 @@ static int bhyve_vcpu_run(CPUState *cpu)
                 qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
                 cpu->exception_index = EXCP_INTERRUPT;
                 vm_destroy(mach->vm);
+                mach->vm = NULL;
                 rc = 1;
                 break;
             default:
@@ -1338,16 +1339,33 @@ bool bhyve_apic_in_platform(void)
 }
 /* End Kernel IRQchip Processing */
 
-static int do_open(const char *vmname, MachineState *ms)
+static void bhyve_destroy_vm(Notifier *n, void *data)
 {
-    /* Temporary Machine Initialization*/
     struct bhyve_machine *mach = get_bhyve_mach();
-    int err;
 
-    /* Close last VM if it exists */
-    mach->vm = vm_open(vmname);
     if (mach->vm) {
         vm_destroy(mach->vm);
+        mach->vm = NULL;
+    }
+}
+
+static Notifier bhyve_exit_notifier = { .notify = bhyve_destroy_vm };
+
+static int do_open(const char *vmname, MachineState *ms)
+{
+    struct bhyve_machine *mach = get_bhyve_mach();
+    struct vmctx *other;
+    int err;
+
+    /*
+     * vm_openf(VMMAPI_OPEN_CREATE) quietly opens a VM that exists, which
+     * may be someone else's bhyve(8) guest; leave it alone.
+     */
+    other = vm_open(vmname);
+    if (other) {
+        vm_close(other);
+        error_report("bhyve: a VM named '%s' exists already", vmname);
+        return -EEXIST;
     }
 
     mach->vm = vm_openf(vmname, VMMAPI_OPEN_CREATE);
@@ -1356,6 +1374,8 @@ static int do_open(const char *vmname, MachineState *ms)
                      strerror(errno));
         return -errno;
     }
+    /* vmm keeps a VM until it is destroyed; do not leave it behind. */
+    qemu_add_exit_notifier(&bhyve_exit_notifier);
 
     err = vm_set_flags(mach->vm, VM_OP_F_QEMU);
     if (err) {
@@ -1381,10 +1401,10 @@ static int do_open(const char *vmname, MachineState *ms)
 static int
 bhyve_accel_init(AccelState *as, MachineState *ms)
 {
+    g_autofree char *vmname = g_strdup_printf("nephrite-%d", getpid());
     int err;
-    printf("Bhyve Accelerator Machine Initialization\n");
 
-    err = do_open(VM_NAME, ms);
+    err = do_open(vmname, ms);
     if (err) {
         return err;
     }
