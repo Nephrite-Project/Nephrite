@@ -1098,8 +1098,22 @@ static int bhyve_vcpu_run(CPUState *cpu)
             }
             break;
         case VM_EXITCODE_VMX:
+            /*
+             * A failed VM entry (exit reason with bit 31 set, or a
+             * VM-instruction error) or an exit vmm cannot handle.
+             */
+            error_report("bhyve: VMX exit at rip 0x%" PRIx64 ": status %d "
+                         "reason %u qualification 0x%" PRIx64
+                         " inst_type %d inst_error %d",
+                         vme.rip, vme.u.vmx.status, vme.u.vmx.exit_reason,
+                         vme.u.vmx.exit_qualification, vme.u.vmx.inst_type,
+                         vme.u.vmx.inst_error);
             dump_registers(qcpu->vcpu);
-            rc = -1;
+            bql_lock();
+            qemu_system_guest_panicked(cpu_get_crash_info(cpu));
+            bql_unlock();
+            cpu->exception_index = EXCP_INTERRUPT;
+            rc = 1;
             break;
         case VM_EXITCODE_SVM:
             rc = -1;
@@ -1110,11 +1124,14 @@ static int bhyve_vcpu_run(CPUState *cpu)
             printf("Received an IPI\n");
             break;
         default:
-            printf("Unhandled exit. Register Dump...\n");
+            error_report("bhyve: unhandled exit %d at rip 0x%" PRIx64,
+                         exitcode, vme.rip);
             dump_registers(qcpu->vcpu);
             bql_lock();
             qemu_system_guest_panicked(cpu_get_crash_info(cpu));
             bql_unlock();
+            cpu->exception_index = EXCP_INTERRUPT;
+            rc = 1;
             break;
         }
     }
