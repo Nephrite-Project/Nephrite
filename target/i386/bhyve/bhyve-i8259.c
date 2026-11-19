@@ -85,6 +85,14 @@ static void bhyve_pic_set_irq(void *opaque, int irq, int level)
     BhyveI8259PICState *s = opaque;
     int err;
 
+    /*
+     * vmm counts asserts and deasserts per pin and latches an edge only
+     * when the count goes from 0 to 1, so forward changes of level only;
+     * device models set lines to the level they already have.
+     */
+    if (!s->irq_level[irq] == !level) {
+        return;
+    }
     i8259_stat_update_irq(s->irq_count, s->irq_level, irq, level);
     if (level) {
         err = vm_isa_assert_irq(bhyve_mach.vm, irq, -1);

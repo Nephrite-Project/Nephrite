@@ -17,6 +17,8 @@ typedef struct BhyveIOAPICState BhyveIOAPICState;
 
 struct BhyveIOAPICState {
     IOAPICCommonState ioapic;
+    /* Level last forwarded per pin; vmm counts asserts (see set_irq) */
+    bool level[IOAPIC_NUM_PINS];
 };
 
 static void bhyve_ioapic_get(IOAPICCommonState *s)
@@ -41,6 +43,11 @@ static void bhyve_ioapic_set_irq(void *opaque, int irq, int level)
     IOAPICCommonState *common = IOAPIC_COMMON(s);
     int err;
 
+    /* As for the PICs, vmm wants changes of level only. */
+    if (s->level[irq] == !!level) {
+        return;
+    }
+    s->level[irq] = !!level;
     ioapic_stat_update_irq(common, irq, level);
 
     if (level) {
