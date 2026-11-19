@@ -947,6 +947,20 @@ static bool vmx_cet_offered(CPUX86State *env)
     return x86_has_shstk(env) || x86_has_ibt(env);
 }
 
+/*
+ * IA32_VMX_EPT_VPID_CAP, supervisor shadow-stack control there with shadow
+ * stacks, the accesses it is for (Intel SDM 325462-093 Vol. 3D, A.10).
+ */
+static uint64_t vmx_ept_caps(CPUX86State *env)
+{
+    uint64_t caps = env->features[FEAT_VMX_EPT_VPID_CAPS];
+
+    if (!x86_has_shstk(env)) {
+        caps &= ~MSR_VMX_EPT_SUPERVISOR_SHADOW_STACK;
+    }
+    return caps;
+}
+
 static uint32_t vmx_exit_features(CPUX86State *env)
 {
     uint32_t features = env->features[FEAT_VMX_EXIT_CTLS];
@@ -1065,7 +1079,7 @@ bool x86_vmx_read_msr(CPUX86State *env, uint32_t index, uint64_t *val)
                                              VMX_SECONDARY_EXEC_ENABLE_VPID))) {
             return false;
         }
-        *val = env->features[FEAT_VMX_EPT_VPID_CAPS];
+        *val = vmx_ept_caps(env);
         if (secondary & VMX_SECONDARY_EXEC_ENABLE_EPT) {
             *val |= MSR_VMX_EPT_UC | MSR_VMX_EPT_WB;
         }
@@ -2425,8 +2439,8 @@ static void vmx_save_pdptes(CPUX86State *env)
         if (env->pdptrs_valid) {
             pdpte = env->pdptrs[i];
         } else if (x86_vmx_ept_translate(env, (env->cr[3] & ~0x1fULL) + 8 * i,
-                                         MMU_DATA_LOAD, false, &hpa, &prot,
-                                         &size, NULL)) {
+                                         MMU_DATA_LOAD, false, false, &hpa,
+                                         &prot, &size, NULL)) {
             pdpte = x86_ldq_phys(env_cpu(env), hpa);
         }
         x86_vmcs_write(env, VMCS_GUEST_PDPTE(i), pdpte);
@@ -4506,8 +4520,11 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPT_EXEC_USER (1ULL << 10)
 #define EPT_ACCESSED (1ULL << 8)
 #define EPT_DIRTY (1ULL << 9)
+#define EPT_SUPERVISOR_SHADOW_STACK (1ULL << 60)
 #define EPTP_AD (1ULL << 6)
+#define EPTP_SUPERVISOR_SHADOW_STACK (1ULL << 7)
 #define EPT_QUAL_SHADOW_STACK (1 << 13)
+#define EPT_QUAL_SUPERVISOR_SHADOW_STACK (1 << 14)
 #define VMX_EXIT_EPT_VIOLATION 48
 #define VMX_EXIT_EPT_MISCONFIG 49
 #define VMX_EXIT_PML_FULL 62
@@ -4528,6 +4545,17 @@ bool x86_vmx_ept_mbec(CPUX86State *env)
 {
     return x86_vmx_ept_active(env) &&
            (vmx_proc2(env) & VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC);
+}
+
+/*
+ * Supervisor shadow-stack control: EPTP bit 7 has EPT allow supervisor
+ * shadow-stack accesses apart from others (Intel SDM 325462-093 Vol. 3C,
+ * 31.3.3.2), x86_vmx_ept_translate() walking for them with SHADOW_STACK.
+ */
+bool x86_vmx_ept_sss(CPUX86State *env)
+{
+    return x86_vmx_ept_active(env) &&
+           (VMCS(EPT_POINTER) & EPTP_SUPERVISOR_SHADOW_STACK);
 }
 
 /*
@@ -4617,10 +4645,14 @@ bool x86_vmx_ept_debug(CPUX86State *env, uint64_t gpa, uint64_t *hpa)
     }
 }
 
-/* An EPTP a VM entry accepts (Intel SDM 325462-093 Vol. 3C, 29.2.1.1). */
+/*
+ * An EPTP a VM entry accepts (Intel SDM 325462-093 Vol. 3C, 29.2.1.1), with
+ * bit 7, supervisor shadow-stack control, where IA32_VMX_EPT_VPID_CAP
+ * reports it (Table 27-9).
+ */
 static bool vmx_eptp_valid(CPUX86State *env, uint64_t eptp)
 {
-    uint64_t caps = env->features[FEAT_VMX_EPT_VPID_CAPS];
+    uint64_t caps = vmx_ept_caps(env);
     int type = eptp & 7, walk = ((eptp >> 3) & 7) + 1;
 
     /*
@@ -4635,7 +4667,9 @@ static bool vmx_eptp_valid(CPUX86State *env, uint64_t eptp)
         return false;
     }
     if (((eptp & EPTP_AD) && !(caps & MSR_VMX_EPT_AD_BITS)) ||
-        (eptp & 0xf80) || (eptp >> env_archcpu(env)->phys_bits)) {
+        ((eptp & EPTP_SUPERVISOR_SHADOW_STACK) &&
+         !(caps & MSR_VMX_EPT_SUPERVISOR_SHADOW_STACK)) ||
+        (eptp & 0xf00) || (eptp >> env_archcpu(env)->phys_bits)) {
         return false;
     }
     return true;
@@ -4721,12 +4755,17 @@ static void ept_pml_log(CPUX86State *env, hwaddr gpa)
  * mode-based execute control, bit 10 makes an entry present too, and allows
  * the fetches bit 2 then leaves to supervisor-mode linear addresses, those
  * from user-mode ones, a fetch being SUPERVISOR's or not (Intel SDM
- * 325462-093 Vol. 3C, 31.3.2 and 31.3.3.2).
+ * 325462-093 Vol. 3C, 31.3.2 and 31.3.3.2). A supervisor shadow-stack
+ * access under supervisor shadow-stack control, SHADOW_STACK, needs read
+ * access in every entry, write access in those that reference tables, and
+ * bit 60 in the one that maps the page, whose own write access it does not
+ * need; the qualification of any violation under that control has the
+ * latter's bit 60 (Intel SDM 325462-093 Vol. 3C, 31.3.3.2 and Table 30-7).
  */
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
-                           hwaddr *hpa, int *prot, int *page_size,
-                           int *memtype)
+                           bool shadow_stack, hwaddr *hpa, int *prot,
+                           int *page_size, int *memtype)
 {
     CPUState *cs = env_cpu(env);
     uint64_t eptp = VMCS(EPT_POINTER);
@@ -4740,9 +4779,10 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     hwaddr table = eptp & addr_mask;
     uint64_t present = mbec ? 7 | EPT_EXEC_USER : 7;
     uint64_t exec = mbec && !supervisor ? EPT_EXEC_USER : EPT_EXEC;
-    uint64_t perms = present;
+    uint64_t perms = present, tables = EPT_WRITE;
     uint64_t need, entry = 0;
     hwaddr entry_addr = 0;
+    bool leaf = false;
     int level, shift = 12;
 
     env->vmx.ept_misconfig = false;
@@ -4788,11 +4828,15 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
             entry |= EPT_ACCESSED;
         }
         if (large || level == 1) {
+            leaf = true;
             break;
         }
+        tables &= entry;
         table = entry & addr_mask;
     }
-    if (!(perms & need)) {
+    if (shadow_stack ? !(perms & EPT_READ) || !(tables & EPT_WRITE) ||
+                       !(entry & EPT_SUPERVISOR_SHADOW_STACK)
+                     : !(perms & need)) {
         goto violation;
     }
     if (ad && need == EPT_WRITE && !(entry & EPT_DIRTY)) {
@@ -4800,8 +4844,9 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
             goto pml_full;
         }
         if (!ept_set_flags(env, entry_addr, entry, entry | EPT_DIRTY)) {
-            return x86_vmx_ept_translate(env, gpa, access, supervisor, hpa,
-                                         prot, page_size, memtype);
+            return x86_vmx_ept_translate(env, gpa, access, supervisor,
+                                         shadow_stack, hpa, prot, page_size,
+                                         memtype);
         }
         entry |= EPT_DIRTY;
         if (pml) {
@@ -4812,9 +4857,10 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     *hpa = (entry & addr_mask & ~(uint64_t)(*page_size - 1)) |
            (gpa & (*page_size - 1));
     *prot = (perms & EPT_READ ? PAGE_READ : 0) |
-            (perms & exec ? PAGE_EXEC : 0);
+            ((perms & exec) && !shadow_stack ? PAGE_EXEC : 0);
     /* Writes wait for the dirty flag where EPT keeps one. */
-    if ((perms & EPT_WRITE) && (!ad || (entry & EPT_DIRTY))) {
+    if (((perms & EPT_WRITE) || shadow_stack) &&
+        (!ad || (entry & EPT_DIRTY))) {
         *prot |= PAGE_WRITE;
     }
     /* The memory type in bits 5:3 and IPAT, bit 6, of the last entry. */
@@ -4829,6 +4875,10 @@ violation:
     if (level < 1 || (entry & present)) {
         env->vmx.ept_qual |= (perms & entry & 7) << 3 |
                              (perms & entry & EPT_EXEC_USER ? 1 << 6 : 0);
+    }
+    if (leaf && (eptp & EPTP_SUPERVISOR_SHADOW_STACK) &&
+        (entry & EPT_SUPERVISOR_SHADOW_STACK)) {
+        env->vmx.ept_qual |= EPT_QUAL_SUPERVISOR_SHADOW_STACK;
     }
     return false;
 misconfig:

@@ -231,10 +231,11 @@ void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
                        uint64_t eii, target_ulong disp, uintptr_t ra);
 bool x86_vmx_ept_mbec(CPUX86State *env);
 bool x86_vmx_ept_ad(CPUX86State *env);
+bool x86_vmx_ept_sss(CPUX86State *env);
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
-                           hwaddr *hpa, int *prot, int *page_size,
-                           int *memtype);
+                           bool shadow_stack, hwaddr *hpa, int *prot,
+                           int *page_size, int *memtype);
 void x86_vmx_ept_guest_page(CPUX86State *env, uint64_t flags,
                             bool shadow_stack);
 G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,

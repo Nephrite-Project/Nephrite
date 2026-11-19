@@ -970,6 +970,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           MSR_VMX_EPT_PAGE_WALK_LENGTH_5 | \
           MSR_VMX_EPT_AD_BITS | MSR_VMX_EPT_INVEPT | \
           MSR_VMX_EPT_ADVANCED_VMEXIT_INFO | \
+          MSR_VMX_EPT_SUPERVISOR_SHADOW_STACK | \
           MSR_VMX_EPT_INVEPT_SINGLE_CONTEXT | MSR_VMX_EPT_INVEPT_ALL_CONTEXT | \
           MSR_VMX_EPT_INVVPID | MSR_VMX_EPT_INVVPID_SINGLE_ADDR | \
           MSR_VMX_EPT_INVVPID_SINGLE_CONTEXT | \
@@ -1998,7 +1999,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             "vmx-ept-2mb", "vmx-ept-1gb", NULL, NULL,
-            "vmx-invept", "vmx-eptad", "vmx-ept-advanced-exitinfo", NULL,
+            "vmx-invept", "vmx-eptad", "vmx-ept-advanced-exitinfo",
+                "vmx-ept-supervisor-shadow-stack",
             NULL, "vmx-invept-single-context", "vmx-invept-all-context", NULL,
             NULL, NULL, NULL, NULL,
             "vmx-invvpid", NULL, NULL, NULL,

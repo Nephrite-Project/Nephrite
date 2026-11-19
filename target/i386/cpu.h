@@ -1620,6 +1620,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define MSR_VMX_EPT_INVEPT                           (1ULL << 20)
 #define MSR_VMX_EPT_AD_BITS                          (1ULL << 21)
 #define MSR_VMX_EPT_ADVANCED_VMEXIT_INFO             (1ULL << 22)
+#define MSR_VMX_EPT_SUPERVISOR_SHADOW_STACK          (1ULL << 23)
 #define MSR_VMX_EPT_INVEPT_SINGLE_CONTEXT            (1ULL << 25)
 #define MSR_VMX_EPT_INVEPT_ALL_CONTEXT               (1ULL << 26)
 #define MSR_VMX_EPT_INVVPID                          (1ULL << 32)

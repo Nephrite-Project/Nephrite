@@ -201,8 +201,8 @@ Intel VMX, which QEMU's TCG does not have:
 * VMX operation and VMCS access, VMX non-root operation with the full
   VM-entry checks, VM exits, and VMX aborts.
 * EPT with 4-level and 5-level tables, accessed and dirty flags,
-  mode-based execute control, and EPT violations' advanced information
-  and shadow-stack bit; VPID.
+  mode-based execute control, supervisor shadow-stack control, and EPT
+  violations' advanced information and shadow-stack bits; VPID.
 * The TPR shadow, the APIC-access page, APIC-register virtualization,
   virtual-interrupt delivery, posted-interrupt processing, x2APIC
   virtualization, and IPI virtualization with the tertiary controls.
@@ -580,10 +580,9 @@ Known deviations and limits
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no
   PerfMonV2, PEBS, or LBR format.
-* CET: shadow-stack accesses without paging are allowed, EPT has no
-  supervisor-shadow-stack control, nested page fault exit information
-  lacks the shadow-stack bit, and ENDBR is recognized only as exactly
-  ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
+* CET: shadow-stack accesses without paging are allowed, nested page
+  fault exit information lacks the shadow-stack bit, and ENDBR is
+  recognized only as exactly ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * FRED: SYSCALL under FRED does not need IA32_EFER.SCE, as the SDM's
   operation of SYSCALL has it. SVM keeps the FRED MSRs at the state-save
   area offsets of the APM's Table B-2, where the KVM patches AMD posted

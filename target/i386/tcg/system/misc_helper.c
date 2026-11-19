@@ -229,8 +229,8 @@ bool x86_read_pdptes(CPUX86State *env, uint64_t cr3, uint64_t *pdpte,
         hwaddr hpa;
         int prot, size;
 
-        if (!x86_vmx_ept_translate(env, base, MMU_DATA_LOAD, false, &hpa,
-                                   &prot, &size, NULL)) {
+        if (!x86_vmx_ept_translate(env, base, MMU_DATA_LOAD, false, false,
+                                   &hpa, &prot, &size, NULL)) {
             x86_vmx_pdpte_exit(env, base, ra);
         }
         base = hpa;
