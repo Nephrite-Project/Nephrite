@@ -149,6 +149,58 @@ static void dump_registers(struct vcpu *vcpu)
 
 /* -------------------------------------------------------------------------- */
 
+/*
+ * Segment registers.  SegmentCache.flags keeps the descriptor's access
+ * bits where they are in its high doubleword: type, S, DPL, and P in
+ * 15:8, AVL, L, D/B, and G in 23:20.  vmm takes the VMCS access-rights
+ * layout, which has them in 7:0 and 15:12 and an "unusable" bit 16 (SDM
+ * 325462-093 vol. 3C, 27.4.1, table 27-2).  A segment that is not
+ * present is unusable, as target/i386/kvm treats it.
+ */
+#define BHYVE_SEG_UNUSABLE (1u << 16)
+
+static int bhyve_set_seg(struct vcpu *vcpu, int reg, const SegmentCache *qs)
+{
+    uint32_t access = (qs->flags >> 8) & 0xf0ff;
+
+    if (!(qs->flags & DESC_P_MASK)) {
+        access |= BHYVE_SEG_UNUSABLE;
+    }
+    if (vm_set_desc(vcpu, reg, qs->base, qs->limit, access)) {
+        return -1;
+    }
+    return vm_set_register(vcpu, reg, qs->selector);
+}
+
+static int bhyve_get_seg(struct vcpu *vcpu, int reg, SegmentCache *qs)
+{
+    uint64_t base, sel;
+    uint32_t limit, access;
+
+    if (vm_get_desc(vcpu, reg, &base, &limit, &access) ||
+        vm_get_register(vcpu, reg, &sel)) {
+        return -1;
+    }
+    qs->selector = sel;
+    qs->base = base;
+    qs->limit = limit;
+    qs->flags = (access & BHYVE_SEG_UNUSABLE) ? 0 : (access & 0xf0ff) << 8;
+    return 0;
+}
+
+static int bhyve_get_dt(struct vcpu *vcpu, int reg, SegmentCache *dt)
+{
+    uint64_t base;
+    uint32_t limit, access;
+
+    if (vm_get_desc(vcpu, reg, &base, &limit, &access)) {
+        return -1;
+    }
+    dt->base = base;
+    dt->limit = limit;
+    return 0;
+}
+
 static int vmm_set_registers(CPUState *cpu)
 {
     CPUX86State *env = cpu_env(cpu);
@@ -236,46 +288,26 @@ static int vmm_set_registers(CPUState *cpu)
         return ret;
     }
 
-    /* Segment Registers (Selectors only) */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_CS, env->segs[R_CS].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DS, env->segs[R_DS].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_ES, env->segs[R_ES].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_SS, env->segs[R_SS].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_FS, env->segs[R_FS].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_GS, env->segs[R_GS].selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_LDTR, env->ldt.selector);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_TR, env->tr.selector);
-    if (ret != 0) {
-        return ret;
+    /* Segment registers: selector and hidden base, limit, and access */
+    if (bhyve_set_seg(vcpu, VM_REG_GUEST_CS, &env->segs[R_CS]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_DS, &env->segs[R_DS]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_ES, &env->segs[R_ES]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_SS, &env->segs[R_SS]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_FS, &env->segs[R_FS]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_GS, &env->segs[R_GS]) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_LDTR, &env->ldt) ||
+        bhyve_set_seg(vcpu, VM_REG_GUEST_TR, &env->tr)) {
+        return -1;
     }
 
-    /* Descriptor Table Registers (Base and Limit) */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_GDTR, env->gdt.base);
+    /* Descriptor table registers: base and limit */
+    ret = vm_set_desc(vcpu, VM_REG_GUEST_GDTR, env->gdt.base, env->gdt.limit,
+                      0);
     if (ret != 0) {
         return ret;
     }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_IDTR, env->idt.base);
+    ret = vm_set_desc(vcpu, VM_REG_GUEST_IDTR, env->idt.base, env->idt.limit,
+                      0);
     if (ret != 0) {
         return ret;
     }
@@ -471,67 +503,23 @@ static int vmm_get_registers(CPUState *cpu)
     }
     env->eflags = val;
 
-    /* Segment Registers (Selectors only) */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_CS, &val);
-    if (ret != 0) {
-        return ret;
+    /* Segment registers: selector and hidden base, limit, and access */
+    if (bhyve_get_seg(vcpu, VM_REG_GUEST_CS, &env->segs[R_CS]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_DS, &env->segs[R_DS]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_ES, &env->segs[R_ES]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_SS, &env->segs[R_SS]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_FS, &env->segs[R_FS]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_GS, &env->segs[R_GS]) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_LDTR, &env->ldt) ||
+        bhyve_get_seg(vcpu, VM_REG_GUEST_TR, &env->tr)) {
+        return -1;
     }
-    env->segs[R_CS].selector = (uint16_t)val;
 
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DS, &val);
-    if (ret != 0) {
-        return ret;
+    /* Descriptor table registers: base and limit */
+    if (bhyve_get_dt(vcpu, VM_REG_GUEST_GDTR, &env->gdt) ||
+        bhyve_get_dt(vcpu, VM_REG_GUEST_IDTR, &env->idt)) {
+        return -1;
     }
-    env->segs[R_DS].selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_ES, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_ES].selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_SS, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_SS].selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_FS, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_FS].selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_GS, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_GS].selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_LDTR, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->ldt.selector = (uint16_t)val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_TR, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->tr.selector = (uint16_t)val;
-
-    /* Descriptor Table Registers (Base only) */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_GDTR, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->gdt.base = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_IDTR, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->idt.base = val;
 
     /* Control Registers */
     ret = vm_get_register(vcpu, VM_REG_GUEST_CR0, &val);
