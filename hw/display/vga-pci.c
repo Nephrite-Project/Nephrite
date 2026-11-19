@@ -43,7 +43,15 @@ enum vga_pci_flags {
     PCI_VGA_FLAG_ENABLE_QEXT = 2,
     PCI_VGA_FLAG_ENABLE_EDID = 3,
     PCI_VGA_FLAG_BAR0_64BIT = 4,
+    PCI_VGA_FLAG_DISPI_IO = 5,
 };
+
+/*
+ * The Bochs VBE DISPI ports in an I/O BAR, laid out as at 0x1ce: a bridge
+ * forwards its devices' I/O BARs, but not the legacy DISPI ports.
+ */
+#define PCI_VGA_DISPI_IO_BAR 4
+#define PCI_VGA_DISPI_IO_SIZE 4
 
 struct PCIVGAState {
     PCIDevice dev;
@@ -52,6 +60,8 @@ struct PCIVGAState {
     qemu_edid_info edid_info;
     MemoryRegion mmio;
     MemoryRegion mrs[4];
+    MemoryRegion dispi_io;
+    PortioList dispi_ports;
     uint8_t edid[384];
 };
 
@@ -137,6 +147,13 @@ static void pci_vga_bochs_write(void *ptr, hwaddr addr,
     vbe_ioport_write_index(s, 0, index);
     vbe_ioport_write_data(s, 0, val);
 }
+
+static const MemoryRegionPortio pci_vga_dispi_portio[] = {
+    { 0, 1, 2, .read = vbe_ioport_read_index, .write = vbe_ioport_write_index },
+    { 1, 1, 2, .read = vbe_ioport_read_data, .write = vbe_ioport_write_data },
+    { 2, 1, 2, .read = vbe_ioport_read_data, .write = vbe_ioport_write_data },
+    PORTIO_END_OF_LIST(),
+};
 
 static const MemoryRegionOps pci_vga_bochs_ops = {
     .read = pci_vga_bochs_read,
@@ -274,6 +291,16 @@ static void pci_std_vga_realize(PCIDevice *dev, Error **errp)
 
         pci_register_bar(&d->dev, 2, PCI_BASE_ADDRESS_SPACE_MEMORY, &d->mmio);
     }
+
+    if (d->flags & (1 << PCI_VGA_FLAG_DISPI_IO)) {
+        memory_region_init(&d->dispi_io, OBJECT(dev), "vga.dispi-io",
+                           PCI_VGA_DISPI_IO_SIZE);
+        portio_list_init(&d->dispi_ports, OBJECT(dev), pci_vga_dispi_portio,
+                         s, "vbe-bar");
+        portio_list_add(&d->dispi_ports, &d->dispi_io, 0);
+        pci_register_bar(&d->dev, PCI_VGA_DISPI_IO_BAR,
+                         PCI_BASE_ADDRESS_SPACE_IO, &d->dispi_io);
+    }
 }
 
 static void pci_secondary_vga_realize(PCIDevice *dev, Error **errp)
@@ -338,6 +365,8 @@ static void pci_secondary_vga_reset(DeviceState *dev)
 static const Property vga_pci_properties[] = {
     DEFINE_PROP_UINT32("vgamem_mb", PCIVGAState, vga.vram_size_mb, 16),
     DEFINE_PROP_BIT("mmio", PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_MMIO, true),
+    DEFINE_PROP_BIT("dispi-io", PCIVGAState, flags,
+                    PCI_VGA_FLAG_DISPI_IO, true),
     DEFINE_PROP_BIT("qemu-extended-regs",
                     PCIVGAState, flags, PCI_VGA_FLAG_ENABLE_QEXT, true),
     DEFINE_PROP_BIT("edid",

@@ -303,6 +303,10 @@ Processor features:
 Devices:
 
 * A ``vga-pci`` property for a 64-bit framebuffer BAR.
+* The standard VGA (``-device VGA``) also decodes the Bochs VBE DISPI ports
+  in an I/O BAR 4, laid out as at 1CEh, which reaches it behind a bridge,
+  where the legacy ports do not; ``dispi-io=off`` leaves the BAR out, as
+  machine types before 11.2 do.
 
 
 Bug fixes
