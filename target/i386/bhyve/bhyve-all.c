@@ -14,6 +14,7 @@
 #include "system/runstate.h"
 #include "system/bhyve.h"
 #include "cpu.h"
+#include "host-cpu.h"
 #include "system/address-spaces.h"
 #include "system/ioport.h"
 #include "qemu/main-loop.h"
@@ -59,28 +60,15 @@ bhyve_enabled(void)
 
 static enum host_vendor get_cpu_vendor(void)
 {
-    unsigned int eax = 0;
-    unsigned int regs[4];
-    char vendor[13];
+    char vendor[CPUID_VENDOR_SZ + 1];
 
-    __asm__ __volatile__("cpuid"
-                         : "=a"(regs[0]), "=b"(regs[1]), "=c"(regs[2]),
-                           "=d"(regs[3])
-                         : "a"(eax)
-    );
-
-    *(unsigned int *)(vendor + 0) = regs[0]; /* EBX */
-    *(unsigned int *)(vendor + 4) = regs[2]; /* EDX */
-    *(unsigned int *)(vendor + 8) = regs[1]; /* ECX */
-    vendor[12] = '\0';
-
-    if (strstr(vendor, "Intel")) {
+    host_cpu_vendor_fms(vendor, NULL, NULL, NULL);
+    if (!strcmp(vendor, CPUID_VENDOR_INTEL)) {
         return VENDOR_INTEL;
-    } else if (strstr(vendor, "AMD")) {
+    } else if (!strcmp(vendor, CPUID_VENDOR_AMD)) {
         return VENDOR_AMD;
-    } else {
-        return VENDOR_UNKNOWN;
     }
+    return VENDOR_UNKNOWN;
 }
 
 /* -------------------------------------------------------------------------- */
