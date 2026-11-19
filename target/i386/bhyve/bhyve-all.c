@@ -207,86 +207,44 @@ static int vmm_set_registers(CPUState *cpu)
     AccelCPUState *qcpu = cpu->accel;
     struct vcpu *vcpu = qcpu->vcpu;
 
-    /* GPRs */
-    int ret;
+    int ret, err = 0;
+
+    /*
+     * Go on past a register that fails, so that one failure cannot
+     * leave EFER and the control registers unwritten, and say which.
+     */
+#define SETREG(reg, val) do {                                           \
+        ret = vm_set_register(vcpu, (reg), (val));                      \
+        if (ret != 0) {                                                 \
+            error_report("bhyve: setting %s failed: %s", #reg,          \
+                         strerror(errno));                              \
+            err = ret;                                                  \
+        }                                                               \
+    } while (0)
 
     /* General-Purpose Registers */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RAX, env->regs[R_EAX]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RBX, env->regs[R_EBX]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RCX, env->regs[R_ECX]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RDX, env->regs[R_EDX]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RSI, env->regs[R_ESI]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RDI, env->regs[R_EDI]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RBP, env->regs[R_EBP]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RSP, env->regs[R_ESP]);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_RAX, env->regs[R_EAX]);
+    SETREG(VM_REG_GUEST_RBX, env->regs[R_EBX]);
+    SETREG(VM_REG_GUEST_RCX, env->regs[R_ECX]);
+    SETREG(VM_REG_GUEST_RDX, env->regs[R_EDX]);
+    SETREG(VM_REG_GUEST_RSI, env->regs[R_ESI]);
+    SETREG(VM_REG_GUEST_RDI, env->regs[R_EDI]);
+    SETREG(VM_REG_GUEST_RBP, env->regs[R_EBP]);
+    SETREG(VM_REG_GUEST_RSP, env->regs[R_ESP]);
 #ifdef TARGET_X86_64
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R8, env->regs[R_R8]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R9, env->regs[R_R9]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R10, env->regs[R_R10]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R11, env->regs[R_R11]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R12, env->regs[R_R12]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R13, env->regs[R_R13]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R14, env->regs[R_R14]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_R15, env->regs[R_R15]);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_R8, env->regs[R_R8]);
+    SETREG(VM_REG_GUEST_R9, env->regs[R_R9]);
+    SETREG(VM_REG_GUEST_R10, env->regs[R_R10]);
+    SETREG(VM_REG_GUEST_R11, env->regs[R_R11]);
+    SETREG(VM_REG_GUEST_R12, env->regs[R_R12]);
+    SETREG(VM_REG_GUEST_R13, env->regs[R_R13]);
+    SETREG(VM_REG_GUEST_R14, env->regs[R_R14]);
+    SETREG(VM_REG_GUEST_R15, env->regs[R_R15]);
 #endif
 
     /* RIP and RFLAGS */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RIP, env->eip);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_RFLAGS, env->eflags);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_RIP, env->eip);
+    SETREG(VM_REG_GUEST_RFLAGS, env->eflags);
 
     /* Segment registers: selector and hidden base, limit, and access */
     if (bhyve_set_seg(vcpu, VM_REG_GUEST_CS, &env->segs[R_CS]) ||
@@ -297,90 +255,57 @@ static int vmm_set_registers(CPUState *cpu)
         bhyve_set_seg(vcpu, VM_REG_GUEST_GS, &env->segs[R_GS]) ||
         bhyve_set_seg(vcpu, VM_REG_GUEST_LDTR, &env->ldt) ||
         bhyve_set_seg(vcpu, VM_REG_GUEST_TR, &env->tr)) {
-        return -1;
+        error_report("bhyve: setting segment registers failed: %s",
+                     strerror(errno));
+        err = -1;
     }
 
     /* Descriptor table registers: base and limit */
-    ret = vm_set_desc(vcpu, VM_REG_GUEST_GDTR, env->gdt.base, env->gdt.limit,
-                      0);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_desc(vcpu, VM_REG_GUEST_IDTR, env->idt.base, env->idt.limit,
-                      0);
-    if (ret != 0) {
-        return ret;
+    if (vm_set_desc(vcpu, VM_REG_GUEST_GDTR, env->gdt.base, env->gdt.limit,
+                    0) ||
+        vm_set_desc(vcpu, VM_REG_GUEST_IDTR, env->idt.base, env->idt.limit,
+                    0)) {
+        error_report("bhyve: setting GDTR/IDTR failed: %s", strerror(errno));
+        err = -1;
     }
 
     /* Control Registers */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_CR0, env->cr[0]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_CR2, env->cr[2]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_CR3, env->cr[3]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_CR4, env->cr[4]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_TPR, qcpu->tpr);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_CR0, env->cr[0]);
+    SETREG(VM_REG_GUEST_CR2, env->cr[2]);
+    SETREG(VM_REG_GUEST_CR3, env->cr[3]);
+    SETREG(VM_REG_GUEST_CR4, env->cr[4]);
+    SETREG(VM_REG_GUEST_TPR, qcpu->tpr);
 
     /* Debug Registers */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR0, env->dr[0]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR1, env->dr[1]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR2, env->dr[2]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR3, env->dr[3]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR6, env->dr[6]);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_DR7, env->dr[7]);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_DR0, env->dr[0]);
+    SETREG(VM_REG_GUEST_DR1, env->dr[1]);
+    SETREG(VM_REG_GUEST_DR2, env->dr[2]);
+    SETREG(VM_REG_GUEST_DR3, env->dr[3]);
+    SETREG(VM_REG_GUEST_DR6, env->dr[6]);
+    SETREG(VM_REG_GUEST_DR7, env->dr[7]);
 
     /* MSRs */
-    ret = vm_set_register(vcpu, VM_REG_GUEST_EFER, env->efer);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_EFER, env->efer);
 #ifdef TARGET_X86_64
-    ret = vm_set_register(vcpu, VM_REG_GUEST_FS_BASE, env->segs[R_FS].base);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_GS_BASE, env->segs[R_GS].base);
-    if (ret != 0) {
-        return ret;
-    }
-    ret = vm_set_register(vcpu, VM_REG_GUEST_KGS_BASE, env->kernelgsbase);
-    if (ret != 0) {
-        return ret;
-    }
+    SETREG(VM_REG_GUEST_FS_BASE, env->segs[R_FS].base);
+    SETREG(VM_REG_GUEST_GS_BASE, env->segs[R_GS].base);
+    SETREG(VM_REG_GUEST_KGS_BASE, env->kernelgsbase);
 #endif
 
-    return 0; /* Success */
+#undef SETREG
+    return err;
+}
+
+static int bhyve_getreg(struct vcpu *vcpu, int reg, const char *name,
+                        uint64_t *val, int *err)
+{
+    int ret = vm_get_register(vcpu, reg, val);
+
+    if (ret != 0) {
+        error_report("bhyve: reading %s failed: %s", name, strerror(errno));
+        *err = ret;
+    }
+    return ret;
 }
 
 static int vmm_get_registers(CPUState *cpu)
@@ -389,119 +314,39 @@ static int vmm_get_registers(CPUState *cpu)
     AccelCPUState *qcpu = cpu->accel;
     struct vcpu *vcpu = qcpu->vcpu;
     uint64_t val;
-    int ret;
+    int err = 0;
+
+    /* Like vmm_set_registers(): go on past a register that fails. */
+#define GETREG(reg, lval) do {                                          \
+        if (!bhyve_getreg(vcpu, (reg), #reg, &val, &err)) {             \
+            (lval) = val;                                               \
+        }                                                               \
+    } while (0)
 
     /* General-Purpose Registers */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RAX, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_EAX] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RBX, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_EBX] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RCX, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_ECX] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RDX, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_EDX] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RSI, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_ESI] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RDI, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_EDI] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RBP, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_EBP] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RSP, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_ESP] = val;
+    GETREG(VM_REG_GUEST_RAX, env->regs[R_EAX]);
+    GETREG(VM_REG_GUEST_RBX, env->regs[R_EBX]);
+    GETREG(VM_REG_GUEST_RCX, env->regs[R_ECX]);
+    GETREG(VM_REG_GUEST_RDX, env->regs[R_EDX]);
+    GETREG(VM_REG_GUEST_RSI, env->regs[R_ESI]);
+    GETREG(VM_REG_GUEST_RDI, env->regs[R_EDI]);
+    GETREG(VM_REG_GUEST_RBP, env->regs[R_EBP]);
+    GETREG(VM_REG_GUEST_RSP, env->regs[R_ESP]);
 
 #ifdef TARGET_X86_64
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R8, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R8] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R9, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R9] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R10, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R10] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R11, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R11] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R12, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R12] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R13, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R13] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R14, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R14] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_R15, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->regs[R_R15] = val;
+    GETREG(VM_REG_GUEST_R8, env->regs[R_R8]);
+    GETREG(VM_REG_GUEST_R9, env->regs[R_R9]);
+    GETREG(VM_REG_GUEST_R10, env->regs[R_R10]);
+    GETREG(VM_REG_GUEST_R11, env->regs[R_R11]);
+    GETREG(VM_REG_GUEST_R12, env->regs[R_R12]);
+    GETREG(VM_REG_GUEST_R13, env->regs[R_R13]);
+    GETREG(VM_REG_GUEST_R14, env->regs[R_R14]);
+    GETREG(VM_REG_GUEST_R15, env->regs[R_R15]);
 #endif
 
     /* RIP and RFLAGS */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RIP, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->eip = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_RFLAGS, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->eflags = val;
+    GETREG(VM_REG_GUEST_RIP, env->eip);
+    GETREG(VM_REG_GUEST_RFLAGS, env->eflags);
 
     /* Segment registers: selector and hidden base, limit, and access */
     if (bhyve_get_seg(vcpu, VM_REG_GUEST_CS, &env->segs[R_CS]) ||
@@ -512,111 +357,44 @@ static int vmm_get_registers(CPUState *cpu)
         bhyve_get_seg(vcpu, VM_REG_GUEST_GS, &env->segs[R_GS]) ||
         bhyve_get_seg(vcpu, VM_REG_GUEST_LDTR, &env->ldt) ||
         bhyve_get_seg(vcpu, VM_REG_GUEST_TR, &env->tr)) {
-        return -1;
+        error_report("bhyve: reading segment registers failed: %s",
+                     strerror(errno));
+        err = -1;
     }
 
     /* Descriptor table registers: base and limit */
     if (bhyve_get_dt(vcpu, VM_REG_GUEST_GDTR, &env->gdt) ||
         bhyve_get_dt(vcpu, VM_REG_GUEST_IDTR, &env->idt)) {
-        return -1;
+        error_report("bhyve: reading GDTR/IDTR failed: %s", strerror(errno));
+        err = -1;
     }
 
     /* Control Registers */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_CR0, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->cr[0] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_CR2, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->cr[2] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_CR3, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->cr[3] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_CR4, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->cr[4] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_TPR, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    qcpu->tpr = val;
+    GETREG(VM_REG_GUEST_CR0, env->cr[0]);
+    GETREG(VM_REG_GUEST_CR2, env->cr[2]);
+    GETREG(VM_REG_GUEST_CR3, env->cr[3]);
+    GETREG(VM_REG_GUEST_CR4, env->cr[4]);
+    GETREG(VM_REG_GUEST_TPR, qcpu->tpr);
 
     /* Debug Registers */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR0, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[0] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR1, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[1] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR2, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[2] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR3, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[3] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR6, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[6] = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_DR7, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->dr[7] = val;
+    GETREG(VM_REG_GUEST_DR0, env->dr[0]);
+    GETREG(VM_REG_GUEST_DR1, env->dr[1]);
+    GETREG(VM_REG_GUEST_DR2, env->dr[2]);
+    GETREG(VM_REG_GUEST_DR3, env->dr[3]);
+    GETREG(VM_REG_GUEST_DR6, env->dr[6]);
+    GETREG(VM_REG_GUEST_DR7, env->dr[7]);
 
     /* MSRs */
-    ret = vm_get_register(vcpu, VM_REG_GUEST_EFER, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->efer = val;
+    GETREG(VM_REG_GUEST_EFER, env->efer);
 
 #ifdef TARGET_X86_64
-    ret = vm_get_register(vcpu, VM_REG_GUEST_FS_BASE, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_FS].base = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_GS_BASE, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->segs[R_GS].base = val;
-
-    ret = vm_get_register(vcpu, VM_REG_GUEST_KGS_BASE, &val);
-    if (ret != 0) {
-        return ret;
-    }
-    env->kernelgsbase = val;
+    GETREG(VM_REG_GUEST_FS_BASE, env->segs[R_FS].base);
+    GETREG(VM_REG_GUEST_GS_BASE, env->segs[R_GS].base);
+    GETREG(VM_REG_GUEST_KGS_BASE, env->kernelgsbase);
 #endif
 
-    return 0; /* Success */
+#undef GETREG
+    return err;
 }
 
 /* -------------------------------------------------------------------------- */
