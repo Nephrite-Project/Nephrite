@@ -315,6 +315,11 @@ Processor features:
   it knows as hybrid.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
+* Architectural LBRs, with the PMU: 32 records filtered by branch type
+  and CPL, call-stack mode, the last event record, IA32_LBR_DEPTH, the LBR
+  state component of XSAVES and XRSTORS, and what #DB, SMIs, RSM, and INIT
+  do to them; IA32_DEBUGCTL's bit 0 then reads as 0 and
+  IA32_PERF_CAPABILITIES.LBR_FMT is 3FH.
 * OS bus-lock detection (DebugCtl.BLD): a trap-like #DB that clears
   DR6.BLD after an instruction at CPL > 0 whose locked access splits a
   cache line or has a memory type other than WB, which TLB entries keep
@@ -622,6 +627,9 @@ Known deviations and limits
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no PEBS
   or LBR format.
+* Architectural LBRs: MISPRED marks the near indirect jumps and calls, as
+  the PMU's branch-miss model has it, and there are no cycle times or
+  event logging.
 * CET: shadow-stack accesses without paging are allowed, nested page
   fault exit information lacks the shadow-stack bit, and ENDBR is
   recognized only as exactly ``F3 0F 1E FA`` and ``F3 0F 1E FB``.

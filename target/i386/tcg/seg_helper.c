@@ -1556,20 +1556,25 @@ static void do_interrupt_real(CPUX86State *env, int intno, int is_int,
  * instruction. It is only relevant if is_int is TRUE.
  */
 /*
- * A delivered interrupt or exception is a control transfer from FROM that
- * DebugCtl.LBR has recorded, LastIntFromIP and LastIntToIP taking the last
- * branch before it but for #MC; a #DB, ICEBP's too, records nothing and
- * clears DebugCtl.LBR and DebugCtl.BTF (AMD64 Architecture Programmer's
- * Manual Volume 2, 24593 rev. 3.45, 13.1.6.1 and 13.1.6.2).
+ * A delivered interrupt or exception is a control transfer from FROM, at
+ * CPL, that DebugCtl.LBR has recorded, LastIntFromIP and LastIntToIP
+ * taking the last branch before it but for #MC; a #DB, ICEBP's too,
+ * records nothing and clears DebugCtl.LBR and DebugCtl.BTF (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, 13.1.6.1 and
+ * 13.1.6.2), and IA32_LBR_CTL.LBREn of the architectural LBRs (Intel SDM
+ * 325462-093 Vol. 3B, 21.1.4.5).
  */
 static void x86_lbr_interrupt(CPUX86State *env, int intno, int is_int,
-                              target_ulong from)
+                              target_ulong from, int cpl)
 {
     if (intno == EXCP01_DB && !is_int) {
         env->debugctl &= ~(DEBUGCTL_LBR | DEBUGCTL_BTF);
+        env->msr_lbr_ctl &= ~ARCH_LBR_CTL_LBREN;
         return;
     }
-    if (env->debugctl & DEBUGCTL_LBR) {
+    if (x86_has_arch_lbr(env)) {
+        x86_arch_lbr_event(env, from, cpl);
+    } else if (env->debugctl & DEBUGCTL_LBR) {
         if (intno != EXCP12_MCHK || is_int) {
             env->lbr_int_from = env->lbr_from;
             env->lbr_int_to = env->lbr_to;
@@ -1608,6 +1613,7 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
     CPUX86State *env = &cpu->env;
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
     target_ulong from = env->eip;
+    int cpl = env->hflags & HF_CPL_MASK;
 
     env->iret_nmi_unblocked = false;
 #if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
@@ -1726,7 +1732,7 @@ void do_interrupt_all(X86CPU *cpu, int intno, int is_int,
 #if !defined(CONFIG_USER_ONLY)
     x86_pmu_event_end(env);
 #endif
-    x86_lbr_interrupt(env, intno, is_int, from);
+    x86_lbr_interrupt(env, intno, is_int, from, cpl);
     qemu_plugin_vcpu_interrupt_cb(CPU(cpu), last_pc);
 }
 
@@ -3559,7 +3565,9 @@ static void fred_return(CPUX86State *env, uint64_t ss, target_ulong from,
         iret_unblock_nmis(env);
     }
     if ((ss & FRED_SS_SYS) && (env->eflags & TF_MASK)) {
-        if (env->debugctl & DEBUGCTL_LBR) {
+        if (x86_has_arch_lbr(env)) {
+            x86_arch_lbr_record(env, from, env->eip, X86_LBR_OTHER, 0);
+        } else if (env->debugctl & DEBUGCTL_LBR) {
             env->lbr_from = from;
             env->lbr_to = env->eip;
         }

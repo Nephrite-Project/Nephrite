@@ -122,6 +122,8 @@ typedef struct DisasContext {
     uint8_t evex4;
     bool jmp_opt; /* use direct block chaining for direct jumps */
     bool branch; /* the instruction transfers control, as BTF steps */
+    /* An architectural LBR's branch type for the instruction's transfer. */
+    uint8_t lbr_type;
     bool movss_step; /* MOV or POP SS suppressed TF's trap */
     bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */
@@ -767,7 +769,17 @@ static TCGv eip_cur_tl(DisasContext *s)
  */
 static void gen_branch_from(DisasContext *s, TCGv from, TCGv to)
 {
-    if (s->flags & HF_LBR_MASK) {
+    if ((s->flags & HF_LBR_MASK) &&
+        (s->cpuid_7_0_edx_features & CPUID_7_0_EDX_ARCH_LBR)) {
+#ifndef CONFIG_USER_ONLY
+        /* The architectural LBRs, by branch type and CPL. */
+        if (s->lbr_type != X86_LBR_NONE) {
+            gen_helper_arch_lbr(tcg_env, from, to,
+                                tcg_constant_i32(s->lbr_type |
+                                                 (CPL(s) ? 0x10 : 0)));
+        }
+#endif
+    } else if (s->flags & HF_LBR_MASK) {
         tcg_gen_st_tl(from, tcg_env, offsetof(CPUX86State, lbr_from));
         tcg_gen_st_tl(to, tcg_env, offsetof(CPUX86State, lbr_to));
     }
@@ -2338,6 +2350,7 @@ static void gen_conditional_jump_labels(DisasContext *s, target_long diff,
 
     gen_set_label(taken);
     gen_rel_target_check(s, s->dflag, diff);
+    s->lbr_type = X86_LBR_COND;
     gen_branch_rel(s, s->dflag, diff);
     gen_jmp_rel(s, s->dflag, diff, 0);
 }

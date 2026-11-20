@@ -1632,6 +1632,8 @@ static void gen_CALL(DisasContext *s, X86DecodedInsn *decode)
     gen_rel_target_check(s, s->dflag, decode->immediate);
     gen_call_push(s, decode->immediate != 0);
     gen_update_cc_op(s);
+    /* Architectural LBRs leave out a CALL to the next instruction. */
+    s->lbr_type = decode->immediate ? X86_LBR_NEAR_REL_CALL : X86_LBR_NONE;
     gen_branch_rel(s, s->dflag, decode->immediate);
     gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
@@ -1640,6 +1642,7 @@ static void gen_CALL_m(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_target_check(s, s->dflag, s->T0);
     gen_call_push(s, true);
+    s->lbr_type = X86_LBR_NEAR_IND_CALL;
     gen_jmp_m(s, decode);
 }
 
@@ -2601,6 +2604,7 @@ static void gen_JMP(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
     gen_rel_target_check(s, s->dflag, decode->immediate);
+    s->lbr_type = X86_LBR_NEAR_REL_JMP;
     gen_branch_rel(s, s->dflag, decode->immediate);
     gen_jmp_rel(s, s->dflag, decode->immediate, 0);
 }
@@ -2638,6 +2642,12 @@ static void gen_jmp_m(DisasContext *s, X86DecodedInsn *decode)
 {
     if (decode->e.op1 != X86_TYPE_I) {
         gen_ibt_track(s);
+        if (s->lbr_type == X86_LBR_OTHER) {
+            s->lbr_type = X86_LBR_NEAR_IND_JMP;
+        }
+    } else {
+        /* So it is to LBRs (Intel APX 355828-009, 7.1.2). */
+        s->lbr_type = X86_LBR_NEAR_REL_JMP;
     }
     gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
@@ -4321,6 +4331,8 @@ static void gen_RET(DisasContext *s, X86DecodedInsn *decode)
     }
 #endif
     gen_stack_update(s, adjust + (1 << ot));
+    /* RET imm16, C2H, is an OTHER_BRANCH (Table 21-2). */
+    s->lbr_type = adjust ? X86_LBR_OTHER : X86_LBR_NEAR_RET;
     gen_branch(s, s->T0);
     gen_op_jmp_v(s, s->T0);
     gen_bnd_jmp(s);

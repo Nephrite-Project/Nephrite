@@ -2836,6 +2836,79 @@ static uint32_t xsave_extent(uint64_t xcomp_bv, uint64_t mask)
     return extent;
 }
 
+/*
+ * The LBR state component: IA32_LBR_CTL, IA32_LBR_DEPTH, the last event
+ * record, and the records below the depth (Intel SDM 325462-093 Vol. 1,
+ * 13.5.12).
+ */
+static void do_xsave_arch_lbr(X86Access *ac, target_ulong addr)
+{
+    CPUX86State *env = ac->env;
+
+    access_stq(ac, addr + offsetof(XSaveArchLBR, lbr_ctl), env->msr_lbr_ctl);
+    access_stq(ac, addr + offsetof(XSaveArchLBR, lbr_depth),
+               env->msr_lbr_depth);
+    access_stq(ac, addr + offsetof(XSaveArchLBR, ler_from), env->ler_from);
+    access_stq(ac, addr + offsetof(XSaveArchLBR, ler_to), env->ler_to);
+    access_stq(ac, addr + offsetof(XSaveArchLBR, ler_info), env->ler_info);
+    for (unsigned i = 0; i < MIN(env->msr_lbr_depth, ARCH_LBR_NR_ENTRIES);
+         i++) {
+        target_ulong rec = addr + offsetof(XSaveArchLBR, lbr_records[i]);
+
+        access_stq(ac, rec + offsetof(LBREntry, from),
+                   env->lbr_records[i].from);
+        access_stq(ac, rec + offsetof(LBREntry, to), env->lbr_records[i].to);
+        access_stq(ac, rec + offsetof(LBREntry, info),
+                   env->lbr_records[i].info);
+    }
+}
+
+/*
+ * XRSTORS of the LBR state component, LOAD clear to initialise it: then
+ * IA32_LBR_DEPTH stays and the other MSRs become 0, and a load takes the
+ * records only where the image's depth is the current one, clearing them
+ * otherwise (Intel SDM 325462-093 Vol. 1, 13.5.12), the values made what
+ * WRMSR makes them.
+ */
+static void do_xrstor_arch_lbr(X86Access *ac, target_ulong addr, bool load)
+{
+    CPUX86State *env = ac->env;
+    int width = cpu_x86_virtual_addr_width(env);
+    bool records = load &&
+        access_ldq(ac, addr + offsetof(XSaveArchLBR, lbr_depth)) ==
+        env->msr_lbr_depth;
+
+    memset(env->lbr_records, 0, sizeof(env->lbr_records));
+    if (!load) {
+        env->msr_lbr_ctl = 0;
+        env->ler_from = 0;
+        env->ler_to = 0;
+        env->ler_info = 0;
+        return;
+    }
+    env->msr_lbr_ctl = access_ldq(ac, addr + offsetof(XSaveArchLBR, lbr_ctl));
+    env->ler_from = sextract64(access_ldq(ac, addr +
+                                          offsetof(XSaveArchLBR, ler_from)),
+                               0, width);
+    env->ler_to = sextract64(access_ldq(ac, addr +
+                                        offsetof(XSaveArchLBR, ler_to)),
+                             0, width);
+    env->ler_info = access_ldq(ac, addr + offsetof(XSaveArchLBR, ler_info)) &
+                    ARCH_LBR_INFO_BITS;
+    for (unsigned i = 0;
+         records && i < MIN(env->msr_lbr_depth, ARCH_LBR_NR_ENTRIES); i++) {
+        target_ulong rec = addr + offsetof(XSaveArchLBR, lbr_records[i]);
+        LBREntry *r = &env->lbr_records[i];
+
+        r->from = sextract64(access_ldq(ac, rec + offsetof(LBREntry, from)),
+                             0, width);
+        r->to = sextract64(access_ldq(ac, rec + offsetof(LBREntry, to)),
+                           0, width);
+        r->info = access_ldq(ac, rec + offsetof(LBREntry, info)) &
+                  ARCH_LBR_INFO_BITS;
+    }
+}
+
 static void do_xsave_component(X86Access *ac, int i, target_ulong addr)
 {
     CPUX86State *env = ac->env;
@@ -2870,6 +2943,9 @@ static void do_xsave_component(X86Access *ac, int i, target_ulong addr)
         access_stq(ac, addr + 24, env->uintr_pd);
         access_stq(ac, addr + 32, env->uintr_rr);
         access_stq(ac, addr + 40, env->uintr_tt);
+        break;
+    case XSTATE_ARCH_LBR_BIT:
+        do_xsave_arch_lbr(ac, addr);
         break;
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
@@ -3324,6 +3400,9 @@ static void do_xrstor_component(X86Access *ac, int i, target_ulong addr,
         x86_uintr_recognize(env);
         break;
 #endif
+    case XSTATE_ARCH_LBR_BIT:
+        do_xrstor_arch_lbr(ac, addr, load);
+        break;
 #ifdef TARGET_X86_64
     case XSTATE_APX_BIT:
         if (load) {
@@ -3422,6 +3501,24 @@ static bool valid_xrstor_cet(X86Access *ac, target_ulong ptr, uint64_t mask,
     return true;
 }
 
+/*
+ * Whether XRSTORS can load the LBR state component, where mask has it:
+ * IA32_LBR_CTL must not set reserved bits, nor IA32_LBR_DEPTH bits past the
+ * widest depth that CPUID 1CH can list, 64 (Intel SDM 325462-093 Vol. 1,
+ * 13.5.12 and 13.12).
+ */
+static bool valid_xrstor_arch_lbr(X86Access *ac, target_ulong ptr,
+                                  uint64_t mask, uint64_t xcomp_bv)
+{
+    target_ulong addr = ptr + xsave_offset(xcomp_bv, XSTATE_ARCH_LBR_BIT);
+
+    return !(mask & XSTATE_ARCH_LBR_MASK) ||
+           (!(access_ldq(ac, addr + offsetof(XSaveArchLBR, lbr_ctl)) &
+              ~ARCH_LBR_CTL_BITS) &&
+            !(access_ldq(ac, addr + offsetof(XSaveArchLBR, lbr_depth)) &
+              ~0x7fULL));
+}
+
 #ifndef CONFIG_USER_ONLY
 /*
  * Whether XRSTORS can load the UINTR state component, where mask has it:
@@ -3484,7 +3581,8 @@ static void do_xrstor_insn(CPUX86State *env, target_ulong ptr, uint64_t rfbm,
         /* TODO: See if existing page probe has covered extra size. */
         access_prepare(&ac, env, ptr, size_ext, MMU_DATA_LOAD, ra);
     }
-    if (!valid_xrstor_cet(&ac, ptr, rfbm & xstate_bv, xcomp_bv)) {
+    if (!valid_xrstor_cet(&ac, ptr, rfbm & xstate_bv, xcomp_bv) ||
+        !valid_xrstor_arch_lbr(&ac, ptr, rfbm & xstate_bv, xcomp_bv)) {
         raise_exception_ra(env, EXCP0D_GPF, ra);
     }
 #ifndef CONFIG_USER_ONLY

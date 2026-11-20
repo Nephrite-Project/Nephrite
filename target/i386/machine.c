@@ -1962,13 +1962,20 @@ static bool arch_lbr_needed(void *opaque)
 
 static const VMStateDescription vmstate_arch_lbr = {
     .name = "cpu/arch_lbr",
-    .version_id = 1,
+    .version_id = 2,
     .minimum_version_id = 1,
     .needed = arch_lbr_needed,
     .fields = (const VMStateField[]) {
         VMSTATE_UINT64(env.msr_lbr_ctl, X86CPU),
         VMSTATE_UINT64(env.msr_lbr_depth, X86CPU),
         VMSTATE_LBR_VARS(env.lbr_records, X86CPU, ARCH_LBR_NR_ENTRIES, 1),
+        VMSTATE_UINT64_V(env.ler_from, X86CPU, 2),
+        VMSTATE_UINT64_V(env.ler_to, X86CPU, 2),
+        VMSTATE_UINT64_V(env.ler_info, X86CPU, 2),
+        VMSTATE_BOOL_V(env.smm_lbr_en, X86CPU, 2),
+        VMSTATE_BOOL_V(env.lbr_init_pending, X86CPU, 2),
+        VMSTATE_UINT8_V(env.lbr_init_cpl, X86CPU, 2),
+        VMSTATE_UINT64_V(env.lbr_init_from, X86CPU, 2),
         VMSTATE_END_OF_LIST()
     }
 };

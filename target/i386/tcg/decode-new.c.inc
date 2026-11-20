@@ -3617,6 +3617,7 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     s->evex4 = 0;
     s->has_modrm = false;
     s->prefix = 0;
+    s->lbr_type = X86_LBR_OTHER;
 
  next_byte:;
 #ifdef TARGET_X86_64

@@ -187,6 +187,12 @@ void do_smm_enter(X86CPU *cpu, bool halted)
 
     env->msr_smi_count++;
     env->hflags |= HF_SMM_MASK;
+    /*
+     * An SMI saves and clears IA32_LBR_CTL.LBREn, which RSM restores (Intel
+     * SDM 325462-093 Vol. 3B, 21.1.4.1).
+     */
+    env->smm_lbr_en = env->msr_lbr_ctl & ARCH_LBR_CTL_LBREN;
+    env->msr_lbr_ctl &= ~ARCH_LBR_CTL_LBREN;
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         x86_vmx_smm_save_ept(env, env->smbase + 0x8000);
     }
@@ -636,6 +642,20 @@ void HELPER(rsm)(CPUX86State *env)
     if (x86_pdpte_registers(env, env->cr[0], env->cr[4]) &&
         !x86_load_pdptes(env)) {
         rsm_shutdown(env, "invalid PDPTEs");
+    }
+
+    /*
+     * RSM restores LBREn, and with IA32_DEBUGCTL.FREEZE_WHILE_SMM clear, as
+     * TCG has it, its branch is recorded with FROM_IP the same as TO_IP
+     * (Intel SDM 325462-093 Vol. 3B, 21.1.4.1).
+     */
+    if (env->smm_lbr_en) {
+        env->msr_lbr_ctl |= ARCH_LBR_CTL_LBREN;
+        env->smm_lbr_en = false;
+        x86_arch_lbr_record(env, env->eip, env->eip, X86_LBR_OTHER,
+                            env->hflags & HF_CPL_MASK);
+    } else {
+        env->msr_lbr_ctl &= ~ARCH_LBR_CTL_LBREN;
     }
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");

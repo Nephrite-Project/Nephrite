@@ -1151,17 +1151,19 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #ifdef CONFIG_USER_ONLY
 #define TCG_7_0_EDX_CET_IBT 0
 #define TCG_7_0_EDX_UINTR 0
+#define TCG_7_0_EDX_ARCH_LBR 0
 #define TCG_7_1_EDX_UIRET_UIF 0
 #else
 #define TCG_7_0_EDX_CET_IBT CPUID_7_0_EDX_CET_IBT
 #define TCG_7_0_EDX_UINTR CPUID_7_0_EDX_UINTR
+#define TCG_7_0_EDX_ARCH_LBR CPUID_7_0_EDX_ARCH_LBR
 #define TCG_7_1_EDX_UIRET_UIF CPUID_7_1_EDX_UIRET_UIF
 #endif
 #define TCG_7_0_EDX_FEATURES (CPUID_7_0_EDX_FSRM | \
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
           TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES | \
           TCG_7_0_EDX_UINTR | CPUID_7_0_EDX_CORE_CAPABILITY | \
-          CPUID_7_0_EDX_HYBRID)
+          CPUID_7_0_EDX_HYBRID | TCG_7_0_EDX_ARCH_LBR)
 
 #ifdef CONFIG_USER_ONLY
 /*
@@ -1783,7 +1785,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             .reg = R_ECX,
         },
         .tcg_features = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK |
-            XSTATE_UINTR_MASK,
+            XSTATE_UINTR_MASK | XSTATE_ARCH_LBR_MASK,
         .migratable_flags = XSTATE_CET_U_MASK | XSTATE_CET_S_MASK |
             XSTATE_UINTR_MASK | XSTATE_ARCH_LBR_MASK,
     },
@@ -9580,6 +9582,17 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         if (!(env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_LBR)) {
             break;
         }
+        if (tcg_enabled()) {
+            /*
+             * TCG's architectural LBRs: a depth of 32, effective IPs, CPL
+             * and branch type filtering, call-stack mode, MISPRED, and
+             * BR_TYPE (Intel SDM 325462-093 Vol. 1, Table 21-66).
+             */
+            *eax = 1 << 3;
+            *ebx = 7;
+            *ecx = 5;
+            break;
+        }
         x86_cpu_get_supported_cpuid(0x1C, 0, eax, ebx, ecx, edx);
         *edx = 0; /* EDX is reserved. */
         break;
@@ -10126,6 +10139,13 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
 
     env->msr_ia32_misc_enable = MSR_IA32_MISC_ENABLE_DEFAULT;
     /*
+     * IA32_LBR_DEPTH starts at the deepest that CPUID 1CH lists (Intel SDM
+     * 325462-093 Vol. 4, Table 2-2).
+     */
+    if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_LBR) {
+        env->msr_lbr_depth = ARCH_LBR_NR_ENTRIES;
+    }
+    /*
      * The errata that OSVW IDs 0 to 3 stand for, which TCG does not have:
      * Linux's KVM gives its guests the same length (arch/x86/kvm/svm/svm.c).
      */
@@ -10554,6 +10574,11 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
     /* Hybrid parts have CPUID[0x1A] */
     if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_HYBRID) {
         x86_cpu_adjust_level(cpu, &env->cpuid_min_level, 0x1A);
+    }
+
+    /* Architectural LBRs require CPUID[0x1C] */
+    if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_LBR) {
+        x86_cpu_adjust_level(cpu, &env->cpuid_min_level, 0x1C);
     }
 
     /* Intel Processor Trace requires CPUID[0x14] */

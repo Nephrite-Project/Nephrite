@@ -710,6 +710,144 @@ void x86_amd_cpuid_hide(CPUX86State *env, uint32_t leaf, uint32_t subleaf,
 }
 
 /*
+ * A branch's architectural LBR record: TYPE_CPL has its X86_LBR_* type in
+ * bits 3:0, and bit 4 set where it began at CPL > 0.
+ */
+void HELPER(arch_lbr)(CPUX86State *env, target_ulong from, target_ulong to,
+                      uint32_t type_cpl)
+{
+    x86_arch_lbr_record(env, from, to, type_cpl & 0xf,
+                        type_cpl & 0x10 ? 3 : 0);
+}
+
+/*
+ * The architectural LBRs' entry X of TABLE (IA32_LBR_x_FROM_IP,
+ * IA32_LBR_x_TO_IP, or IA32_LBR_x_INFO, each 32 MSRs from its base), or
+ * NULL where X is not below IA32_LBR_DEPTH, which raises #GP (Intel SDM
+ * 325462-093 Vol. 4, Table 2-2).
+ */
+static uint64_t *arch_lbr_field(CPUX86State *env, uint32_t msr)
+{
+    unsigned x = msr & 0x1f;
+
+    if (x >= env->msr_lbr_depth) {
+        return NULL;
+    }
+    switch (msr & ~0x1f) {
+    case MSR_ARCH_LBR_FROM_0:
+        return &env->lbr_records[x].from;
+    case MSR_ARCH_LBR_TO_0:
+        return &env->lbr_records[x].to;
+    default:
+        return &env->lbr_records[x].info;
+    }
+}
+
+/*
+ * WRMSR of the architectural LBRs' MSRs: 1 for success, 0 for #GP, or -1
+ * where MSR is not one of them.  IP writes are made canonical, INFO writes
+ * keep the fields that TCG's records have, and a write of IA32_LBR_DEPTH,
+ * which takes only the depth that CPUID 1CH lists, clears the records
+ * (Intel SDM 325462-093 Vol. 3B, 21.1.2.2 and 21.2; Vol. 4, Table 2-2).
+ * Without model-specific LBRs, LastBranchFromIP and LastBranchToIP are
+ * not there, and the last event record takes MSRs 1DDH and 1DEH.
+ */
+static int x86_arch_lbr_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
+{
+    int width = cpu_x86_virtual_addr_width(env);
+    uint64_t *field;
+
+    if (!x86_has_arch_lbr(env)) {
+        return -1;
+    }
+    switch (msr) {
+    case MSR_ARCH_LBR_CTL:
+        if (val & ~ARCH_LBR_CTL_BITS) {
+            return 0;
+        }
+        env->msr_lbr_ctl = val;
+        return 1;
+    case MSR_ARCH_LBR_DEPTH:
+        if (val != ARCH_LBR_NR_ENTRIES) {
+            return 0;
+        }
+        env->msr_lbr_depth = val;
+        memset(env->lbr_records, 0, sizeof(env->lbr_records));
+        return 1;
+    case MSR_ARCH_LBR_FROM_0 ... MSR_ARCH_LBR_FROM_0 + 31:
+    case MSR_ARCH_LBR_TO_0 ... MSR_ARCH_LBR_TO_0 + 31:
+        field = arch_lbr_field(env, msr);
+        if (!field) {
+            return 0;
+        }
+        *field = sextract64(val, 0, width);
+        return 1;
+    case MSR_ARCH_LBR_INFO_0 ... MSR_ARCH_LBR_INFO_0 + 31:
+        field = arch_lbr_field(env, msr);
+        if (!field) {
+            return 0;
+        }
+        *field = val & ARCH_LBR_INFO_BITS;
+        return 1;
+    case MSR_LASTBRANCH_FROM_IP:
+    case MSR_LASTBRANCH_TO_IP:
+        return 0;
+    case MSR_LASTINT_FROM_IP:
+        env->ler_from = sextract64(val, 0, width);
+        return 1;
+    case MSR_LASTINT_TO_IP:
+        env->ler_to = sextract64(val, 0, width);
+        return 1;
+    case MSR_ARCH_LER_INFO:
+        env->ler_info = val & ARCH_LBR_INFO_BITS;
+        return 1;
+    default:
+        return -1;
+    }
+}
+
+/* RDMSR of the architectural LBRs' MSRs, as x86_arch_lbr_wrmsr() has them. */
+static int x86_arch_lbr_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
+{
+    uint64_t *field;
+
+    if (!x86_has_arch_lbr(env)) {
+        return -1;
+    }
+    switch (msr) {
+    case MSR_ARCH_LBR_CTL:
+        *val = env->msr_lbr_ctl;
+        return 1;
+    case MSR_ARCH_LBR_DEPTH:
+        *val = env->msr_lbr_depth;
+        return 1;
+    case MSR_ARCH_LBR_FROM_0 ... MSR_ARCH_LBR_FROM_0 + 31:
+    case MSR_ARCH_LBR_TO_0 ... MSR_ARCH_LBR_TO_0 + 31:
+    case MSR_ARCH_LBR_INFO_0 ... MSR_ARCH_LBR_INFO_0 + 31:
+        field = arch_lbr_field(env, msr);
+        if (!field) {
+            return 0;
+        }
+        *val = *field;
+        return 1;
+    case MSR_LASTBRANCH_FROM_IP:
+    case MSR_LASTBRANCH_TO_IP:
+        return 0;
+    case MSR_LASTINT_FROM_IP:
+        *val = env->ler_from;
+        return 1;
+    case MSR_LASTINT_TO_IP:
+        *val = env->ler_to;
+        return 1;
+    case MSR_ARCH_LER_INFO:
+        *val = env->ler_info;
+        return 1;
+    default:
+        return -1;
+    }
+}
+
+/*
  * WRMSR's effect, false where it raises #GP; VM entries and exits load
  * their MSR areas with it, exits with the BQL held, hence BQL_LOCK_GUARD()
  * here and in x86_cpu_rdmsr().
@@ -722,6 +860,10 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 
     if (pmu >= 0) {
         return pmu;
+    }
+    uintr = x86_arch_lbr_wrmsr(env, msr, val);
+    if (uintr >= 0) {
+        return uintr;
     }
     uintr = x86_uintr_wrmsr(env, msr, val);
     if (uintr >= 0) {
@@ -1060,6 +1202,13 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         if (val & DEBUGCTL_BLD) {
             x86_bus_lock_watch(env);
         }
+        /*
+         * Without model-specific LBRs, its bit 0 takes writes but reads as
+         * 0 (Intel SDM 325462-093 Vol. 3B, 21.4.2).
+         */
+        if (x86_has_arch_lbr(env)) {
+            val &= ~DEBUGCTL_LBR;
+        }
         env->debugctl = val;
         break;
     case MSR_LASTBRANCH_FROM_IP ... MSR_LASTINT_TO_IP:
@@ -1340,6 +1489,10 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
 
     if (pmu >= 0) {
         return pmu;
+    }
+    uintr = x86_arch_lbr_rdmsr(env, msr, valp);
+    if (uintr >= 0) {
+        return uintr;
     }
     uintr = x86_uintr_rdmsr(env, msr, valp);
     if (uintr >= 0) {

@@ -127,7 +127,8 @@ static TCGTBCPUState x86_get_tb_cpu_state(CPUState *cs)
     if ((flags & HF_CPL_MASK) == 3 && !(env->cr[0] & CR0_AM_MASK)) {
         flags &= ~AC_MASK;
     }
-    if (unlikely(env->debugctl & DEBUGCTL_LBR)) {
+    if (unlikely((env->debugctl & DEBUGCTL_LBR) ||
+                 (env->msr_lbr_ctl & ARCH_LBR_CTL_LBREN))) {
         flags |= HF_LBR_MASK;
     }
     /* With DebugCtl.BTF, TF single-steps only control transfers. */

@@ -28,6 +28,7 @@
 #ifndef CONFIG_USER_ONLY
 #include "system/hw_accel.h"
 #include "system/memory.h"
+#include "system/tcg.h"
 #include "kvm/kvm_i386.h"
 #endif
 #include "qemu/log.h"
@@ -805,6 +806,81 @@ int cpu_x86_get_descr_debug(CPUX86State *env, unsigned int selector,
     return 1;
 }
 
+/*
+ * The bit of IA32_LBR_CTL that lets architectural LBRs record a branch
+ * type, an X86_LBR_* (Intel SDM 325462-093 Vol. 4, Table 2-2).
+ */
+static const uint8_t arch_lbr_ctl_bit[] = {
+    [X86_LBR_COND] = 16,
+    [X86_LBR_NEAR_IND_JMP] = 18,
+    [X86_LBR_NEAR_REL_JMP] = 17,
+    [X86_LBR_NEAR_IND_CALL] = 20,
+    [X86_LBR_NEAR_REL_CALL] = 19,
+    [X86_LBR_NEAR_RET] = 21,
+    [X86_LBR_OTHER] = 22,
+};
+
+/* Whether IA32_LBR_CTL lets architectural LBRs record at CPL. */
+static bool arch_lbr_cpl(uint64_t ctl, int cpl)
+{
+    return ctl & (cpl ? ARCH_LBR_CTL_USR : ARCH_LBR_CTL_OS);
+}
+
+/*
+ * Architectural LBRs' record of a control transfer of TYPE, an X86_LBR_*,
+ * from FROM to TO that began at CPL START_CPL: IA32_LBR_CTL must enable the
+ * type and the CPL it ends at, the current one, and FROM reads as all ones
+ * where it does not enable the CPL it began at.  Older records shift
+ * towards LBR_[DEPTH-1], but in call-stack mode a near RET pops LBR_0
+ * instead.  The IPs are effective ones, canonical for the linear-address
+ * width (Intel SDM 325462-093 Vol. 3B, 21.1.2.4, 21.1.2.5, and 21.1.3.1),
+ * and MISPRED marks the near indirect jumps and calls, which TCG's PMU
+ * counts as mispredicted.
+ */
+void x86_arch_lbr_record(CPUX86State *env, uint64_t from, uint64_t to,
+                         int type, int start_cpl)
+{
+    uint64_t ctl = env->msr_lbr_ctl;
+    unsigned depth = MIN(env->msr_lbr_depth, ARCH_LBR_NR_ENTRIES);
+    int width = cpu_x86_virtual_addr_width(env);
+    LBREntry *r = env->lbr_records;
+
+    if (!(ctl & ARCH_LBR_CTL_LBREN) || type >= ARRAY_SIZE(arch_lbr_ctl_bit) ||
+        !arch_lbr_ctl_bit[type] || !(ctl & (1ULL << arch_lbr_ctl_bit[type])) ||
+        !arch_lbr_cpl(ctl, env->hflags & HF_CPL_MASK) || !depth) {
+        return;
+    }
+    if ((ctl & ARCH_LBR_CTL_CALL_STACK) && type == X86_LBR_NEAR_RET) {
+        memmove(r, r + 1, (depth - 1) * sizeof(*r));
+        memset(r + depth - 1, 0, sizeof(*r));
+        return;
+    }
+    memmove(r + 1, r, (depth - 1) * sizeof(*r));
+    r->from = arch_lbr_cpl(ctl, start_cpl) ? sextract64(from, 0, width)
+                                           : UINT64_MAX;
+    r->to = sextract64(to, 0, width);
+    r->info = (uint64_t)type << ARCH_LBR_INFO_BR_TYPE_SHIFT;
+    if (type == X86_LBR_NEAR_IND_JMP || type == X86_LBR_NEAR_IND_CALL) {
+        r->info |= ARCH_LBR_INFO_MISPRED;
+    }
+}
+
+/*
+ * An exception's or interrupt's record, from FROM to the current IP, with
+ * the last event record taking the last branch, LBR_0, first (Intel SDM
+ * 325462-093 Vol. 3B, 21.1 and Table 21-1).
+ */
+void x86_arch_lbr_event(CPUX86State *env, uint64_t from, int start_cpl)
+{
+    if (!(env->msr_lbr_ctl & ARCH_LBR_CTL_LBREN)) {
+        return;
+    }
+    env->ler_from = env->lbr_records[0].from;
+    env->ler_to = env->lbr_records[0].to;
+    env->ler_info = env->lbr_records[0].info;
+    x86_arch_lbr_record(env, from, env->eip, X86_LBR_OTHER, start_cpl);
+}
+
 void do_cpu_init(X86CPU *cpu)
 {
 #if !defined(CONFIG_USER_ONLY)
@@ -828,6 +904,28 @@ void do_cpu_init(X86CPU *cpu)
     memcpy(env->mtrr_fixed, save->mtrr_fixed, sizeof(env->mtrr_fixed));
     env->mtrr_deftype = save->mtrr_deftype;
     memcpy(env->mtrr_var, save->mtrr_var, sizeof(env->mtrr_var));
+    /*
+     * INIT leaves the LBRs as they are, and architectural ones record it,
+     * the BSP's as a branch to the reset vector and an AP's with the SIPI
+     * that follows (Intel SDM 325462-093 Vol. 3A, Table 12-1; Vol. 3B,
+     * Table 21-1).
+     */
+    if (tcg_enabled() && x86_has_arch_lbr(env)) {
+        env->msr_lbr_ctl = save->msr_lbr_ctl;
+        env->msr_lbr_depth = save->msr_lbr_depth;
+        memcpy(env->lbr_records, save->lbr_records, sizeof(env->lbr_records));
+        env->ler_from = save->ler_from;
+        env->ler_to = save->ler_to;
+        env->ler_info = save->ler_info;
+        if (cpu_is_bsp(cpu)) {
+            x86_arch_lbr_record(env, save->eip, env->eip, X86_LBR_OTHER,
+                                save->hflags & HF_CPL_MASK);
+        } else {
+            env->lbr_init_pending = true;
+            env->lbr_init_from = save->eip;
+            env->lbr_init_cpl = save->hflags & HF_CPL_MASK;
+        }
+    }
     g_free(save);
     /*
      * INIT clears VM_CR.SVMDIS where LOCK does not hold it (AMD64

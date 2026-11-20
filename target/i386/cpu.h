@@ -194,7 +194,7 @@ typedef enum X86Seg {
 #define HF_APX_EN_SHIFT     29 /* APX Enabled (CR4+XCR0) */
 /* Translation block flags only, from DebugCtl, never in hflags: */
 #define HF_BTF_SHIFT         2 /* DebugCtl.BTF with TF: step branches */
-#define HF_LBR_SHIFT        30 /* DebugCtl.LBR: record control transfers */
+#define HF_LBR_SHIFT        30 /* DebugCtl.LBR or LBREn: record branches */
 #define HF_LAM_SHIFT        31 /* LAM masks data addresses (lam_shift_*) */
 
 #define HF_CPL_MASK          (3 << HF_CPL_SHIFT)
@@ -580,6 +580,20 @@ typedef enum X86Seg {
 #define MSR_ARCH_LBR_TO_0               0x00001600
 #define MSR_ARCH_LBR_INFO_0             0x00001200
 
+/*
+ * IA32_LBR_CTL's bits, and the bits of IA32_LBR_x_INFO and IA32_LER_INFO
+ * that TCG's architectural LBRs hold, MISPRED and BR_TYPE (Intel SDM
+ * 325462-093 Vol. 4, Table 2-2).
+ */
+#define ARCH_LBR_CTL_LBREN              (1ULL << 0)
+#define ARCH_LBR_CTL_OS                 (1ULL << 1)
+#define ARCH_LBR_CTL_USR                (1ULL << 2)
+#define ARCH_LBR_CTL_CALL_STACK         (1ULL << 3)
+#define ARCH_LBR_CTL_BITS               0x7f000fULL
+#define ARCH_LBR_INFO_MISPRED           (1ULL << 63)
+#define ARCH_LBR_INFO_BR_TYPE_SHIFT     56
+#define ARCH_LBR_INFO_BITS              0x8f00000000000000ULL
+
 #define FEATURE_CONTROL_LOCKED                    (1<<0)
 #define FEATURE_CONTROL_VMXON_ENABLED_INSIDE_SMX  (1ULL << 1)
 #define FEATURE_CONTROL_VMXON_ENABLED_OUTSIDE_SMX (1<<2)
@@ -635,6 +649,7 @@ typedef enum X86Seg {
 #define MSR_LASTBRANCH_TO_IP            0x1dc
 #define MSR_LASTINT_FROM_IP             0x1dd
 #define MSR_LASTINT_TO_IP               0x1de
+#define MSR_ARCH_LER_INFO               0x1e0
 
 #define DEBUGCTL_LBR                    (1ULL << 0)
 #define DEBUGCTL_BTF                    (1ULL << 1)
@@ -2153,6 +2168,20 @@ typedef struct {
     uint64_t info;
 } LBREntry;
 
+/*
+ * Architectural LBRs' branch types, as IA32_LBR_x_INFO.BR_TYPE encodes
+ * them (Intel SDM 325462-093 Vol. 3B, Table 21-3), and X86_LBR_NONE for a
+ * control transfer they do not record.
+ */
+#define X86_LBR_COND 0
+#define X86_LBR_NEAR_IND_JMP 1
+#define X86_LBR_NEAR_REL_JMP 2
+#define X86_LBR_NEAR_IND_CALL 3
+#define X86_LBR_NEAR_REL_CALL 4
+#define X86_LBR_NEAR_RET 5
+#define X86_LBR_OTHER 8
+#define X86_LBR_NONE 15
+
 #define ARCH_LBR_NR_ENTRIES 32
 
 #define EGPR_NUM  16
@@ -2929,6 +2958,18 @@ typedef struct CPUArchState {
     uint64_t msr_lbr_ctl;
     uint64_t msr_lbr_depth;
     LBREntry lbr_records[ARCH_LBR_NR_ENTRIES];
+    /*
+     * The last event record; IA32_LBR_CTL.LBREn, which an SMI saves; and
+     * the IP and CPL that an AP's INIT left, which the SIPI after it
+     * records as its branch's start.
+     */
+    uint64_t ler_from;
+    uint64_t ler_to;
+    uint64_t ler_info;
+    bool smm_lbr_en;
+    bool lbr_init_pending;
+    uint8_t lbr_init_cpl;
+    uint64_t lbr_init_from;
 
     /* AMD MSRC001_0015 Hardware Configuration */
     uint64_t msr_hwcr;
@@ -3637,6 +3678,16 @@ static inline void cpu_x86_load_seg_cache(CPUX86State *env,
     }
 }
 
+/* helper.c */
+static inline bool x86_has_arch_lbr(CPUX86State *env)
+{
+    return env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_ARCH_LBR;
+}
+
+void x86_arch_lbr_record(CPUX86State *env, uint64_t from, uint64_t to,
+                         int type, int start_cpl);
+void x86_arch_lbr_event(CPUX86State *env, uint64_t from, int start_cpl);
+
 static inline void cpu_x86_load_seg_cache_sipi(X86CPU *cpu,
                                                uint8_t sipi_vector)
 {
@@ -3649,6 +3700,12 @@ static inline void cpu_x86_load_seg_cache_sipi(X86CPU *cpu,
                            env->segs[R_CS].limit,
                            env->segs[R_CS].flags);
     cs->halted = 0;
+    /* INIT and SIPI make one branch from where INIT came in. */
+    if (env->lbr_init_pending) {
+        env->lbr_init_pending = false;
+        x86_arch_lbr_record(env, env->lbr_init_from, 0, X86_LBR_OTHER,
+                            env->lbr_init_cpl);
+    }
 }
 
 uint64_t cpu_x86_get_msr_core_thread_count(X86CPU *cpu);

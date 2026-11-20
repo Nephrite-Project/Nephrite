@@ -205,7 +205,9 @@ void x86_uintr_deliver(CPUX86State *env)
     env->eflags &= ~(TF_MASK | RF_MASK);
     env->regs[R_ESP] = sp - 32;
     env->eip = env->uintr_handler;
-    if (env->debugctl & DEBUGCTL_LBR) {
+    if (x86_has_arch_lbr(env)) {
+        x86_arch_lbr_event(env, from, 3);
+    } else if (env->debugctl & DEBUGCTL_LBR) {
         env->lbr_int_from = env->lbr_from;
         env->lbr_int_to = env->lbr_to;
         env->lbr_from = from;

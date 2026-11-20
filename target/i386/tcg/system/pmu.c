@@ -541,6 +541,13 @@ int x86_pmu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
             return 0;
         }
         *val = env->features[FEAT_PERF_CAPABILITIES];
+        /*
+         * LBR_FMT is 3FH without model-specific LBRs (Intel SDM 325462-093
+         * Vol. 3B, 21.4.3).
+         */
+        if (x86_has_arch_lbr(env)) {
+            *val |= PERF_CAP_LBR_FMT;
+        }
         return 1;
     default:
         return -1;
