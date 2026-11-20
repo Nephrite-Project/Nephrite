@@ -437,6 +437,9 @@ Processor emulation (TCG):
 * Interrupts that an iteration of REP INS or REP OUTS raises, as the SMI
   of a write to an APM control port, come before the next iteration,
   where TCG ran up to 65,536 iterations first.
+* The 32-bit SMM state-save area keeps the hidden part of SS at 7F18H,
+  in space that Intel's map reserves, where it overlapped the I/O memory
+  address and I/O state fields at 7FA0H and 7FA4H.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs

@@ -114,6 +114,20 @@ static void sm_state_init_64(X86CPU *cpu)
 #endif
 }
 
+/*
+ * Where the 32-bit state-save area keeps the hidden part of segment
+ * register SEG, in space that Intel's map leaves reserved (Intel SDM
+ * 325462-093 Vol. 3C, Table 34-1): SS's at 7F18H, clear of the I/O memory
+ * address and I/O state fields at 7FA0H and 7FA4H.
+ */
+static int smm32_seg_offset(int seg)
+{
+    if (seg == R_SS) {
+        return 0x7f18;
+    }
+    return seg < 3 ? 0x7f84 + seg * 12 : 0x7f2c + (seg - 3) * 12;
+}
+
 static void sm_state_init_32(X86CPU *cpu)
 {
     CPUX86State *env = &cpu->env;
@@ -155,11 +169,7 @@ static void sm_state_init_32(X86CPU *cpu)
 
     for (i = 0; i < 6; i++) {
         dt = &env->segs[i];
-        if (i < 3) {
-            offset = 0x7f84 + i * 12;
-        } else {
-            offset = 0x7f2c + (i - 3) * 12;
-        }
+        offset = smm32_seg_offset(i);
         x86_stl_phys(cs, sm_state + 0x7fa8 + i * 4, dt->selector);
         x86_stl_phys(cs, sm_state + offset + 8, dt->base);
         x86_stl_phys(cs, sm_state + offset + 4, dt->limit);
@@ -455,11 +465,7 @@ static void rsm_load_regs_32(CPUX86State *env)
     env->idt.limit = x86_ldl_phys(cs, sm_state + 0x7f54);
 
     for (i = 0; i < 6; i++) {
-        if (i < 3) {
-            offset = 0x7f84 + i * 12;
-        } else {
-            offset = 0x7f2c + (i - 3) * 12;
-        }
+        offset = smm32_seg_offset(i);
         cpu_x86_load_seg_cache(env, i,
                                x86_ldl_phys(cs,
                                         sm_state + 0x7fa8 + i * 4) & 0xffff,
@@ -525,9 +531,9 @@ static void rsm_read_checked(CPUX86State *env, RsmChecked *c)
         c->dr6 = x86_ldl_phys(cs, sm_state + 0x7fcc);
         c->dr7 = x86_ldl_phys(cs, sm_state + 0x7fc8);
         c->rflags = x86_ldl_phys(cs, sm_state + 0x7ff4);
-        c->cs_flags = (x86_ldl_phys(cs, sm_state + 0x7f84 + R_CS * 12) &
+        c->cs_flags = (x86_ldl_phys(cs, sm_state + smm32_seg_offset(R_CS)) &
                        0xf0ff) << 8;
-        c->ss_flags = (x86_ldl_phys(cs, sm_state + 0x7f84 + R_SS * 12) &
+        c->ss_flags = (x86_ldl_phys(cs, sm_state + smm32_seg_offset(R_SS)) &
                        0xf0ff) << 8;
     }
     c->revision = x86_ldl_phys(cs, sm_state + 0x7efc);
