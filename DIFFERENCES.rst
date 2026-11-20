@@ -446,6 +446,10 @@ Processor emulation (TCG):
   I/O state field in the 32-bit one; the SMM revision identifiers set bit
   16, and RSM runs the instruction again where the SMI handler sets the
   I/O instruction restart field.
+* SVM's SMI intercept gives the SMI's source as external, as the
+  machine's SMIs all are, where it gave I/O trapping, and for an SMI that
+  comes right after an I/O instruction the instruction in EXITINFO1's
+  upper half and its RIP in EXITINFO2.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs

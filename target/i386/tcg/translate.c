@@ -1821,7 +1821,10 @@ static void gen_io_smi_record(DisasContext *s, MemOp ot, TCGv_i32 port,
 #ifndef CONFIG_USER_ONLY
     flags |= IO_SMI_SZ8 << ot;
     if (flags & IO_SMI_STR) {
-        flags |= IO_SMI_A16 << (s->aflag - MO_16);
+        int seg = flags & IO_SMI_IN ? R_ES :
+                  s->override >= 0 ? s->override : R_DS;
+
+        flags |= IO_SMI_A16 << (s->aflag - MO_16) | seg << IO_SMI_SEG_SHIFT;
         if (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ)) {
             flags |= IO_SMI_REP;
         }

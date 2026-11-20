@@ -202,7 +202,7 @@ static void smm_save_io_64(CPUX86State *env, hwaddr sm_state)
         x86_stq_phys(cs, sm_state + 0x7ea8, io->rcx);
         x86_stq_phys(cs, sm_state + 0x7eb0, io->rsi);
         x86_stq_phys(cs, sm_state + 0x7eb8, io->rdi);
-        dword = (io->info & ~IO_SMI_IMM) | IO_SMI_VALID | io->port << 16;
+        dword = (io->info & IO_SMI_DWORD) | IO_SMI_VALID | io->port << 16;
     }
     x86_stl_phys(cs, sm_state + 0x7ec0, dword);
     x86_stb_phys(cs, sm_state + 0x7ec8, 0);

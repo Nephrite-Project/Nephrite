@@ -1645,6 +1645,37 @@ void x86_svm_late_intercept(CPUX86State *env, uint32_t type, uintptr_t ra)
     }
 }
 
+/*
+ * #VMEXIT(SMI) for an SMI that the guest intercepts: EXITINFO1 gives an
+ * external source, as the machine's SMIs all are, and for an SMI that came
+ * right after an I/O instruction the instruction in its upper half, with
+ * the effective segment as the IOIO intercept gives it, and EXITINFO2 the
+ * instruction's RIP (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.46, 15.13.3 and Figure 15-3).
+ */
+void cpu_svm_check_smi_intercept(CPUX86State *env)
+{
+    const struct X86IOSMI *io = &env->io_smi;
+    uint64_t info1 = 1;
+
+    if (!(env->hflags & HF_GUEST_MASK) ||
+        !cpu_svm_has_intercept(env, SVM_EXIT_SMI)) {
+        return;
+    }
+    if (io->valid) {
+        info1 |= (uint64_t)((io->info & IO_SMI_DWORD) | IO_SMI_VALID |
+                            io->port << 16) << 32;
+        if ((io->info & IO_SMI_STR) &&
+            (env->features[FEAT_SVM] & CPUID_SVM_DECODEASSIST)) {
+            info1 |= (io->info >> IO_SMI_SEG_SHIFT & 7) << SVM_IOIO_SEG_SHIFT;
+        }
+    }
+    x86_stq_phys(env_cpu(env),
+                 env->vm_vmcb + offsetof(struct vmcb, control.exit_info_2),
+                 io->valid ? io->rip : 0);
+    cpu_vmexit(env, SVM_EXIT_SMI, info1, 0);
+}
+
 void HELPER(svm_check_io)(CPUX86State *env, uint32_t port, uint32_t param,
                          uint32_t next_eip_addend)
 {

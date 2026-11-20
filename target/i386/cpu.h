@@ -4157,8 +4157,10 @@ void x86_wait_post_load(X86CPU *cpu);
 
 /*
  * AMD's I/O instruction restart dword (AMD64 Architecture Programmer's
- * Manual Volume 2, 24593 rev. 3.46, Figure 10-6), as io_smi.info holds it,
- * with IO_SMI_IMM, an immediate port, for Intel's I/O state field.
+ * Manual Volume 2, 24593 rev. 3.46, Figure 10-6), as the low half of
+ * io_smi.info holds it, and in its high half the effective segment of INS
+ * and OUTS (R_*), for SVM's SMI intercept, and IO_SMI_IMM, an immediate
+ * port, for Intel's I/O state field.
  */
 #define IO_SMI_IN       (1u << 0)
 #define IO_SMI_VALID    (1u << 1)
@@ -4167,6 +4169,8 @@ void x86_wait_post_load(X86CPU *cpu);
 #define IO_SMI_SZ8      (1u << 4)
 #define IO_SMI_A16      (1u << 7)
 #define IO_SMI_TF       (1u << 11)
+#define IO_SMI_DWORD    0xffffu
+#define IO_SMI_SEG_SHIFT 24
 #define IO_SMI_IMM      (1u << 31)
 
 /* fpu_helper.c */
@@ -4206,6 +4210,7 @@ cpu_svm_has_intercept(CPUX86State *env, uint32_t type)
 void cpu_svm_check_intercept_param(CPUX86State *env1, uint32_t type,
                                    uint64_t param, uintptr_t retaddr);
 bool cpu_svm_has_intercept(CPUX86State *env, uint32_t type);
+void cpu_svm_check_smi_intercept(CPUX86State *env);
 #endif
 
 /* apic.c */

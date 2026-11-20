@@ -295,7 +295,7 @@ bool x86_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
         do_cpu_sipi(cpu);
         break;
     case CPU_INTERRUPT_SMI:
-        cpu_svm_check_intercept_param(env, SVM_EXIT_SMI, 0, 0);
+        cpu_svm_check_smi_intercept(env);
         cpu_reset_interrupt(cs, CPU_INTERRUPT_SMI);
         do_smm_enter(cpu, hlt_woke);
         break;
