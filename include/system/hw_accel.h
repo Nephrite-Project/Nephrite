@@ -18,6 +18,7 @@
 #include "system/whpx.h"
 #include "system/nvmm.h"
 #include "system/nitro-accel.h"
+#include "system/bhyve.h"
 
 /**
  * cpu_synchronize_state:

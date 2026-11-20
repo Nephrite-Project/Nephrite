@@ -18,6 +18,7 @@ extern I8259PICState *isa_pic;
  */
 qemu_irq *i8259_init(ISABus *bus, qemu_irq parent_irq_in);
 qemu_irq *kvm_i8259_init(ISABus *bus);
+qemu_irq *bhyve_i8259_init(ISABus *bus);
 int pic_get_output(I8259PICState *s);
 int pic_read_irq(I8259PICState *s);
 void i8259_pic_print_info(InterruptStatsProvider *obj, GString *buf);

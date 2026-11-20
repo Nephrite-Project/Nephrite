@@ -84,6 +84,7 @@ meson_options_help() {
   printf "%s\n" '  --sysconfdir=VALUE       Sysconf data directory [etc]'
   printf "%s\n" '  --tls-priority=VALUE     Default TLS protocol/cipher priority string'
   printf "%s\n" '                           [NORMAL]'
+  printf "%s\n" '  --vmmapi-libdir=VALUE    Directory of a libvmmapi with bhyve QEMU mode'
   printf "%s\n" '  --with-coroutine=CHOICE  coroutine backend to use (choices:'
   printf "%s\n" '                           auto/sigaltstack/ucontext/wasm/windows)'
   printf "%s\n" '  --with-pkgversion=VALUE  use specified string as sub-version of the'
@@ -102,6 +103,7 @@ meson_options_help() {
   printf "%s\n" '  alsa            ALSA sound support'
   printf "%s\n" '  attr            attr/xattr support'
   printf "%s\n" '  auth-pam        PAM access control'
+  printf "%s\n" '  bhyve           Bhyve acceleration support'
   printf "%s\n" '  blkio           libblkio block device driver'
   printf "%s\n" '  bochs           bochs image format support'
   printf "%s\n" '  bpf             eBPF support'
@@ -256,6 +258,8 @@ _meson_option_parse() {
     --disable-gcov) printf "%s" -Db_coverage=false ;;
     --enable-lto) printf "%s" -Db_lto=true ;;
     --disable-lto) printf "%s" -Db_lto=false ;;
+    --enable-bhyve) printf "%s" -Dbhyve=enabled ;;
+    --disable-bhyve) printf "%s" -Dbhyve=disabled ;;
     --bindir=*) quote_sh "-Dbindir=$2" ;;
     --enable-blkio) printf "%s" -Dblkio=enabled ;;
     --disable-blkio) printf "%s" -Dblkio=disabled ;;
@@ -632,6 +636,7 @@ _meson_option_parse() {
     --disable-virtfs) printf "%s" -Dvirtfs=disabled ;;
     --enable-vmdk) printf "%s" -Dvmdk=enabled ;;
     --disable-vmdk) printf "%s" -Dvmdk=disabled ;;
+    --vmmapi-libdir=*) quote_sh "-Dvmmapi_libdir=$2" ;;
     --enable-vmnet) printf "%s" -Dvmnet=enabled ;;
     --disable-vmnet) printf "%s" -Dvmnet=disabled ;;
     --enable-vnc) printf "%s" -Dvnc=enabled ;;
