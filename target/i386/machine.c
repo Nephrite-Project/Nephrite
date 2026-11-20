@@ -394,6 +394,7 @@ static int cpu_post_load(void *opaque, int version_id)
         update_fp_status(env);
         update_mxcsr_status(env);
         x86_vmx_post_load(cpu);
+        x86_wait_post_load(cpu);
 
         cpu_breakpoint_remove_all(cs, BP_CPU);
         cpu_watchpoint_remove_all(cs, BP_CPU);
@@ -1730,6 +1731,65 @@ static const VMStateDescription vmstate_vmx = {
     }
 };
 
+/*
+ * TCG's address-range monitoring that MONITOR or UMONITOR armed, with the
+ * bytes the line held then, and a wait of UMWAIT or TPAUSE.
+ */
+static bool monitor_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return tcg_enabled() &&
+           (env->monitor_armed || env->umonitor_armed || env->user_wait ||
+            env->wait_over);
+}
+
+static int monitor_pre_save(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    env->monitor_attrs_vmstate = env->monitor_attrs.secure |
+                                 env->monitor_attrs.avic << 1;
+    return 0;
+}
+
+static int monitor_post_load(void *opaque, int version_id)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    env->monitor_attrs = (MemTxAttrs) {
+        .secure = env->monitor_attrs_vmstate & 1,
+        .avic = env->monitor_attrs_vmstate >> 1 & 1,
+    };
+    return 0;
+}
+
+static const VMStateDescription vmstate_monitor = {
+    .name = "cpu/monitor",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = monitor_needed,
+    .pre_save = monitor_pre_save,
+    .post_load = monitor_post_load,
+    .fields = (const VMStateField[]){
+        VMSTATE_BOOL(env.monitor_armed, X86CPU),
+        VMSTATE_BOOL(env.umonitor_armed, X86CPU),
+        VMSTATE_BOOL(env.monitor_memory, X86CPU),
+        VMSTATE_UINT64(env.monitor_line, X86CPU),
+        VMSTATE_UINT8(env.monitor_attrs_vmstate, X86CPU),
+        VMSTATE_UINT8_ARRAY(env.monitor_bytes, X86CPU, 64),
+        VMSTATE_BOOL(env.user_wait, X86CPU),
+        VMSTATE_BOOL(env.user_wait_umwait, X86CPU),
+        VMSTATE_BOOL(env.user_wait_limited, X86CPU),
+        VMSTATE_BOOL(env.wait_over, X86CPU),
+        VMSTATE_UINT64(env.user_wait_deadline, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 /* A halt in MWAIT, which TCG takes for one, is no HLT state. */
 static bool mwait_halted_needed(void *opaque)
 {
@@ -2356,6 +2416,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_mwait_deadline,
         &vmstate_vmx,
         &vmstate_svm_controls,
+        &vmstate_monitor,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif

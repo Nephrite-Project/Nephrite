@@ -3060,6 +3060,7 @@ typedef struct CPUArchState {
     bool monitor_memory;
     hwaddr monitor_line;
     MemTxAttrs monitor_attrs;
+    uint8_t monitor_attrs_vmstate;
     uint8_t monitor_bytes[64];
     /*
      * An UMWAIT or TPAUSE waiting until the TSC reaches user_wait_deadline,
@@ -4134,6 +4135,8 @@ static inline bool x86_vmx_mtf(const CPUX86State *env)
 #ifndef CONFIG_USER_ONLY
 /* system/vmx_helper.c: arms the VMX timers of the VMX state a load gave. */
 void x86_vmx_post_load(X86CPU *cpu);
+/* system/misc_helper.c: arms the timer of the wait a load gave. */
+void x86_wait_post_load(X86CPU *cpu);
 #endif
 
 /* fpu_helper.c */

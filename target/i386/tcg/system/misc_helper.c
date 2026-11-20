@@ -2688,6 +2688,21 @@ void x86_wait_init(X86CPU *cpu)
 }
 
 /*
+ * The wait's timer is a QEMU timer, which a migration does not carry: it
+ * starts again from the state that the migration loaded.
+ */
+void x86_wait_post_load(X86CPU *cpu)
+{
+    CPUX86State *env = &cpu->env;
+
+    if (env->mwait_halted) {
+        mwait_arm(env);
+    } else if (env->user_wait) {
+        user_wait_arm(env);
+    }
+}
+
+/*
  * Ends a wait, with CF set where IA32_UMWAIT_CONTROL's limit ended it: in
  * CC_SRC within the execution loop, else in EFLAGS, as a halted processor
  * leaves the loop.
