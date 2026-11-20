@@ -2885,6 +2885,22 @@ typedef struct CPUArchState {
      * 3, 24594 rev. 3.39, RSM).
      */
     bool smm_svme;
+    /*
+     * TCG: the I/O instruction under way, or the last one: its type in the
+     * layout of AMD's I/O instruction restart dword (IO_SMI_*), its port,
+     * and RIP, RCX, RSI, and RDI before it; valid where its access left an
+     * SMI to take before the next instruction. io_held keeps the one an SMI
+     * came after through SMM, for the 32-bit state-save map's restart.
+     */
+    struct X86IOSMI {
+        uint32_t info;
+        uint32_t port;
+        target_ulong rip;
+        target_ulong rcx;
+        target_ulong rsi;
+        target_ulong rdi;
+        bool valid;
+    } io_smi, io_held;
 
     uint32_t pkru;
     uint32_t pkrs;
@@ -4138,6 +4154,20 @@ void x86_vmx_post_load(X86CPU *cpu);
 /* system/misc_helper.c: arms the timer of the wait a load gave. */
 void x86_wait_post_load(X86CPU *cpu);
 #endif
+
+/*
+ * AMD's I/O instruction restart dword (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, Figure 10-6), as io_smi.info holds it,
+ * with IO_SMI_IMM, an immediate port, for Intel's I/O state field.
+ */
+#define IO_SMI_IN       (1u << 0)
+#define IO_SMI_VALID    (1u << 1)
+#define IO_SMI_STR      (1u << 2)
+#define IO_SMI_REP      (1u << 3)
+#define IO_SMI_SZ8      (1u << 4)
+#define IO_SMI_A16      (1u << 7)
+#define IO_SMI_TF       (1u << 11)
+#define IO_SMI_IMM      (1u << 31)
 
 /* fpu_helper.c */
 

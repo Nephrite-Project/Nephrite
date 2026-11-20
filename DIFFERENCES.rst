@@ -440,6 +440,12 @@ Processor emulation (TCG):
 * The 32-bit SMM state-save area keeps the hidden part of SS at 7F18H,
   in space that Intel's map reserves, where it overlapped the I/O memory
   address and I/O state fields at 7FA0H and 7FA4H.
+* An SMI that comes right after an I/O instruction describes it in the
+  state-save area, as AMD's I/O instruction restart dword, with RIP, RCX,
+  RSI, and RDI before the instruction, in the 64-bit area and as Intel's
+  I/O state field in the 32-bit one; the SMM revision identifiers set bit
+  16, and RSM runs the instruction again where the SMI handler sets the
+  I/O instruction restart field.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
@@ -668,6 +674,10 @@ Known deviations and limits
   as the state-save area has them, which the SDM does not cover. RSM back
   to SVM guest mode restores the controls that the SMI set aside, not
   those that the VMCB holds by then, which the APM does not cover either.
+* SMM's I/O information: the 32-bit state-save area's revision
+  identifier stays 30000H, below the 30004H with which the SDM gives the
+  I/O state field, as SeaBIOS takes no other; its I/O memory address
+  field stays 0; and the 64-bit area's I/O breakpoint matches stay clear.
 * TCG's VMX: APIC-write emulation in an MMIO callback skips the rest of
   read-modify-write and REP instructions on trap-like exits; accesses to
   the APIC-access page during event delivery always exit, and

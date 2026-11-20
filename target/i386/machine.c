@@ -1691,7 +1691,7 @@ static bool smm_needed(void *opaque)
 
 static const VMStateDescription vmstate_smm = {
     .name = "cpu/smm",
-    .version_id = 1,
+    .version_id = 2,
     .minimum_version_id = 1,
     .needed = smm_needed,
     .fields = (const VMStateField[]){
@@ -1699,6 +1699,14 @@ static const VMStateDescription vmstate_smm = {
         VMSTATE_BOOL(env.vmx.smm_on, X86CPU),
         VMSTATE_BOOL(env.vmx.smm_nonroot, X86CPU),
         VMSTATE_BOOL(env.vmx.smm_vmxe, X86CPU),
+        /* The I/O instruction that the SMI came after, for RSM's restart. */
+        VMSTATE_BOOL_V(env.io_held.valid, X86CPU, 2),
+        VMSTATE_UINT32_V(env.io_held.info, X86CPU, 2),
+        VMSTATE_UINT32_V(env.io_held.port, X86CPU, 2),
+        VMSTATE_UINTTL_V(env.io_held.rip, X86CPU, 2),
+        VMSTATE_UINTTL_V(env.io_held.rcx, X86CPU, 2),
+        VMSTATE_UINTTL_V(env.io_held.rsi, X86CPU, 2),
+        VMSTATE_UINTTL_V(env.io_held.rdi, X86CPU, 2),
         VMSTATE_END_OF_LIST()
     }
 };

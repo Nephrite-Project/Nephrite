@@ -2485,6 +2485,8 @@ static void gen_IN(DisasContext *s, X86DecodedInsn *decode)
         return;
     }
     translator_io_start(&s->base);
+    gen_io_smi_record(s, ot, port, IO_SMI_IN |
+                      (decode->op[1].unit == X86_OP_IMM ? IO_SMI_IMM : 0));
     gen_helper_in_func(ot, s->T0, port);
     gen_writeback(s, decode, 0, s->T0);
     gen_bpt_io(s, port, ot);
@@ -3158,6 +3160,8 @@ static void gen_OUT(DisasContext *s, X86DecodedInsn *decode)
     }
     tcg_gen_trunc_tl_i32(value, s->T0);
     translator_io_start(&s->base);
+    gen_io_smi_record(s, ot, port,
+                      decode->op[2].unit == X86_OP_IMM ? IO_SMI_IMM : 0);
     gen_helper_out_func(ot, port, value);
     gen_bpt_io(s, port, ot);
 }

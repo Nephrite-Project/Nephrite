@@ -33,40 +33,67 @@
 #include "tcg/seg_helper.h"
 #include "hw/i386/apic.h"
 
+/*
+ * After an I/O access: an SMI it left pending, or one pending already,
+ * comes before the next instruction, as an I/O instruction ends its TB, and
+ * the state-save area then describes the I/O instruction that gen_IN(),
+ * gen_OUT(), gen_ins(), or gen_outs() recorded (Intel SDM 325462-093 Vol.
+ * 3C, 34.7.1; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+ * 3.46, 10.3.8).
+ */
+static void io_smi_check(CPUX86State *env)
+{
+    env->io_smi.valid =
+        (qatomic_read(&env_cpu(env)->interrupt_request) & CPU_INTERRUPT_SMI) &&
+        (env->hflags2 & HF2_GIF_MASK) && !(env->hflags & HF_SMM_MASK);
+}
+
 void HELPER(outb)(CPUX86State *env, uint32_t port, uint32_t data)
 {
     address_space_stb(&address_space_io, port, data,
                       cpu_get_mem_attrs(env), NULL);
+    io_smi_check(env);
 }
 
 target_ulong HELPER(inb)(CPUX86State *env, uint32_t port)
 {
-    return address_space_ldub(&address_space_io, port,
-                              cpu_get_mem_attrs(env), NULL);
+    target_ulong val = address_space_ldub(&address_space_io, port,
+                                          cpu_get_mem_attrs(env), NULL);
+
+    io_smi_check(env);
+    return val;
 }
 
 void HELPER(outw)(CPUX86State *env, uint32_t port, uint32_t data)
 {
     address_space_stw_le(&address_space_io, port, data,
                          cpu_get_mem_attrs(env), NULL);
+    io_smi_check(env);
 }
 
 target_ulong HELPER(inw)(CPUX86State *env, uint32_t port)
 {
-    return address_space_lduw_le(&address_space_io, port,
-                                 cpu_get_mem_attrs(env), NULL);
+    target_ulong val = address_space_lduw_le(&address_space_io, port,
+                                             cpu_get_mem_attrs(env), NULL);
+
+    io_smi_check(env);
+    return val;
 }
 
 void HELPER(outl)(CPUX86State *env, uint32_t port, uint32_t data)
 {
     address_space_stl_le(&address_space_io, port, data,
                          cpu_get_mem_attrs(env), NULL);
+    io_smi_check(env);
 }
 
 target_ulong HELPER(inl)(CPUX86State *env, uint32_t port)
 {
-    return address_space_ldl_le(&address_space_io, port,
-                                cpu_get_mem_attrs(env), NULL);
+    target_ulong val = address_space_ldl_le(&address_space_io, port,
+                                            cpu_get_mem_attrs(env), NULL);
+
+    io_smi_check(env);
+    return val;
 }
 
 target_ulong HELPER(read_cr8)(CPUX86State *env)

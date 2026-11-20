@@ -1808,6 +1808,41 @@ static void gen_cmps(DisasContext *s, MemOp ot, TCGv dshift)
 }
 
 /*
+ * Records the I/O instruction of size OT at PORT, IO_SMI_* FLAGS, for an
+ * SMI that its access leaves pending, which comes before the next
+ * instruction: RIP, RCX, RSI, and RDI as they are before it, for the
+ * state-save area's I/O state and I/O instruction restart (Intel SDM
+ * 325462-093 Vol. 3C, 34.7.1 and 34.12; AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, 10.3.8).
+ */
+static void gen_io_smi_record(DisasContext *s, MemOp ot, TCGv_i32 port,
+                              uint32_t flags)
+{
+#ifndef CONFIG_USER_ONLY
+    flags |= IO_SMI_SZ8 << ot;
+    if (flags & IO_SMI_STR) {
+        flags |= IO_SMI_A16 << (s->aflag - MO_16);
+        if (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ)) {
+            flags |= IO_SMI_REP;
+        }
+    }
+    if (s->flags & HF_TF_MASK) {
+        flags |= IO_SMI_TF;
+    }
+    tcg_gen_st_i32(tcg_constant_i32(flags), tcg_env,
+                   offsetof(CPUX86State, io_smi.info));
+    tcg_gen_st_i32(port, tcg_env, offsetof(CPUX86State, io_smi.port));
+    tcg_gen_st_tl(eip_cur_tl(s), tcg_env, offsetof(CPUX86State, io_smi.rip));
+    tcg_gen_st_tl(cpu_regs[R_ECX], tcg_env,
+                  offsetof(CPUX86State, io_smi.rcx));
+    tcg_gen_st_tl(cpu_regs[R_ESI], tcg_env,
+                  offsetof(CPUX86State, io_smi.rsi));
+    tcg_gen_st_tl(cpu_regs[R_EDI], tcg_env,
+                  offsetof(CPUX86State, io_smi.rdi));
+#endif
+}
+
+/*
  * I/O breakpoints, which the helper looks for only where one is enabled, as
  * the TB's flags do not say whether one is.
  */
@@ -1832,6 +1867,7 @@ static void gen_ins(DisasContext *s, MemOp ot, TCGv dshift)
     gen_op_st_v(s, ot, s->T0, s->A0);
     tcg_gen_trunc_tl_i32(port, cpu_regs[R_EDX]);
     tcg_gen_andi_i32(port, port, 0xffff);
+    gen_io_smi_record(s, ot, port, IO_SMI_IN | IO_SMI_STR);
     gen_helper_in_func(ot, s->T0, port);
     gen_op_st_v(s, ot, s->T0, s->A0);
     gen_op_add_reg(s, s->aflag, R_EDI, dshift);
@@ -1849,6 +1885,7 @@ static void gen_outs(DisasContext *s, MemOp ot, TCGv dshift)
     tcg_gen_trunc_tl_i32(port, cpu_regs[R_EDX]);
     tcg_gen_andi_i32(port, port, 0xffff);
     tcg_gen_trunc_tl_i32(value, s->T0);
+    gen_io_smi_record(s, ot, port, IO_SMI_STR);
     gen_helper_out_func(ot, port, value);
     gen_op_add_reg(s, s->aflag, R_ESI, dshift);
     gen_bpt_io(s, port, ot);

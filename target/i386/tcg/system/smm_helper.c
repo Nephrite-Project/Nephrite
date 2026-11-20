@@ -29,10 +29,13 @@
 
 /*
  * The SMM revision identifiers of the 64-bit and 32-bit state-save area
- * formats, with SMBASE relocation (bit 17).
+ * formats, with SMBASE relocation (bit 17) and I/O instruction restart
+ * (bit 16) (Intel SDM 325462-093 Vol. 3C, 34.9; AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 10.3.8). SeaBIOS masks
+ * bit 16 off and takes no other low words.
  */
-#define SMM_REVISION_64 0x00020064
-#define SMM_REVISION_32 0x00020000
+#define SMM_REVISION_64 0x00030064
+#define SMM_REVISION_32 0x00030000
 
 static void sm_state_init_64(X86CPU *cpu)
 {
@@ -182,6 +185,54 @@ static void sm_state_init_32(X86CPU *cpu)
 }
 
 /*
+ * The I/O instruction that an SMI came right after, in the 64-bit
+ * state-save area, which keeps AMD's layout: RIP, RCX, RSI, and RDI before
+ * it and the I/O instruction restart dword, with the restart byte clear
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 10.3.8
+ * and Table 10-1).
+ */
+static void smm_save_io_64(CPUX86State *env, hwaddr sm_state)
+{
+    CPUState *cs = env_cpu(env);
+    const struct X86IOSMI *io = &env->io_held;
+    uint32_t dword = 0;
+
+    if (io->valid) {
+        x86_stq_phys(cs, sm_state + 0x7ea0, io->rip);
+        x86_stq_phys(cs, sm_state + 0x7ea8, io->rcx);
+        x86_stq_phys(cs, sm_state + 0x7eb0, io->rsi);
+        x86_stq_phys(cs, sm_state + 0x7eb8, io->rdi);
+        dword = (io->info & ~IO_SMI_IMM) | IO_SMI_VALID | io->port << 16;
+    }
+    x86_stl_phys(cs, sm_state + 0x7ec0, dword);
+    x86_stb_phys(cs, sm_state + 0x7ec8, 0);
+}
+
+/*
+ * The same in the 32-bit state-save area, Intel's: the I/O state field,
+ * with its IO_SMI bit, the access's length, the instruction's type, and the
+ * port, and the I/O instruction restart field clear (Intel SDM 325462-093
+ * Vol. 3C, 34.7.1, Tables 34-1, 34-5, and 34-6, and 34.12).
+ */
+static void smm_save_io_32(CPUX86State *env, hwaddr sm_state)
+{
+    CPUState *cs = env_cpu(env);
+    const struct X86IOSMI *io = &env->io_held;
+    uint32_t field = 0;
+
+    if (io->valid) {
+        uint32_t type = (io->info & IO_SMI_IN ? 1 : 0) |
+                        (io->info & IO_SMI_STR ? 2 : 0) |
+                        (io->info & IO_SMI_REP ? 4 : 0) |
+                        (io->info & IO_SMI_IMM ? 8 : 0);
+
+        field = 1 | ((io->info >> 4) & 7) << 1 | type << 4 | io->port << 16;
+    }
+    x86_stl_phys(cs, sm_state + 0x7fa4, field);
+    x86_stw_phys(cs, sm_state + 0x7f00, 0);
+}
+
+/*
  * An SMI, HALTED where it came in the HLT state, which the auto-halt
  * restart field records for RSM to return to (Intel SDM 325462-093 Vol.
  * 3C, 34.10; AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
@@ -197,6 +248,9 @@ void do_smm_enter(X86CPU *cpu, bool halted)
 
     env->msr_smi_count++;
     env->hflags |= HF_SMM_MASK;
+    /* SMM keeps the I/O instruction the SMI came after for RSM. */
+    env->io_held = env->io_smi;
+    env->io_smi.valid = false;
     /*
      * An SMI saves and clears IA32_LBR_CTL.LBREn, which RSM restores (Intel
      * SDM 325462-093 Vol. 3B, 21.1.4.1).
@@ -220,6 +274,7 @@ void do_smm_enter(X86CPU *cpu, bool halted)
 
     if (env->features[FEAT_8000_0001_EDX] & CPUID_EXT2_LM) {
         sm_state_init_64(cpu);
+        smm_save_io_64(env, env->smbase + 0x8000);
         x86_stb_phys(cs, env->smbase + 0x8000 + 0x7ec9, halted);
         /*
          * MPX: IA32_BNDCFGS, which SMM starts with clear and RSM restores
@@ -236,6 +291,7 @@ void do_smm_enter(X86CPU *cpu, bool halted)
         cpu_load_efer(env, 0);
     } else {
         sm_state_init_32(cpu);
+        smm_save_io_32(env, env->smbase + 0x8000);
         x86_stw_phys(cs, env->smbase + 0x8000 + 0x7f02, halted);
     }
 
@@ -615,6 +671,15 @@ void HELPER(rsm)(CPUX86State *env)
     hwaddr sm_state = env->smbase + 0x8000;
     bool halt = lm ? x86_ldub_phys(cs, sm_state + 0x7ec9) != 0
                    : x86_lduw_phys(cs, sm_state + 0x7f02) & 1;
+    /*
+     * The I/O instruction restart field: any value but 0 in the 64-bit
+     * area, FFH in the 32-bit one, has RSM run the I/O instruction that the
+     * SMI came after again (AMD64 Architecture Programmer's Manual Volume 2,
+     * 24593 rev. 3.46, 10.3.8; Intel SDM 325462-093 Vol. 3C, 34.12).
+     */
+    bool restart = env->io_held.valid &&
+                   (lm ? x86_ldub_phys(cs, sm_state + 0x7ec8) != 0
+                       : (x86_lduw_phys(cs, sm_state + 0x7f00) & 0xff) == 0xff);
     RsmChecked checked;
     SVMSmmSaved svm;
     const char *invalid;
@@ -630,6 +695,13 @@ void HELPER(rsm)(CPUX86State *env)
     } else {
         rsm_load_regs_32(env);
     }
+    if (restart) {
+        env->eip = env->io_held.rip;
+        env->regs[R_ECX] = env->io_held.rcx;
+        env->regs[R_ESI] = env->io_held.rsi;
+        env->regs[R_EDI] = env->io_held.rdi;
+    }
+    env->io_held.valid = false;
 
     if ((env->hflags2 & HF2_SMM_INSIDE_NMI_MASK) == 0) {
         env->hflags2 &= ~HF2_NMI_MASK;
