@@ -432,7 +432,14 @@ static void record_save(DisasContextBase *db, vaddr pc,
         offset = pc - db->pc_first;
     } else {
         int first_page_end_offset = -(db->pc_first | TARGET_PAGE_MASK);
-        assert(db->pc_second_page != -1);
+
+        /*
+         * translator_ld leaves the second page unset where the first page
+         * is MMIO: then the TB's one instruction reaches it here.
+         */
+        if (db->pc_second_page == -1) {
+            db->pc_second_page = pc & TARGET_PAGE_MASK;
+        }
         assert((pc & TARGET_PAGE_MASK) == db->pc_second_page);
         offset = pc - db->pc_second_page + first_page_end_offset;
     }

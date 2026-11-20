@@ -445,6 +445,9 @@ Processor emulation (TCG):
   under way no longer leaves a translation of the old code behind: Linux,
   patching its static branches with INT3 on several processors, oopsed at
   INT3s it had already taken out.
+* An instruction that begins on a page of MMIO, as firmware code in flash
+  that takes writes is, and continues on the next page no longer trips an
+  assertion as it is translated.
 * MONITOR and MWAIT exit VMX non-root operation before the #GP of reserved
   ECX bits, but meet SVM's intercepts, the conditional MWAIT one too, after
   it; MWAIT takes ECX[0], which leaf 5 reports, for interrupts that IF
