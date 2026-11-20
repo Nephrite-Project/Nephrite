@@ -1063,7 +1063,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define CPUID_SVM_KERNEL_FEATURES 0
 #endif
 #define TCG_8000_000A_ECX_FEATURES (CPUID_SVM_ECX_PML | \
-          CPUID_SVM_ECX_X2AVIC_EXT | CPUID_SVM_ECX_PW | CPUID_SVM_ECX_VPW)
+          CPUID_SVM_ECX_X2AVIC_EXT | CPUID_SVM_ECX_PW | CPUID_SVM_ECX_VPW | \
+          CPUID_SVM_ECX_GAAT)
 #define TCG_SVM_FEATURES (CPUID_SVM_NPT | CPUID_SVM_LBRV | \
           CPUID_SVM_NRIPSAVE | CPUID_SVM_TSCSCALE | CPUID_SVM_VMCBCLEAN | \
           CPUID_SVM_FLUSHASID | CPUID_SVM_SVMLOCK | \
@@ -1424,7 +1425,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_8000_000A_ECX] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
-            NULL, "pw", "vpw", NULL,
+            "gaat", "pw", "vpw", NULL,
             "pml", NULL, "x2avic-ext", NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -9811,6 +9812,10 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
     case 0x8000000A:
         if (env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_SVM) {
             *eax = 0x00000001; /* SVM Revision */
+            /* GAAT's largest prefix width, in bits 13:8. */
+            if (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_GAAT) {
+                *eax |= 1 << 8;
+            }
             *ebx = SVM_NR_ASIDS;
             *ecx = env->features[FEAT_8000_000A_ECX];
             *edx = env->features[FEAT_SVM]; /* optional features */

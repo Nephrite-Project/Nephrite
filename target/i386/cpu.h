@@ -1131,6 +1131,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
 
 /* CPUID[8000_000A].ECX */
+#define CPUID_SVM_ECX_GAAT        (1U << 0)
 #define CPUID_SVM_ECX_PW          (1U << 1)
 #define CPUID_SVM_ECX_VPW         (1U << 2)
 #define CPUID_SVM_ECX_PML         (1U << 4)
@@ -3032,6 +3033,10 @@ typedef struct CPUArchState {
     uint32_t nested_pg_mode;
     /* Under nested paging, the guest's PAT, G_PAT. */
     uint64_t svm_gpat;
+    /* GAAT paging in guest mode, from GAATP, by the GAAT prefix width. */
+    bool svm_gaat;
+    uint64_t svm_gaatp;
+    uint8_t svm_gaat_prefix;
     /* The bus locks the guest may still assert before it exits. */
     uint16_t svm_bus_lock_counter;
     uint8_t v_tpr;

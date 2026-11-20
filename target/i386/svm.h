@@ -181,6 +181,7 @@
 #define SVM_NPT_SSS         (1 << 4)
 #define SVM_NPT_ROGPT       (1 << 6)
 #define SVM_NPT_TLBI        (1 << 7)
+#define SVM_NPT_GAAT        (1 << 8)
 #define SVM_NPT_PW          (1 << 9)
 #define SVM_NPT_VPW         (1 << 10)
 #define SVM_NPT_PML         (1 << 11)
@@ -254,7 +255,10 @@ struct QEMU_PACKED vmcb_control_area {
     uint64_t avic_physical_id;
     uint8_t reserved_7[32];
     uint16_t bus_lock_counter;
-    uint8_t reserved_7b[78];
+    uint8_t reserved_7b[6];
+    uint64_t gaatp;
+    uint32_t gaat_prefix_width;
+    uint8_t reserved_7c[60];
     uint64_t exit_int_data;
     uint64_t event_inj_data;
     uint8_t reserved_8[72];
@@ -265,6 +269,7 @@ struct QEMU_PACKED vmcb_control_area {
 
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area,
                            bus_lock_counter) != 0x120);
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, gaatp) != 0x128);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, exit_int_data) != 0x170);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, pml_base) != 0x1c8);
 QEMU_BUILD_BUG_ON(sizeof(struct vmcb_control_area) != 0x400);

@@ -54,7 +54,10 @@ typedef struct TranslateParams {
      * paging-write type, which the leaf's PW bit allows.
      */
     bool paging_write;
-    /* 4-level or 5-level paging starts as HLAT paging, from HLATP. */
+    /*
+     * 4-level or 5-level paging starts as VMX's HLAT paging or SVM's GAAT
+     * paging, alike, from HLATP or GAATP.
+     */
     bool hlat;
     uint64_t hlatp;
 } TranslateParams;
@@ -1409,8 +1412,19 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
                     };
                     return false;
                 }
-                in.hlat = env->vmx.nonroot &&
-                          x86_vmx_hlat(env, addr, &in.hlatp);
+                if (env->vmx.nonroot) {
+                    in.hlat = x86_vmx_hlat(env, addr, &in.hlatp);
+                } else if (env->svm_gaat &&
+                           (!env->svm_gaat_prefix || addr >> 63)) {
+                    /*
+                     * GAAT paging, from GAATP, for every address with a
+                     * prefix width of 0, else those with bit 63 set
+                     * (AMD64 Architecture Programmer's Manual Volume 2,
+                     * 24593 rev. 3.46, 15.40.1).
+                     */
+                    in.hlat = true;
+                    in.hlatp = env->svm_gaatp;
+                }
             }
             return mmu_translate(env, &in, out, err, ra);
         }

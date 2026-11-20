@@ -748,6 +748,7 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     }
 
     env->nested_pg_mode = 0;
+    env->svm_gaat = false;
 
     if (!cpu_svm_has_intercept(env, SVM_EXIT_VMRUN)) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
@@ -827,6 +828,26 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
         }
         env->nested_pg_mode |= PG_MODE_VPW;
+    }
+    /*
+     * GAAT, which needs nested paging, a 64-bit host, and GAATP's bits
+     * 63:52 clear (AMD64 Architecture Programmer's Manual Volume 2, 24593
+     * rev. 3.46, 15.40.3 and Appendix B).
+     */
+    if ((nested_ctl & SVM_NPT_GAAT) &&
+        (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_GAAT)) {
+        env->svm_gaatp = x86_ldq_phys(cs, env->vm_vmcb +
+                                      offsetof(struct vmcb, control.gaatp));
+        env->svm_gaat_prefix =
+            x86_ldl_phys(cs, env->vm_vmcb +
+                         offsetof(struct vmcb, control.gaat_prefix_width)) &
+            0x3f;
+        if (!(nested_ctl & SVM_NPT_ENABLED) ||
+            !(env->nested_pg_mode & PG_MODE_LMA) ||
+            (env->svm_gaatp >> 52)) {
+            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+        }
+        env->svm_gaat = true;
     }
     /*
      * Without TlbiCtl, guests may always run INVLPGB and TLBSYNC (AMD64
@@ -2042,6 +2063,7 @@ void x86_svm_smm_enter(CPUX86State *env, hwaddr sm_state)
     env->intercept_exceptions = 0;
     env->tsc_offset = 0;
     env->nested_pg_mode = 0;
+    env->svm_gaat = false;
     env->int_ctl = 0;
     env->svm_int_vector = 0;
     env->svm_lbr_virt = false;
