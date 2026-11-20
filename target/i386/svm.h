@@ -178,6 +178,7 @@
 
 #define SVM_NPT_ENABLED     (1 << 0)
 #define SVM_NPT_GMET        (1 << 3)
+#define SVM_NPT_SSS         (1 << 4)
 #define SVM_NPT_ROGPT       (1 << 6)
 #define SVM_NPT_TLBI        (1 << 7)
 #define SVM_NPT_PML         (1 << 11)
@@ -199,6 +200,7 @@
 
 #define SVM_NPTEXIT_GPA     (1ULL << 32)
 #define SVM_NPTEXIT_GPT     (1ULL << 33)
+#define SVM_NPTEXIT_SSS     (1ULL << 37)
 
 #define SVM_CR0_RESERVED_MASK 0xffffffff00000000U
 

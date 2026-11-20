@@ -791,6 +791,21 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
             (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_PML)) {
             env->nested_pg_mode |= PG_MODE_PML;
         }
+        /*
+         * SSSCheck applies with a host in PAE paging and EFER.NXE, and is
+         * silently ignored otherwise; without nested paging, VMRUN fails
+         * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+         * 3.46, 15.25.15).
+         */
+        if ((nested_ctl & SVM_NPT_SSS) &&
+            (env->features[FEAT_SVM] & CPUID_SVM_SSSCHECK) &&
+            (env->nested_pg_mode & PG_MODE_PAE) &&
+            (env->nested_pg_mode & PG_MODE_NXE)) {
+            env->nested_pg_mode |= PG_MODE_SSS;
+        }
+    } else if ((nested_ctl & SVM_NPT_SSS) &&
+               (env->features[FEAT_SVM] & CPUID_SVM_SSSCHECK)) {
+        cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
     /*
      * Without TlbiCtl, guests may always run INVLPGB and TLBSYNC (AMD64

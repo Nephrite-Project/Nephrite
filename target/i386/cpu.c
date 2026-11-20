@@ -1070,6 +1070,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_SVM_PFTHRESHOLD | CPUID_SVM_AVIC | CPUID_SVM_V_VMSAVE_VMLOAD | \
           CPUID_SVM_VGIF | CPUID_SVM_GMET | CPUID_SVM_X2AVIC | \
           CPUID_SVM_V_SPEC_CTRL | CPUID_SVM_EXTLVT_AVIC_ACCESS | \
+          CPUID_SVM_SSSCHECK | \
           CPUID_SVM_ROGPT | CPUID_SVM_TLBICTL | CPUID_SVM_VNMI | \
           CPUID_SVM_SVME_ADDR_CHK | CPUID_SVM_IDLE_HLT | \
           CPUID_SVM_HOST_MCE_OVERRIDE | CPUID_SVM_BUS_LOCK_THRESHOLD | \
@@ -1389,7 +1390,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "tsc-scale", "vmcb-clean",  "flushbyasid", "decodeassists",
             NULL, NULL, "pause-filter", NULL,
             "pfthreshold", "avic", NULL, "v-vmsave-vmload",
-            "vgif", "gmet", "x2avic", NULL,
+            "vgif", "gmet", "x2avic", "ssscheck",
             "v-spec-ctrl", "rogpt", NULL, "host-mce-override",
             "tlbictl", "vnmi", NULL, "extlvt-avic-access",
             "svme-addr-chk", "bus-lock-threshold", "idle-hlt", NULL,
@@ -2323,6 +2324,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_SVM,                 CPUID_SVM_X2AVIC },
         .to = { FEAT_8000_000A_ECX,         CPUID_SVM_ECX_X2AVIC_EXT },
+    },
+    {
+        .from = { FEAT_SVM,                 CPUID_SVM_NPT },
+        .to = { FEAT_SVM,                   CPUID_SVM_SSSCHECK },
     },
     {
         .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },

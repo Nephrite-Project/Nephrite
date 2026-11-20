@@ -244,6 +244,7 @@ AMD SVM, completing what QEMU's TCG has:
   translations with flushes by ASID, NMI virtualization, the PAUSE filter
   and its threshold, the TSC ratio MSR, VMSAVE/VMLOAD virtualization, LBR
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
+  supervisor shadow-stack restrictions in nested page tables (SSSCheck),
   page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
   INVPCID intercepts, AVIC and x2AVIC with ExtLvtAvicAccessChg and
   x2AVIC_EXT, CET state in the VMCB, HOST_MCE_OVERRIDE, SPEC_CTRL

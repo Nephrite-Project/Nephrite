@@ -44,6 +44,11 @@ typedef struct TranslateParams {
     bool pcide;
     /* The walk's flag updates are locked accesses that bus locks matter to. */
     bool implicit_locks;
+    /*
+     * A nested walk for a guest supervisor shadow-stack access under
+     * SSSCheck, which reaches only supervisor shadow-stack pages.
+     */
+    bool sss;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -69,6 +74,8 @@ typedef struct TranslateFault {
     int error_code;
     target_ulong cr2;
     TranslateFaultStage2 stage2;
+    /* A nested page fault's EXITINFO1 bits beyond its error code. */
+    uint64_t npf_bits;
 } TranslateFault;
 
 typedef struct PTETranslate {
@@ -121,6 +128,7 @@ static bool ptw_translate(PTETranslate *inout, hwaddr addr, uint64_t ref)
             .error_code = inout->env->error_code,
             .cr2 = addr,
             .stage2 = S2_GPT,
+            .npf_bits = inout->env->svm_npf_bits,
         };
         return false;
     }
@@ -181,6 +189,7 @@ static bool ptw_store(PTETranslate *in)
             .error_code = in->env->error_code,
             .cr2 = in->gaddr,
             .stage2 = S2_GPT,
+            .npf_bits = in->env->svm_npf_bits,
         };
         in->fault = true;
         return false;
@@ -347,6 +356,35 @@ bool x86_mtrr_wb(CPUX86State *env, hwaddr pa)
     return matched || type == 6;
 }
 
+/*
+ * A nested page table walk, for a guest supervisor access where SUP is set:
+ * nested accesses are user ones, but with GMET the U/S bit only keeps code
+ * of guest CPL 0 to 2 from executing (AMD64 Architecture Programmer's Manual
+ * Volume 2, 24593 rev. 3.45, 15.25.13): they are supervisor ones, read-only
+ * pages kept from writes, with SMEP for those of guest supervisor accesses.
+ */
+static void npt_params(CPUX86State *env, bool sup, TranslateParams *in)
+{
+    bool lma = env->nested_pg_mode & PG_MODE_LMA;
+
+    env->svm_pml_full = false;
+    in->cr3 = env->nested_cr3;
+    in->pdptes = NULL;
+    in->pat = env->pat;
+    in->pcide = false;
+    in->implicit_locks = false;
+    in->pg_mode = env->nested_pg_mode;
+    in->mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
+    if (env->nested_pg_mode & PG_MODE_GMET) {
+        in->mmu_idx = lma ? MMU_KNOSMAP64_IDX : MMU_KNOSMAP32_IDX;
+        in->pg_mode |= PG_MODE_WP;
+        if (sup) {
+            in->pg_mode |= PG_MODE_SMEP;
+        }
+    }
+    in->ptw_idx = MMU_PHYS_IDX;
+}
+
 static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                           TranslateResult *out, TranslateFault *err,
                           uint64_t ra)
@@ -354,9 +392,11 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     const target_ulong addr = in->addr;
     const int pg_mode = in->pg_mode;
     const bool is_user = is_mmu_index_user(in->mmu_idx);
-    const bool ss = is_mmu_index_ss(in->mmu_idx);
+    const bool ss = is_mmu_index_ss(in->mmu_idx) || in->sss;
     const MMUAccessType access_type = in->access_type;
-    uint64_t ptep, pte, rsvd_mask;
+    uint64_t ptep, pte = 0, rsvd_mask;
+    /* A nested page fault's EXITINFO1 bits beyond its error code. */
+    uint64_t npf_bits = 0;
     /* The access rights of the entries above the one that maps the page. */
     uint64_t ptep_upper = -1;
     PTETranslate pte_trans = {
@@ -623,12 +663,29 @@ do_check_protect_pse36:
     }
     ptep ^= PG_NX_MASK;
 
+    prot = 0;
+    if (in->sss) {
+        /*
+         * Under SSSCheck, a nested page is a supervisor shadow-stack page
+         * where its leaf entry has NX set and U/S clear and every other
+         * entry R/W set; guest supervisor shadow-stack accesses reach only
+         * such pages, and write them whatever the leaf's R/W (AMD64
+         * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+         * 15.25.15).
+         */
+        if (!(pte & PG_NX_MASK) || (pte & PG_USER_MASK) ||
+            !(ptep_upper & PG_RW_MASK)) {
+            goto do_fault_protect;
+        }
+        prot = PAGE_READ | PAGE_WRITE;
+        goto do_check_pk;
+    }
+
     /* can the page can be put in the TLB?  prot will tell us */
     if (is_user && !(ptep & PG_USER_MASK)) {
         goto do_fault_protect;
     }
 
-    prot = 0;
     if (ss) {
         /*
          * Shadow-stack accesses reach only shadow-stack pages of their own
@@ -653,6 +710,7 @@ do_check_protect_pse36:
         prot |= PAGE_EXEC;
     }
 
+do_check_pk:
     if (ptep & PG_USER_MASK) {
         pkr = pg_mode & PG_MODE_PKE ? env->pkru : 0;
     } else {
@@ -757,6 +815,36 @@ do_check_protect_pse36:
             full->extra.x86.wb = (memtype & 7) == 6;
             full->extra.x86.mtrr = false;
             full->extra.x86.ipat = memtype & 8;
+        } else if (unlikely(ss && !is_user && !env->vmx.nonroot &&
+                            (env->nested_pg_mode & PG_MODE_SSS))) {
+            /*
+             * So does SSSCheck with guest supervisor shadow-stack accesses,
+             * which take supervisor shadow-stack pages that the nested TLB,
+             * filled by other accesses, would not hold.
+             */
+            TranslateParams sss_in = {
+                .addr = paddr,
+                .access_type = access_type,
+                .sss = true,
+            };
+            TranslateResult sss_out;
+            TranslateFault sss_err;
+
+            npt_params(env, true, &sss_in);
+            full = &sss_full;
+            translated = mmu_translate(env, &sss_in, &sss_out, &sss_err, ra);
+            if (translated) {
+                full->prot = sss_out.prot;
+                full->phys_addr = sss_out.paddr &
+                                  ~(hwaddr)(sss_out.page_size - 1);
+                full->lg_page_size = ctz32(sss_out.page_size);
+                full->extra.x86.wb = sss_out.wb;
+                full->extra.x86.mtrr = sss_out.mtrr;
+                full->extra.x86.ipat = sss_out.ipat;
+            } else {
+                env->error_code = sss_err.error_code;
+                env->svm_npf_bits = sss_err.npf_bits;
+            }
         } else {
             flags = probe_access_full_mmu(env, paddr, 0, access_type,
                                           idx, &pte_trans.haddr, &full);
@@ -768,6 +856,7 @@ do_check_protect_pse36:
                 .error_code = env->error_code,
                 .cr2 = paddr,
                 .stage2 = S2_GPA,
+                .npf_bits = env->svm_npf_bits,
             };
             return false;
         }
@@ -843,6 +932,15 @@ do_check_protect_pse36:
     goto do_fault_cont;
  do_fault_protect:
     error_code = PG_ERROR_P_MASK;
+    /*
+     * Under SSSCheck, a nested page fault on a supervisor shadow-stack page
+     * says so in bit 37 of EXITINFO1 (AMD64 Architecture Programmer's
+     * Manual Volume 2, 24593 rev. 3.46, 15.25.6).
+     */
+    if ((pg_mode & PG_MODE_SSS) && (pte & PG_NX_MASK) &&
+        !(pte & PG_USER_MASK) && (ptep_upper & PG_RW_MASK)) {
+        npf_bits = SVM_NPTEXIT_SSS;
+    }
     goto do_fault_cont;
  do_fault_pk_protect:
     assert(access_type != MMU_INST_FETCH);
@@ -873,6 +971,7 @@ do_check_protect_pse36:
         .exception_index = EXCP0E_PAGE,
         .error_code = error_code,
         .cr2 = addr,
+        .npf_bits = npf_bits,
     };
     return false;
 }
@@ -890,6 +989,7 @@ static G_NORETURN void raise_stage2(CPUX86State *env, TranslateFault *err,
         cpu_vmexit(env, SVM_EXIT_PML_FULL, 0, retaddr);
     }
 
+    exit_info_1 |= err->npf_bits;
     switch (err->stage2) {
     case S2_GPT:
         exit_info_1 |= SVM_NPTEXIT_GPT;
@@ -938,7 +1038,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
                                  TranslateResult *out, TranslateFault *err,
                                  bool implicit_locks, uint64_t ra)
 {
-    TranslateParams in;
+    TranslateParams in = {};
     bool use_stage2 = env->hflags2 & HF2_NPT_MASK;
 
     out->avic = false;
@@ -968,32 +1068,7 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
             return true;
         }
         if (likely(use_stage2)) {
-            bool lma = env->nested_pg_mode & PG_MODE_LMA;
-
-            env->svm_pml_full = false;
-            in.cr3 = env->nested_cr3;
-            in.pdptes = NULL;
-            in.pat = env->pat;
-            in.pcide = false;
-            in.implicit_locks = false;
-            in.pg_mode = env->nested_pg_mode;
-            in.mmu_idx = lma ? MMU_USER64_IDX : MMU_USER32_IDX;
-            /*
-             * Nested accesses are user ones, but with GMET the U/S bit only
-             * keeps code of guest CPL 0 to 2 from executing (AMD64
-             * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
-             * 15.25.13): they are supervisor ones, read-only pages kept
-             * from writes, with SMEP for those of guest supervisor accesses.
-             */
-            if (env->nested_pg_mode & PG_MODE_GMET) {
-                in.mmu_idx = lma ? MMU_KNOSMAP64_IDX : MMU_KNOSMAP32_IDX;
-                in.pg_mode |= PG_MODE_WP;
-                if (is_mmu_index_nested_sup(mmu_idx)) {
-                    in.pg_mode |= PG_MODE_SMEP;
-                }
-            }
-            in.ptw_idx = MMU_PHYS_IDX;
-
+            npt_params(env, is_mmu_index_nested_sup(mmu_idx), &in);
             if (!mmu_translate(env, &in, out, err, ra)) {
                 err->stage2 = S2_GPA;
                 return false;
@@ -1257,6 +1332,7 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     if (probe) {
         /* This will be used if recursing for stage2 translation. */
         env->error_code = err.error_code;
+        env->svm_npf_bits = err.npf_bits;
         return false;
     }
 

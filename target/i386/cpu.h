@@ -457,6 +457,12 @@ typedef enum X86Seg {
  * Volume 2, 24593 rev. 3.45, 15.25.15).
  */
 #define PG_MODE_PML      (1 << 8)
+/*
+ * And SSSCheck, with which guest supervisor shadow-stack accesses reach
+ * only the pages the nested tables designate for them (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.15).
+ */
+#define PG_MODE_SSS      (1 << 9)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */
@@ -1098,6 +1104,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_VGIF            (1U << 16)
 #define CPUID_SVM_GMET            (1U << 17)
 #define CPUID_SVM_X2AVIC          (1U << 18)
+#define CPUID_SVM_SSSCHECK        (1U << 19)
 #define CPUID_SVM_V_SPEC_CTRL     (1U << 20)
 #define CPUID_SVM_ROGPT           (1U << 21)
 #define CPUID_SVM_HOST_MCE_OVERRIDE (1U << 23)
@@ -2798,6 +2805,11 @@ typedef struct CPUArchState {
     uint64_t spec_ctrl;
     /* SVM guest mode with V_SPEC_CTRL: the host's IA32_SPEC_CTRL. */
     uint64_t svm_host_spec_ctrl;
+    /*
+     * The EXITINFO1 bits beyond the error code of the nested page fault a
+     * nested TLB fill just met, for the walk it was for.
+     */
+    uint64_t svm_npf_bits;
     uint64_t amd_tsc_scale_msr;
     uint64_t virt_ssbd;
     /* How far WRMSR to IA32_TSC has moved this processor's TSC. */
