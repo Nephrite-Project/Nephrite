@@ -635,6 +635,10 @@ typedef enum X86Seg {
 
 #define MSR_IA32_PERF_STATUS            0x198
 
+#define MSR_IA32_CLOCK_MODULATION       0x19a
+#define MSR_IA32_THERM_INTERRUPT        0x19b
+#define MSR_IA32_THERM_STATUS           0x19c
+
 #define MSR_IA32_MISC_ENABLE            0x1a0
 #define MSR_PLATFORM_INFO               0xce
 #define MSR_PLATFORM_INFO_CPUID_FAULT   (1ULL << 31)
@@ -1538,7 +1542,11 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_XSAVE_XSAVES     (1U << 3)
 #define CPUID_XSAVE_XFD        (1U << 4)
 
+#define CPUID_6_EAX_DTS        (1U << 0)
 #define CPUID_6_EAX_ARAT       (1U << 2)
+#define CPUID_6_EAX_PLN        (1U << 4)
+#define CPUID_6_EAX_ECMD       (1U << 5)
+#define CPUID_6_EAX_HWP        (1U << 7)
 
 /* IA32_MPERF and IA32_APERF */
 #define CPUID_6_ECX_APERFMPERF (1U << 0)
@@ -2863,6 +2871,9 @@ typedef struct CPUArchState {
     /* The #VMEXIT that a pending machine check takes in SVM guest mode. */
     uint32_t mce_svm_exit;
     uint64_t msr_ia32_misc_enable;
+    /* TCG: IA32_CLOCK_MODULATION and IA32_THERM_INTERRUPT. */
+    uint64_t msr_clock_modulation;
+    uint64_t msr_therm_interrupt;
     uint64_t msr_misc_features_enables;
     uint64_t msr_ia32_feature_control;
     uint64_t msr_ia32_sgxlepubkeyhash[4];

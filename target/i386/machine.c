@@ -1099,6 +1099,26 @@ static const VMStateDescription vmstate_umwait = {
     }
 };
 
+static bool thermal_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return env->msr_clock_modulation || env->msr_therm_interrupt;
+}
+
+static const VMStateDescription vmstate_thermal = {
+    .name = "cpu/thermal",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = thermal_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT64(env.msr_clock_modulation, X86CPU),
+        VMSTATE_UINT64(env.msr_therm_interrupt, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool pkru_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2420,6 +2440,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_avx512,
         &vmstate_xss,
         &vmstate_umwait,
+        &vmstate_thermal,
         &vmstate_tsc_khz,
         &vmstate_msr_smi_count,
         &vmstate_pkru,

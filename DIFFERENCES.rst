@@ -450,6 +450,10 @@ Processor emulation (TCG):
   machine's SMIs all are, where it gave I/O trapping, and for an SMI that
   comes right after an I/O instruction the instruction in EXITINFO1's
   upper half and its RIP in EXITINFO2.
+* TCG's processors that report CPUID.01H:EDX.ACPI have the MSRs that it
+  promises, which raised #GP: IA32_CLOCK_MODULATION and
+  IA32_THERM_INTERRUPT hold their bits, and IA32_THERM_STATUS reports no
+  thermal events.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
@@ -690,6 +694,8 @@ Known deviations and limits
   split; PAUSE-loop exiting runs at TCG's speed; XSAVES at CPL > 0 keeps the
   #NM and #GP order; MTF with BTF and TF reports BS as for non-branches.
 * SVM's PAUSE filter threshold counts cycles as the PMU does.
+* Thermal monitor: IA32_CLOCK_MODULATION does not slow the processor, and
+  IA32_THERM_INTERRUPT's thresholds raise no interrupts.
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no PEBS
   or LBR format.

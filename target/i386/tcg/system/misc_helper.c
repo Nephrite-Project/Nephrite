@@ -875,6 +875,30 @@ static int x86_arch_lbr_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
 }
 
 /*
+ * The bits of MSR, one of the thermal monitor's MSRs, which
+ * CPUID.01H:EDX.ACPI promises (Intel SDM 325462-093 Vol. 4, Table 2-2):
+ * those that CPUID leaf 06H or TM2 add are reserved where it does not
+ * report them.
+ */
+static uint64_t therm_bits(CPUX86State *env, uint32_t msr)
+{
+    uint32_t pm = env->features[FEAT_6_EAX];
+
+    switch (msr) {
+    case MSR_IA32_CLOCK_MODULATION:
+        return 0x1e | (pm & CPUID_6_EAX_ECMD ? 1 : 0);
+    case MSR_IA32_THERM_INTERRUPT:
+        return 0xffff1f | (pm & CPUID_6_EAX_PLN ? 1u << 24 : 0);
+    default:
+        return 0x3f |
+               (env->features[FEAT_1_ECX] & CPUID_EXT_TM2 ? 0x3c0 : 0) |
+               (pm & CPUID_6_EAX_PLN ? 0xc00 : 0) |
+               (pm & CPUID_6_EAX_HWP ? 0xf000 : 0) |
+               (pm & CPUID_6_EAX_DTS ? 0xf87f0000 : 0);
+    }
+}
+
+/*
  * WRMSR's effect, false where it raises #GP; VM entries and exits load
  * their MSR areas with it, exits with the BQL held, hence BQL_LOCK_GUARD()
  * here and in x86_cpu_rdmsr().
@@ -1221,6 +1245,25 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         break;
     case MSR_IA32_MISC_ENABLE:
         env->msr_ia32_misc_enable = val;
+        break;
+    case MSR_IA32_CLOCK_MODULATION:
+    case MSR_IA32_THERM_INTERRUPT:
+    case MSR_IA32_THERM_STATUS:
+        /*
+         * The clock modulation and thermal interrupt controls hold what is
+         * written, without slowing the processor or raising thermal
+         * interrupts; the thermal status, which reports no events, has
+         * nothing for writes to clear.
+         */
+        if (!(env->features[FEAT_1_EDX] & CPUID_ACPI) ||
+            (val & ~therm_bits(env, msr))) {
+            return false;
+        }
+        if (msr == MSR_IA32_CLOCK_MODULATION) {
+            env->msr_clock_modulation = val;
+        } else if (msr == MSR_IA32_THERM_INTERRUPT) {
+            env->msr_therm_interrupt = val;
+        }
         break;
     case MSR_IA32_DEBUGCTL:
         if (val & ~x86_debugctl_bits(env)) {
@@ -1734,6 +1777,15 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         return false;
     case MSR_IA32_MISC_ENABLE:
         val = env->msr_ia32_misc_enable;
+        break;
+    case MSR_IA32_CLOCK_MODULATION:
+    case MSR_IA32_THERM_INTERRUPT:
+    case MSR_IA32_THERM_STATUS:
+        if (!(env->features[FEAT_1_EDX] & CPUID_ACPI)) {
+            return false;
+        }
+        val = msr == MSR_IA32_CLOCK_MODULATION ? env->msr_clock_modulation :
+              msr == MSR_IA32_THERM_INTERRUPT ? env->msr_therm_interrupt : 0;
         break;
     case MSR_IA32_DEBUGCTL:
         val = env->debugctl;
