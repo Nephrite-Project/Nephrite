@@ -49,6 +49,11 @@ typedef struct TranslateParams {
      * SSSCheck, which reaches only supervisor shadow-stack pages.
      */
     bool sss;
+    /*
+     * A nested walk for a guest page-table access of Paging-Write's
+     * paging-write type, which the leaf's PW bit allows.
+     */
+    bool paging_write;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -61,6 +66,8 @@ typedef struct TranslateResult {
     bool wb;
     bool mtrr;
     bool ipat;
+    /* The entry that maps the page. */
+    uint64_t leaf;
 } TranslateResult;
 
 typedef enum TranslateFaultStage2 {
@@ -93,13 +100,84 @@ typedef struct PTETranslate {
     uintptr_t ra;
     /* The entry was probed for loads, so flag updates probe for a store. */
     bool load_only;
+    /*
+     * The nested index the walk began with, which a direct nested walk
+     * leaves for the physical one; the TLB entry such a walk fills; and
+     * whether the nested leaves of every guest table so far had PW set.
+     */
+    int walk_idx;
+    hwaddr table_gpa;
+    CPUTLBEntryFull direct_full;
+    bool tables_pw;
     /* A flag update met an EPT violation, which ends the walk. */
     bool fault;
 } PTETranslate;
 
+static bool npt_translate(CPUX86State *env, TranslateParams *in,
+                          TranslateResult *out, TranslateFault *err,
+                          uint64_t ra);
+
+/*
+ * A guest paging-structure access under Paging-Write or Verify Paging-Write,
+ * which the nested TLB cannot answer: a nested walk of the paging-write type
+ * where Paging-Write applies, which ROGPT keeps for flag updates (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.6.2),
+ * that notes the leaf's PW bit for Verify Paging-Write, after which the walk
+ * goes on at the system-physical address.
+ */
+static bool ptw_direct(PTETranslate *inout, bool store)
+{
+    CPUX86State *env = inout->env;
+    bool rogpt = env->nested_pg_mode & PG_MODE_ROGPT;
+    bool pw = (env->nested_pg_mode & PG_MODE_PW) && (store || !rogpt);
+    TranslateParams in = {
+        .addr = inout->gaddr,
+        .access_type = store || !rogpt ? MMU_DATA_STORE : MMU_DATA_LOAD,
+        .paging_write = pw,
+    };
+    TranslateResult out;
+    TranslateFault err;
+    CPUTLBEntryFull *full;
+
+    if (!npt_translate(env, &in, &out, &err, inout->ra)) {
+        *inout->err = (TranslateFault){
+            .error_code = err.error_code,
+            .cr2 = inout->gaddr,
+            .stage2 = S2_GPT,
+            .npf_bits = err.npf_bits,
+        };
+        inout->fault = true;
+        return false;
+    }
+    if (!(out.leaf & PG_NPT_PW_MASK)) {
+        inout->tables_pw = false;
+    }
+    inout->gaddr = out.paddr;
+    inout->ptw_idx = MMU_PHYS_IDX;
+    probe_access_full_mmu(env, out.paddr, 0, MMU_DATA_LOAD, MMU_PHYS_IDX,
+                          &inout->haddr, &full);
+    inout->direct_full = *full;
+    inout->direct_full.extra.x86.wb = out.wb;
+    inout->direct_full.extra.x86.mtrr = out.mtrr;
+    inout->direct_full.extra.x86.ipat = out.ipat;
+    inout->full = &inout->direct_full;
+    inout->load_only = in.access_type == MMU_DATA_LOAD;
+    return true;
+}
+
 static bool ptw_translate(PTETranslate *inout, hwaddr addr, uint64_t ref)
 {
     int flags;
+
+    inout->ptw_idx = inout->walk_idx;
+    if (inout->ptw_idx != MMU_PHYS_IDX && !inout->env->vmx.nonroot &&
+        (inout->env->nested_pg_mode & (PG_MODE_PW | PG_MODE_VPW))) {
+        inout->gaddr = addr;
+        inout->table_gpa = addr;
+        inout->ref = ref;
+        inout->fault = false;
+        return ptw_direct(inout, false);
+    }
 
     /*
      * Walks may set accessed and dirty flags: stores, but for EPT without
@@ -181,8 +259,17 @@ static bool ptw_setl_slow(PTETranslate *in, uint32_t old, uint32_t new)
  */
 static bool ptw_store(PTETranslate *in)
 {
-    int flags = probe_access_full_mmu(in->env, in->gaddr, 0, MMU_DATA_STORE,
-                                      in->ptw_idx, &in->haddr, &in->full);
+    int flags;
+
+    /* A flag update of a table read under ROGPT is paging-write's. */
+    if (in->ptw_idx == MMU_PHYS_IDX && in->walk_idx != MMU_PHYS_IDX &&
+        !in->env->vmx.nonroot &&
+        (in->env->nested_pg_mode & (PG_MODE_PW | PG_MODE_VPW))) {
+        in->gaddr = in->table_gpa;
+        return ptw_direct(in, true);
+    }
+    flags = probe_access_full_mmu(in->env, in->gaddr, 0, MMU_DATA_STORE,
+                                  in->ptw_idx, &in->haddr, &in->full);
 
     if (unlikely(flags & TLB_INVALID_MASK)) {
         *in->err = (TranslateFault){
@@ -403,6 +490,8 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         .env = env,
         .err = err,
         .ptw_idx = in->ptw_idx,
+        .walk_idx = in->ptw_idx,
+        .tables_pw = true,
         .pat = in->pat,
         .implicit_locks = in->implicit_locks,
         .fetch = in->access_type == MMU_INST_FETCH,
@@ -686,7 +775,17 @@ do_check_protect_pse36:
         goto do_fault_protect;
     }
 
-    if (ss) {
+    if (in->paging_write) {
+        /*
+         * Paging-Write's access type needs R/W in the entries above the
+         * leaf and PW in the leaf (AMD64 Architecture Programmer's Manual
+         * Volume 2, 24593 rev. 3.46, 15.25.6.2).
+         */
+        if (!(ptep_upper & PG_RW_MASK) || !(pte & PG_NPT_PW_MASK)) {
+            goto do_fault_protect;
+        }
+        prot = PAGE_READ | PAGE_WRITE;
+    } else if (ss) {
         /*
          * Shadow-stack accesses reach only shadow-stack pages of their own
          * mode: read-only and dirty in the entry that maps the page,
@@ -860,6 +959,36 @@ do_check_pk:
             };
             return false;
         }
+        /*
+         * Under Verify Paging-Write, a page whose nested leaf has VPW set
+         * is reached only through guest tables whose nested leaves have PW
+         * set (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+         * 3.46, 15.25.6.3).
+         */
+        if (unlikely(!env->vmx.nonroot && !pte_trans.tables_pw &&
+                     (env->nested_pg_mode & PG_MODE_VPW))) {
+            TranslateParams vpw_in = {
+                .addr = paddr,
+                .access_type = access_type,
+            };
+            TranslateResult vpw_out;
+            TranslateFault vpw_err;
+
+            if (npt_translate(env, &vpw_in, &vpw_out, &vpw_err, ra) &&
+                (vpw_out.leaf & PG_NPT_VPW_MASK)) {
+                *err = (TranslateFault){
+                    .error_code = PG_ERROR_P_MASK | PG_ERROR_U_MASK |
+                                  (access_type == MMU_DATA_STORE ?
+                                   PG_ERROR_W_MASK : 0) |
+                                  (access_type == MMU_INST_FETCH ?
+                                   PG_ERROR_I_D_MASK : 0),
+                    .cr2 = paddr,
+                    .stage2 = S2_GPA,
+                    .npf_bits = SVM_NPTEXIT_VPW,
+                };
+                return false;
+            }
+        }
 
         /* Merge stage1 & stage2 protection bits. */
         prot &= full->prot;
@@ -921,6 +1050,7 @@ do_check_pk:
     out->paddr = paddr & x86_get_a20_mask(env);
     out->prot = prot;
     out->page_size = page_size;
+    out->leaf = pte;
     out->wb = wb;
     out->mtrr = mtrr;
     out->ipat = false;
@@ -974,6 +1104,15 @@ do_check_pk:
         .npf_bits = npf_bits,
     };
     return false;
+}
+
+/* A nested walk of its own, outside the nested TLB, at IN's address. */
+static bool npt_translate(CPUX86State *env, TranslateParams *in,
+                          TranslateResult *out, TranslateFault *err,
+                          uint64_t ra)
+{
+    npt_params(env, false, in);
+    return mmu_translate(env, in, out, err, ra);
 }
 
 static G_NORETURN void raise_stage2(CPUX86State *env, TranslateFault *err,

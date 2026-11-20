@@ -417,6 +417,9 @@ typedef enum X86Seg {
 #define PG_ADDRESS_MASK  0x000ffffffffff000LL
 #define PG_HI_USER_MASK  0x7ff0000000000000LL
 #define PG_PKRU_MASK     (15ULL << PG_PKRU_BIT)
+/* Nested page table leaf bits of Verify Paging-Write and Paging-Write. */
+#define PG_NPT_VPW_MASK  (1ULL << 57)
+#define PG_NPT_PW_MASK   (1ULL << 58)
 #define PG_NX_MASK       (1ULL << PG_NX_BIT)
 
 #define PG_ERROR_W_BIT     1
@@ -463,6 +466,13 @@ typedef enum X86Seg {
  * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.15).
  */
 #define PG_MODE_SSS      (1 << 9)
+/*
+ * And Paging-Write and Verify Paging-Write, with which guest page tables'
+ * nested pages and the pages they map can be told apart (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.25.6).
+ */
+#define PG_MODE_PW       (1 << 10)
+#define PG_MODE_VPW      (1 << 11)
 #define PG_MODE_SVM_MASK MAKE_64BIT_MASK(0, 15)
 
 /* Bits of CR4 that do not affect the NPT page format.  */
@@ -1116,6 +1126,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_IDLE_HLT        (1U << 30)
 
 /* CPUID[8000_000A].ECX */
+#define CPUID_SVM_ECX_PW          (1U << 1)
+#define CPUID_SVM_ECX_VPW         (1U << 2)
 #define CPUID_SVM_ECX_PML         (1U << 4)
 #define CPUID_SVM_ECX_X2AVIC_EXT  (1U << 6)
 

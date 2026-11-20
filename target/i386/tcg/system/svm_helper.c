@@ -808,6 +808,27 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
     }
     /*
+     * Paging-Write and Verify Paging-Write need nested paging and a 64-bit
+     * host (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+     * 3.46, 15.25.6.2 and 15.25.6.3).
+     */
+    if ((nested_ctl & SVM_NPT_PW) &&
+        (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_PW)) {
+        if (!(nested_ctl & SVM_NPT_ENABLED) ||
+            !(env->nested_pg_mode & PG_MODE_LMA)) {
+            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+        }
+        env->nested_pg_mode |= PG_MODE_PW;
+    }
+    if ((nested_ctl & SVM_NPT_VPW) &&
+        (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_VPW)) {
+        if (!(nested_ctl & SVM_NPT_ENABLED) ||
+            !(env->nested_pg_mode & PG_MODE_LMA)) {
+            cpu_vmexit(env, SVM_EXIT_ERR, 0, GETPC());
+        }
+        env->nested_pg_mode |= PG_MODE_VPW;
+    }
+    /*
      * Without TlbiCtl, guests may always run INVLPGB and TLBSYNC (AMD64
      * Architecture Programmer's Manual Volume 2, 24593 rev. 3.45, Table B-1).
      */

@@ -181,6 +181,8 @@
 #define SVM_NPT_SSS         (1 << 4)
 #define SVM_NPT_ROGPT       (1 << 6)
 #define SVM_NPT_TLBI        (1 << 7)
+#define SVM_NPT_PW          (1 << 9)
+#define SVM_NPT_VPW         (1 << 10)
 #define SVM_NPT_PML         (1 << 11)
 
 /* VMCB Clean field bits */
@@ -201,6 +203,7 @@
 #define SVM_NPTEXIT_GPA     (1ULL << 32)
 #define SVM_NPTEXIT_GPT     (1ULL << 33)
 #define SVM_NPTEXIT_SSS     (1ULL << 37)
+#define SVM_NPTEXIT_VPW     (1ULL << 38)
 
 #define SVM_CR0_RESERVED_MASK 0xffffffff00000000U
 
