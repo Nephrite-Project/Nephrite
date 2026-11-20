@@ -5,7 +5,7 @@ How Nephrite differs from QEMU
 Nephrite is QEMU's development tree as of commit 71f25c7541 (version 11.1.50)
 with the changes below. QEMU's later changes come in as cherry-picks, adjusted
 to Nephrite where they need to be; those that no longer apply to it stay out.
-Its changes up to its v11.2.0-rc1 release (commit 08c9bbb825) are in.
+Its changes up to commit 08ed97c33c, after its v11.2.0-rc1 release, are in.
 Each change below is a commit of its own; ``git log --grep``
 finds it by the words of its subject, which the entries quote where a
 change is not plain from its description. The processor's documentation is
