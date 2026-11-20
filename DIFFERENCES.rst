@@ -297,7 +297,8 @@ Processor features:
   IA32_ARCH_CAPABILITIES[21], IA32_XAPIC_DISABLE_STATUS, and ``info
   lapic`` report (TCG and Intel CPU models only).
 * A PMU: Intel's architectural performance monitoring (version 2) and
-  AMD's core counters, with PerfMonV2's global control and status.
+  AMD's core counters, with PerfMonV2's global control and status, and
+  AMD's instructions retired counter, IRPerfCount.
 * CET: shadow stacks and indirect branch tracking, whose state register
   dumps show.
 * User interrupts: their MSRs, delivery at CPL 3, user-interrupt

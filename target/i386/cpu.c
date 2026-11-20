@@ -1241,18 +1241,20 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_8000_0008_EBX_AMD_PSFD)
 #define TCG_8000_0008_EBX_INVLPGB 0
 #define TCG_8000_0008_EBX_RDPRU 0
+#define TCG_8000_0008_EBX_IRPERF 0
 #else
 #define CPUID_8000_0008_EBX_KERNEL_FEATURES 0
 #define TCG_8000_0008_EBX_INVLPGB (CPUID_8000_0008_EBX_INVLPGB | \
           CPUID_8000_0008_EBX_INVLPGB_NESTED)
 #define TCG_8000_0008_EBX_RDPRU CPUID_8000_0008_EBX_RDPRU
+#define TCG_8000_0008_EBX_IRPERF CPUID_8000_0008_EBX_IRPERF
 #endif
 
 #define TCG_8000_0008_EBX  (CPUID_8000_0008_EBX_XSAVEERPTR | \
           CPUID_8000_0008_EBX_CLZERO | CPUID_8000_0008_EBX_EFER_LMSLE_MBZ | \
           CPUID_8000_0008_EBX_WBNOINVD | CPUID_8000_0008_EBX_KERNEL_FEATURES | \
           TCG_8000_0008_EBX_SPEC_CTRL | TCG_8000_0008_EBX_INVLPGB | \
-          TCG_8000_0008_EBX_RDPRU)
+          TCG_8000_0008_EBX_RDPRU | TCG_8000_0008_EBX_IRPERF)
 
 #if defined CONFIG_USER_ONLY
 #define CPUID_8000_0021_EAX_KERNEL_FEATURES CPUID_8000_0021_EAX_AUTO_IBRS
@@ -1674,7 +1676,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_8000_0008_EBX] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
-            "clzero", NULL, "xsaveerptr", "invlpgb",
+            "clzero", "irperf", "xsaveerptr", "invlpgb",
             "rdpru", NULL, NULL, NULL,
             NULL, "wbnoinvd", NULL, NULL,
             "ibpb", NULL, "ibrs", "amd-stibp",
@@ -9786,6 +9788,10 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
              *eax |= (cpu->guest_phys_bits << 16);
         }
         *ebx = env->features[FEAT_8000_0008_EBX];
+        /* TCG counts instructions retired with the PMU only. */
+        if (tcg_enabled() && !cpu->enable_pmu) {
+            *ebx &= ~CPUID_8000_0008_EBX_IRPERF;
+        }
         *edx = *ebx & CPUID_8000_0008_EBX_INVLPGB ? INVLPGB_COUNT_MAX : 0;
         if (*ebx & CPUID_8000_0008_EBX_RDPRU) {
             *edx |= RDPRU_MAX_ECX << 16;

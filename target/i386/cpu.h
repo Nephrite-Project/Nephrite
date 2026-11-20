@@ -729,7 +729,9 @@ typedef enum X86Seg {
 #define MSR_AMD64_TSC_RATIO_RESERVED    0xffffff0000000000ULL
 
 #define MSR_K7_HWCR                     0xc0010015
+#define MSR_AMD_IRPERF_COUNT            0xc00000e9
 #define HWCR_MC_STATUS_WR_EN            (1ULL << 18)
+#define HWCR_IRPERF_EN                  (1ULL << 30)
 #define HWCR_CPUID_USER_DIS             (1ULL << 35)
 
 /*
@@ -1434,6 +1436,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 
 /* CLZERO instruction */
 #define CPUID_8000_0008_EBX_CLZERO      (1U << 0)
+/* The instructions retired counter, IRPerfCount */
+#define CPUID_8000_0008_EBX_IRPERF      (1U << 1)
 /* Always save/restore FP error pointers */
 #define CPUID_8000_0008_EBX_XSAVEERPTR  (1U << 2)
 /* INVLPGB and TLBSYNC */

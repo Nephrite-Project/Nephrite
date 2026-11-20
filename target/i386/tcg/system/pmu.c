@@ -65,6 +65,8 @@
 #define AMD_CORE_COUNTERS 6
 #define AMD_LEGACY_COUNTERS 4
 #define AMD_GLOBAL_COUNTERS MAKE_64BIT_MASK(0, AMD_CORE_COUNTERS)
+/* IRPerfCount, kept as the first of Intel's fixed counters would be. */
+#define AMD_IRPERF X86_PMU_GP_COUNTERS
 
 bool x86_pmu_enabled(CPUX86State *env)
 {
@@ -96,6 +98,28 @@ static bool pmu_global(CPUX86State *env)
     return IS_INTEL_CPU(env) ||
            (env->features[FEAT_8000_0022_EAX] &
             CPUID_8000_0022_EAX_PERFMON_V2);
+}
+
+/*
+ * AMD's instructions retired counter, IRPerfCount, which counts every
+ * instruction retired while HWCR[IRPerfEn] is set (AMD64 Architecture
+ * Programmer's Manual Volume 2, 24593 rev. 3.46, 13.2.1; PPR for AMD
+ * Family 19h Model 61h, 56713 rev. 3.05, MSRC000_00E9): 48 bits, that
+ * overflow without an interrupt.
+ */
+static bool pmu_irperf(CPUX86State *env)
+{
+    return !IS_INTEL_CPU(env) &&
+           (env->features[FEAT_8000_0008_EBX] & CPUID_8000_0008_EBX_IRPERF);
+}
+
+/* The counters that count events: Intel's, or AMD's and IRPerfCount. */
+static unsigned pmu_slots(CPUX86State *env)
+{
+    if (IS_INTEL_CPU(env)) {
+        return X86_PMU_COUNTERS;
+    }
+    return pmu_irperf(env) ? AMD_IRPERF + 1 : pmu_counters(env);
 }
 
 /* Counter C: Intel's general-purpose and then fixed ones, or AMD's. */
@@ -174,7 +198,7 @@ static void pmu_set_limits(CPUX86State *env)
     for (unsigned b = 0; b < X86_PMU_BUCKETS; b++) {
         room[b] = UINT64_MAX;
     }
-    for (unsigned c = 0; c < pmu_counters(env); c++) {
+    for (unsigned c = 0; c < pmu_slots(env); c++) {
         const X86PMUCounter *ctr = &p->ctr[c];
         uint64_t left = PMU_MASK + 1 - *pmu_value(env, c);
         uint64_t share;
@@ -220,7 +244,7 @@ static void pmu_update(CPUX86State *env)
     bool pmi = false;
 
     pmu_take_back(env);
-    for (unsigned c = 0; c < pmu_counters(env); c++) {
+    for (unsigned c = 0; c < pmu_slots(env); c++) {
         X86PMUCounter *ctr = &p->ctr[c];
         uint64_t events, value;
 
@@ -231,7 +255,7 @@ static void pmu_update(CPUX86State *env)
         value = *pmu_value(env, c) + (events - ctr->events);
         ctr->events = events;
         if (value > PMU_MASK) {
-            if (pmu_global(env)) {
+            if (pmu_global(env) && (IS_INTEL_CPU(env) || c != AMD_IRPERF)) {
                 env->msr_global_status |= pmu_global_bit(c);
             }
             pmi |= ctr->pmi;
@@ -314,11 +338,18 @@ static void pmu_configure(CPUX86State *env)
     bool svme = (env->hflags & HF_GUEST_MASK) || (env->efer & MSR_EFER_SVME);
 
     p->active = false;
-    for (unsigned c = 0; c < pmu_counters(env); c++) {
+    for (unsigned c = 0; c < pmu_slots(env); c++) {
         X86PMUCounter *ctr = &p->ctr[c];
         uint8_t buckets = 0;
 
-        if (c >= X86_PMU_GP_COUNTERS) {
+        if (!intel && c == AMD_IRPERF) {
+            ctr->insns = 1;
+            ctr->branches = ctr->mispredicts = 0;
+            ctr->pmi = false;
+            if (env->msr_hwcr & HWCR_IRPERF_EN) {
+                buckets = BUCKETS_OS | BUCKETS_USR;
+            }
+        } else if (c >= X86_PMU_GP_COUNTERS) {
             unsigned ctrl = extract64(env->msr_fixed_ctr_ctrl,
                                       4 * (c - X86_PMU_GP_COUNTERS), 4);
 
@@ -461,6 +492,11 @@ int x86_pmu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
         return 1;
     }
     if (!IS_INTEL_CPU(env)) {
+        if (msr == MSR_AMD_IRPERF_COUNT && pmu_irperf(env)) {
+            pmu_update(env);
+            *val = *pmu_value(env, AMD_IRPERF);
+            return 1;
+        }
         if (!pmu_global(env)) {
             return -1;
         }
@@ -552,6 +588,10 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         return 1;
     }
     if (!intel) {
+        if (msr == MSR_AMD_IRPERF_COUNT && pmu_irperf(env)) {
+            pmu_write_counter(env, AMD_IRPERF, val);
+            return 1;
+        }
         if (!pmu_global(env)) {
             return -1;
         }
@@ -612,6 +652,18 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 bool x86_pmu_global_ctrl_valid(uint64_t val)
 {
     return !(val & ~GLOBAL_COUNTERS);
+}
+
+/* HWCR, whose IRPerfEn starts and stops IRPerfCount. */
+void x86_pmu_set_hwcr(CPUX86State *env, uint64_t val)
+{
+    if (x86_pmu_enabled(env) && ((env->msr_hwcr ^ val) & HWCR_IRPERF_EN)) {
+        pmu_update(env);
+        env->msr_hwcr = val;
+        pmu_configure(env);
+        return;
+    }
+    env->msr_hwcr = val;
 }
 
 void x86_pmu_set_global_ctrl(CPUX86State *env, uint64_t val)

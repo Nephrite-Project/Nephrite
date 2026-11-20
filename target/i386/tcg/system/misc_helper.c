@@ -1127,7 +1127,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
               CPUID_8000_0021_EAX_CPUID_USER_DIS)) {
             return false;
         }
-        env->msr_hwcr = val;
+        x86_pmu_set_hwcr(env, val);
         break;
     case MSR_AMD_CPUID_7_FEATURES ... MSR_AMD_CPUID_EXT_FEATURES: {
         int index = msr - MSR_AMD_CPUID_7_FEATURES;
