@@ -1705,6 +1705,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE   0x04000000
 #define VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION       0x40000000
 
+#define VMX_TERTIARY_EXEC_EPT_PAGING_WRITE          (1ULL << 2)
+#define VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY       (1ULL << 3)
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
 #define VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL            (1ULL << 7)
 
@@ -2526,6 +2528,12 @@ typedef struct X86VMXState {
      * page-modification log-full event.
      */
     uint64_t ept_qual;
+    /*
+     * The EPT walk is for a paging write under "EPT paging-write control";
+     * the leaf entry of the last EPT walk that translated.
+     */
+    bool ept_paging_write;
+    uint64_t ept_leaf;
     bool ept_misconfig;
     bool pml_full;
 } X86VMXState;

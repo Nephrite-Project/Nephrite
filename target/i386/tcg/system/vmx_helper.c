@@ -3236,8 +3236,10 @@ static bool vmx_controls_valid(CPUX86State *env)
         !vmx_eptp_valid(env, x86_vmcs_read(env, 0x201a))) {
         return false;
     }
-    if ((proc2 & (VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST |
-                  VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC)) &&
+    if (((proc2 & (VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST |
+                   VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC)) ||
+         (proc3 & (VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
+                   VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY))) &&
         !(proc2 & VMX_SECONDARY_EXEC_ENABLE_EPT)) {
         return false;
     }
@@ -4657,6 +4659,9 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPT_ACCESSED (1ULL << 8)
 #define EPT_DIRTY (1ULL << 9)
 #define EPT_SUPERVISOR_SHADOW_STACK (1ULL << 60)
+/* Verify guest paging and paging-write access (31.3.3.2). */
+#define EPT_VERIFY_GUEST_PAGING (1ULL << 57)
+#define EPT_PAGING_WRITE (1ULL << 58)
 #define EPTP_AD (1ULL << 6)
 #define EPTP_SUPERVISOR_SHADOW_STACK (1ULL << 7)
 #define EPT_QUAL_SHADOW_STACK (1 << 13)
@@ -4664,6 +4669,27 @@ void HELPER(vmcall)(CPUX86State *env)
 #define VMX_EXIT_EPT_VIOLATION 48
 #define VMX_EXIT_EPT_MISCONFIG 49
 #define VMX_EXIT_PML_FULL 62
+
+/*
+ * Whether guest paging-structure accesses need EPT walks of their own:
+ * under "EPT paging-write control", whose paging writes the EPT TLB does not
+ * tell apart, and for guest-paging verification, which needs their leaves'
+ * paging-write bits (Intel SDM 325462-093 Vol. 3C, 31.3.3.2).
+ */
+bool x86_vmx_ept_gpt_direct(CPUX86State *env)
+{
+    return vmx_proc3(env) & (VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
+                             VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY);
+}
+
+/* Guest-paging verification, which needs both controls (31.3.3.2). */
+bool x86_vmx_guest_paging_verify(CPUX86State *env)
+{
+    uint64_t both = VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
+                    VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY;
+
+    return (vmx_proc3(env) & both) == both;
+}
 
 bool x86_vmx_ept_active(CPUX86State *env)
 {
@@ -4978,6 +5004,17 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         tables &= entry;
         table = entry & addr_mask;
     }
+    /*
+     * Under "EPT paging-write control", a paging write needs bit 58 of the
+     * leaf where it lacks write access, which the entries above it still
+     * need (Intel SDM 325462-093 Vol. 3C, 31.3.3.2).
+     */
+    if (env->vmx.ept_paging_write && need == EPT_WRITE &&
+        (vmx_proc3(env) & VMX_TERTIARY_EXEC_EPT_PAGING_WRITE) &&
+        (perms & EPT_READ) && (tables & EPT_WRITE) &&
+        (entry & EPT_PAGING_WRITE)) {
+        perms |= EPT_WRITE;
+    }
     if (shadow_stack ? !(perms & EPT_READ) || !(tables & EPT_WRITE) ||
                        !(entry & EPT_SUPERVISOR_SHADOW_STACK)
                      : !(perms & need)) {
@@ -5011,6 +5048,7 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     if (memtype) {
         *memtype = (entry >> 3) & 0xf;
     }
+    env->vmx.ept_leaf = entry;
     return true;
 
 violation:

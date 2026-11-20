@@ -231,6 +231,8 @@ void x86_vmx_invpcid(CPUX86State *env, uint32_t info, uint64_t eii,
                      target_ulong disp, uintptr_t ra);
 void x86_vmx_rdrand(CPUX86State *env, uint32_t info, uintptr_t ra);
 bool x86_vmx_ept_active(CPUX86State *env);
+bool x86_vmx_ept_gpt_direct(CPUX86State *env);
+bool x86_vmx_guest_paging_verify(CPUX86State *env);
 void x86_vmx_desc_exit(CPUX86State *env, uint32_t type, uint32_t info,
                        uint64_t eii, target_ulong disp, uintptr_t ra);
 bool x86_vmx_ept_mbec(CPUX86State *env);

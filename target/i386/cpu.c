@@ -2055,6 +2055,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_VMX_TERTIARY_CTLS] = {
         .type = MSR_FEATURE_WORD,
         .feat_names = {
+            [2] = "vmx-ept-paging-write",
+            [3] = "vmx-guest-paging-verify",
             [4] = "vmx-ipi-virt",
             [7] = "vmx-virt-spec-ctrl",
         },
@@ -2062,7 +2064,9 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             .index = MSR_IA32_VMX_PROCBASED_CTLS3,
         },
         .tcg_features = VMX_TERTIARY_EXEC_IPI_VIRT |
-                        VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL,
+                        VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL |
+                        VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
+                        VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY,
     },
 
     [FEAT_14_0_ECX] = {
@@ -2295,6 +2299,12 @@ static FeatureDep feature_dependencies[] = {
         .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_EPT },
         .to = { FEAT_VMX_SECONDARY_CTLS,
                 VMX_SECONDARY_EXEC_EPT_VIOLATION_VE },
+    },
+    {
+        .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_EPT },
+        .to = { FEAT_VMX_TERTIARY_CTLS,
+                VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
+                VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY },
     },
     {
         .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_VPID },

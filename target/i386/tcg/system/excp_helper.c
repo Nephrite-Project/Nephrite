@@ -139,7 +139,35 @@ static bool ptw_direct(PTETranslate *inout, bool store)
     TranslateFault err;
     CPUTLBEntryFull *full;
 
-    if (!npt_translate(env, &in, &out, &err, inout->ra)) {
+    if (env->vmx.nonroot) {
+        /*
+         * With EPT A/D, every guest paging-structure access is a paging
+         * write; without, only the flag updates are (Intel SDM 325462-093
+         * Vol. 3C, 31.3.3.2).
+         */
+        int memtype;
+        bool ok;
+
+        in.access_type = store || x86_vmx_ept_ad(env) ? MMU_DATA_STORE
+                                                       : MMU_DATA_LOAD;
+        env->vmx.ept_paging_write = true;
+        ok = x86_vmx_ept_translate(env, in.addr, in.access_type, false,
+                                   false, &out.paddr, &out.prot,
+                                   &out.page_size, &memtype);
+        env->vmx.ept_paging_write = false;
+        if (!ok) {
+            *inout->err = (TranslateFault){
+                .cr2 = inout->gaddr,
+                .stage2 = S2_GPT,
+            };
+            inout->fault = true;
+            return false;
+        }
+        out.leaf = env->vmx.ept_leaf;
+        out.wb = (memtype & 7) == 6;
+        out.mtrr = false;
+        out.ipat = memtype & 8;
+    } else if (!npt_translate(env, &in, &out, &err, inout->ra)) {
         *inout->err = (TranslateFault){
             .error_code = err.error_code,
             .cr2 = inout->gaddr,
@@ -149,6 +177,7 @@ static bool ptw_direct(PTETranslate *inout, bool store)
         inout->fault = true;
         return false;
     }
+    /* Bit 58 is nested paging's PW and EPT's paging-write access alike. */
     if (!(out.leaf & PG_NPT_PW_MASK)) {
         inout->tables_pw = false;
     }
@@ -165,13 +194,21 @@ static bool ptw_direct(PTETranslate *inout, bool store)
     return true;
 }
 
+/* Whether guest paging-structure accesses take nested walks of their own. */
+static bool ptw_direct_needed(CPUX86State *env)
+{
+    if (env->vmx.nonroot) {
+        return x86_vmx_ept_active(env) && x86_vmx_ept_gpt_direct(env);
+    }
+    return env->nested_pg_mode & (PG_MODE_PW | PG_MODE_VPW);
+}
+
 static bool ptw_translate(PTETranslate *inout, hwaddr addr, uint64_t ref)
 {
     int flags;
 
     inout->ptw_idx = inout->walk_idx;
-    if (inout->ptw_idx != MMU_PHYS_IDX && !inout->env->vmx.nonroot &&
-        (inout->env->nested_pg_mode & (PG_MODE_PW | PG_MODE_VPW))) {
+    if (inout->ptw_idx != MMU_PHYS_IDX && ptw_direct_needed(inout->env)) {
         inout->gaddr = addr;
         inout->table_gpa = addr;
         inout->ref = ref;
@@ -263,8 +300,7 @@ static bool ptw_store(PTETranslate *in)
 
     /* A flag update of a table read under ROGPT is paging-write's. */
     if (in->ptw_idx == MMU_PHYS_IDX && in->walk_idx != MMU_PHYS_IDX &&
-        !in->env->vmx.nonroot &&
-        (in->env->nested_pg_mode & (PG_MODE_PW | PG_MODE_VPW))) {
+        ptw_direct_needed(in->env)) {
         in->gaddr = in->table_gpa;
         return ptw_direct(in, true);
     }
@@ -958,6 +994,35 @@ do_check_pk:
                 .npf_bits = env->svm_npf_bits,
             };
             return false;
+        }
+        /*
+         * Guest-paging verification: a page whose EPT leaf has bit 57 set
+         * is reached only through guest paging structures whose EPT leaves
+         * have bit 58 set, else an EPT violation with bit 15 of its
+         * qualification (Intel SDM 325462-093 Vol. 3C, 31.3.3.2 and
+         * 31.3.3.3).
+         */
+        if (unlikely(env->vmx.nonroot && !pte_trans.tables_pw &&
+                     x86_vmx_guest_paging_verify(env))) {
+            hwaddr gpv_hpa;
+            int gpv_prot, gpv_size, gpv_memtype;
+
+            if (x86_vmx_ept_translate(env, paddr, access_type, !is_user, ss,
+                                      &gpv_hpa, &gpv_prot, &gpv_size,
+                                      &gpv_memtype) &&
+                (env->vmx.ept_leaf & PG_NPT_VPW_MASK)) {
+                env->vmx.ept_qual =
+                    (access_type == MMU_DATA_STORE ? 2 :
+                     access_type == MMU_INST_FETCH ? 4 : 1) |
+                    (gpv_prot & PAGE_READ ? 1 << 3 : 0) |
+                    (gpv_prot & PAGE_WRITE ? 1 << 4 : 0) |
+                    (gpv_prot & PAGE_EXEC ? 1 << 5 : 0) | 1 << 15;
+                *err = (TranslateFault){
+                    .cr2 = paddr,
+                    .stage2 = S2_GPA,
+                };
+                return false;
+            }
         }
         /*
          * Under Verify Paging-Write, a page whose nested leaf has VPW set
