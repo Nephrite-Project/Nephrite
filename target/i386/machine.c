@@ -357,7 +357,7 @@ static int cpu_post_load(void *opaque, int version_id)
     x86_update_lam(env);
 
 #ifdef CONFIG_KVM
-    if ((env->hflags & HF_GUEST_MASK) &&
+    if (kvm_enabled() && (env->hflags & HF_GUEST_MASK) &&
         (!env->nested_state ||
         !(env->nested_state->flags & KVM_STATE_NESTED_GUEST_MODE))) {
         error_report("vCPU set in guest-mode inconsistent with "

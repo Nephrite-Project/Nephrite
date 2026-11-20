@@ -478,6 +478,8 @@ Processor emulation (TCG):
 * In IA-32e mode, LAR and LSL take only LDTs, 64-bit TSSs, and for LAR
   64-bit call gates among system descriptors, as 16-byte descriptors whose
   upper type field is clear.
+* Snapshots and migration taken while TCG's processor runs an SVM guest,
+  or a VMX one, load; QEMU refused them for want of KVM's nested state.
 
 AMD SVM (TCG):
 
