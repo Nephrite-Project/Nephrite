@@ -696,6 +696,10 @@ Known deviations and limits
 * SVM's PAUSE filter threshold counts cycles as the PMU does.
 * Thermal monitor: IA32_CLOCK_MODULATION does not slow the processor, and
   IA32_THERM_INTERRUPT's thresholds raise no interrupts.
+* MSRs that TCG does not implement raise #GP, the model-specific ones
+  that processors have among them, such as IA32_PLATFORM_ID, the RAPL
+  energy status MSRs, and AMD's SYSCFG, and AMD's legacy counters without
+  ``pmu=on``, some of which Linux 7.3's KVM answers with fixed values.
 * PMU: one cycle per instruction, no reference-cycles event, a simple
   branch-miss model, the edge bit ignored, no freeze on PMI, and no PEBS
   or LBR format.
