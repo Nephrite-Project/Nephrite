@@ -484,13 +484,17 @@ static void pc_cmos_init_late(PCMachineState *pcms)
     mc146818rtc_set_cmos_data(s, REG_EQUIPMENT_BYTE, val);
 }
 
+/*
+ * A20M#, which the chipset sends every processor (Intel 6 Series Chipset
+ * datasheet 324645-006, 5.12.1.1), from port 92h's gate.
+ */
 static void handle_a20_line_change(void *opaque, int irq, int level)
 {
-    X86CPU *cpu = opaque;
+    CPUState *cs;
 
-    /* XXX: send to all CPUs ? */
-    /* XXX: add logic to handle multiple A20 line sources */
-    x86_cpu_set_a20(cpu, level);
+    CPU_FOREACH(cs) {
+        x86_cpu_set_a20(X86_CPU(cs), level);
+    }
 }
 
 #define NE2000_NB_MAX 6
@@ -991,7 +995,6 @@ static void pc_superio_init(ISABus *isa_bus, bool create_fdctrl,
 {
     int i;
     DriveInfo *fd[MAX_FD];
-    qemu_irq *a20_line;
     ISADevice *i8042, *port92, *vmmouse;
 
     serial_hds_isa_init(isa_bus, 0, MAX_ISA_SERIAL_PORTS);
@@ -1033,12 +1036,14 @@ static void pc_superio_init(ISABus *isa_bus, bool create_fdctrl,
     }
     port92 = isa_create_simple(isa_bus, TYPE_PORT92);
 
-    a20_line = qemu_allocate_irqs(handle_a20_line_change, first_cpu, 2);
-    qdev_connect_gpio_out_named(DEVICE(i8042),
-                                I8042_A20_LINE, 0, a20_line[0]);
-    qdev_connect_gpio_out_named(DEVICE(port92),
-                                PORT92_A20_LINE, 0, a20_line[1]);
-    g_free(a20_line);
+    /* The keyboard controller's A20GATE joins port 92h's FAST_A20 there. */
+    qdev_connect_gpio_out_named(DEVICE(i8042), I8042_A20_LINE, 0,
+                                qdev_get_gpio_in_named(DEVICE(port92),
+                                                       PORT92_A20GATE_LINE,
+                                                       0));
+    qdev_connect_gpio_out_named(DEVICE(port92), PORT92_A20_LINE, 0,
+                                qemu_allocate_irq(handle_a20_line_change,
+                                                  NULL, 0));
 }
 
 void pc_basic_device_init(struct PCMachineState *pcms,

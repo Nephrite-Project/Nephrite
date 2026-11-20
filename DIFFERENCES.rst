@@ -517,6 +517,9 @@ Devices:
   state, so Windows 3.1's standard mode, which saves the register on
   switching away from a DOS session, blanked the screen on switching back.
 * Port 92h is 00h after a reset, its A20 gate included, which it kept.
+* A20 is masked only while both port 92h's FAST_A20 and the keyboard
+  controller's A20GATE are 0, as the chipset combines them, and for every
+  processor; the last write of either decided it, for the first processor.
 * OHCI moves a TD's CurrentBufferPointer past the bytes of a short packet
   that ends it with DATAUNDERRUN, and advances its data toggle, as after
   any packet that went through; a TD retired with an error gives the ED's
@@ -657,6 +660,4 @@ Known deviations and limits
 * Unknown MSRs read as 0, as in QEMU.
 * Writes through MemoryRegionCache (virtio's rings) still ignore
   read-only aliases.
-* Under KVM, masking A20 has no effect, as in QEMU; port 92h and the
-  keyboard controller do not OR their A20 gates as the chipset does, the
-  last write wins.
+* Under KVM, masking A20 has no effect, as in QEMU.

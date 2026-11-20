@@ -200,6 +200,7 @@ void pc_i8259_create(ISABus *isa_bus, qemu_irq *i8259_irqs);
 
 /* port92.c */
 #define PORT92_A20_LINE "a20"
+#define PORT92_A20GATE_LINE "a20gate"
 
 #define TYPE_PORT92 "port92"
 
