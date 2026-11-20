@@ -83,7 +83,7 @@ typedef enum AVICAction {
     AVIC_ACCEL_ICR,
 } AVICAction;
 
-static AVICAction avic_action(unsigned int reg, bool write)
+static AVICAction avic_action(CPUX86State *env, unsigned int reg, bool write)
 {
     if (reg >= AVIC_RESERVED) {
         return AVIC_FAULT;
@@ -103,9 +103,13 @@ static AVICAction avic_action(unsigned int reg, bool write)
     case AVIC_TMCCT:
     case AVIC_EXT_FEAT ... AVIC_SEOI:
     case AVIC_IER ... AVIC_IER + 0x70:
-    /* Without ExtLvtAvicAccessChg, the extended LVTs fault. */
-    case AVIC_EILVT ... AVIC_EILVT + 0x70:
         return AVIC_FAULT;
+    /* With ExtLvtAvicAccessChg, the extended LVTs are read and trap writes. */
+    case AVIC_EILVT ... AVIC_EILVT + 0x70:
+        if (!(env->features[FEAT_SVM] & CPUID_SVM_EXTLVT_AVIC_ACCESS)) {
+            return AVIC_FAULT;
+        }
+        return write ? AVIC_TRAP : AVIC_ALLOW;
     case AVIC_TPR:
         return write ? AVIC_ACCEL_TPR : AVIC_ALLOW;
     case AVIC_EOI:
@@ -488,7 +492,7 @@ bool svm_x2avic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val,
     if (!x2avic_register(msr) || msr == 0x80b || msr == 0x83f) {
         return false;
     }
-    if (avic_action(reg, false) == AVIC_FAULT) {
+    if (avic_action(env, reg, false) == AVIC_FAULT) {
         avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg, 0, false, retaddr);
     }
     *val = avic_get(env, reg);
@@ -502,7 +506,7 @@ bool svm_x2avic_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
                       uintptr_t retaddr)
 {
     unsigned int reg = (msr & 0xff) << 4;
-    AVICAction action = avic_action(reg, true);
+    AVICAction action = avic_action(env, reg, true);
 
     if (!x2avic_register(msr) || x2avic_read_only(msr)) {
         return false;
@@ -574,7 +578,7 @@ static uint64_t avic_mmio_read(void *opaque, hwaddr addr, unsigned size)
     if (env->vmx.nonroot) {
         return x86_vmx_apic_read(env, addr, size, CPU(cpu)->mem_io_pc);
     }
-    if (avic_action(reg, false) == AVIC_FAULT) {
+    if (avic_action(env, reg, false) == AVIC_FAULT) {
         avic_exit(env, SVM_EXIT_AVIC_NOACCEL, reg, 0, false,
                   CPU(cpu)->mem_io_pc);
     }
@@ -589,7 +593,7 @@ static void avic_mmio_write(void *opaque, hwaddr addr, uint64_t val,
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
     unsigned int reg = addr & 0xff0;
-    AVICAction action = avic_action(reg, true);
+    AVICAction action = avic_action(env, reg, true);
     uint8_t buf[8];
 
     if (env->vmx.nonroot) {
