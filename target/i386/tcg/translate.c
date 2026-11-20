@@ -1863,6 +1863,7 @@ static void do_gen_rep(DisasContext *s, MemOp ot, TCGv dshift,
     TCGLabel *last = gen_new_label();
     TCGLabel *loop = gen_new_label();
     TCGLabel *done = gen_new_label();
+    TCGLabel *pause = gen_new_label();
 
     target_ulong cx_mask = MAKE_64BIT_MASK(0, 8 << s->aflag);
     TCGv cx_next = tcg_temp_new();
@@ -1935,6 +1936,21 @@ static void do_gen_rep(DisasContext *s, MemOp ot, TCGv dshift,
     }
 
     if (can_loop) {
+        /*
+         * An interrupt that an iteration's I/O access raised, as an SMI
+         * that comes after an iteration of REP INS or REP OUTS (Intel SDM
+         * 325462-093 Vol. 3C, 34.7.1), is taken before the next one.
+         */
+#ifndef CONFIG_USER_ONLY
+        if (fn == gen_ins || fn == gen_outs) {
+            TCGv_i32 decr = tcg_temp_new_i32();
+
+            tcg_gen_ld_i32(decr, tcg_env,
+                           offsetof(CPUState, neg.icount_decr.u32) -
+                           sizeof(CPUState));
+            tcg_gen_brcondi_i32(TCG_COND_LT, decr, 0, pause);
+        }
+#endif
         tcg_gen_subi_tl(cx_next, cx_next, 1);
         tcg_gen_brcondi_tl(TCG_COND_TSTNE, cx_next, REP_MAX, loop);
         tcg_gen_brcondi_tl(TCG_COND_TSTEQ, cx_next, cx_mask, last);
@@ -1945,6 +1961,7 @@ static void do_gen_rep(DisasContext *s, MemOp ot, TCGv dshift,
      * but the last.  Set it here before giving the main loop a chance to
      * execute.  (For faults, seg_helper.c sets the flag as usual).
      */
+    gen_set_label(pause);
     if (!had_rf) {
         gen_set_eflags(s, RF_MASK);
     }

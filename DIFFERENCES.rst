@@ -434,6 +434,9 @@ Processor emulation (TCG):
   field, for which RSM returns to the HLT state. MWAIT, which TCG takes as
   a halt, no longer counts as the HLT state there or for user-interrupt
   notifications.
+* Interrupts that an iteration of REP INS or REP OUTS raises, as the SMI
+  of a write to an APM control port, come before the next iteration,
+  where TCG ran up to 65,536 iterations first.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
