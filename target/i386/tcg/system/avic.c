@@ -24,6 +24,7 @@
 #include "system/memory.h"
 #include "accel/tcg/cpu-loop.h"
 #include "tcg/helper-tcg.h"
+#include "hw/i386/apic_internal.h"
 
 /*
  * The offsets in the vAPIC backing page of the registers AVIC treats
@@ -195,6 +196,36 @@ void svm_avic_request(CPUX86State *env)
 
     cpu_set_interrupt(cs, CPU_INTERRUPT_VIRQ);
     qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+}
+
+/*
+ * A PMI under PMC virtualization, which the guest takes through its own
+ * interrupt delivery: with AVIC, as its performance counter LVT entry
+ * gives it, a fixed interrupt or an NMI; with NMI virtualization, as a
+ * virtual NMI; without either, nowhere (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, 15.39).
+ */
+void svm_pmc_pmi(CPUX86State *env)
+{
+    CPUState *cs = env_cpu(env);
+    uint32_t lvt = APIC_DM_NMI << 8;
+
+    if (env->svm_avic) {
+        lvt = avic_get(env, 0x340);
+        if (lvt & (1 << 16)) {
+            return;
+        }
+        if (((lvt >> 8) & 7) == APIC_DM_FIXED) {
+            avic_irr_update(cs, env->svm_avic_backing, lvt & 0xff, true);
+            svm_avic_request(env);
+            return;
+        }
+    }
+    if (((lvt >> 8) & 7) == APIC_DM_NMI && svm_vnmi_enabled(env)) {
+        env->int_ctl |= V_NMI_PENDING_MASK;
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VNMI);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+    }
 }
 
 /*

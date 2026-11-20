@@ -230,6 +230,11 @@ static void pmu_raise_pmi(CPUX86State *env)
 {
     APICCommonState *apic = env_archcpu(env)->apic_state;
 
+    /* Under SVM's PMC virtualization, the guest takes it. */
+    if (env->svm_pmc_virt) {
+        svm_pmc_pmi(env);
+        return;
+    }
     if (apic) {
         BQL_LOCK_GUARD();
 
@@ -652,6 +657,98 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
 bool x86_pmu_global_ctrl_valid(uint64_t val)
 {
     return !(val & ~GLOBAL_COUNTERS);
+}
+
+/*
+ * The PMC registers that SVM's PMC virtualization switches, in the order
+ * of their VMCB fields: PerfEvtSel0 to 5 each with its PerfCtr, then
+ * IRPerfCount, PerfCntrGlobalStatus, and PerfCntrGlobalCtl (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, 15.39 and
+ * Table B-2).
+ */
+void x86_pmu_amd_get(CPUX86State *env, uint64_t *regs)
+{
+    pmu_update(env);
+    for (unsigned c = 0; c < AMD_CORE_COUNTERS; c++) {
+        regs[2 * c] = env->msr_gp_evtsel[c];
+        regs[2 * c + 1] = env->msr_gp_counters[c];
+    }
+    regs[12] = *pmu_value(env, AMD_IRPERF);
+    regs[13] = env->msr_global_status;
+    regs[14] = env->msr_global_ctrl;
+}
+
+void x86_pmu_amd_set(CPUX86State *env, const uint64_t *regs)
+{
+    pmu_update(env);
+    for (unsigned c = 0; c < AMD_CORE_COUNTERS; c++) {
+        env->msr_gp_evtsel[c] = regs[2 * c] & AMD_EVTSEL_DEFINED;
+        env->msr_gp_counters[c] = regs[2 * c + 1] & PMU_MASK;
+    }
+    *pmu_value(env, AMD_IRPERF) = regs[12] & PMU_MASK;
+    env->msr_global_status = regs[13] & AMD_GLOBAL_COUNTERS;
+    env->msr_global_ctrl = regs[14] & AMD_GLOBAL_COUNTERS;
+    pmu_configure(env);
+}
+
+/*
+ * Guest PMC event filtering: an event select value SEL may count where,
+ * under ALLOWED_PERF_CTL_MASK, it equals one of the ALLOWED_PERF_CTLn
+ * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+ * 15.39.1).
+ */
+static bool pmu_amd_sel_allowed(CPUX86State *env, uint64_t sel)
+{
+    uint64_t mask = env->svm_pmc_allowed_mask;
+
+    for (unsigned i = 0; i < ARRAY_SIZE(env->svm_pmc_allowed); i++) {
+        if ((sel & mask) == (env->svm_pmc_allowed[i] & mask)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* VMRUN's check of the guest's enabled counters, in REGS's order. */
+bool x86_pmu_amd_allowed(CPUX86State *env, const uint64_t *regs)
+{
+    for (unsigned c = 0; c < AMD_CORE_COUNTERS; c++) {
+        if ((regs[2 * c] & EVTSEL_EN) && (regs[14] & (1ULL << c)) &&
+            !pmu_amd_sel_allowed(env, regs[2 * c])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Whether guest PMC event filtering makes a WRMSR of VAL to MSR exit: one
+ * of a PerfEvtSeln that enables a counter enabled in PerfCntrGlobalCtl
+ * with a value not allowed, or one of PerfCntrGlobalCtl that enables a
+ * counter whose event select is enabled and not allowed (15.39.1).
+ */
+bool x86_pmu_amd_filtered(CPUX86State *env, uint32_t msr, uint64_t val)
+{
+    bool sel;
+    int c;
+
+    if (!env->svm_pmc_filter) {
+        return false;
+    }
+    c = pmu_msr_counter(env, msr, &sel);
+    if (c >= 0 && sel) {
+        return (val & EVTSEL_EN) && (env->msr_global_ctrl & (1ULL << c)) &&
+               !pmu_amd_sel_allowed(env, val);
+    }
+    if (msr == MSR_AMD64_PERF_CNTR_GLOBAL_CTL) {
+        for (c = 0; c < AMD_CORE_COUNTERS; c++) {
+            if ((val & (1ULL << c)) && (env->msr_gp_evtsel[c] & EVTSEL_EN) &&
+                !pmu_amd_sel_allowed(env, env->msr_gp_evtsel[c])) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 /* HWCR, whose IRPerfEn starts and stops IRPerfCount. */

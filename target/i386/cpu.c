@@ -1069,11 +1069,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #endif
 #define TCG_8000_000A_ECX_FEATURES (CPUID_SVM_ECX_PML | \
           CPUID_SVM_ECX_X2AVIC_EXT | CPUID_SVM_ECX_PW | CPUID_SVM_ECX_VPW | \
-          CPUID_SVM_ECX_GAAT)
+          CPUID_SVM_ECX_GAAT | CPUID_SVM_ECX_GUEST_PMC_FILTER)
 #define TCG_SVM_FEATURES (CPUID_SVM_NPT | CPUID_SVM_LBRV | \
           CPUID_SVM_NRIPSAVE | CPUID_SVM_TSCSCALE | CPUID_SVM_VMCBCLEAN | \
           CPUID_SVM_FLUSHASID | CPUID_SVM_SVMLOCK | \
-          CPUID_SVM_DECODEASSIST | CPUID_SVM_PAUSEFILTER | \
+          CPUID_SVM_DECODEASSIST | CPUID_SVM_PMCVIRT | CPUID_SVM_PAUSEFILTER | \
           CPUID_SVM_PFTHRESHOLD | CPUID_SVM_AVIC | CPUID_SVM_V_VMSAVE_VMLOAD | \
           CPUID_SVM_VGIF | CPUID_SVM_GMET | CPUID_SVM_X2AVIC | \
           CPUID_SVM_V_SPEC_CTRL | CPUID_SVM_EXTLVT_AVIC_ACCESS | \
@@ -1404,7 +1404,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .feat_names = {
             "npt", "lbrv", "svm-lock", "nrip-save",
             "tsc-scale", "vmcb-clean",  "flushbyasid", "decodeassists",
-            NULL, NULL, "pause-filter", NULL,
+            "pmcvirt", NULL, "pause-filter", NULL,
             "pfthreshold", "avic", NULL, "v-vmsave-vmload",
             "vgif", "gmet", "x2avic", "ssscheck",
             "v-spec-ctrl", "rogpt", NULL, "host-mce-override",
@@ -1432,7 +1432,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_8000_000A_ECX] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
-            "gaat", "pw", "vpw", NULL,
+            "gaat", "pw", "vpw", "guest-pmc-filter",
             "pml", NULL, "x2avic-ext", NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -2292,6 +2292,18 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_SPEC_CTRL },
         .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL },
+    },
+    {
+        .from = { FEAT_8000_0022_EAX,       CPUID_8000_0022_EAX_PERFMON_V2 },
+        .to = { FEAT_SVM,                   CPUID_SVM_PMCVIRT },
+    },
+    {
+        .from = { FEAT_8000_0008_EBX,       CPUID_8000_0008_EBX_IRPERF },
+        .to = { FEAT_SVM,                   CPUID_SVM_PMCVIRT },
+    },
+    {
+        .from = { FEAT_SVM,                 CPUID_SVM_PMCVIRT },
+        .to = { FEAT_8000_000A_ECX,         CPUID_SVM_ECX_GUEST_PMC_FILTER },
     },
     {
         .from = { FEAT_7_1_EAX,             CPUID_7_1_EAX_MSRLIST },
@@ -9830,6 +9842,11 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
             *ebx = SVM_NR_ASIDS;
             *ecx = env->features[FEAT_8000_000A_ECX];
             *edx = env->features[FEAT_SVM]; /* optional features */
+            /* TCG virtualizes the PMCs of its PMU only. */
+            if (tcg_enabled() && !cpu->enable_pmu) {
+                *ecx &= ~CPUID_SVM_ECX_GUEST_PMC_FILTER;
+                *edx &= ~CPUID_SVM_PMCVIRT;
+            }
         } else {
             *eax = 0;
             *ebx = 0;

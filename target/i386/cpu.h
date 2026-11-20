@@ -1115,6 +1115,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_VMCBCLEAN       (1U << 5)
 #define CPUID_SVM_FLUSHASID       (1U << 6)
 #define CPUID_SVM_DECODEASSIST    (1U << 7)
+#define CPUID_SVM_PMCVIRT         (1U << 8)
 #define CPUID_SVM_PAUSEFILTER     (1U << 10)
 #define CPUID_SVM_PFTHRESHOLD     (1U << 12)
 #define CPUID_SVM_AVIC            (1U << 13)
@@ -1136,6 +1137,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 /* CPUID[8000_000A].ECX */
 #define CPUID_SVM_ECX_GAAT        (1U << 0)
 #define CPUID_SVM_ECX_PW          (1U << 1)
+#define CPUID_SVM_ECX_GUEST_PMC_FILTER (1U << 3)
 #define CPUID_SVM_ECX_VPW         (1U << 2)
 #define CPUID_SVM_ECX_PML         (1U << 4)
 #define CPUID_SVM_ECX_X2AVIC_EXT  (1U << 6)
@@ -3038,6 +3040,14 @@ typedef struct CPUArchState {
     uint32_t nested_pg_mode;
     /* Under nested paging, the guest's PAT, G_PAT. */
     uint64_t svm_gpat;
+    /*
+     * PMC virtualization in guest mode, the host's PMC state in the host
+     * save area meanwhile; and guest PMC event filtering's allowed values.
+     */
+    bool svm_pmc_virt;
+    bool svm_pmc_filter;
+    uint64_t svm_pmc_allowed[6];
+    uint64_t svm_pmc_allowed_mask;
     /* GAAT paging in guest mode, from GAATP, by the GAAT prefix width. */
     bool svm_gaat;
     uint64_t svm_gaatp;

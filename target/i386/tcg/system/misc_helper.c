@@ -1287,6 +1287,15 @@ static void msr_write(CPUX86State *env, uint32_t msr, uint64_t val,
 {
     bool ok;
 
+    /*
+     * Guest PMC event filtering refuses some values with a WRMSR exit
+     * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.46,
+     * 15.39.1).
+     */
+    if (unlikely(env->svm_pmc_filter) && x86_pmu_amd_filtered(env, msr, val)) {
+        cpu_vmexit(env, SVM_EXIT_MSR, 1, ra);
+    }
+
     if (unlikely(env->svm_x2avic) &&
         msr >= MSR_APIC_START && msr <= MSR_APIC_END) {
         if (!svm_x2avic_wrmsr(env, msr, val, ra)) {

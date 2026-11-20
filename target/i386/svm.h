@@ -44,6 +44,8 @@
 #define LBR_CTL_ENABLE_MASK (1 << 0)
 #define V_VMLOAD_VMSAVE_ENABLED_MASK (1 << 1)
 #define FRED_VIRT_ENABLE_MASK (1 << 4)
+#define PMC_VIRT_ENABLE_MASK (1 << 3)
+#define PMC_FILTER_ENABLE_MASK (1 << 5)
 
 #define SVM_INTERRUPT_SHADOW_MASK 1
 
@@ -173,6 +175,7 @@
 #define SVM_EXIT_PML_FULL       0x407
 
 #define SVM_EXIT_ERR            -1
+#define SVM_EXIT_INVALID_PMC    -4
 
 #define SVM_CR0_SELECTIVE_MASK (1 << 3 | 1) /* TS and MP */
 
@@ -261,7 +264,9 @@ struct QEMU_PACKED vmcb_control_area {
     uint8_t reserved_7c[60];
     uint64_t exit_int_data;
     uint64_t event_inj_data;
-    uint8_t reserved_8[72];
+    uint64_t allowed_perf_ctl[6];
+    uint8_t reserved_8[16];
+    uint64_t allowed_perf_ctl_mask;
     uint64_t pml_base;
     uint16_t pml_index;
     uint8_t reserved_9[558];
@@ -272,6 +277,8 @@ QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area,
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, gaatp) != 0x128);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, exit_int_data) != 0x170);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area, pml_base) != 0x1c8);
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_control_area,
+                           allowed_perf_ctl_mask) != 0x1c0);
 QEMU_BUILD_BUG_ON(sizeof(struct vmcb_control_area) != 0x400);
 
 struct QEMU_PACKED vmcb_seg {
@@ -296,7 +303,10 @@ struct QEMU_PACKED vmcb_save_area {
     uint8_t cpl;
     uint8_t reserved_2[4];
     uint64_t efer;
-    uint8_t reserved_3[112];
+    uint8_t reserved_3[8];
+    /* PERF_CTL0, PERF_CTR0, ..., PERF_CTL5, PERF_CTR5. */
+    uint64_t perf_ctl_ctr[12];
+    uint8_t reserved_3b[8];
     uint64_t cr4;
     uint64_t cr3;
     uint64_t cr0;
@@ -304,7 +314,10 @@ struct QEMU_PACKED vmcb_save_area {
     uint64_t dr6;
     uint64_t rflags;
     uint64_t rip;
-    uint8_t reserved_4[88];
+    uint8_t reserved_4[64];
+    uint64_t instr_retired_ctr;
+    uint64_t perf_ctr_global_sts;
+    uint64_t perf_ctr_global_ctl;
     uint64_t rsp;
     uint64_t s_cet;
     uint64_t ssp;
@@ -340,6 +353,8 @@ struct QEMU_PACKED vmcb_save_area {
 };
 
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, spec_ctrl) != 0x2e0);
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, perf_ctl_ctr) != 0xe0);
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, instr_retired_ctr) != 0x1c0);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, fred_rsp1) != 0x8c0);
 
 struct QEMU_PACKED vmcb {

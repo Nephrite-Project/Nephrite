@@ -296,6 +296,45 @@ static void svm_store_lbr(CPUX86State *env, hwaddr addr)
                  env->lbr_int_to);
 }
 
+/*
+ * The PMC registers that PMC virtualization switches, between the
+ * processor and the state save area at ADDR: a VMCB's, or the host save
+ * area's for the host's (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.46, 15.39 and Table B-2).
+ */
+static void svm_pmc_read(CPUX86State *env, hwaddr addr, uint64_t *regs)
+{
+    CPUState *cs = env_cpu(env);
+
+    for (int i = 0; i < 12; i++) {
+        regs[i] = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                   save.perf_ctl_ctr[i]));
+    }
+    regs[12] = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                save.instr_retired_ctr));
+    regs[13] = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                save.perf_ctr_global_sts));
+    regs[14] = x86_ldq_phys(cs, addr + offsetof(struct vmcb,
+                                                save.perf_ctr_global_ctl));
+}
+
+static void svm_pmc_write(CPUX86State *env, hwaddr addr,
+                          const uint64_t *regs)
+{
+    CPUState *cs = env_cpu(env);
+
+    for (int i = 0; i < 12; i++) {
+        x86_stq_phys(cs, addr + offsetof(struct vmcb, save.perf_ctl_ctr[i]),
+                     regs[i]);
+    }
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.instr_retired_ctr),
+                 regs[12]);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.perf_ctr_global_sts),
+                 regs[13]);
+    x86_stq_phys(cs, addr + offsetof(struct vmcb, save.perf_ctr_global_ctl),
+                 regs[14]);
+}
+
 static void svm_load_lbr(CPUX86State *env, hwaddr addr)
 {
     CPUState *cs = env_cpu(env);
@@ -1035,6 +1074,50 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
         env->svm_lbr_virt = true;
     }
     c->lbr_virt = env->svm_lbr_virt;
+
+    /*
+     * PMC virtualization: the guest's PMC registers from the VMCB, the
+     * host's to the host save area; under guest PMC event filtering, the
+     * guest's enabled counters must count allowed events, else
+     * VMEXIT_INVALID_PMC (AMD64 Architecture Programmer's Manual Volume 2,
+     * 24593 rev. 3.46, 15.39 and 15.39.1).
+     */
+    if ((env->features[FEAT_SVM] & CPUID_SVM_PMCVIRT) &&
+        x86_pmu_enabled(env) &&
+        (x86_ldq_phys(cs, env->vm_vmcb + offsetof(struct vmcb,
+                                                  control.lbr_ctl)) &
+         PMC_VIRT_ENABLE_MASK)) {
+        uint64_t virt_ext = x86_ldq_phys(cs, env->vm_vmcb +
+                                         offsetof(struct vmcb,
+                                                  control.lbr_ctl));
+        uint64_t guest[15], host[15];
+
+        svm_pmc_read(env, env->vm_vmcb, guest);
+        env->svm_pmc_filter =
+            (env->features[FEAT_8000_000A_ECX] &
+             CPUID_SVM_ECX_GUEST_PMC_FILTER) &&
+            (virt_ext & PMC_FILTER_ENABLE_MASK);
+        if (env->svm_pmc_filter) {
+            for (int i = 0; i < 6; i++) {
+                env->svm_pmc_allowed[i] =
+                    x86_ldq_phys(cs, env->vm_vmcb +
+                                 offsetof(struct vmcb,
+                                          control.allowed_perf_ctl[i]));
+            }
+            env->svm_pmc_allowed_mask =
+                x86_ldq_phys(cs, env->vm_vmcb +
+                             offsetof(struct vmcb,
+                                      control.allowed_perf_ctl_mask));
+            if (!x86_pmu_amd_allowed(env, guest)) {
+                env->svm_pmc_filter = false;
+                cpu_vmexit(env, SVM_EXIT_INVALID_PMC, 0, GETPC());
+            }
+        }
+        x86_pmu_amd_get(env, host);
+        svm_pmc_write(env, env->vm_hsave, host);
+        x86_pmu_amd_set(env, guest);
+        env->svm_pmc_virt = true;
+    }
 
     /* The guest state just loaded is what the processor now caches. */
     c->vmcb = env->vm_vmcb;
@@ -1800,6 +1883,12 @@ void do_vmexit(CPUX86State *env)
     if (env->svm_lbr_virt) {
         svm_store_lbr(env, env->vm_vmcb);
     }
+    if (env->svm_pmc_virt) {
+        uint64_t guest[15];
+
+        x86_pmu_amd_get(env, guest);
+        svm_pmc_write(env, env->vm_vmcb, guest);
+    }
 
     /* The guest state just stored is what the processor now caches. */
     if (env->svm_cache.valid) {
@@ -1854,6 +1943,14 @@ load_host:
     if (env->svm_lbr_virt) {
         svm_load_lbr(env, env->vm_hsave);
         env->svm_lbr_virt = false;
+    }
+    if (env->svm_pmc_virt) {
+        uint64_t host[15];
+
+        svm_pmc_read(env, env->vm_hsave, host);
+        env->svm_pmc_virt = false;
+        env->svm_pmc_filter = false;
+        x86_pmu_amd_set(env, host);
     }
     env->svm_avic = false;
     env->svm_x2avic = false;

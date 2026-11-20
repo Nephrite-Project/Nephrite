@@ -251,8 +251,8 @@ AMD SVM, completing what QEMU's TCG has:
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
   supervisor shadow-stack restrictions in nested page tables (SSSCheck),
   Paging-Write and Verify Paging-Write, Guest Alternate Address
-  Translation (GAAT), page-modification logging, TlbiCtl, the INVLPGB,
-  TLBSYNC, idle HLT, and
+  Translation (GAAT), PMC virtualization with guest PMC event filtering,
+  page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
   INVPCID intercepts, AVIC and x2AVIC with ExtLvtAvicAccessChg and
   x2AVIC_EXT, CET state in the VMCB, HOST_MCE_OVERRIDE, SPEC_CTRL
   virtualization (V_SPEC_CTRL), and the bus lock threshold, whose count

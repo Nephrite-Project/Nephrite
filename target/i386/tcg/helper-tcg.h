@@ -149,6 +149,7 @@ bool x86_svm_smm_leave(CPUX86State *env, const SVMSmmSaved *saved);
 /* system/avic.c */
 void svm_avic_init(X86CPU *cpu);
 void svm_avic_request(CPUX86State *env);
+void svm_pmc_pmi(CPUX86State *env);
 bool svm_avic_has_interrupt(CPUX86State *env);
 int svm_avic_take_interrupt(CPUX86State *env);
 void svm_avic_set_tpr(CPUX86State *env, uint32_t tpr);
@@ -331,6 +332,10 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val);
 bool x86_pmu_global_ctrl_valid(uint64_t val);
 void x86_pmu_set_global_ctrl(CPUX86State *env, uint64_t val);
 void x86_pmu_set_hwcr(CPUX86State *env, uint64_t val);
+void x86_pmu_amd_get(CPUX86State *env, uint64_t *regs);
+void x86_pmu_amd_set(CPUX86State *env, const uint64_t *regs);
+bool x86_pmu_amd_allowed(CPUX86State *env, const uint64_t *regs);
+bool x86_pmu_amd_filtered(CPUX86State *env, uint32_t msr, uint64_t val);
 bool x86_pmu_rdpmc(CPUX86State *env);
 void x86_pmu_restore(CPUX86State *env, const TranslationBlock *tb,
                      uint64_t word);
