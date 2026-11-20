@@ -331,7 +331,11 @@ static void rsm_load_regs_64(CPUX86State *env)
         efer = (efer & ~MSR_EFER_SVME) | (env->smm_svme ? MSR_EFER_SVME : 0);
     }
 
-    cpu_load_efer(env, efer);
+    /*
+     * EFER.LMA follows LME, PG, and PAE, also where SMM's code has paging
+     * on and CR0.PG does not change at RSM.
+     */
+    cpu_load_efer(env, efer | (lma ? MSR_EFER_LMA : 0));
 
     env->gdt.base = rsm_base(env, -1, x86_ldq_phys(cs, sm_state + 0x7e68));
     env->gdt.limit = x86_lduw_phys(cs, sm_state + 0x7e64);
