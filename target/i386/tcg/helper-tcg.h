@@ -202,6 +202,10 @@ void x86_vmx_apic_write(CPUX86State *env, hwaddr offset, uint64_t val,
                         unsigned size, uintptr_t ra);
 bool x86_vmx_x2apic_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
 bool x86_vmx_spec_ctrl_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val);
+bool x86_vmx_tsc_deadline_rdmsr(CPUX86State *env, uint32_t msr,
+                                uint64_t *val);
+bool x86_vmx_tsc_deadline_wrmsr(CPUX86State *env, uint32_t msr,
+                                uint64_t val);
 bool x86_vmx_spec_ctrl_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
                              uintptr_t ra);
 bool x86_spec_ctrl_valid(CPUX86State *env, uint64_t val);

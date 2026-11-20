@@ -208,7 +208,8 @@ Intel VMX, which QEMU's TCG does not have:
   HLAT prefix size.
 * The TPR shadow, the APIC-access page, APIC-register virtualization,
   virtual-interrupt delivery, posted-interrupt processing, x2APIC
-  virtualization, and IPI virtualization with the tertiary controls.
+  virtualization, and IPI virtualization and APIC-timer virtualization
+  with the tertiary controls.
 * The monitor trap flag, the preemption timer, and the HLT, shutdown, and
   wait-for-SIPI activity states.
 * VMCS shadowing, TSC offsetting and scaling, PAUSE-loop exiting, RDRAND

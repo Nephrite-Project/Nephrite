@@ -2068,6 +2068,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             [4] = "vmx-ipi-virt",
             [6] = "vmx-msr-list",
             [7] = "vmx-virt-spec-ctrl",
+            [8] = "vmx-apic-timer-virt",
         },
         .msr = {
             .index = MSR_IA32_VMX_PROCBASED_CTLS3,
@@ -2077,7 +2078,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
                         VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
                         VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY |
                         VMX_TERTIARY_EXEC_MSR_LIST |
-                        VMX_TERTIARY_EXEC_HLAT,
+                        VMX_TERTIARY_EXEC_HLAT |
+                        VMX_TERTIARY_EXEC_APIC_TIMER_VIRT,
     },
 
     [FEAT_14_0_ECX] = {
@@ -2285,6 +2287,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_1_EAX,             CPUID_7_1_EAX_MSRLIST },
         .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_MSR_LIST },
+    },
+    {
+        .from = { FEAT_1_ECX,               CPUID_EXT_TSC_DEADLINE_TIMER },
+        .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_APIC_TIMER_VIRT },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },

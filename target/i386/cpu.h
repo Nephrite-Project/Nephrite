@@ -1720,6 +1720,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
 #define VMX_TERTIARY_EXEC_MSR_LIST                  (1ULL << 6)
 #define VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL            (1ULL << 7)
+#define VMX_TERTIARY_EXEC_APIC_TIMER_VIRT           (1ULL << 8)
 
 #define VMX_PIN_BASED_EXT_INTR_MASK                 0x00000001
 #define VMX_PIN_BASED_NMI_EXITING                   0x00000008
@@ -2551,6 +2552,8 @@ typedef struct X86VMXState {
      */
     bool ept_paging_write;
     uint64_t ept_leaf;
+    /* The guest timer's deadline, on the TSC; 0 disarms it. */
+    uint64_t guest_deadline;
     bool ept_misconfig;
     bool pml_full;
 } X86VMXState;
@@ -3424,6 +3427,7 @@ struct ArchCPU {
     struct MemoryRegion *apic_hole_page;
     /* TCG: the VMX-preemption timer's expiry. */
     QEMUTimer *vmx_timer;
+    QEMUTimer *vmx_guest_timer;
     /* TCG: the end of an UMWAIT's, TPAUSE's, or MWAIT's wait. */
     QEMUTimer *wait_timer;
     Notifier machine_done;

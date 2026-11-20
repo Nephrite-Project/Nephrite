@@ -1296,7 +1296,8 @@ static void msr_write(CPUX86State *env, uint32_t msr, uint64_t val,
     }
     if (unlikely(env->vmx.nonroot) &&
         (x86_vmx_x2apic_wrmsr(env, msr, val, ra) ||
-         x86_vmx_spec_ctrl_wrmsr(env, msr, val, ra))) {
+         x86_vmx_spec_ctrl_wrmsr(env, msr, val, ra) ||
+         x86_vmx_tsc_deadline_wrmsr(env, msr, val))) {
         return;
     }
 
@@ -1774,7 +1775,8 @@ static uint64_t msr_read(CPUX86State *env, uint32_t msr, uintptr_t ra)
     }
     if (unlikely(env->vmx.nonroot) &&
         (x86_vmx_x2apic_rdmsr(env, msr, &val) ||
-         x86_vmx_spec_ctrl_rdmsr(env, msr, &val))) {
+         x86_vmx_spec_ctrl_rdmsr(env, msr, &val) ||
+         x86_vmx_tsc_deadline_rdmsr(env, msr, &val))) {
         return val;
     }
 

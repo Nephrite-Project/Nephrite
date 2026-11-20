@@ -69,6 +69,7 @@
 #define VMCS_PI_NOTIFICATION_VECTOR 0x0002
 #define VMCS_EPTP_INDEX 0x0004
 #define VMCS_HLAT_PREFIX_SIZE 0x0006
+#define VMCS_VIRTUAL_TIMER_VECTOR 0x000a
 #define VMCS_LAST_PID_INDEX 0x0008
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
@@ -101,6 +102,7 @@
 #define VMCS_EXIT2_CONTROLS 0x2044
 #define VMCS_SPEC_CTRL_MASK 0x204a
 #define VMCS_SPEC_CTRL_SHADOW 0x204c
+#define VMCS_GUEST_DEADLINE_SHADOW 0x204e
 #define VMCS_INJECTED_EVENT_DATA 0x2052
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_MSR_DATA 0x2402
@@ -115,6 +117,7 @@
 #define VMCS_GUEST_BNDCFGS 0x2812
 #define VMCS_GUEST_PKRS 0x2818
 #define VMCS_GUEST_SPEC_CTRL 0x282e
+#define VMCS_GUEST_DEADLINE 0x2830
 /*
  * IA32_FRED_CONFIG, IA32_FRED_RSP1 to 3, IA32_FRED_STKLVLS, and
  * IA32_FRED_SSP1 to 3, the guest's and the host's, 2 encodings apart.
@@ -265,6 +268,7 @@ static const uint16_t vmcs_fields[] = {
     0x0004, /* EPTP index */
     0x0006, /* HLAT prefix size */
     0x0008, /* last PID-pointer index */
+    0x000a, /* virtual timer vector */
     0x0800, /* guest ES selector */
     0x0802, /* guest CS selector */
     0x0804, /* guest SS selector */
@@ -313,6 +317,7 @@ static const uint16_t vmcs_fields[] = {
     0x2044, /* secondary VM-exit controls */
     0x204a, /* IA32_SPEC_CTRL mask */
     0x204c, /* IA32_SPEC_CTRL shadow */
+    0x204e, /* guest deadline shadow */
     0x2052, /* injected-event data */
     0x2400, /* guest-physical address */
     0x2402, /* MSR data */
@@ -338,6 +343,7 @@ static const uint16_t vmcs_fields[] = {
     0x2826, /* guest IA32_FRED_SSP2 */
     0x2828, /* guest IA32_FRED_SSP3 */
     0x282e, /* guest IA32_SPEC_CTRL */
+    0x2830, /* guest deadline */
     0x2c00, /* host IA32_PAT */
     0x2c02, /* host IA32_EFER */
     0x2c04, /* host IA32_PERF_GLOBAL_CTRL */
@@ -2554,6 +2560,84 @@ static bool vmx_timer_expired(const CPUX86State *env)
 }
 
 /*
+ * The guest timer of APIC-timer virtualization (Intel SDM 325462-093 Vol.
+ * 3C, 28.5.10): a guest-timer event is pending while the guest deadline is
+ * not 0 and the TSC has reached it.
+ */
+static uint64_t vmx_host_tsc(CPUX86State *env)
+{
+    return cpu_get_tsc(env) + env->tsc_written_delta;
+}
+
+static bool vmx_guest_timer_due(CPUX86State *env)
+{
+    return env->vmx.guest_deadline &&
+           vmx_host_tsc(env) >= env->vmx.guest_deadline;
+}
+
+static void vmx_guest_timer_arm(CPUX86State *env)
+{
+    timer_mod(env_archcpu(env)->vmx_guest_timer,
+              qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+              cpu_tsc_ticks_ns(env, env->vmx.guest_deadline -
+                                    vmx_host_tsc(env)));
+}
+
+/* An expiry has the processor look at it; early calls arm again. */
+static void vmx_guest_timer_cb(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    if (!env->vmx.guest_deadline) {
+        return;
+    }
+    if (!vmx_guest_timer_due(env)) {
+        vmx_guest_timer_arm(env);
+        return;
+    }
+    cpu_interrupt(CPU(cpu), CPU_INTERRUPT_VMX);
+}
+
+/*
+ * An update of the guest deadline (Intel SDM 325462-093 Vol. 3C,
+ * 28.5.10.1): 0 disarms the timer, one the TSC has reached has an event
+ * pending at the next instruction boundary, a later one arms the timer.
+ */
+static void vmx_guest_deadline_set(CPUX86State *env, uint64_t deadline)
+{
+    CPUState *cs = env_cpu(env);
+
+    env->vmx.guest_deadline = deadline;
+    if (!deadline) {
+        timer_del(env_archcpu(env)->vmx_guest_timer);
+    } else if (vmx_guest_timer_due(env)) {
+        cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
+        qatomic_set(&cs->neg.icount_decr.u16.high, -1);
+    } else {
+        vmx_guest_timer_arm(env);
+    }
+}
+
+/*
+ * A guest-timer event, and a virtualized write of IA32_TSC_DEADLINE whose
+ * deadline has passed (Intel SDM 325462-093 Vol. 3C, 28.5.10.2): the
+ * virtual timer vector's bit set in VIRR and RVI raised to it, pending
+ * virtual interrupts evaluated, and the guest deadline and its shadow
+ * cleared.
+ */
+static void vmx_guest_timer_event(CPUX86State *env)
+{
+    int vector = VMCS(VIRTUAL_TIMER_VECTOR) & 0xff;
+
+    vmx_vapic_set_bit(env, VMX_VAPIC_VIRR, vector, true);
+    vmx_set_rvi(env, MAX(VMCS(GUEST_INTR_STATUS) & 0xff, vector));
+    vmx_vintr_evaluate(env);
+    vmx_guest_deadline_set(env, 0);
+    VMCS_SET(GUEST_DEADLINE_SHADOW, 0);
+}
+
+/*
  * Software read the TSC: past the VMX-preemption timer's deadline, the
  * timer's VM exit comes before the next instruction (Intel SDM 325462-093
  * Vol. 3C, 28.5.1 and 28.2), not when its QEMU timer gets to run. The
@@ -2563,7 +2647,8 @@ void x86_vmx_tsc_seen(CPUX86State *env)
 {
     CPUState *cs = env_cpu(env);
 
-    if (env->vmx.nonroot && vmx_timer_expired(env)) {
+    if (env->vmx.nonroot &&
+        (vmx_timer_expired(env) || vmx_guest_timer_due(env))) {
         cpu_set_interrupt(cs, CPU_INTERRUPT_VMX);
         qatomic_set(&cs->neg.icount_decr.u16.high, -1);
     }
@@ -2597,6 +2682,8 @@ static void vmx_timer_cb(void *opaque)
 void x86_vmx_init(X86CPU *cpu)
 {
     cpu->vmx_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, vmx_timer_cb, cpu);
+    cpu->vmx_guest_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL,
+                                        vmx_guest_timer_cb, cpu);
 }
 
 static void vmx_timer_start(CPUX86State *env)
@@ -2635,6 +2722,14 @@ static void vmx_save_guest(CPUX86State *env)
     VMCS_SET(GUEST_SYSENTER_CS, env->sysenter_cs);
     VMCS_SET(GUEST_SYSENTER_ESP, env->sysenter_esp);
     VMCS_SET(GUEST_SYSENTER_EIP, env->sysenter_eip);
+    /*
+     * The guest deadline, which the exit then clears (Intel SDM 325462-093
+     * Vol. 3C, 30.3.2 and 30.3.4).
+     */
+    if (env->features[FEAT_VMX_TERTIARY_CTLS] &
+        VMX_TERTIARY_EXEC_APIC_TIMER_VIRT) {
+        VMCS_SET(GUEST_DEADLINE, env->vmx.guest_deadline);
+    }
     if (exit_ctl & VMX_VM_EXIT_SAVE_IA32_PAT) {
         VMCS_SET(GUEST_PAT, env->pat);
     }
@@ -2854,6 +2949,7 @@ static void vmx_load_host(CPUX86State *env)
     env->vmx.inactive = 0;
     env->vmx.timer_on = false;
     timer_del(env_archcpu(env)->vmx_timer);
+    vmx_guest_deadline_set(env, 0);
     env->monitor_armed = false;
     env->umonitor_armed = false;
     cpu_reset_interrupt(cs, CPU_INTERRUPT_VMX);
@@ -3169,6 +3265,17 @@ static bool vmx_controls_valid(CPUX86State *env)
                          VMX_SECONDARY_EXEC_APIC_REGISTER_VIRT |
                          VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY)) ||
                (proc3 & VMX_TERTIARY_EXEC_IPI_VIRT)) {
+        return false;
+    }
+    /*
+     * APIC-timer virtualization needs virtual-interrupt delivery, no
+     * "RDTSC exiting", and a virtual timer vector below 256 (Intel SDM
+     * 325462-093 Vol. 3C, 29.2.1.1).
+     */
+    if ((proc3 & VMX_TERTIARY_EXEC_APIC_TIMER_VIRT) &&
+        (!(proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) ||
+         (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_RDTSC_EXITING) ||
+         (VMCS(VIRTUAL_TIMER_VECTOR) & 0xff00))) {
         return false;
     }
     /*
@@ -4221,6 +4328,13 @@ void HELPER(vmlaunch)(CPUX86State *env, int resume, int next_eip_addend)
         vmx_ppr_virtualize(env);
         vmx_vintr_evaluate(env);
     }
+    /*
+     * APIC-timer virtualization loads the guest deadline (Intel SDM
+     * 325462-093 Vol. 3C, 29.3.2.5).
+     */
+    if (vmx_proc3(env) & VMX_TERTIARY_EXEC_APIC_TIMER_VIRT) {
+        vmx_guest_deadline_set(env, VMCS(GUEST_DEADLINE));
+    }
     vmx_inject(env);
     if (cs->halted) {
         cs->exception_index = EXCP_HLT;
@@ -4327,6 +4441,16 @@ int x86_vmx_pending_interrupt(const CPUX86State *env, int request)
     }
     if (request & CPU_INTERRUPT_MCE) {
         return CPU_INTERRUPT_MCE;
+    }
+    /*
+     * Guest-timer events come before virtual interrupts and the interrupt
+     * window (Intel SDM 325462-093 Vol. 3C, 28.5.10.2), which itself comes
+     * before external interrupts (28.2), though 28.5.10.2 puts guest-timer
+     * events below these.
+     */
+    if ((request & CPU_INTERRUPT_VMX) &&
+        vmx_guest_timer_due((CPUX86State *)env)) {
+        return CPU_INTERRUPT_VMX;
     }
     if ((request & CPU_INTERRUPT_VMX) &&
         (proc & VMX_CPU_BASED_VIRTUAL_INTR_PENDING) &&
@@ -4460,6 +4584,24 @@ static bool vmx_take_interrupt(CPUX86State *env, int request)
             !env->vmx.vnmi_blocked && !(env->hflags & HF_INHIBIT_IRQ_MASK)) {
             x86_vmx_exit(env, VMX_EXIT_NMI_WINDOW, 0, 0);
         }
+        /*
+         * A guest-timer event leaves the HLT state as it was but for a
+         * virtual interrupt it can deliver; it wakes the processor from
+         * MWAIT, TPAUSE, and UMWAIT (Intel SDM 325462-093 Vol. 3C,
+         * 28.5.10.2).
+         */
+        if (vmx_guest_timer_due(env)) {
+            vmx_guest_timer_event(env);
+            if (env->vmx.exit_hlt && !(env->vmx.vintr_pending &&
+                                       (env->eflags & IF_MASK))) {
+                env->vmx.exit_hlt = false;
+                cs->halted = 1;
+                cs->exception_index = EXCP_HLT;
+                cpu_loop_exit(cs);
+            }
+            env->vmx.exit_hlt = false;
+            return true;
+        }
         if (env->vmx.vintr_pending) {
             env->vmx.exit_hlt = false;
             vmx_vintr_deliver(env);
@@ -4537,6 +4679,58 @@ uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay)
     }
     divu128(&low, &high, VMCS(TSC_MULTIPLIER));
     return high ? UINT64_MAX : low;
+}
+
+/*
+ * With APIC-timer virtualization, RDMSR of IA32_TSC_DEADLINE reads the
+ * guest-deadline shadow (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+bool x86_vmx_tsc_deadline_rdmsr(CPUX86State *env, uint32_t msr,
+                                uint64_t *val)
+{
+    if (msr != MSR_IA32_TSCDEADLINE ||
+        !(vmx_proc3(env) & VMX_TERTIARY_EXEC_APIC_TIMER_VIRT)) {
+        return false;
+    }
+    *val = VMCS(GUEST_DEADLINE_SHADOW);
+    return true;
+}
+
+/*
+ * With APIC-timer virtualization, WRMSR of IA32_TSC_DEADLINE writes the
+ * guest-deadline shadow, leaving the APIC timer alone: 0 clears the guest
+ * deadline; a deadline past the TSC that non-root operation reads arms it,
+ * converted back through TSC offsetting and scaling, rounded up so that
+ * the event comes no earlier; another has the guest-timer event's effect
+ * at once (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+bool x86_vmx_tsc_deadline_wrmsr(CPUX86State *env, uint32_t msr,
+                                uint64_t val)
+{
+    uint64_t low, high, rem;
+
+    if (msr != MSR_IA32_TSCDEADLINE ||
+        !(vmx_proc3(env) & VMX_TERTIARY_EXEC_APIC_TIMER_VIRT)) {
+        return false;
+    }
+    VMCS_SET(GUEST_DEADLINE_SHADOW, val);
+    if (!val) {
+        vmx_guest_deadline_set(env, 0);
+    } else if (val > x86_vmx_tsc(env, vmx_host_tsc(env))) {
+        if (VMCS(PROC_CONTROLS) & VMX_CPU_BASED_USE_TSC_OFFSETING) {
+            val -= VMCS(TSC_OFFSET);
+            if (vmx_proc2(env) & VMX_SECONDARY_EXEC_TSC_SCALING) {
+                low = val << 48;
+                high = val >> 16;
+                rem = divu128(&low, &high, VMCS(TSC_MULTIPLIER));
+                val = high ? UINT64_MAX : low + (rem != 0);
+            }
+        }
+        vmx_guest_deadline_set(env, val ? val : 1);
+    } else {
+        vmx_guest_timer_event(env);
+    }
+    return true;
 }
 
 /*
