@@ -911,7 +911,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 /*
  * The PMU of tcg/system/pmu.c, which the pmu property turns on: its
  * capabilities MSR, AMD's six core counters, and VMX's controls of
- * IA32_PERF_GLOBAL_CTRL.
+ * IA32_PERF_GLOBAL_CTRL and, with architectural LBRs, IA32_LBR_CTL.
  */
 #ifdef CONFIG_USER_ONLY
 #define TCG_EXT_PMU 0
@@ -924,8 +924,10 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_EXT3_PMU CPUID_EXT3_PERFCORE
 #define TCG_PERF_CAPABILITIES PERF_CAP_FW_WRITE
 #define TCG_VMX_EXIT_PMU (VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL | \
-          VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL)
-#define TCG_VMX_ENTRY_PMU VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL
+          VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL | \
+          VMX_VM_EXIT_CLEAR_IA32_LBR_CTL)
+#define TCG_VMX_ENTRY_PMU (VMX_VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL | \
+          VMX_VM_ENTRY_LOAD_IA32_LBR_CTL)
 #endif
 #define TCG_VMX_BASIC (MSR_VMX_BASIC_INS_OUTS | MSR_VMX_BASIC_TRUE_CTLS | \
           MSR_VMX_BASIC_ANY_ERRCODE | MSR_VMX_BASIC_NESTED_EXCEPTION)
@@ -1969,7 +1971,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, "vmx-exit-save-pat", "vmx-exit-load-pat",
             "vmx-exit-save-efer", "vmx-exit-load-efer",
                 "vmx-exit-save-preemption-timer", "vmx-exit-clear-bndcfgs",
-            NULL, "vmx-exit-clear-rtit-ctl", NULL, "vmx-exit-clear-uinv",
+            NULL, "vmx-exit-clear-rtit-ctl", "vmx-exit-clear-lbr-ctl",
+                "vmx-exit-clear-uinv",
             "vmx-exit-save-cet", "vmx-exit-load-pkrs",
                 "vmx-exit-save-perf-global-ctrl", "vmx-exit-secondary-ctls",
         },
@@ -1988,7 +1991,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, "vmx-entry-load-perf-global-ctrl", "vmx-entry-load-pat", "vmx-entry-load-efer",
             "vmx-entry-load-bndcfgs", NULL, "vmx-entry-load-rtit-ctl",
                 "vmx-entry-load-uinv",
-            "vmx-entry-load-cet", NULL, "vmx-entry-load-pkrs", "vmx-entry-load-fred",
+            "vmx-entry-load-cet", "vmx-entry-load-lbr-ctl",
+                "vmx-entry-load-pkrs", "vmx-entry-load-fred",
             "vmx-entry-load-spec-ctrl", NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
         },
@@ -2318,6 +2322,14 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },
         .to = { FEAT_VMX_ENTRY_CTLS,        VMX_VM_ENTRY_LOAD_IA32_PKRS },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_ARCH_LBR },
+        .to = { FEAT_VMX_EXIT_CTLS,         VMX_VM_EXIT_CLEAR_IA32_LBR_CTL },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_ARCH_LBR },
+        .to = { FEAT_VMX_ENTRY_CTLS,        VMX_VM_ENTRY_LOAD_IA32_LBR_CTL },
     },
     {
         .from = { FEAT_7_0_EBX,             CPUID_7_0_EBX_INTEL_PT },

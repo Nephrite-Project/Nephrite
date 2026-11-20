@@ -116,6 +116,7 @@
 #define VMCS_GUEST_PERF_GLOBAL_CTRL 0x2808
 #define VMCS_GUEST_PDPTE(n) (0x280a + 2 * (n))
 #define VMCS_GUEST_BNDCFGS 0x2812
+#define VMCS_GUEST_LBR_CTL 0x2816
 #define VMCS_GUEST_PKRS 0x2818
 #define VMCS_GUEST_SPEC_CTRL 0x282e
 #define VMCS_GUEST_DEADLINE 0x2830
@@ -335,6 +336,7 @@ static const uint16_t vmcs_fields[] = {
     0x280e, /* guest PDPTE2 */
     0x2810, /* guest PDPTE3 */
     0x2812, /* guest IA32_BNDCFGS */
+    0x2816, /* guest IA32_LBR_CTL */
     0x2818, /* guest IA32_PKRS */
     0x281a, /* guest IA32_FRED_CONFIG */
     0x281c, /* guest IA32_FRED_RSP1 */
@@ -2765,6 +2767,14 @@ static void vmx_save_guest(CPUX86State *env)
         VMCS_SET(GUEST_PKRS, env->pkrs);
     }
     /*
+     * And IA32_LBR_CTL where "load guest IA32_LBR_CTL" or "clear
+     * IA32_LBR_CTL" exists (Intel SDM 325462-093 Vol. 3C, 30.3.1).
+     */
+    if ((vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_IA32_LBR_CTL) ||
+        (vmx_exit_features(env) & VMX_VM_EXIT_CLEAR_IA32_LBR_CTL)) {
+        VMCS_SET(GUEST_LBR_CTL, env->msr_lbr_ctl);
+    }
+    /*
      * And IA32_SPEC_CTRL where "load IA32_SPEC_CTRL" exists (Intel SDM
      * 325462-093 Vol. 3C, 30.3.3).
      */
@@ -3007,6 +3017,13 @@ static void vmx_load_host(CPUX86State *env)
     }
     if (exit_ctl & VMX_VM_EXIT_LOAD_IA32_PKRS) {
         env->pkrs = (uint32_t)VMCS(HOST_PKRS);
+    }
+    /*
+     * "Clear IA32_LBR_CTL", after the save (Intel SDM 325462-093 Vol. 3B,
+     * Table 21-4; Vol. 3C, 27.7.1).
+     */
+    if (exit_ctl & VMX_VM_EXIT_CLEAR_IA32_LBR_CTL) {
+        env->msr_lbr_ctl = 0;
     }
     /* "Clear UINV" (Intel SDM 325462-093 Vol. 3C, 30.5.1). */
     if (exit_ctl & VMX_VM_EXIT_CLEAR_UINV) {
@@ -3762,6 +3779,14 @@ static int vmx_guest_state_check(CPUX86State *env)
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) && VMCS(GUEST_PKRS) >> 32) {
         return 1;
     }
+    /*
+     * IA32_LBR_CTL's reserved bits (Intel SDM 325462-093 Vol. 3C,
+     * 29.3.1.1).
+     */
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_LBR_CTL) &&
+        (VMCS(GUEST_LBR_CTL) & ~ARCH_LBR_CTL_BITS)) {
+        return 1;
+    }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL) &&
         !x86_spec_ctrl_valid(env, VMCS(GUEST_SPEC_CTRL))) {
         return 1;
@@ -3938,6 +3963,13 @@ static void vmx_load_guest(CPUX86State *env)
     }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) {
         env->pkrs = VMCS(GUEST_PKRS);
+    }
+    /*
+     * "Load guest IA32_LBR_CTL" (Intel SDM 325462-093 Vol. 3C,
+     * 29.3.2.1).
+     */
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_LBR_CTL) {
+        env->msr_lbr_ctl = VMCS(GUEST_LBR_CTL);
     }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL) {
         env->spec_ctrl = VMCS(GUEST_SPEC_CTRL);
