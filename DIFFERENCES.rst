@@ -483,6 +483,9 @@ Processor emulation (TCG):
 * Snapshots and migration keep TCG's VMX operation: the VMXON region, the
   current VMCS and the fields it holds, VMX non-root operation, and the
   VMX-preemption timer and guest timer.
+* Snapshots and migration keep the controls that TCG's processor takes
+  from the VMCB at VMRUN and holds through SVM guest mode, such as the I/O
+  and MSR permission maps' addresses, AVIC's, and the pause filter's.
 
 AMD SVM (TCG):
 

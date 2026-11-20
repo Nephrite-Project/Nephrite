@@ -1609,6 +1609,58 @@ static const VMStateDescription vmstate_svm_guest = {
     }
 };
 
+/*
+ * The controls that TCG's processor takes from the VMCB at VMRUN and keeps
+ * through guest mode, rather than reading the VMCB again; and an INIT that
+ * GIF holds.
+ */
+static bool svm_controls_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+    CPUX86State *env = &cpu->env;
+
+    return tcg_enabled() &&
+           ((env->hflags & HF_GUEST_MASK) || env->svm_init_held);
+}
+
+static const VMStateDescription vmstate_svm_controls = {
+    .name = "cpu/svm_controls",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = svm_controls_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT32(env.intercept_vec5, X86CPU),
+        VMSTATE_UINT64(env.svm_iopm_base, X86CPU),
+        VMSTATE_UINT64(env.svm_msrpm_base, X86CPU),
+        VMSTATE_UINT32(env.svm_int_vector, X86CPU),
+        VMSTATE_BOOL(env.svm_tlbi_enabled, X86CPU),
+        VMSTATE_UINT16(env.svm_pause_filter_count, X86CPU),
+        VMSTATE_UINT16(env.svm_pause_filter_thresh, X86CPU),
+        VMSTATE_INT32(env.svm_pause_count, X86CPU),
+        VMSTATE_UINT64(env.svm_pause_cycles, X86CPU),
+        VMSTATE_UINT64(env.svm_last_pause, X86CPU),
+        VMSTATE_BOOL(env.svm_lbr_virt, X86CPU),
+        VMSTATE_BOOL(env.svm_fred_virt, X86CPU),
+        VMSTATE_BOOL(env.svm_avic, X86CPU),
+        VMSTATE_BOOL(env.svm_x2avic, X86CPU),
+        VMSTATE_UINT64(env.svm_avic_bar, X86CPU),
+        VMSTATE_UINT64(env.svm_avic_backing, X86CPU),
+        VMSTATE_UINT64(env.svm_avic_logical, X86CPU),
+        VMSTATE_UINT64(env.svm_avic_physical, X86CPU),
+        VMSTATE_UINT32(env.svm_avic_max_index, X86CPU),
+        VMSTATE_BOOL(env.svm_pmc_virt, X86CPU),
+        VMSTATE_BOOL(env.svm_pmc_filter, X86CPU),
+        VMSTATE_UINT64_ARRAY(env.svm_pmc_allowed, X86CPU, 6),
+        VMSTATE_UINT64(env.svm_pmc_allowed_mask, X86CPU),
+        VMSTATE_BOOL(env.svm_gaat, X86CPU),
+        VMSTATE_UINT64(env.svm_gaatp, X86CPU),
+        VMSTATE_UINT8(env.svm_gaat_prefix, X86CPU),
+        VMSTATE_UINT64(env.svm_host_spec_ctrl, X86CPU),
+        VMSTATE_BOOL(env.svm_init_held, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 /* What SMI delivery put aside for RSM, while TCG's processor is in SMM. */
 static bool smm_needed(void *opaque)
 {
@@ -2303,6 +2355,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_mwait_masked,
         &vmstate_mwait_deadline,
         &vmstate_vmx,
+        &vmstate_svm_controls,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif
