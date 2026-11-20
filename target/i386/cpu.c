@@ -11292,6 +11292,14 @@ static bool x86_cpu_has_work(CPUState *cs)
         return true;
     }
     /*
+     * An MWAIT with ECX[0] set ends its wait for interrupts that IF masks
+     * (Intel SDM 325462-093 Vol. 2B, MWAIT).
+     */
+    if (env->mwait_halted && env->mwait_masked &&
+        (pending_interrupts & CPU_INTERRUPT_HARD)) {
+        return true;
+    }
+    /*
      * INIT ends HLT (Intel SDM 325462-093 Vol. 2A, HLT) unless VMX root
      * operation blocks it (Vol. 3C, 26.8) or a clear GIF holds it (AMD APM
      * 24593 rev. 3.45, 15.17, Table 15-10).

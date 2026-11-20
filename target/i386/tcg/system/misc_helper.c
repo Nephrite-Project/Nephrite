@@ -1955,13 +1955,37 @@ G_NORETURN void HELPER(hlt)(CPUX86State *env)
     do_hlt(env);
 }
 
+/*
+ * MONITOR's and MWAIT's extensions: RCX in 64-bit mode on Intel processors,
+ * ECX elsewhere (Intel SDM 325462-093 Vol. 2B, MONITOR and MWAIT; AMD64
+ * Architecture Programmer's Manual Volume 3, 24594 rev. 3.39, MONITOR and
+ * MWAIT).
+ */
+static target_ulong monitor_extensions(CPUX86State *env)
+{
+    if ((env->hflags & HF_CS64_MASK) && IS_INTEL_CPU(env)) {
+        return env->regs[R_ECX];
+    }
+    return (uint32_t)env->regs[R_ECX];
+}
+
+/*
+ * MONITOR and MWAIT exit VMX non-root operation before their #GP (Intel SDM
+ * 325462-093 Vol. 3C, 28.1.1), but SVM checks all their exceptions before
+ * its intercepts (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
+ * 3.46, Table 15-7).
+ */
 void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
 {
-    if ((uint32_t)env->regs[R_ECX] != 0) {
+    if (env->vmx.nonroot) {
+        cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
+    }
+    if (monitor_extensions(env)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
-    /* XXX: store address? */
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
+    if (!env->vmx.nonroot) {
+        cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
+    }
     env->monitor_armed = true;
     /*
      * UMWAIT does not wait after a MONITOR (Intel SDM 325462-093 Vol. 2B,
@@ -1970,14 +1994,33 @@ void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
     env->umonitor_armed = false;
 }
 
+/*
+ * MWAIT takes ECX[0], masked interrupts as break events, where CPUID.05H
+ * reports it (Intel SDM 325462-093 Vol. 2B, MWAIT). SVM's conditional MWAIT
+ * intercept, checked first, takes an MWAIT that would wait (AMD64
+ * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, Table 15-7).
+ */
 G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
 {
     CPUState *cs = env_cpu(env);
+    target_ulong valid = 0;
 
-    if ((uint32_t)env->regs[R_ECX] != 0) {
+    if (env_archcpu(env)->mwait.ecx & CPUID_MWAIT_IBE) {
+        valid |= 1;
+    }
+    if (env->vmx.nonroot) {
+        cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
+    }
+    if (monitor_extensions(env) & ~valid) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
+    if (!env->vmx.nonroot) {
+        if (env->monitor_armed) {
+            cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT_COND, 0,
+                                          GETPC());
+        }
+        cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
+    }
     env->eip += next_eip_addend;
 
     /*
@@ -1996,6 +2039,7 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
         HELPER(pause)(env);
     } else {
         env->mwait_halted = true;
+        env->mwait_masked = monitor_extensions(env) & 1;
         do_hlt(env);
     }
 }

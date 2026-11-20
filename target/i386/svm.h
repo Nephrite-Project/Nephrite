@@ -157,6 +157,7 @@
 /* only included in documentation, maybe wrong */
 #define SVM_EXIT_MONITOR        0x08a
 #define SVM_EXIT_MWAIT          0x08b
+#define SVM_EXIT_MWAIT_COND     0x08c
 #define SVM_EXIT_XSETBV         0x08d
 #define SVM_EXIT_RDPRU          0x08e
 #define SVM_EXIT_INVLPGB        0x0a0

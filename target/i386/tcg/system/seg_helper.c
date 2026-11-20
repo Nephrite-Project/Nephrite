@@ -235,6 +235,7 @@ void x86_cpu_leaving_halt(CPUState *cpu)
         env->hlt_woke = !env->mwait_halted;
     }
     env->mwait_halted = false;
+    env->mwait_masked = false;
     /* Complete HLT, UMWAIT, or TPAUSE instruction.  */
     if (env->eflags & TF_MASK) {
         env->dr[6] |= DR6_BS;

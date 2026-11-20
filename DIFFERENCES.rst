@@ -416,6 +416,11 @@ Processor emulation (TCG):
 * CR4's upper half, which holds CR4.FRED, survives TCG's and the gdbstub's
   CR4 writes and SMM, whose state-save area has a quadword for CR4, and
   register dumps show it.
+* MONITOR and MWAIT exit VMX non-root operation before the #GP of reserved
+  ECX bits, but meet SVM's intercepts, the conditional MWAIT one too, after
+  it; MWAIT takes ECX[0], which leaf 5 reports, for interrupts that IF
+  masks to end its wait; and Intel processors check all of RCX in 64-bit
+  mode.
 
 AMD SVM (TCG):
 

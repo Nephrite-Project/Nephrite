@@ -1631,6 +1631,25 @@ static const VMStateDescription vmstate_mwait_halted = {
     }
 };
 
+/* An MWAIT's halt that interrupts IF masks end too. */
+static bool mwait_masked_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.mwait_masked;
+}
+
+static const VMStateDescription vmstate_mwait_masked = {
+    .name = "cpu/mwait_masked",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = mwait_masked_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_BOOL(env.mwait_masked, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 /* SVM guest mode's controls, which an SMI in guest mode set aside. */
 static bool svm_smm_needed(void *opaque)
 {
@@ -2189,6 +2208,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_smm,
         &vmstate_svm_smm,
         &vmstate_mwait_halted,
+        &vmstate_mwait_masked,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif
