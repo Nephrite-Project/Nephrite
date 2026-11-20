@@ -1710,6 +1710,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_EPT_VIOLATION_VE         0x00040000
 #define VMX_SECONDARY_EXEC_XSAVES                   0x00100000
 #define VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC      0x00400000
+#define VMX_SECONDARY_EXEC_ENABLE_SPP               0x00800000
 #define VMX_SECONDARY_EXEC_TSC_SCALING              0x02000000
 #define VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE   0x04000000
 #define VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION       0x40000000
@@ -2554,6 +2555,12 @@ typedef struct X86VMXState {
     uint64_t ept_leaf;
     /* The guest timer's deadline, on the TSC; 0 disarms it. */
     uint64_t guest_deadline;
+    /*
+     * The size of the guest access being translated, for sub-page write
+     * permissions; and the SPP-related event an EPT walk met.
+     */
+    int spp_size;
+    int spp_event;
     bool ept_misconfig;
     bool pml_full;
 } X86VMXState;

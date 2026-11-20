@@ -963,6 +963,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_SECONDARY_EXEC_EPT_VIOLATION_VE | \
           VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_XSAVES | \
           VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC | \
+          VMX_SECONDARY_EXEC_ENABLE_SPP | \
           VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE | \
           VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION | \
           VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST)
@@ -1916,7 +1917,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vmx-apicv-register", "vmx-apicv-vid", "vmx-ple", "vmx-rdrand-exit",
             "vmx-invpcid-exit", "vmx-vmfunc", "vmx-shadow-vmcs", "vmx-encls-exit",
             "vmx-rdseed-exit", "vmx-pml", "vmx-ept-violation-ve", NULL,
-            "vmx-xsaves", NULL, "vmx-mbec", NULL,
+            "vmx-xsaves", NULL, "vmx-mbec", "vmx-spp",
             NULL, "vmx-tsc-scaling", "vmx-enable-user-wait-pause", NULL,
             NULL, NULL, "vmx-bus-lock-detection", NULL,
         },

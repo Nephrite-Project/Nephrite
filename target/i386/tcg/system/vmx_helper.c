@@ -97,6 +97,7 @@
 #define VMCS_XSS_EXIT_BITMAP 0x202c
 #define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_PROC3_CONTROLS 0x2034
+#define VMCS_SPPTP 0x2030
 #define VMCS_HLATP 0x2040
 #define VMCS_PID_TABLE_ADDR 0x2042
 #define VMCS_EXIT2_CONTROLS 0x2044
@@ -310,6 +311,7 @@ static const uint16_t vmcs_fields[] = {
     0x2028, /* VMWRITE-bitmap address */
     0x202a, /* virtualization-exception information address */
     0x202c, /* XSS-exiting bitmap */
+    0x2030, /* SPPTP */
     0x2032, /* TSC multiplier */
     0x2034, /* tertiary processor-based VM-execution controls */
     0x2040, /* HLAT pointer */
@@ -3365,8 +3367,13 @@ static bool vmx_controls_valid(CPUX86State *env)
         !vmx_eptp_valid(env, x86_vmcs_read(env, 0x201a))) {
         return false;
     }
+    if ((proc2 & VMX_SECONDARY_EXEC_ENABLE_SPP) &&
+        !vmx_addr_valid(env, VMCS(SPPTP), 4096)) {
+        return false;
+    }
     if (((proc2 & (VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST |
-                   VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC)) ||
+                   VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC |
+                   VMX_SECONDARY_EXEC_ENABLE_SPP)) ||
          (proc3 & (VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
                    VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY |
                    VMX_TERTIARY_EXEC_HLAT))) &&
@@ -4964,6 +4971,7 @@ void HELPER(vmcall)(CPUX86State *env)
 #define EPT_ACCESSED (1ULL << 8)
 #define EPT_DIRTY (1ULL << 9)
 #define EPT_SUPERVISOR_SHADOW_STACK (1ULL << 60)
+#define EPT_SPP (1ULL << 61)
 /* Verify guest paging and paging-write access (31.3.3.2). */
 #define EPT_VERIFY_GUEST_PAGING (1ULL << 57)
 #define EPT_PAGING_WRITE (1ULL << 58)
@@ -4974,6 +4982,10 @@ void HELPER(vmcall)(CPUX86State *env)
 #define VMX_EXIT_EPT_VIOLATION 48
 #define VMX_EXIT_EPT_MISCONFIG 49
 #define VMX_EXIT_PML_FULL 62
+#define VMX_EXIT_SPP 66
+/* SPP-related events (Intel SDM 325462-093 Vol. 3C, 31.3.4.2). */
+#define VMX_SPP_MISCONFIG 1
+#define VMX_SPP_MISS 2
 
 /*
  * Whether guest paging-structure accesses need EPT walks of their own:
@@ -5237,6 +5249,50 @@ static void ept_pml_log(CPUX86State *env, hwaddr gpa)
  * need; the qualification of any violation under that control has the
  * latter's bit 60 (Intel SDM 325462-093 Vol. 3C, 31.3.3.2 and Table 30-7).
  */
+/*
+ * Whether the SPP vector of GPA's page allows a write to each 128-byte
+ * sub-page that the access being translated writes there: bit 2S for
+ * sub-page S (Intel SDM 325462-093 Vol. 3C, 31.3.4.2). The vector is found
+ * from SPPTP through SPPL4, SPPL3, and SPPL2 entries, by GPA's bits 47:39,
+ * 38:30, and 29:21, then bits 20:12; an entry without its valid bit is an
+ * SPP miss, one with a reserved bit or a vector with an odd bit set an SPP
+ * misconfiguration, which env->vmx.spp_event then holds.
+ */
+static bool vmx_spp_allows(CPUX86State *env, hwaddr gpa)
+{
+    CPUState *cs = env_cpu(env);
+    uint64_t addr_mask = PG_ADDRESS_MASK &
+                         MAKE_64BIT_MASK(0, env_archcpu(env)->phys_bits);
+    hwaddr table = VMCS(SPPTP) & addr_mask;
+    int offset = gpa & 0xfff, size = MAX(env->vmx.spp_size, 1);
+    int last = (MIN(offset + size, 4096) - 1) >> 7;
+    uint64_t entry;
+
+    for (int shift = 39; shift >= 21; shift -= 9) {
+        entry = x86_ldq_phys(cs, table + ((gpa >> shift) & 0x1ff) * 8);
+        if (!(entry & 1)) {
+            env->vmx.spp_event = VMX_SPP_MISS;
+            return false;
+        }
+        if (entry & ~(addr_mask | 1)) {
+            env->vmx.spp_event = VMX_SPP_MISCONFIG;
+            return false;
+        }
+        table = entry & addr_mask;
+    }
+    entry = x86_ldq_phys(cs, table + ((gpa >> 12) & 0x1ff) * 8);
+    if (entry & 0xaaaaaaaaaaaaaaaaULL) {
+        env->vmx.spp_event = VMX_SPP_MISCONFIG;
+        return false;
+    }
+    for (int sub = offset >> 7; sub <= last; sub++) {
+        if (!(entry & (1ULL << (2 * sub)))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
                            MMUAccessType access, bool supervisor,
                            bool shadow_stack, hwaddr *hpa, int *prot,
@@ -5257,11 +5313,12 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     uint64_t perms = present, tables = EPT_WRITE;
     uint64_t need, entry = 0;
     hwaddr entry_addr = 0;
-    bool leaf = false;
+    bool leaf = false, spp = false;
     int level, shift = 12;
 
     env->vmx.ept_misconfig = false;
     env->vmx.pml_full = false;
+    env->vmx.spp_event = 0;
     need = access == MMU_DATA_STORE ? EPT_WRITE :
            access == MMU_INST_FETCH ? exec : EPT_READ;
     for (level = levels; level >= 1; level--) {
@@ -5320,6 +5377,26 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
         (entry & EPT_PAGING_WRITE)) {
         perms |= EPT_WRITE;
     }
+    /*
+     * Sub-page write permissions: a data write that only EPT write access
+     * keeps from a 4-KByte page whose EPT PTE has bit 61 set goes ahead
+     * where the page's SPP vector allows each 128-byte sub-page it writes;
+     * paging writes and guest paging-structure accesses under EPT A/D are
+     * not eligible (Intel SDM 325462-093 Vol. 3C, 31.3.4.1). Such a page
+     * is translated a sub-page at a time.
+     */
+    if (need == EPT_WRITE && !(perms & EPT_WRITE) && !shadow_stack &&
+        !env->vmx.ept_paging_write && level == 1 && (entry & EPT_SPP) &&
+        (vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_SPP)) {
+        if (!vmx_spp_allows(env, gpa)) {
+            if (env->vmx.spp_event) {
+                return false;
+            }
+            goto violation;
+        }
+        perms |= EPT_WRITE;
+        spp = true;
+    }
     if (shadow_stack ? !(perms & EPT_READ) || !(tables & EPT_WRITE) ||
                        !(entry & EPT_SUPERVISOR_SHADOW_STACK)
                      : !(perms & need)) {
@@ -5342,6 +5419,9 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     *page_size = 1 << shift;
     *hpa = (entry & addr_mask & ~(uint64_t)(*page_size - 1)) |
            (gpa & (*page_size - 1));
+    if (spp) {
+        *page_size = 128;
+    }
     *prot = (perms & EPT_READ ? PAGE_READ : 0) |
             ((perms & exec) && !shadow_stack ? PAGE_EXEC : 0);
     /* Writes wait for the dirty flag where EPT keeps one. */
@@ -5442,6 +5522,16 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
     if (env->vmx.pml_full) {
         x86_vmx_exit(env, VMX_EXIT_PML_FULL, vmx_iret_unblocking(env, -1),
                      ra);
+    }
+    /*
+     * An SPP-related event, bit 11 of whose exit qualification tells a
+     * miss from a misconfiguration (Intel SDM 325462-093 Vol. 3C, 30.2.1).
+     */
+    if (env->vmx.spp_event) {
+        VMCS_SET(GUEST_LINEAR_ADDR, linear);
+        x86_vmx_exit(env, VMX_EXIT_SPP,
+                     (env->vmx.spp_event == VMX_SPP_MISS ? 1 << 11 : 0) |
+                     vmx_iret_unblocking(env, -1), ra);
     }
     if (!final && (qual & 2)) {
         qual |= 1;

@@ -1168,9 +1168,12 @@ do_check_pk:
 
         /*
          * Use the larger of stage1 & stage2 page sizes, so that
-         * invalidation works.
+         * invalidation works; but a stage2 entry smaller than a page,
+         * for sub-page write permissions, is checked at every access,
+         * and so is the whole translation.
          */
-        if (nested_page_size > page_size) {
+        if (nested_page_size > page_size ||
+            nested_page_size < TARGET_PAGE_SIZE) {
             page_size = nested_page_size;
         }
     }
@@ -1537,9 +1540,21 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
     CPUX86State *env = cpu_env(cs);
     TranslateResult out;
     TranslateFault err;
+    bool ok;
 
-    if (get_physical_address(env, addr, access_type, mmu_idx, &out, &err,
-                             !probe, retaddr)) {
+    /*
+     * The size of a guest access, which sub-page write permissions check
+     * a sub-page at a time; its stage-2 probes leave it.
+     */
+    if (!is_mmu_index_nested(mmu_idx)) {
+        env->vmx.spp_size = size;
+    }
+    ok = get_physical_address(env, addr, access_type, mmu_idx, &out, &err,
+                              !probe, retaddr);
+    if (!is_mmu_index_nested(mmu_idx)) {
+        env->vmx.spp_size = 0;
+    }
+    if (ok) {
         MemTxAttrs attrs = cpu_get_mem_attrs(env);
         hwaddr pa = out.paddr;
         CPUTLBEntryFull full;
