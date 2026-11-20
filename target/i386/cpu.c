@@ -1062,6 +1062,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define CPUID_SVM_KERNEL_FEATURES 0
 #endif
+#ifdef CONFIG_USER_ONLY
+#define TCG_8000_0022_EAX_FEATURES 0
+#else
+#define TCG_8000_0022_EAX_FEATURES CPUID_8000_0022_EAX_PERFMON_V2
+#endif
 #define TCG_8000_000A_ECX_FEATURES (CPUID_SVM_ECX_PML | \
           CPUID_SVM_ECX_X2AVIC_EXT | CPUID_SVM_ECX_PW | CPUID_SVM_ECX_VPW | \
           CPUID_SVM_ECX_GAAT)
@@ -1735,7 +1740,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, NULL, NULL,
         },
         .cpuid = { .eax = 0x80000022, .reg = R_EAX, },
-        .tcg_features = 0,
+        .tcg_features = TCG_8000_0022_EAX_FEATURES,
         .unmigratable_flags = 0,
     },
     [FEAT_XSAVE] = {
@@ -9891,6 +9896,12 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
             *eax |= CPUID_8000_0022_EAX_PERFMON_V2;
             *ebx |= kvm_arch_get_supported_cpuid(cs->kvm_state, index, count,
                                                  R_EBX) & 0xf;
+        } else if (tcg_enabled() && cpu->enable_pmu &&
+                   (env->features[FEAT_8000_0022_EAX] &
+                    CPUID_8000_0022_EAX_PERFMON_V2)) {
+            /* TCG's six core counters, in NumPerfCtrCore. */
+            *eax |= CPUID_8000_0022_EAX_PERFMON_V2;
+            *ebx |= 6;
         }
         break;
     case 0xC0000000:
@@ -10068,6 +10079,14 @@ static void x86_cpu_reset_hold(Object *obj, ResetType type)
      */
     if (tcg_enabled() && cpu->enable_pmu && IS_INTEL_CPU(env)) {
         env->msr_global_ctrl = MAKE_64BIT_MASK(0, X86_PMU_GP_COUNTERS);
+    }
+    /*
+     * As AMD's PerfCntrGlobalCtl does (PPR for AMD Family 19h Model 61h,
+     * 56713 rev. 3.05, MSRC000_0301).
+     */
+    if (tcg_enabled() && cpu->enable_pmu && !IS_INTEL_CPU(env) &&
+        (env->features[FEAT_8000_0022_EAX] & CPUID_8000_0022_EAX_PERFMON_V2)) {
+        env->msr_global_ctrl = MAKE_64BIT_MASK(0, 6);
     }
 
     if (kvm_enabled()) {
@@ -10501,6 +10520,10 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
     x86_cpu_adjust_feat_level(cpu, FEAT_8000_0001_ECX);
     x86_cpu_adjust_feat_level(cpu, FEAT_8000_0007_EDX);
     x86_cpu_adjust_feat_level(cpu, FEAT_8000_0008_EBX);
+    /* CPUID[0x80000022] reports PerfMonV2 only with the PMU. */
+    if (cpu->enable_pmu) {
+        x86_cpu_adjust_feat_level(cpu, FEAT_8000_0022_EAX);
+    }
     x86_cpu_adjust_feat_level(cpu, FEAT_C000_0001_EDX);
     x86_cpu_adjust_feat_level(cpu, FEAT_SVM);
     x86_cpu_adjust_feat_level(cpu, FEAT_XSAVE);

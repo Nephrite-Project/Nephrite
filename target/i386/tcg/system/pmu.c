@@ -64,6 +64,7 @@
 /* AMD's core counters with PerfCtrExtCore, and its legacy ones. */
 #define AMD_CORE_COUNTERS 6
 #define AMD_LEGACY_COUNTERS 4
+#define AMD_GLOBAL_COUNTERS MAKE_64BIT_MASK(0, AMD_CORE_COUNTERS)
 
 bool x86_pmu_enabled(CPUX86State *env)
 {
@@ -82,6 +83,19 @@ static unsigned pmu_counters(CPUX86State *env)
     }
     return env->features[FEAT_8000_0001_ECX] & CPUID_EXT3_PERFCORE ?
            AMD_CORE_COUNTERS : AMD_LEGACY_COUNTERS;
+}
+
+/*
+ * AMD's PerfMonV2, whose PerfCntrGlobalCtl enables the core counters too,
+ * as IA32_PERF_GLOBAL_CTRL does on Intel, and whose PerfCntrGlobalStatus
+ * holds their overflows (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.46, 13.2.1).
+ */
+static bool pmu_global(CPUX86State *env)
+{
+    return IS_INTEL_CPU(env) ||
+           (env->features[FEAT_8000_0022_EAX] &
+            CPUID_8000_0022_EAX_PERFMON_V2);
 }
 
 /* Counter C: Intel's general-purpose and then fixed ones, or AMD's. */
@@ -217,7 +231,7 @@ static void pmu_update(CPUX86State *env)
         value = *pmu_value(env, c) + (events - ctr->events);
         ctr->events = events;
         if (value > PMU_MASK) {
-            if (IS_INTEL_CPU(env)) {
+            if (pmu_global(env)) {
                 env->msr_global_status |= pmu_global_bit(c);
             }
             pmi |= ctr->pmi;
@@ -296,7 +310,7 @@ static void pmu_event(CPUX86State *env, uint64_t sel, X86PMUCounter *ctr)
 static void pmu_configure(CPUX86State *env)
 {
     X86PMUState *p = &env->pmu;
-    bool intel = IS_INTEL_CPU(env);
+    bool intel = IS_INTEL_CPU(env), global = pmu_global(env);
     bool svme = (env->hflags & HF_GUEST_MASK) || (env->efer & MSR_EFER_SVME);
 
     p->active = false;
@@ -324,7 +338,7 @@ static void pmu_configure(CPUX86State *env)
 
             pmu_event(env, sel, ctr);
             if ((sel & EVTSEL_EN) &&
-                (!intel || (env->msr_global_ctrl & pmu_global_bit(c)))) {
+                (!global || (env->msr_global_ctrl & pmu_global_bit(c)))) {
                 buckets = (sel & EVTSEL_OS ? BUCKETS_OS : 0) |
                           (sel & EVTSEL_USR ? BUCKETS_USR : 0);
             }
@@ -447,7 +461,24 @@ int x86_pmu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
         return 1;
     }
     if (!IS_INTEL_CPU(env)) {
-        return -1;
+        if (!pmu_global(env)) {
+            return -1;
+        }
+        switch (msr) {
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS:
+            pmu_update(env);
+            *val = env->msr_global_status;
+            return 1;
+        case MSR_AMD64_PERF_CNTR_GLOBAL_CTL:
+            *val = env->msr_global_ctrl;
+            return 1;
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS_CLR:
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS_SET:
+            *val = 0;
+            return 1;
+        default:
+            return -1;
+        }
     }
 
     switch (msr) {
@@ -521,7 +552,31 @@ int x86_pmu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         return 1;
     }
     if (!intel) {
-        return -1;
+        if (!pmu_global(env)) {
+            return -1;
+        }
+        /*
+         * The status is read-only, which writes leave; the control's
+         * reserved bits read as zero; the clear and set MSRs read as zero,
+         * as Linux 7.3's KVM has them.
+         */
+        switch (msr) {
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS:
+            return 1;
+        case MSR_AMD64_PERF_CNTR_GLOBAL_CTL:
+            x86_pmu_set_global_ctrl(env, val & AMD_GLOBAL_COUNTERS);
+            return 1;
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS_CLR:
+            pmu_update(env);
+            env->msr_global_status &= ~val;
+            return 1;
+        case MSR_AMD64_PERF_CNTR_GLOBAL_STATUS_SET:
+            pmu_update(env);
+            env->msr_global_status |= val & AMD_GLOBAL_COUNTERS;
+            return 1;
+        default:
+            return -1;
+        }
     }
 
     switch (msr) {

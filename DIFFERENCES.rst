@@ -297,7 +297,7 @@ Processor features:
   IA32_ARCH_CAPABILITIES[21], IA32_XAPIC_DISABLE_STATUS, and ``info
   lapic`` report (TCG and Intel CPU models only).
 * A PMU: Intel's architectural performance monitoring (version 2) and
-  AMD's core counters.
+  AMD's core counters, with PerfMonV2's global control and status.
 * CET: shadow stacks and indirect branch tracking, whose state register
   dumps show.
 * User interrupts: their MSRs, delivery at CPL 3, user-interrupt
@@ -619,8 +619,8 @@ Known deviations and limits
   #NM and #GP order; MTF with BTF and TF reports BS as for non-branches.
 * SVM's PAUSE filter threshold counts cycles as the PMU does.
 * PMU: one cycle per instruction, no reference-cycles event, a simple
-  branch-miss model, the edge bit ignored, no freeze on PMI, and no
-  PerfMonV2, PEBS, or LBR format.
+  branch-miss model, the edge bit ignored, no freeze on PMI, and no PEBS
+  or LBR format.
 * CET: shadow-stack accesses without paging are allowed, nested page
   fault exit information lacks the shadow-stack bit, and ENDBR is
   recognized only as exactly ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
