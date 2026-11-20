@@ -245,8 +245,8 @@ AMD SVM, completing what QEMU's TCG has:
   virtualization, ERAPS, GMET, read-only guest page tables (ROGPT),
   page-modification logging, TlbiCtl, the INVLPGB, TLBSYNC, idle HLT, and
   INVPCID intercepts, AVIC and x2AVIC, CET state in the VMCB,
-  HOST_MCE_OVERRIDE, and the bus lock threshold, whose count implicit
-  locked accesses take too.
+  HOST_MCE_OVERRIDE, SPEC_CTRL virtualization (V_SPEC_CTRL), and the bus
+  lock threshold, whose count implicit locked accesses take too.
 * VM_CR's LOCK and SVMDIS, and SVM-Lock's SVM_KEY MSR, with which STGI and
   SKINIT need no EFER.SVME.
 * FRED virtualization (AMD64 FRED Virtualization 69191 rev. 1.10): VMRUN

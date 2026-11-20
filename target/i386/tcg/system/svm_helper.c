@@ -672,6 +672,17 @@ void HELPER(vmrun)(CPUX86State *env, int aflag, int next_eip_addend)
     env->intercept = c->intercept;
     env->intercept_vec5 = c->intercept_vec5;
     /*
+     * With V_SPEC_CTRL, the guest's IA32_SPEC_CTRL comes from the VMCB and
+     * the host's waits aside (AMD64 Architecture Programmer's Manual Volume
+     * 2, 24593 rev. 3.46, 15.37.1); TCG does not speculate, so that their OR
+     * has nothing to control.
+     */
+    if (env->features[FEAT_SVM] & CPUID_SVM_V_SPEC_CTRL) {
+        env->svm_host_spec_ctrl = env->spec_ctrl;
+        env->spec_ctrl = x86_ldq_phys(cs, env->vm_vmcb +
+                                      offsetof(struct vmcb, save.spec_ctrl));
+    }
+    /*
      * The bus lock threshold count, which the processor keeps while the
      * guest runs (AMD64 Architecture Programmer's Manual Volume 2, 24593
      * rev. 3.46, 15.14.5).
@@ -1689,6 +1700,12 @@ void do_vmexit(CPUX86State *env)
     }
     x86_stl_phys(cs,
              env->vm_vmcb + offsetof(struct vmcb, control.int_ctl), env->int_ctl);
+    /* #VMEXIT saves the guest's IA32_SPEC_CTRL, as V_SPEC_CTRL has it. */
+    if (env->features[FEAT_SVM] & CPUID_SVM_V_SPEC_CTRL) {
+        x86_stq_phys(cs, env->vm_vmcb + offsetof(struct vmcb, save.spec_ctrl),
+                     env->spec_ctrl);
+        env->spec_ctrl = env->svm_host_spec_ctrl;
+    }
     /* #VMEXIT writes back the bus lock threshold count. */
     if (env->features[FEAT_SVM] & CPUID_SVM_BUS_LOCK_THRESHOLD) {
         x86_stw_phys(cs, env->vm_vmcb +

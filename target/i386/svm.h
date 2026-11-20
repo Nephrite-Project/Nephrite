@@ -316,7 +316,9 @@ struct QEMU_PACKED vmcb_save_area {
     uint64_t br_to;
     uint64_t last_excp_from;
     uint64_t last_excp_to;
-    uint8_t reserved_7[1576];
+    uint8_t reserved_7[72];
+    uint64_t spec_ctrl;
+    uint8_t reserved_8[1496];
     uint64_t fred_rsp1;
     uint64_t fred_rsp2;
     uint64_t fred_rsp3;
@@ -327,6 +329,7 @@ struct QEMU_PACKED vmcb_save_area {
     uint64_t fred_config;
 };
 
+QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, spec_ctrl) != 0x2e0);
 QEMU_BUILD_BUG_ON(offsetof(struct vmcb_save_area, fred_rsp1) != 0x8c0);
 
 struct QEMU_PACKED vmcb {

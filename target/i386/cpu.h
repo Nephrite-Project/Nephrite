@@ -1098,6 +1098,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_SVM_VGIF            (1U << 16)
 #define CPUID_SVM_GMET            (1U << 17)
 #define CPUID_SVM_X2AVIC          (1U << 18)
+#define CPUID_SVM_V_SPEC_CTRL     (1U << 20)
 #define CPUID_SVM_ROGPT           (1U << 21)
 #define CPUID_SVM_HOST_MCE_OVERRIDE (1U << 23)
 #define CPUID_SVM_TLBICTL         (1U << 24)
@@ -2789,6 +2790,8 @@ typedef struct CPUArchState {
     uint32_t tsx_ctrl;
 
     uint64_t spec_ctrl;
+    /* SVM guest mode with V_SPEC_CTRL: the host's IA32_SPEC_CTRL. */
+    uint64_t svm_host_spec_ctrl;
     uint64_t amd_tsc_scale_msr;
     uint64_t virt_ssbd;
     /* How far WRMSR to IA32_TSC has moved this processor's TSC. */
