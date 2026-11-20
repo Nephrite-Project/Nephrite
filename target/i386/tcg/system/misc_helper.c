@@ -1800,6 +1800,20 @@ static target_ulong lam_untag(CPUX86State *env, target_ulong addr)
 }
 
 /*
+ * AMD's processors lack the MSR instructions that take their MSR from
+ * elsewhere than ECX, and SVM has no intercept for them: in guest mode
+ * with the MSR intercept, they raise #UD, so that a guest reaches no MSR
+ * past the MSR permission map.
+ */
+static void svm_msr_insn_check(CPUX86State *env, uintptr_t ra)
+{
+    if ((env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot &&
+        cpu_svm_has_intercept(env, SVM_EXIT_MSR)) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+}
+
+/*
  * One MSR of RDMSRLIST (WRITE 0) or WRMSRLIST (WRITE 1), the one that the
  * lowest bit set in RCX names, whose bit it clears once done (Intel SDM
  * 325462-093 Vol. 2A, RDMSRLIST, and Vol. 2D, WRMSRLIST); the translator
@@ -1813,10 +1827,7 @@ static target_ulong lam_untag(CPUX86State *env, target_ulong addr)
  * MSR whose access the MSR bitmaps would make exit, before reading or
  * writing it, with the MSR's address as the exit qualification and, for
  * WRMSRLIST, the data in the MSR-data field (Intel SDM 325462-093 Vol. 3C,
- * 28.1.3, 28.3, 30.2.1, and 30.2.5). AMD's processors lack the
- * instructions, and SVM has no intercept for them: in guest mode with the
- * MSR intercept, they raise #UD, so that a guest reaches no MSR past the
- * MSR permission map.
+ * 28.1.3, 28.3, 30.2.1, and 30.2.5).
  */
 void HELPER(msrlist)(CPUX86State *env, uint32_t write)
 {
@@ -1829,10 +1840,7 @@ void HELPER(msrlist)(CPUX86State *env, uint32_t write)
     if (env->vmx.nonroot && !x86_vmx_msrlist_enabled(env)) {
         raise_exception_ra(env, EXCP06_ILLOP, ra);
     }
-    if ((env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot &&
-        cpu_svm_has_intercept(env, SVM_EXIT_MSR)) {
-        raise_exception_ra(env, EXCP06_ILLOP, ra);
-    }
+    svm_msr_insn_check(env, ra);
     if (env->hflags & HF_CPL_MASK) {
         raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
@@ -1866,6 +1874,41 @@ void HELPER(msrlist)(CPUX86State *env, uint32_t write)
         cpu_stq_le_data_ra(env, lam_untag(env, data + n * 8), val, ra);
     }
     env->regs[R_ECX] = rcx & (rcx - 1);
+}
+
+/*
+ * The immediate forms of RDMSR and WRMSRNS, with the MSR's address in
+ * their immediate and REG their register operand (Intel SDM 325462-093
+ * Vol. 2B, RDMSR, and Vol. 2D, WRMSRNS): #GP at CPL > 0, then their VM
+ * exits (x86_vmx_msr_imm_exit()), then the access, as RDMSR's and WRMSR's.
+ */
+target_ulong HELPER(rdmsr_imm)(CPUX86State *env, uint32_t msr, uint32_t reg)
+{
+    uintptr_t ra = GETPC();
+
+    svm_msr_insn_check(env, ra);
+    if (env->hflags & HF_CPL_MASK) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (env->vmx.nonroot) {
+        x86_vmx_msr_imm_exit(env, msr, reg, false, ra);
+    }
+    return msr_read(env, msr, ra);
+}
+
+void HELPER(wrmsr_imm)(CPUX86State *env, uint32_t msr, target_ulong val,
+                       uint32_t reg)
+{
+    uintptr_t ra = GETPC();
+
+    svm_msr_insn_check(env, ra);
+    if (env->hflags & HF_CPL_MASK) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (env->vmx.nonroot) {
+        x86_vmx_msr_imm_exit(env, msr, reg, true, ra);
+    }
+    msr_write(env, msr, val, ra);
 }
 #endif
 

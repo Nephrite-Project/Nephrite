@@ -4568,6 +4568,22 @@ void x86_vmx_msrlist_msr_exit(CPUX86State *env, uint32_t msr, uint64_t val,
 }
 
 /*
+ * The immediate forms of RDMSR and WRMSRNS exit where RDMSR and WRMSR do,
+ * with their own exit reasons, the MSR's address as the exit
+ * qualification, and their register in the instruction information and
+ * the extended instruction information (Intel APX 355828-009, 6.49.2.1).
+ */
+void x86_vmx_msr_imm_exit(CPUX86State *env, uint32_t msr, int reg,
+                          bool write, uintptr_t ra)
+{
+    if (vmx_msr_exits(env, msr, write)) {
+        vmx_set_insn_info(env, (reg & 0xf) << 3, (uint64_t)reg << 16);
+        x86_vmx_exit(env, write ? VMX_EXIT_WRMSRNS_IMM : VMX_EXIT_RDMSR_IMM,
+                     msr, ra);
+    }
+}
+
+/*
  * With "RDTSC exiting" too, UMWAIT and TPAUSE exit, with their source
  * register in the instruction information (Intel SDM 325462-093 Vol. 3C,
  * 28.1.3 and Table 30-13).

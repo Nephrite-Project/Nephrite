@@ -115,6 +115,7 @@ typedef enum X86CPUIDFeature {
     X86_FEAT_FXSR,
     X86_FEAT_INVPCID,
     X86_FEAT_MOVBE,
+    X86_FEAT_MSR_IMM,
     X86_FEAT_PCLMULQDQ,
     X86_FEAT_POPCNT,
     X86_FEAT_SHA_NI,
@@ -286,6 +287,9 @@ typedef enum X86VEXSpecial {
      * they *should* be used only with VEX.L=0 but may accept VEX.L=1 on some machines.
      */
     X86_VEX_LIG,
+
+    /* Integer VEX and EVEX instructions that do not use VEX.vvvv */
+    X86_VEX_NoVVVV,
 } X86VEXSpecial;
 
 typedef enum X86EVEXClass {

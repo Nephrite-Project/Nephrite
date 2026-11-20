@@ -274,6 +274,8 @@
 #define svm(a) .intercept = SVM_EXIT_##a, .has_intercept = true,
 
 #define avx2_256 .vex_special = X86_VEX_AVX2_256,
+#define vex_nov .vex_special = X86_VEX_NoVVVV,
+#define chk_msr_imm .check = X86_CHECK_o64 | X86_CHECK_nf0 | X86_CHECK_W0,
 #define vex_lig .vex_special = X86_VEX_LIG,
 
 #define P_00          1
@@ -2405,6 +2407,45 @@ static void decode_EVEX_map4(DisasContext *s, CPUX86State *env, X86OpEntry *entr
     *b = x86_ldub_code(env, s);
     *entry = opcodes_EVEX_map4[*b];
 }
+
+/*
+ * The immediate forms of RDMSR and WRMSRNS: VEX.128.F2.MAP7.W0 F6 /0 and
+ * VEX.128.F3.MAP7.W0 F6 /0 with a register operand and imm32 (Intel SDM
+ * 325462-093 Vol. 2B, RDMSR, and Vol. 2D, WRMSRNS), and their EVEX forms
+ * with Intel APX (Intel APX 355828-009, 6.49 and 6.70). VEX.vvvv, which
+ * they do not use, must be 1111b (Intel SDM 325462-093 Vol. 2A, 2.3.6).
+ */
+static void decode_MAP7_F6(DisasContext *s, CPUX86State *env,
+                           X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry rdmsr =
+        X86_OP_ENTRYwr(RDMSR_imm, E,q, I,d, vex13 vex_nov cpuid(MSR_IMM)
+                       chk_msr_imm p_f2);
+    static const X86OpEntry wrmsrns =
+        X86_OP_ENTRYrr(WRMSRNS_imm, E,q, I,d, vex13 vex_nov cpuid(MSR_IMM)
+                       chk_msr_imm p_f3);
+    int modrm = get_modrm(s, env);
+
+    if ((modrm & 0xf8) != 0xc0) {
+        *entry = UNKNOWN_OPCODE;
+    } else if (s->prefix & PREFIX_REPNZ) {
+        *entry = rdmsr;
+    } else {
+        *entry = wrmsrns;
+    }
+}
+
+static const X86OpEntry opcodes_MAP7[256] = {
+    [0xF6] = X86_OP_GROUP0(MAP7_F6),
+};
+
+/* VEX and EVEX map 7, which exist in 64-bit mode only. */
+static void decode_MAP7(DisasContext *s, CPUX86State *env,
+                        X86OpEntry *entry, uint8_t *b)
+{
+    *b = x86_ldub_code(env, s);
+    *entry = opcodes_MAP7[*b];
+}
 #endif
 
 #undef mmx
@@ -3125,6 +3166,8 @@ static bool has_cpuid_feature(DisasContext *s, X86CPUIDFeature cpuid)
 
     case X86_FEAT_CMPCCXADD:
         return (s->cpuid_7_1_eax_features & CPUID_7_1_EAX_CMPCCXADD);
+    case X86_FEAT_MSR_IMM:
+        return s->cpuid_7_1_ecx_features & CPUID_7_1_ECX_MSR_IMM;
 
     case X86_FEAT_XSAVEC:
         return (s->cpuid_xsave_features & CPUID_XSAVE_XSAVEC);
@@ -3270,6 +3313,11 @@ static bool validate_vex(DisasContext *s, X86DecodedInsn *decode)
         if ((s->prefix & PREFIX_VEX) && s->vex_l && !has_cpuid_feature(s, X86_FEAT_AVX2)) {
             goto illegal;
         }
+        break;
+
+    case X86_VEX_NoVVVV:
+        /* Checked below. */
+        break;
     }
 
     switch (e->vex_class) {
@@ -3329,7 +3377,10 @@ static bool validate_vex(DisasContext *s, X86DecodedInsn *decode)
         if (s->prefix & PREFIX_EVEX && !validate_evex_apx(s, decode)) {
             return false;
         }
-        /* All integer instructions use VEX.vvvv, so exit.  */
+        /* Those that do not use VEX.vvvv need 1111b there.  */
+        if (e->vex_special == X86_VEX_NoVVVV && s->vex_v) {
+            goto illegal;
+        }
         return true;
     case X86_EVEX_APX:
     case X86_EVEX_APX_cmp:
@@ -3649,6 +3700,9 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
             case 0x04:
                 decode_func = decode_EVEX_map4;
                 break;
+            case 0x07:
+                decode_func = decode_MAP7;
+                break;
 #endif
             default:   /* Reserved for future use.  */
                 goto unknown_op;
@@ -3702,6 +3756,11 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
                 case 0x03: /* Implied 0f 3a leading opcode bytes.  */
                     decode_func = decode_0F3A;
                     break;
+#ifdef TARGET_X86_64
+                case 0x07:
+                    decode_func = decode_MAP7;
+                    break;
+#endif
                 default:   /* Reserved for future use.  */
                     goto unknown_op;
                 }

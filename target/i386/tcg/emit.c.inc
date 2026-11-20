@@ -3952,7 +3952,7 @@ static void gen_RCR(DisasContext *s, X86DecodedInsn *decode)
     }
 }
 
-#ifdef CONFIG_USER_ONLY
+#if defined(CONFIG_USER_ONLY) || !defined(TARGET_X86_64)
 static void gen_unreachable(DisasContext *s, X86DecodedInsn *decode)
 {
     g_assert_not_reached();
@@ -4193,6 +4193,30 @@ static void gen_RDMSR(DisasContext *s, X86DecodedInsn *decode)
 }
 #else
 #define gen_RDMSR gen_unreachable
+#endif
+
+#if !defined(CONFIG_USER_ONLY) && defined(TARGET_X86_64)
+static void gen_RDMSR_imm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_rdmsr_imm(s->T0, tcg_env,
+                         tcg_constant_i32(decode->immediate),
+                         tcg_constant_i32(decode->op[0].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+
+static void gen_WRMSRNS_imm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_wrmsr_imm(tcg_env, tcg_constant_i32(decode->immediate),
+                         s->T0, tcg_constant_i32(decode->op[1].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+#else
+#define gen_RDMSR_imm gen_unreachable
+#define gen_WRMSRNS_imm gen_unreachable
 #endif
 
 static void gen_RDPMC(DisasContext *s, X86DecodedInsn *decode)

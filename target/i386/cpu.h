@@ -2427,6 +2427,8 @@ struct hv_vp_register_page;
 #define VMX_EXIT_BUS_LOCK 74
 #define VMX_EXIT_RDMSRLIST 78
 #define VMX_EXIT_WRMSRLIST 79
+#define VMX_EXIT_RDMSR_IMM 84
+#define VMX_EXIT_WRMSRNS_IMM 85
 /* The exit made a shadow stack prematurely busy. */
 #define VMX_EXIT_PREMATURELY_BUSY_SS (1U << 25)
 /* The exit came after a bus lock under "VMM bus-lock detection". */
