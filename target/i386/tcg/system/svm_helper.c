@@ -1971,6 +1971,13 @@ load_host:
     /* Clears the TSC_OFFSET inside the processor. */
     env->tsc_offset = 0;
 
+    /*
+     * GAAT paging is only available in guest mode (AMD64 Architecture
+     * Programmer's Manual Volume 2, 24593 rev. 3.46, 15.40.1): the host's
+     * addresses translate from its CR3 again.
+     */
+    env->svm_gaat = false;
+
     if (env->svm_lbr_virt) {
         svm_load_lbr(env, env->vm_hsave);
         env->svm_lbr_virt = false;
