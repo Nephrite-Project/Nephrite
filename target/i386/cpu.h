@@ -4131,6 +4131,11 @@ static inline bool x86_vmx_mtf(const CPUX86State *env)
     return env->vmx.nonroot && env->vmx.mtf;
 }
 
+#ifndef CONFIG_USER_ONLY
+/* system/vmx_helper.c: arms the VMX timers of the VMX state a load gave. */
+void x86_vmx_post_load(X86CPU *cpu);
+#endif
+
 /* fpu_helper.c */
 
 /* Set all non-runtime-variable float_status fields to x86 handling */

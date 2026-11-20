@@ -480,6 +480,9 @@ Processor emulation (TCG):
   upper type field is clear.
 * Snapshots and migration taken while TCG's processor runs an SVM guest,
   or a VMX one, load; QEMU refused them for want of KVM's nested state.
+* Snapshots and migration keep TCG's VMX operation: the VMXON region, the
+  current VMCS and the fields it holds, VMX non-root operation, and the
+  VMX-preemption timer and guest timer.
 
 AMD SVM (TCG):
 

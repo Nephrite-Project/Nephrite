@@ -393,6 +393,7 @@ static int cpu_post_load(void *opaque, int version_id)
         target_ulong dr7;
         update_fp_status(env);
         update_mxcsr_status(env);
+        x86_vmx_post_load(cpu);
 
         cpu_breakpoint_remove_all(cs, BP_CPU);
         cpu_watchpoint_remove_all(cs, BP_CPU);
@@ -1630,6 +1631,53 @@ static const VMStateDescription vmstate_smm = {
     }
 };
 
+/*
+ * TCG's VMX operation: the VMXON region, the current VMCS and the fields of
+ * it that the processor holds, non-root operation, and what non-root
+ * operation keeps between instructions.
+ */
+static bool vmx_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return tcg_enabled() && cpu->env.vmx.on;
+}
+
+static const VMStateDescription vmstate_vmx = {
+    .name = "cpu/vmx",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = vmx_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_BOOL(env.vmx.on, X86CPU),
+        VMSTATE_BOOL(env.vmx.nonroot, X86CPU),
+        VMSTATE_BOOL(env.vmx.init_pending, X86CPU),
+        VMSTATE_UINT64(env.vmx.vmxon_ptr, X86CPU),
+        VMSTATE_UINT64(env.vmx.vmcs_ptr, X86CPU),
+        VMSTATE_UINT32(env.vmx.vmcs_launched, X86CPU),
+        VMSTATE_UINT64_ARRAY(env.vmx.vmcs, X86CPU, VMX_VMCS_SLOTS),
+        VMSTATE_BOOL(env.vmx.vnmi_blocked, X86CPU),
+        VMSTATE_BOOL(env.vmx.hlt_wake, X86CPU),
+        VMSTATE_UINT8(env.vmx.inactive, X86CPU),
+        VMSTATE_UINT32(env.vmx.db_held, X86CPU),
+        VMSTATE_BOOL(env.vmx.mtf, X86CPU),
+        VMSTATE_BOOL(env.vmx.mtf_pending, X86CPU),
+        VMSTATE_BOOL(env.vmx.bus_lock, X86CPU),
+        VMSTATE_BOOL(env.vmx.bus_lock_pending, X86CPU),
+        VMSTATE_BOOL(env.vmx.timer_on, X86CPU),
+        VMSTATE_UINT32(env.vmx.timer_value, X86CPU),
+        VMSTATE_UINT64(env.vmx.timer_start, X86CPU),
+        VMSTATE_UINT64(env.vmx.apic_access, X86CPU),
+        VMSTATE_BOOL(env.vmx.tpr_exit_pending, X86CPU),
+        VMSTATE_BOOL(env.vmx.vintr_pending, X86CPU),
+        VMSTATE_BOOL(env.vmx.ple_loop, X86CPU),
+        VMSTATE_UINT64(env.vmx.ple_first, X86CPU),
+        VMSTATE_UINT64(env.vmx.ple_last, X86CPU),
+        VMSTATE_UINT64(env.vmx.guest_deadline, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 /* A halt in MWAIT, which TCG takes for one, is no HLT state. */
 static bool mwait_halted_needed(void *opaque)
 {
@@ -2254,6 +2302,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_mwait_halted,
         &vmstate_mwait_masked,
         &vmstate_mwait_deadline,
+        &vmstate_vmx,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif

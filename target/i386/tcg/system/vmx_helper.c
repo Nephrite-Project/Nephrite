@@ -2690,6 +2690,26 @@ void x86_vmx_init(X86CPU *cpu)
                                         vmx_guest_timer_cb, cpu);
 }
 
+/*
+ * The VMX-preemption timer and the guest timer run on QEMU timers, which a
+ * migration does not carry: they start again from the state it loaded.
+ */
+void x86_vmx_post_load(X86CPU *cpu)
+{
+    CPUX86State *env = &cpu->env;
+
+    if (env->vmx.timer_on) {
+        if (vmx_timer_left(env)) {
+            vmx_timer_arm(env);
+        } else {
+            cpu_set_interrupt(CPU(cpu), CPU_INTERRUPT_VMX);
+        }
+    }
+    if (env->vmx.guest_deadline) {
+        vmx_guest_deadline_set(env, env->vmx.guest_deadline);
+    }
+}
+
 static void vmx_timer_start(CPUX86State *env)
 {
     env->vmx.timer_on = true;
