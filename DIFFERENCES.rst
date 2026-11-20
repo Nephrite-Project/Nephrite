@@ -471,6 +471,10 @@ Processor emulation (TCG):
   the line's 64 bytes.
 * MONITOR and MWAIT run at CPL > 0 on AMD's processors with HWCR's
   MonMwaitUserEn.
+* LAR with a 32-bit or 64-bit operand size loads the segment limit's
+  bits 19:16 with the access rights, as processors do; Windows 95 writes
+  them back into the descriptors it changes, and lost the limits of its
+  segments above 64 KiB.
 
 AMD SVM (TCG):
 

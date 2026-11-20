@@ -3434,7 +3434,8 @@ target_ulong HELPER(lar)(CPUX86State *env, target_ulong selector1)
         }
     }
     CC_SRC |= CC_Z;
-    return e2 & 0x00f0ff00;
+    /* The limit's bits 19:16 too, which Windows 95 writes back. */
+    return e2 & 0x00ffff00;
 }
 
 void HELPER(verr)(CPUX86State *env, target_ulong selector1)
