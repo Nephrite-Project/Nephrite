@@ -1069,8 +1069,12 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
     }
 
     /* Writeback */
-    if (ret == pktlen || (dir == OHCI_TD_DIR_IN && ret >= 0 && flag_r)) {
-        /* Transmission succeeded. */
+    if (ret >= 0) {
+        /*
+         * The packet went through: CurrentBufferPointer moves past its
+         * bytes, or to 0 at the buffer's end, and the data toggle advances,
+         * whatever else went wrong (OHCI 1.0a, 4.3.1.3.4 and 4.3.1.3.5).
+         */
         if (ret == len) {
             td.cbp = 0;
         } else {
@@ -1082,6 +1086,9 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
         }
         td.flags |= OHCI_TD_T1;
         td.flags ^= OHCI_TD_T0;
+    }
+    if (ret == pktlen || (dir == OHCI_TD_DIR_IN && ret >= 0 && flag_r)) {
+        /* Transmission succeeded. */
         OHCI_SET_BM(td.flags, TD_CC, OHCI_CC_NOERROR);
         OHCI_SET_BM(td.flags, TD_EC, 0);
 
@@ -1128,6 +1135,16 @@ static int ohci_service_td(OHCIState *ohci, struct ohci_ed *ed)
              * See spec at 6.4.4 on page 104
              */
             ohci->done_count = 0;
+        }
+        /*
+         * toggleCarry takes the TD's data toggle, where the TD has one of
+         * its own (OHCI 1.0a, 4.3.1.3.4 and 6.4.4.6).
+         */
+        if (td.flags & OHCI_TD_T1) {
+            ed->head &= ~OHCI_ED_C;
+            if (td.flags & OHCI_TD_T0) {
+                ed->head |= OHCI_ED_C;
+            }
         }
         ed->head |= OHCI_ED_H;
     }

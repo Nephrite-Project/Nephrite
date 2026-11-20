@@ -490,6 +490,10 @@ Devices:
   state, so Windows 3.1's standard mode, which saves the register on
   switching away from a DOS session, blanked the screen on switching back.
 * Port 92h is 00h after a reset, its A20 gate included, which it kept.
+* OHCI moves a TD's CurrentBufferPointer past the bytes of a short packet
+  that ends it with DATAUNDERRUN, and advances its data toggle, as after
+  any packet that went through; a TD retired with an error gives the ED's
+  toggleCarry its data toggle.
 
 Memory and KVM:
 
