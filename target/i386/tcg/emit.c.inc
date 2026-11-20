@@ -1681,6 +1681,13 @@ static void gen_CLD(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_CLI(DisasContext *s, X86DecodedInsn *decode)
 {
+    /* VME or PVI may clear VIF where IOPL faults otherwise. */
+    if (s->vme) {
+        gen_update_cc_op(s);
+        gen_update_eip_cur(s);
+        gen_helper_vme_cli(tcg_env);
+        return;
+    }
     gen_reset_eflags(s, IF_MASK);
 }
 
@@ -2539,6 +2546,18 @@ static void gen_INSERTQ_r(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_INT(DisasContext *s, X86DecodedInsn *decode)
 {
+    /*
+     * In virtual-8086 mode IOPL, VME, and the interrupt redirection
+     * bitmap decide where it goes.
+     */
+    if (VM86(s)) {
+        gen_update_cc_op(s);
+        gen_update_eip_cur(s);
+        gen_helper_v86_int(tcg_env, tcg_constant_i32(decode->immediate),
+                           cur_insn_len_i32(s));
+        s->base.is_jmp = DISAS_EOB_ONLY;
+        return;
+    }
     gen_interrupt(s, decode->immediate);
 }
 
@@ -2571,7 +2590,9 @@ static void gen_IRET(DisasContext *s, X86DecodedInsn *decode)
 {
     TCGv from = gen_branch_start(s);
 
-    if (!PE(s) || VM86(s)) {
+    if (s->vme) {
+        gen_helper_iret_vme(tcg_env, tcg_constant_i32(s->dflag - 1));
+    } else if (!PE(s) || VM86(s)) {
         gen_helper_iret_real(tcg_env, tcg_constant_i32(s->dflag - 1));
     } else {
         gen_helper_iret_protected(tcg_env, tcg_constant_i32(s->dflag - 1),
@@ -3453,6 +3474,20 @@ static void gen_POPF(DisasContext *s, X86DecodedInsn *decode)
     MemOp ot;
     int mask = TF_MASK | AC_MASK | ID_MASK | NT_MASK;
 
+    /* VME may stand for its IOPL fault in virtual-8086 mode. */
+    if (s->vme) {
+        gen_update_cc_op(s);
+        gen_update_eip_cur(s);
+        gen_helper_vme_popf_check(tcg_env,
+                                  tcg_constant_i32(s->dflag == MO_16));
+        ot = gen_pop_T0(s);
+        gen_helper_vme_popf(tcg_env, s->T0);
+        gen_pop_update(s, ot);
+        set_cc_op(s, CC_OP_EFLAGS);
+        s->base.is_jmp = DISAS_EOB_NEXT;
+        return;
+    }
+
     if (CPL(s) == 0) {
         mask |= IF_MASK | IOPL_MASK;
     } else if (CPL(s) <= IOPL(s)) {
@@ -3649,7 +3684,14 @@ static void gen_PUSHA(DisasContext *s, X86DecodedInsn *decode)
 static void gen_PUSHF(DisasContext *s, X86DecodedInsn *decode)
 {
     gen_update_cc_op(s);
-    gen_helper_read_eflags(s->T0, tcg_env);
+    /* VME may stand for its IOPL fault in virtual-8086 mode. */
+    if (s->vme) {
+        gen_update_eip_cur(s);
+        gen_helper_vme_pushf(s->T0, tcg_env,
+                             tcg_constant_i32(s->dflag == MO_16));
+    } else {
+        gen_helper_read_eflags(s->T0, tcg_env);
+    }
     gen_push_v(s, s->T0);
     assume_cc_op(s, CC_OP_EFLAGS);
 }
@@ -4829,6 +4871,13 @@ static void gen_STD(DisasContext *s, X86DecodedInsn *decode)
 
 static void gen_STI(DisasContext *s, X86DecodedInsn *decode)
 {
+    /* VME or PVI may set VIF where IOPL faults otherwise. */
+    if (s->vme) {
+        gen_update_cc_op(s);
+        gen_update_eip_cur(s);
+        gen_helper_vme_sti(tcg_env);
+        return;
+    }
     gen_set_eflags(s, IF_MASK);
     s->base.is_jmp = DISAS_EOB_INHIBIT_IRQ;
     tcg_gen_st8_i32(tcg_constant_i32(0), tcg_env,

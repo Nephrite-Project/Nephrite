@@ -315,6 +315,13 @@ Processor features:
   it knows as hybrid.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
+* The virtual-8086 mode extensions and protected-mode virtual interrupts
+  (CPUID.01H:EDX.VME, CR4.VME and CR4.PVI): with IOPL < 3, CLI, STI,
+  16-bit PUSHF and POPF, and IRET work on VIF in virtual-8086 mode, INT n
+  goes through the 8086 program's vector table where the TSS's interrupt
+  redirection bitmap lets it, CLI and STI work on VIF at CPL 3 with PVI,
+  and VIF with VIP makes #GP; without the CPUID bit CR4.VME and CR4.PVI
+  are reserved.
 * Architectural LBRs, with the PMU: 32 records filtered by branch type
   and CPL, call-stack mode, the last event record, IA32_LBR_DEPTH, the LBR
   state component of XSAVES and XRSTORS, and what #DB, SMIs, RSM, and INIT
@@ -448,6 +455,9 @@ Processor emulation (TCG):
 * An instruction that begins on a page of MMIO, as firmware code in flash
   that takes writes is, and continues on the next page no longer trips an
   assertion as it is translated.
+* Task switches load VIF and VIP from a 32-bit TSS, IRET at CPL 0 loads
+  them with a 32-bit or 64-bit operand size, and INT n in virtual-8086
+  mode meets SVM's INTn intercept before its IOPL check.
 * MONITOR and MWAIT exit VMX non-root operation before the #GP of reserved
   ECX bits, but meet SVM's intercepts, the conditional MWAIT one too, after
   it; MWAIT takes ECX[0], which leaf 5 reports, for interrupts that IF
@@ -638,6 +648,9 @@ Known deviations and limits
 * Architectural LBRs: MISPRED marks the near indirect jumps and calls, as
   the PMU's branch-miss model has it, and there are no cycle times or
   event logging.
+* VME and PVI: VIF and VIP set together make #GP as the instruction that
+  set them ends, before an interrupt pending then, and not after an
+  event's delivery through a task gate.
 * CET: shadow-stack accesses without paging are allowed, and ENDBR is
   recognized only as exactly ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * FRED: SYSCALL under FRED does not need IA32_EFER.SCE, as the SDM's

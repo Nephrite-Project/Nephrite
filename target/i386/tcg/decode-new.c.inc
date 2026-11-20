@@ -2087,8 +2087,8 @@ static const X86OpEntry opcodes_root[256] = {
     [0x99] = X86_OP_ENTRYwr(CWD,   2,v, 0,v), /* rDX, rAX */
     [0x9A] = X86_OP_ENTRYrr(CALLF, I_unsigned,p, I_unsigned,w, chk(i64)),
     [0x9B] = X86_OP_ENTRY0(WAIT),
-    [0x9C] = X86_OP_ENTRY0(PUSHF,  chk(vm86_iopl) svm(PUSHF)),
-    [0x9D] = X86_OP_ENTRY0(POPF,   chk(vm86_iopl) svm(POPF)),
+    [0x9C] = X86_OP_ENTRY0(PUSHF,  chk2(vm86_iopl, vme) svm(PUSHF)),
+    [0x9D] = X86_OP_ENTRY0(POPF,   chk2(vm86_iopl, vme) svm(POPF)),
     [0x9E] = X86_OP_ENTRY0(SAHF),
     [0x9F] = X86_OP_ENTRY0(LAHF),
 
@@ -2116,9 +2116,9 @@ static const X86OpEntry opcodes_root[256] = {
     [0xCA] = X86_OP_ENTRYr(RETF,  I,w),
     [0xCB] = X86_OP_ENTRY0(RETF),
     [0xCC] = X86_OP_ENTRY0(INT3),
-    [0xCD] = X86_OP_ENTRYr(INT, I,b,  chk(vm86_iopl)),
+    [0xCD] = X86_OP_ENTRYr(INT, I,b),
     [0xCE] = X86_OP_ENTRY0(INTO, chk(i64)),
-    [0xCF] = X86_OP_ENTRY0(IRET,      chk(vm86_iopl) svm(IRET)),
+    [0xCF] = X86_OP_ENTRY0(IRET,      chk2(vm86_iopl, vme) svm(IRET)),
 
     /*
      * x87 is nolea because it needs the address without segment base,
@@ -2144,8 +2144,8 @@ static const X86OpEntry opcodes_root[256] = {
 
     [0xF8] = X86_OP_ENTRY0(CLC),
     [0xF9] = X86_OP_ENTRY0(STC),
-    [0xFA] = X86_OP_ENTRY0(CLI,    chk(iopl)),
-    [0xFB] = X86_OP_ENTRY0(STI,    chk(iopl)),
+    [0xFA] = X86_OP_ENTRY0(CLI,    chk2(iopl, vme)),
+    [0xFB] = X86_OP_ENTRY0(STI,    chk2(iopl, vme)),
     [0xFC] = X86_OP_ENTRY0(CLD),
     [0xFD] = X86_OP_ENTRY0(STD),
     [0xFE] = X86_OP_GROUP1(group4_5, E,b),
@@ -3618,6 +3618,7 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
     s->has_modrm = false;
     s->prefix = 0;
     s->lbr_type = X86_LBR_OTHER;
+    s->vme = false;
 
  next_byte:;
 #ifdef TARGET_X86_64
@@ -4064,13 +4065,24 @@ static void disas_insn(DisasContext *s, CPUState *cpu)
         if ((decode.e.check & X86_CHECK_smm) && !(s->flags & HF_SMM_MASK)) {
             goto illegal_op;
         }
+        /*
+         * VME, in virtual-8086 mode, and PVI, at CPL 3, take over some
+         * IOPL faults; the instructions check CR4 as they run (Intel SDM
+         * 325462-093 Vol. 3B, 23.3 and 23.4).
+         */
         if ((decode.e.check & X86_CHECK_vm86_iopl) && VM86(s)) {
             if (IOPL(s) < 3) {
-                goto gp_fault;
+                if (!(decode.e.check & X86_CHECK_vme)) {
+                    goto gp_fault;
+                }
+                s->vme = true;
             }
         } else if (decode.e.check & X86_CHECK_cpl_iopl) {
             if (IOPL(s) < CPL(s)) {
-                goto gp_fault;
+                if (!(decode.e.check & X86_CHECK_vme) || CPL(s) != 3) {
+                    goto gp_fault;
+                }
+                s->vme = true;
             }
         }
     }

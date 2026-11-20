@@ -124,6 +124,8 @@ typedef struct DisasContext {
     bool branch; /* the instruction transfers control, as BTF steps */
     /* An architectural LBR's branch type for the instruction's transfer. */
     uint8_t lbr_type;
+    /* VME or PVI may stand for the instruction's IOPL fault. */
+    bool vme;
     bool movss_step; /* MOV or POP SS suppressed TF's trap */
     bool no_lam; /* the address is not a data access's, as INVLPG's */
     bool ac_check; /* alignment checking: CPL 3, CR0.AM, and EFLAGS.AC */

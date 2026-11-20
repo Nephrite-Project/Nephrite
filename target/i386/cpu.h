@@ -4230,6 +4230,10 @@ static inline uint64_t cr4_reserved_bits(CPUX86State *env)
      * CPUID.01H:ECX.XSAVE alone allows CR4.OSXSAVE (Intel SDM 325462-093
      * Vol. 1, 13.2), whatever leaf 0DH's subleaf 1 offers.
      */
+    /* CPUID.01H:EDX.VME enumerates CR4.VME and CR4.PVI. */
+    if (!(env->features[FEAT_1_EDX] & CPUID_VME)) {
+        reserved_bits |= CR4_VME_MASK | CR4_PVI_MASK;
+    }
     if (!(env->features[FEAT_1_ECX] & CPUID_EXT_XSAVE)) {
         reserved_bits |= CR4_OSXSAVE_MASK;
     }

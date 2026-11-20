@@ -885,11 +885,11 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_MTRR | CPUID_PGE | CPUID_MCA | CPUID_CMOV | CPUID_PAT | \
           CPUID_PSE36 | CPUID_CLFLUSH | CPUID_ACPI | CPUID_MMX | \
           CPUID_FXSR | CPUID_SSE | CPUID_SSE2 | CPUID_SS | CPUID_DE | \
-          CPUID_HT)
-          /* partly implemented:
-          CPUID_MTRR, CPUID_MCA, CPUID_CLFLUSH (needed for Win64) */
-          /* missing:
-          CPUID_VME, CPUID_DTS, CPUID_SS, CPUID_TM, CPUID_PBE */
+          CPUID_HT | CPUID_VME)
+/*
+ * Partly implemented: CPUID_MTRR, CPUID_MCA, CPUID_CLFLUSH (needed for
+ * Win64); missing: CPUID_DTS, CPUID_SS, CPUID_TM, CPUID_PBE.
+ */
 
 /*
  * Kernel-only features that can be shown to usermode programs even if

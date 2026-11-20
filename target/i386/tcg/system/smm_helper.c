@@ -664,6 +664,9 @@ void HELPER(rsm)(CPUX86State *env)
 
     qemu_log_mask(CPU_LOG_INT, "SMM: after RSM\n");
     log_cpu_state_mask(CPU_LOG_INT, CPU(cpu), CPU_DUMP_CCOP);
+    if (!halt) {
+        x86_vme_check_vif_vip(env);
+    }
 
     /* The auto-halt restart field takes the processor back to HLT. */
     if (halt) {

@@ -736,8 +736,10 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
     /* load all registers without an exception, then reload them with
        possible exception */
     env->eip = new_eip;
+    /* A 32-bit TSS gives every flag, VIF and VIP too. */
     eflags_mask = TF_MASK | AC_MASK | ID_MASK |
-        IF_MASK | IOPL_MASK | VM_MASK | RF_MASK | NT_MASK;
+        IF_MASK | IOPL_MASK | VM_MASK | RF_MASK | NT_MASK | VIF_MASK |
+        VIP_MASK;
     if (type & 8) {
         cpu_load_eflags(env, new_eflags, eflags_mask);
         for (i = 0; i < 8; i++) {
@@ -1501,6 +1503,7 @@ void HELPER(sysret)(CPUX86State *env, int dflag)
         env->guest_ssp = env->pl3_ssp;
     }
 #endif
+    x86_vme_check_vif_vip(env);
 }
 
 /* real mode interrupt */
@@ -2074,6 +2077,7 @@ void HELPER(ljmp_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             }
             switch_tss_ra(env, new_cs, e1, e2, SWITCH_TSS_JMP, next_eip,
                           false, 0, 0, GETPC());
+            x86_vme_check_vif_vip(env);
             break;
         case 4: /* 286 call gate */
         case 12: /* 386 call gate */
@@ -2330,6 +2334,7 @@ void HELPER(lcall_protected)(CPUX86State *env, int new_cs, target_ulong new_eip,
             }
             switch_tss_ra(env, new_cs, e1, e2, SWITCH_TSS_CALL, next_eip,
                           false, 0, 0, GETPC());
+            x86_vme_check_vif_vip(env);
             return;
         case 4: /* 286 call gate */
         case 12: /* 386 call gate */
@@ -2602,6 +2607,216 @@ static void iret_end(CPUX86State *env)
 {
     iret_unblock_nmis(env);
     env->iret_nmi_unblocked = false;
+}
+
+/*
+ * VIF and VIP both set at the start of an instruction raise #GP in
+ * virtual-8086 mode with VME and IOPL < 3, and at CPL 3 with PVI and IOPL
+ * < 3 (Intel SDM 325462-093 Vol. 3B, 23.3.2 and 23.4): after an
+ * instruction or event that loads EFLAGS so, the #GP comes with the new
+ * state, at the next instruction.
+ */
+void x86_vme_check_vif_vip(CPUX86State *env)
+{
+    if ((env->eflags & (VIF_MASK | VIP_MASK)) == (VIF_MASK | VIP_MASK) &&
+        (env->eflags & IOPL_MASK) != IOPL_MASK &&
+        ((env->eflags & VM_MASK) ? (env->cr[4] & CR4_VME_MASK) :
+         (env->hflags & HF_CPL_MASK) == 3 && (env->cr[4] & CR4_PVI_MASK))) {
+        raise_exception_err(env, EXCP0D_GPF, 0);
+    }
+}
+
+/*
+ * Whether VME, in virtual-8086 mode, or PVI, at CPL 3 outside it, turns
+ * CLI and STI into operations on VIF where IOPL < 3 (Intel SDM 325462-093
+ * Vol. 2A, CLI and STI).
+ */
+static bool vme_or_pvi(CPUX86State *env)
+{
+    if (env->eflags & VM_MASK) {
+        return env->cr[4] & CR4_VME_MASK;
+    }
+    return (env->hflags & HF_CPL_MASK) == 3 && (env->cr[4] & CR4_PVI_MASK);
+}
+
+void HELPER(vme_cli)(CPUX86State *env)
+{
+    if (!vme_or_pvi(env)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    env->eflags &= ~VIF_MASK;
+}
+
+/* STI faults where VIP is set (Intel SDM 325462-093 Vol. 2A, STI). */
+void HELPER(vme_sti)(CPUX86State *env)
+{
+    if (!vme_or_pvi(env) || (env->eflags & VIP_MASK)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    env->eflags |= VIF_MASK;
+}
+
+/*
+ * PUSHF in virtual-8086 mode with IOPL < 3: with VME and a 16-bit operand
+ * size, FLAGS with VIF in IF's place and IOPL 3 (Intel SDM 325462-093
+ * Vol. 2B, PUSHF), else #GP.
+ */
+target_ulong HELPER(vme_pushf)(CPUX86State *env, uint32_t o16)
+{
+    target_ulong flags;
+
+    if (!(env->cr[4] & CR4_VME_MASK) || !o16) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    flags = cpu_compute_eflags(env) & 0xffff & ~IF_MASK;
+    return flags | IOPL_MASK | (env->eflags & VIF_MASK ? IF_MASK : 0);
+}
+
+/*
+ * POPF in virtual-8086 mode with IOPL < 3 faults before its pop without
+ * VME or with a 32-bit operand size (Intel SDM 325462-093 Vol. 2B, POPF).
+ */
+void HELPER(vme_popf_check)(CPUX86State *env, uint32_t o16)
+{
+    if (!(env->cr[4] & CR4_VME_MASK) || !o16) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+}
+
+/*
+ * And with VME, it faults for TF set or for IF set with VIP, and else
+ * loads FLAGS but for IF and IOPL, VIF taking IF (Intel SDM 325462-093
+ * Vol. 2B, POPF).
+ */
+void HELPER(vme_popf)(CPUX86State *env, target_ulong flags)
+{
+    if ((flags & TF_MASK) ||
+        ((flags & IF_MASK) && (env->eflags & VIP_MASK))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    cpu_load_eflags(env, flags, 0xffff & ~(IF_MASK | IOPL_MASK));
+    env->eflags = (env->eflags & ~VIF_MASK) | (flags & IF_MASK ? VIF_MASK : 0);
+}
+
+/*
+ * INT n in virtual-8086 mode (Intel SDM 325462-093 Vol. 3B, 23.3.3 and
+ * Table 23-2; AMD64 Architecture Programmer's Manual Volume 3, 24594 rev.
+ * 3.39, INT): with VME, a clear bit in the TSS's interrupt redirection
+ * bitmap, the 32 bytes below the I/O map base, sends it to the 8086
+ * program's handler through the vector table at linear address 0, pushing
+ * FLAGS, with VIF as IF and IOPL 3 where IOPL < 3, CS, and IP, and
+ * clearing TF, RF, and IF, or VIF where IOPL < 3; a set bit, or no VME,
+ * sends it to the protected-mode handler with IOPL 3, and makes #GP
+ * otherwise. Part of the bitmap past the TSS's limit makes #GP, as the
+ * I/O permission bitmap's does.
+ */
+void HELPER(v86_int)(CPUX86State *env, int intno, int next_eip_addend)
+{
+    uintptr_t ra = GETPC();
+    bool iopl3 = (env->eflags & IOPL_MASK) == IOPL_MASK;
+    int mmu_index = cpu_mmu_index(env_cpu(env), false);
+    uint32_t base, offset, sel, old_eip;
+    target_ulong flags;
+    StackAccess sa = {};
+
+    /* Its SVM intercept comes before the IOPL checks, as INTn's do. */
+    env->svm_insn_len = next_eip_addend;
+    cpu_svm_check_intercept_param(env, SVM_EXIT_SWINT,
+                                  env->features[FEAT_SVM] &
+                                  CPUID_SVM_DECODEASSIST ? intno : 0, ra);
+    if (env->cr[4] & CR4_VME_MASK) {
+        if (env->tr.limit < 103) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+        }
+        base = cpu_lduw_kernel_ra(env, env->tr.base + 102, ra) - 32 +
+               intno / 8;
+        if (base > env->tr.limit) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+        }
+        if (!(cpu_ldub_mmuidx_ra(env, env->tr.base + base,
+                                 cpu_mmu_index_kernel(env), ra) &
+              (1 << (intno & 7)))) {
+            offset = cpu_lduw_le_mmuidx_ra(env, intno * 4, mmu_index, ra);
+            sel = cpu_lduw_le_mmuidx_ra(env, intno * 4 + 2, mmu_index, ra);
+            flags = cpu_compute_eflags(env);
+            if (!iopl3) {
+                flags = (flags & ~IF_MASK) | IOPL_MASK |
+                        (flags & VIF_MASK ? IF_MASK : 0);
+            }
+            old_eip = env->eip + next_eip_addend;
+
+            sa.env = env;
+            sa.ra = ra;
+            sa.sp = env->regs[R_ESP];
+            sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
+            sa.ss_base = env->segs[R_SS].base;
+            sa.mmu_index = mmu_index;
+            stack_limit(&sa, env->segs[R_SS].limit, 0, 0);
+            pushw(&sa, flags);
+            pushw(&sa, env->segs[R_CS].selector);
+            pushw(&sa, old_eip);
+
+            SET_ESP(sa.sp, sa.sp_mask);
+            env->eip = offset;
+            env->segs[R_CS].selector = sel;
+            env->segs[R_CS].base = sel << 4;
+            env->eflags &= ~(TF_MASK | RF_MASK | (iopl3 ? IF_MASK : VIF_MASK));
+            x86_lbr_interrupt(env, intno, 1, old_eip - next_eip_addend, 3);
+            return;
+        }
+    }
+    if (!iopl3) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    raise_interrupt(env, intno, next_eip_addend);
+}
+
+/*
+ * IRET in virtual-8086 mode with IOPL < 3 and VME (AMD64 Architecture
+ * Programmer's Manual Volume 3, 24594 rev. 3.39, IRET): after its pops, a
+ * 32-bit operand size, TF set in the popped FLAGS, or IF set there with
+ * VIP makes #GP; else it loads CS:IP and FLAGS but for IF and IOPL, VIF
+ * taking IF. Without VME it makes #GP at once.
+ */
+void HELPER(iret_vme)(CPUX86State *env, int shift)
+{
+    uint32_t new_cs, new_eip, new_eflags;
+    StackAccess sa = {};
+
+    if (!(env->cr[4] & CR4_VME_MASK)) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    sa.env = env;
+    sa.ra = GETPC();
+    sa.mmu_index = cpu_mmu_index(env_cpu(env), false);
+    sa.sp_mask = get_sp_mask(env->segs[R_SS].flags);
+    sa.sp = env->regs[R_ESP];
+    sa.ss_base = env->segs[R_SS].base;
+    stack_limit(&sa, env->segs[R_SS].limit, 0, 0);
+    if (shift == 1) {
+        new_eip = popl(&sa);
+        new_cs = popl(&sa) & 0xffff;
+        new_eflags = popl(&sa);
+    } else {
+        new_eip = popw(&sa);
+        new_cs = popw(&sa);
+        new_eflags = popw(&sa);
+    }
+    if (new_eip > env->segs[R_CS].limit || shift == 1 ||
+        (new_eflags & TF_MASK) ||
+        ((new_eflags & IF_MASK) && (env->eflags & VIP_MASK))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+    }
+    env->umonitor_armed = false;
+    iret_start(env);
+    SET_ESP(sa.sp, sa.sp_mask);
+    env->segs[R_CS].selector = new_cs;
+    env->segs[R_CS].base = new_cs << 4;
+    env->eip = new_eip;
+    cpu_load_eflags(env, new_eflags, 0xffff & ~(IF_MASK | IOPL_MASK));
+    env->eflags = (env->eflags & ~(VIF_MASK | RF_MASK)) |
+                  (new_eflags & IF_MASK ? VIF_MASK : 0);
+    iret_end(env);
 }
 
 /* real and vm86 mode iret */
@@ -2904,9 +3119,13 @@ static inline void helper_ret_protected(CPUX86State *env, int shift,
     env->eip = new_eip;
     if (is_iret) {
         /* NOTE: 'cpl' is the _old_ CPL */
+        /*
+         * At CPL 0 it loads IOPL, and VIF and VIP with a 32-bit or 64-bit
+         * operand size (Intel SDM 325462-093 Vol. 2A, IRET).
+         */
         eflags_mask = TF_MASK | AC_MASK | ID_MASK | RF_MASK | NT_MASK;
         if (cpl == 0) {
-            eflags_mask |= IOPL_MASK;
+            eflags_mask |= IOPL_MASK | VIF_MASK | VIP_MASK;
         }
         iopl = (env->eflags >> IOPL_SHIFT) & 3;
         if (cpl <= iopl) {
@@ -2999,6 +3218,7 @@ void HELPER(iret_protected)(CPUX86State *env, int shift, int next_eip)
         helper_ret_protected(env, shift, 1, 0, GETPC());
     }
     iret_end(env);
+    x86_vme_check_vif_vip(env);
 }
 
 void HELPER(lret_protected)(CPUX86State *env, int shift, int addend)
@@ -3573,6 +3793,7 @@ static void fred_return(CPUX86State *env, uint64_t ss, target_ulong from,
         }
         raise_debug_exception(env, DR6_BS, 0);
     }
+    x86_vme_check_vif_vip(env);
 }
 
 /* ERETS (Intel SDM 325462-093 Vol. 2A, ERETS; Vol. 3A, 8.4.1). */

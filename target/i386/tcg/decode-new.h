@@ -195,6 +195,12 @@ typedef enum X86InsnCheck {
 
     /* EVEX.NF bit not allowed */
     X86_CHECK_nf0 = 32768,
+
+    /*
+     * The IOPL faults that VME, in virtual-8086 mode, and PVI, at CPL 3,
+     * turn into operations on the virtual interrupt flags.
+     */
+    X86_CHECK_vme = 65536,
 } X86InsnCheck;
 
 typedef enum X86InsnSpecial {
@@ -337,7 +343,7 @@ struct X86OpEntry {
     unsigned     vex_class:8;
     X86VEXSpecial vex_special:8;
     unsigned     valid_prefix:16;
-    unsigned     check:16;
+    unsigned     check:17;
     unsigned     intercept:8;
     bool         has_intercept:1;
     bool         is_decode:1;
