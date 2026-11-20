@@ -568,7 +568,8 @@ Memory and KVM:
 * Device writes to RAM that a section maps read-only, as write-protected
   PAM segments map the shadowed BIOS and option ROMs, fail as writes to a
   ROM do, as the memory controller does not store them either (Intel 3
-  Series Express Chipset Family Datasheet 316966-002, 5.1.18).
+  Series Express Chipset Family Datasheet 316966-002, 5.1.18), also those
+  through a MemoryRegionCache, as virtio's rings are written.
 * Under KVM, such RAM is in read-only slots, so that the vCPUs' writes to
   write-protected PAM segments are dropped as on TCG.
 * Once a store has made a page of RAM dirty, only the TLB entries that map
@@ -697,6 +698,4 @@ Known deviations and limits
   RDPRU sets CF where ECX names a register and clears it otherwise; the APM
   says that RDPRU modifies CF, not how.
 * Unknown MSRs read as 0, as in QEMU.
-* Writes through MemoryRegionCache (virtio's rings) still ignore
-  read-only aliases.
 * Under KVM, masking A20 has no effect, as in QEMU.

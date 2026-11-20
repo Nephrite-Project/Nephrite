@@ -3946,7 +3946,13 @@ int64_t address_space_cache_init(MemoryRegionCache *cache,
 
     mr = cache->mrs.mr;
     memory_region_ref(mr);
-    if (memory_access_is_direct(mr, is_write, MEMTXATTRS_UNSPECIFIED)) {
+    /*
+     * Writes to RAM that the section maps read-only fail, as they fail
+     * outside caches (flatview_translate_access()): such a cache has no
+     * pointer, so that its accesses take address_space_translate_cached().
+     */
+    if (memory_access_is_direct(mr, is_write, MEMTXATTRS_UNSPECIFIED) &&
+        !(is_write && cache->mrs.readonly)) {
         /* We don't care about the memory attributes here as we're only
          * doing this if we found actual RAM, which behaves the same
          * regardless of attributes; so UNSPECIFIED is fine.
@@ -4008,6 +4014,10 @@ static inline MemoryRegion *address_space_translate_cached(
     *xlat = addr + cache->xlat;
 
     mr = cache->mrs.mr;
+    if (is_write && unlikely(cache->mrs.readonly) && !attrs.debug &&
+        memory_access_is_direct(mr, true, attrs)) {
+        return &io_mem_unassigned;
+    }
     iommu_mr = memory_region_get_iommu(mr);
     if (!iommu_mr) {
         /* MMIO region.  */
