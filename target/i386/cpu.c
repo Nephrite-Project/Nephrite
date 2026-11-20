@@ -1061,7 +1061,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #else
 #define CPUID_SVM_KERNEL_FEATURES 0
 #endif
-#define TCG_8000_000A_ECX_FEATURES CPUID_SVM_ECX_PML
+#define TCG_8000_000A_ECX_FEATURES (CPUID_SVM_ECX_PML | \
+          CPUID_SVM_ECX_X2AVIC_EXT)
 #define TCG_SVM_FEATURES (CPUID_SVM_NPT | CPUID_SVM_LBRV | \
           CPUID_SVM_NRIPSAVE | CPUID_SVM_TSCSCALE | CPUID_SVM_VMCBCLEAN | \
           CPUID_SVM_FLUSHASID | CPUID_SVM_SVMLOCK | \
@@ -1415,7 +1416,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = CPUID_FEATURE_WORD,
         .feat_names = {
             NULL, NULL, NULL, NULL,
-            "pml", NULL, NULL, NULL,
+            "pml", NULL, "x2avic-ext", NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
@@ -2318,6 +2319,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_SVM,                 CPUID_SVM_AVIC },
         .to = { FEAT_SVM,                   CPUID_SVM_EXTLVT_AVIC_ACCESS },
+    },
+    {
+        .from = { FEAT_SVM,                 CPUID_SVM_X2AVIC },
+        .to = { FEAT_8000_000A_ECX,         CPUID_SVM_ECX_X2AVIC_EXT },
     },
     {
         .from = { FEAT_8000_0001_ECX,       CPUID_EXT3_SVM },

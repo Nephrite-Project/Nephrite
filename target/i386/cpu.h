@@ -1110,6 +1110,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 
 /* CPUID[8000_000A].ECX */
 #define CPUID_SVM_ECX_PML         (1U << 4)
+#define CPUID_SVM_ECX_X2AVIC_EXT  (1U << 6)
 
 /* Support RDFSBASE/RDGSBASE/WRFSBASE/WRGSBASE */
 #define CPUID_7_0_EBX_FSGSBASE          (1U << 0)

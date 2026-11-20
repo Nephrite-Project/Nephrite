@@ -302,8 +302,8 @@ static uint64_t avic_physical_entry(CPUX86State *env, uint32_t index)
  */
 typedef struct AVICTargets {
     int count;
-    uint32_t index[512];
-    uint64_t entry[512];
+    uint32_t index[4096];
+    uint64_t entry[4096];
 } AVICTargets;
 
 static void avic_add_target(CPUX86State *env, AVICTargets *t, uint64_t icr,

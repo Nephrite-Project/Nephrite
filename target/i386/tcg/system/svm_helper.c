@@ -361,10 +361,17 @@ static void svm_vmrun_avic(CPUX86State *env, SVMStateCache *c,
     env->svm_avic_logical = c->avic_logical_id & ~0xfffULL;
     env->svm_avic_physical = c->avic_physical_id & ~0xfffULL;
     env->svm_avic_max_index = c->avic_physical_id & 0xfff;
+    /*
+     * x2AVIC_EXT lets the physical APIC ID table take up to eight pages,
+     * as many as the index's bits 11:9 say (AMD64 Architecture Programmer's
+     * Manual Volume 2, 24593 rev. 3.46, 15.29.4.3 and 15.29.5.2).
+     */
     if (!(env->hflags2 & HF2_NPT_MASK) ||
         ((env->svm_avic_bar | env->svm_avic_backing | env->svm_avic_logical |
           env->svm_avic_physical) & high) ||
-        env->svm_avic_max_index > (env->svm_x2avic ? 511 : 255)) {
+        (!(env->svm_x2avic &&
+           (env->features[FEAT_8000_000A_ECX] & CPUID_SVM_ECX_X2AVIC_EXT)) &&
+         env->svm_avic_max_index > (env->svm_x2avic ? 511 : 255))) {
         cpu_vmexit(env, SVM_EXIT_ERR, 0, retaddr);
     }
 }
