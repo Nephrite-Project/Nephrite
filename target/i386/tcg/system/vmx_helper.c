@@ -95,6 +95,8 @@
 #define VMCS_PROC3_CONTROLS 0x2034
 #define VMCS_PID_TABLE_ADDR 0x2042
 #define VMCS_EXIT2_CONTROLS 0x2044
+#define VMCS_SPEC_CTRL_MASK 0x204a
+#define VMCS_SPEC_CTRL_SHADOW 0x204c
 #define VMCS_INJECTED_EVENT_DATA 0x2052
 #define VMCS_GUEST_PHYS_ADDR 0x2400
 #define VMCS_ORIGINAL_EVENT_DATA 0x2404
@@ -107,6 +109,7 @@
 #define VMCS_GUEST_PDPTE(n) (0x280a + 2 * (n))
 #define VMCS_GUEST_BNDCFGS 0x2812
 #define VMCS_GUEST_PKRS 0x2818
+#define VMCS_GUEST_SPEC_CTRL 0x282e
 /*
  * IA32_FRED_CONFIG, IA32_FRED_RSP1 to 3, IA32_FRED_STKLVLS, and
  * IA32_FRED_SSP1 to 3, the guest's and the host's, 2 encodings apart.
@@ -117,6 +120,7 @@
 #define VMCS_HOST_PERF_GLOBAL_CTRL 0x2c04
 #define VMCS_HOST_PKRS 0x2c06
 #define VMCS_HOST_FRED 0x2c08
+#define VMCS_HOST_SPEC_CTRL 0x2c1a
 #define VMCS_PIN_CONTROLS 0x4000
 #define VMCS_PROC_CONTROLS 0x4002
 #define VMCS_EXCEPTION_BITMAP 0x4004
@@ -300,6 +304,8 @@ static const uint16_t vmcs_fields[] = {
     0x2034, /* tertiary processor-based VM-execution controls */
     0x2042, /* PID-pointer table address */
     0x2044, /* secondary VM-exit controls */
+    0x204a, /* IA32_SPEC_CTRL mask */
+    0x204c, /* IA32_SPEC_CTRL shadow */
     0x2052, /* injected-event data */
     0x2400, /* guest-physical address */
     0x2404, /* original-event data */
@@ -323,6 +329,7 @@ static const uint16_t vmcs_fields[] = {
     0x2824, /* guest IA32_FRED_SSP1 */
     0x2826, /* guest IA32_FRED_SSP2 */
     0x2828, /* guest IA32_FRED_SSP3 */
+    0x282e, /* guest IA32_SPEC_CTRL */
     0x2c00, /* host IA32_PAT */
     0x2c02, /* host IA32_EFER */
     0x2c04, /* host IA32_PERF_GLOBAL_CTRL */
@@ -335,6 +342,7 @@ static const uint16_t vmcs_fields[] = {
     0x2c12, /* host IA32_FRED_SSP1 */
     0x2c14, /* host IA32_FRED_SSP2 */
     0x2c16, /* host IA32_FRED_SSP3 */
+    0x2c1a, /* host IA32_SPEC_CTRL */
     0x4000, /* pin-based VM-execution controls */
     0x4002, /* primary processor-based VM-execution controls */
     0x4004, /* exception bitmap */
@@ -988,11 +996,21 @@ static uint32_t vmx_entry_features(CPUX86State *env)
     return features;
 }
 
-/* The secondary VM-exit controls, FRED's, with their primary control. */
+/*
+ * The secondary VM-exit controls, with their primary control: FRED's, and
+ * "load IA32_SPEC_CTRL" with IA32_SPEC_CTRL.
+ */
 static uint64_t vmx_exit2_features(CPUX86State *env)
 {
-    return vmx_exit_features(env) & VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS ?
-           VMX_VM_EXIT2_SAVE_FRED | VMX_VM_EXIT2_LOAD_FRED : 0;
+    uint64_t features = VMX_VM_EXIT2_SAVE_FRED | VMX_VM_EXIT2_LOAD_FRED;
+
+    if (!(vmx_exit_features(env) & VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS)) {
+        return 0;
+    }
+    if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_SPEC_CTRL) {
+        features |= VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL;
+    }
+    return features;
 }
 
 /*
@@ -1243,6 +1261,38 @@ static uint64_t vmx_exit2(CPUX86State *env)
 {
     return VMCS(EXIT_CONTROLS) & VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS ?
            VMCS(EXIT2_CONTROLS) : 0;
+}
+
+/*
+ * RDMSR and WRMSR of IA32_SPEC_CTRL under "virtualize IA32_SPEC_CTRL"
+ * (Intel SDM 325462-093 Vol. 3C, 28.3): RDMSR reads the shadow, and WRMSR
+ * writes the MSR's bits that the mask leaves clear from its source, which
+ * the shadow then takes whole. False where the control does not apply.
+ */
+bool x86_vmx_spec_ctrl_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *val)
+{
+    if (msr != MSR_IA32_SPEC_CTRL ||
+        !(vmx_proc3(env) & VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL)) {
+        return false;
+    }
+    *val = VMCS(SPEC_CTRL_SHADOW);
+    return true;
+}
+
+bool x86_vmx_spec_ctrl_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val,
+                             uintptr_t ra)
+{
+    uint64_t mask = VMCS(SPEC_CTRL_MASK);
+
+    if (msr != MSR_IA32_SPEC_CTRL ||
+        !(vmx_proc3(env) & VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL)) {
+        return false;
+    }
+    if (!x86_cpu_wrmsr(env, msr, (env->spec_ctrl & mask) | (val & ~mask))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    VMCS_SET(SPEC_CTRL_SHADOW, val);
+    return true;
 }
 
 #ifdef TARGET_X86_64
@@ -2588,6 +2638,13 @@ static void vmx_save_guest(CPUX86State *env)
         VMCS_SET(GUEST_PKRS, env->pkrs);
     }
     /*
+     * And IA32_SPEC_CTRL where "load IA32_SPEC_CTRL" exists (Intel SDM
+     * 325462-093 Vol. 3C, 30.3.3).
+     */
+    if (vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL) {
+        VMCS_SET(GUEST_SPEC_CTRL, env->spec_ctrl);
+    }
+    /*
      * With user interrupts, every VM exit saves UINV (Intel SDM 325462-093
      * Vol. 3C, 30.3.1).
      */
@@ -2833,6 +2890,10 @@ static void vmx_load_host(CPUX86State *env)
         vmx_fred_load(env, VMCS_HOST_FRED);
     }
 #endif
+    /* "Load IA32_SPEC_CTRL" (Intel SDM 325462-093 Vol. 3C, 30.5.1). */
+    if (vmx_exit2(env) & VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL) {
+        env->spec_ctrl = VMCS(HOST_SPEC_CTRL);
+    }
 
     cpu_x86_load_seg_cache(env, R_CS, VMCS(HOST_SEL(R_CS)), 0, 0xffffffff,
                            DESC_P_MASK | DESC_S_MASK | DESC_CS_MASK |
@@ -3270,6 +3331,10 @@ static bool vmx_host_state_valid(CPUX86State *env)
         !vmx_fred_fields_valid(env, VMCS_HOST_FRED)) {
         return false;
     }
+    if ((vmx_exit2(env) & VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL) &&
+        !x86_spec_ctrl_valid(env, VMCS(HOST_SPEC_CTRL))) {
+        return false;
+    }
     for (int i = R_ES; i <= R_GS; i++) {
         if (x86_vmcs_read(env, VMCS_HOST_SEL(i)) & 7) {
             return false;
@@ -3538,6 +3603,10 @@ static int vmx_guest_state_check(CPUX86State *env)
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) && VMCS(GUEST_PKRS) >> 32) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL) &&
+        !x86_spec_ctrl_valid(env, VMCS(GUEST_SPEC_CTRL))) {
+        return 1;
+    }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_FRED) &&
         !vmx_fred_fields_valid(env, VMCS_GUEST_FRED)) {
         return 1;
@@ -3710,6 +3779,9 @@ static void vmx_load_guest(CPUX86State *env)
     }
     if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) {
         env->pkrs = VMCS(GUEST_PKRS);
+    }
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL) {
+        env->spec_ctrl = VMCS(GUEST_SPEC_CTRL);
     }
     /* "Load UINV" (Intel SDM 325462-093 Vol. 3C, 29.3.2.1). */
     if (entry_ctl & VMX_VM_ENTRY_LOAD_UINV) {

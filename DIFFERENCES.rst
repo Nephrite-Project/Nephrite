@@ -212,8 +212,9 @@ Intel VMX, which QEMU's TCG does not have:
   and RDSEED exiting, the XSAVES/XRSTORS control, VM functions with EPTP
   switching, page-modification logging, user wait and pause, the
   IA32_PERF_GLOBAL_CTRL and CET load controls, the IA32_PKRS controls with
-  PKS and the IA32_BNDCFGS controls with MPX, and exception injection with
-  or without error codes.
+  PKS and the IA32_BNDCFGS controls with MPX, IA32_SPEC_CTRL's
+  virtualization and its loads on VM entry and VM exit, and exception
+  injection with or without error codes.
 * User interrupts: the guest UINV field, the "load UINV" and "clear UINV"
   controls, injected and virtual user-interrupt notifications, and
   SENDUIPI with APIC virtualization.

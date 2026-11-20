@@ -505,6 +505,12 @@ static uint64_t spec_ctrl_bits(CPUX86State *env)
     return bits;
 }
 
+/* Whether IA32_SPEC_CTRL exists and VAL sets none of its reserved bits. */
+bool x86_spec_ctrl_valid(CPUX86State *env, uint64_t val)
+{
+    return spec_ctrl_bits(env) && !(val & ~spec_ctrl_bits(env));
+}
+
 /* The IA32_PRED_CMD barriers CPUID shows, which have nothing to clear. */
 static uint64_t pred_cmd_bits(CPUX86State *env)
 {
@@ -1209,7 +1215,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         env->memory_ctrl = val;
         break;
     case MSR_IA32_SPEC_CTRL:
-        if (!spec_ctrl_bits(env) || (val & ~spec_ctrl_bits(env))) {
+        if (!x86_spec_ctrl_valid(env, val)) {
             return false;
         }
         env->spec_ctrl = val;
@@ -1277,7 +1283,8 @@ void HELPER(wrmsr)(CPUX86State *env)
         return;
     }
     if (unlikely(env->vmx.nonroot) &&
-        x86_vmx_x2apic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
+        (x86_vmx_x2apic_wrmsr(env, env->regs[R_ECX], val, GETPC()) ||
+         x86_vmx_spec_ctrl_wrmsr(env, env->regs[R_ECX], val, GETPC()))) {
         return;
     }
 
@@ -1725,7 +1732,8 @@ void HELPER(rdmsr)(CPUX86State *env)
         return;
     }
     if (unlikely(env->vmx.nonroot) &&
-        x86_vmx_x2apic_rdmsr(env, env->regs[R_ECX], &val)) {
+        (x86_vmx_x2apic_rdmsr(env, env->regs[R_ECX], &val) ||
+         x86_vmx_spec_ctrl_rdmsr(env, env->regs[R_ECX], &val))) {
         env->regs[R_EAX] = (uint32_t)val;
         env->regs[R_EDX] = (uint32_t)(val >> 32);
         return;

@@ -988,7 +988,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_VM_ENTRY_LOAD_IA32_EFER | VMX_VM_ENTRY_LOAD_CET | \
           VMX_VM_ENTRY_LOAD_UINV | VMX_VM_ENTRY_LOAD_IA32_FRED | \
           VMX_VM_ENTRY_LOAD_BNDCFGS | VMX_VM_ENTRY_LOAD_IA32_PKRS | \
-          TCG_VMX_ENTRY_PMU)
+          VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL | TCG_VMX_ENTRY_PMU)
 
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
           CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_CX16 | \
@@ -1967,7 +1967,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vmx-entry-load-bndcfgs", NULL, "vmx-entry-load-rtit-ctl",
                 "vmx-entry-load-uinv",
             "vmx-entry-load-cet", NULL, "vmx-entry-load-pkrs", "vmx-entry-load-fred",
-            NULL, NULL, NULL, NULL,
+            "vmx-entry-load-spec-ctrl", NULL, NULL, NULL,
             NULL, NULL, NULL, NULL,
         },
         .msr = {
@@ -2052,11 +2052,13 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .type = MSR_FEATURE_WORD,
         .feat_names = {
             [4] = "vmx-ipi-virt",
+            [7] = "vmx-virt-spec-ctrl",
         },
         .msr = {
             .index = MSR_IA32_VMX_PROCBASED_CTLS3,
         },
-        .tcg_features = VMX_TERTIARY_EXEC_IPI_VIRT,
+        .tcg_features = VMX_TERTIARY_EXEC_IPI_VIRT |
+                        VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL,
     },
 
     [FEAT_14_0_ECX] = {
@@ -2252,6 +2254,14 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },
         .to = { FEAT_VMX_EXIT_CTLS,         VMX_VM_EXIT_LOAD_IA32_PKRS },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_SPEC_CTRL },
+        .to = { FEAT_VMX_ENTRY_CTLS,        VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL },
+    },
+    {
+        .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_SPEC_CTRL },
+        .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },

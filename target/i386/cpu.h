@@ -1683,6 +1683,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION       0x40000000
 
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
+#define VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL            (1ULL << 7)
 
 #define VMX_PIN_BASED_EXT_INTR_MASK                 0x00000001
 #define VMX_PIN_BASED_NMI_EXITING                   0x00000008
@@ -1711,6 +1712,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 /* Secondary VM-exit controls (Intel SDM 325462-093 Vol. 3C, Table 27-15). */
 #define VMX_VM_EXIT2_SAVE_FRED                      (1ULL << 0)
 #define VMX_VM_EXIT2_LOAD_FRED                      (1ULL << 1)
+#define VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL            (1ULL << 2)
 
 #define VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS            0x00000004
 #define VMX_VM_ENTRY_IA32E_MODE                     0x00000200
@@ -1726,6 +1728,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_VM_ENTRY_LOAD_CET                       0x00100000
 #define VMX_VM_ENTRY_LOAD_IA32_PKRS                 0x00400000
 #define VMX_VM_ENTRY_LOAD_IA32_FRED                 0x00800000
+#define VMX_VM_ENTRY_LOAD_IA32_SPEC_CTRL            0x01000000
 
 /* Supported Hyper-V Enlightenments */
 #define HYPERV_FEAT_RELAXED             0
