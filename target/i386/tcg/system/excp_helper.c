@@ -54,6 +54,9 @@ typedef struct TranslateParams {
      * paging-write type, which the leaf's PW bit allows.
      */
     bool paging_write;
+    /* 4-level or 5-level paging starts as HLAT paging, from HLATP. */
+    bool hlat;
+    uint64_t hlatp;
 } TranslateParams;
 
 typedef struct TranslateResult {
@@ -542,7 +545,16 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     bool wb = true, mtrr = true;
     /* The PCD and PWT bits for the top table, from CR3 without PCIDs. */
     const uint64_t cr3_ref = in->pcide ? 0 : in->cr3;
+    /*
+     * HLAT paging, until an entry with bit 11 set restarts the walk as
+     * ordinary paging from CR3, whose translation is then cached as pages
+     * no larger than that entry's region (Intel SDM 325462-093 Vol. 3A,
+     * 5.5.4 and 5.5.5); HLATP has its PWT and PCD bits whatever CR4.PCIDE.
+     */
+    bool hlat = in->hlat;
+    int hlat_max = 0;
 #ifdef TARGET_X86_64
+    uint64_t top, top_ref;
     /*
      * PML5Es and PML4Es have no PS bit; AMD reserves their bit 8 too
      * (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev. 3.45,
@@ -563,13 +575,15 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
     if (pg_mode & PG_MODE_PAE) {
 #ifdef TARGET_X86_64
         if (pg_mode & PG_MODE_LMA) {
+            top = hlat ? in->hlatp : in->cr3;
+            top_ref = hlat ? in->hlatp : cr3_ref;
             if (pg_mode & PG_MODE_LA57) {
                 /*
                  * Page table level 5
                  */
-                pte_addr = (in->cr3 & PG_ADDRESS_MASK) +
+                pte_addr = (top & PG_ADDRESS_MASK) +
                            (((addr >> 48) & 0x1ff) << 3);
-                if (!ptw_translate(&pte_trans, pte_addr, cr3_ref)) {
+                if (!ptw_translate(&pte_trans, pte_addr, top_ref)) {
                     return false;
                 }
             restart_5:
@@ -586,9 +600,14 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                     }
                     goto restart_5;
                 }
+                if (hlat && (pte & PG_HLAT_RESTART_MASK)) {
+                    /* 256 TB, larger than any page. */
+                    hlat_max = 1024 * 1024 * 1024;
+                    goto hlat_restart;
+                }
                 ptep = pte ^ PG_NX_MASK;
             } else {
-                pte = in->cr3;
+                pte = top;
                 ptep = PG_NX_MASK | PG_USER_MASK | PG_RW_MASK;
             }
 
@@ -597,7 +616,7 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
              */
             pte_addr = (pte & PG_ADDRESS_MASK) + (((addr >> 39) & 0x1ff) << 3);
             if (!ptw_translate(&pte_trans, pte_addr,
-                               pg_mode & PG_MODE_LA57 ? pte : cr3_ref)) {
+                               pg_mode & PG_MODE_LA57 ? pte : top_ref)) {
                 return false;
             }
         restart_4:
@@ -613,6 +632,11 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
                     return false;
                 }
                 goto restart_4;
+            }
+            if (hlat && (pte & PG_HLAT_RESTART_MASK)) {
+                /* 512 GB, larger than any page. */
+                hlat_max = 1024 * 1024 * 1024;
+                goto hlat_restart;
             }
             ptep &= pte ^ PG_NX_MASK;
 
@@ -631,11 +655,21 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
             if (pte & rsvd_mask) {
                 goto do_fault_rsvd;
             }
+            if (hlat && (pte & PG_HLAT_RESTART_MASK) && (pte & PG_PSE_MASK) &&
+                (pte & (1024 * 1024 * 1024 - 1) & PG_ADDRESS_MASK &
+                 ~PG_PSE_PAT_MASK)) {
+                /* No translation, nor restart, past a reserved bit. */
+                goto do_fault_rsvd;
+            }
             if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
                 if (pte_trans.fault) {
                     return false;
                 }
                 goto restart_3_lma;
+            }
+            if (hlat && (pte & PG_HLAT_RESTART_MASK)) {
+                hlat_max = 1024 * 1024 * 1024;
+                goto hlat_restart;
             }
             ptep_upper = ptep;
             ptep &= pte ^ PG_NX_MASK;
@@ -685,6 +719,21 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         if (pte & rsvd_mask) {
             goto do_fault_rsvd;
         }
+        if (hlat && (pte & PG_HLAT_RESTART_MASK)) {
+            if ((pte & PG_PSE_MASK) &&
+                (pte & (2048 * 1024 - 1) & PG_ADDRESS_MASK &
+                 ~PG_PSE_PAT_MASK)) {
+                goto do_fault_rsvd;
+            }
+            if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+                if (pte_trans.fault) {
+                    return false;
+                }
+                goto restart_2_pae;
+            }
+            hlat_max = 2048 * 1024;
+            goto hlat_restart;
+        }
         ptep_upper = ptep;
         if (pte & PG_PSE_MASK) {
             /* 2 MB page */
@@ -707,12 +756,23 @@ static bool mmu_translate(CPUX86State *env, const TranslateParams *in,
         if (!ptw_translate(&pte_trans, pte_addr, pte)) {
             return false;
         }
+    restart_1_pae:
         pte = ptw_ldq(&pte_trans, ra);
         if (!(pte & PG_PRESENT_MASK)) {
             goto do_fault;
         }
         if (pte & rsvd_mask) {
             goto do_fault_rsvd;
+        }
+        if (hlat && (pte & PG_HLAT_RESTART_MASK)) {
+            if (!ptw_setl(&pte_trans, pte, PG_ACCESSED_MASK)) {
+                if (pte_trans.fault) {
+                    return false;
+                }
+                goto restart_1_pae;
+            }
+            hlat_max = 4096;
+            goto hlat_restart;
         }
         /* combine pde and pte nx, user and rw protections */
         ptep_upper = ptep;
@@ -910,6 +970,9 @@ do_check_pk:
     /* merge offset within page */
     paddr = (pte & PG_ADDRESS_MASK & ~(page_size - 1)) | (addr & (page_size - 1));
     wb = pat_wb(env, in->pat, pte, page_size);
+    if (hlat_max && page_size > hlat_max) {
+        page_size = hlat_max;
+    }
  stage2:
 
     /*
@@ -1121,9 +1184,25 @@ do_check_pk:
     out->ipat = false;
     return true;
 
+ hlat_restart:
+    /*
+     * The restarted walk's guest paging structures alone matter to
+     * guest-paging verification (Intel SDM 325462-093 Vol. 3C, 31.3.3.2).
+     */
+    hlat = false;
+    pte_trans.tables_pw = true;
+    goto restart_all;
+
  do_fault_rsvd:
     /* Only present entries can have reserved bits set. */
     error_code = PG_ERROR_RSVD_MASK | PG_ERROR_P_MASK;
+    /*
+     * Bit 7 says that HLAT paging had no translation (Intel SDM
+     * 325462-093 Vol. 3A, 5.7).
+     */
+    if (hlat) {
+        error_code |= PG_ERROR_HLAT_MASK;
+    }
     goto do_fault_cont;
  do_fault_protect:
     error_code = PG_ERROR_P_MASK;
@@ -1142,7 +1221,7 @@ do_check_pk:
     error_code = PG_ERROR_PK_MASK | PG_ERROR_P_MASK;
     goto do_fault_cont;
  do_fault:
-    error_code = 0;
+    error_code = hlat ? PG_ERROR_HLAT_MASK : 0;
  do_fault_cont:
     if (is_user) {
         error_code |= PG_ERROR_U_MASK;
@@ -1327,6 +1406,8 @@ static bool get_physical_address(CPUX86State *env, vaddr addr,
                     };
                     return false;
                 }
+                in.hlat = env->vmx.nonroot &&
+                          x86_vmx_hlat(env, addr, &in.hlatp);
             }
             return mmu_translate(env, &in, out, err, ra);
         }

@@ -2062,6 +2062,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
     [FEAT_VMX_TERTIARY_CTLS] = {
         .type = MSR_FEATURE_WORD,
         .feat_names = {
+            [1] = "vmx-hlat",
             [2] = "vmx-ept-paging-write",
             [3] = "vmx-guest-paging-verify",
             [4] = "vmx-ipi-virt",
@@ -2075,7 +2076,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
                         VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL |
                         VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
                         VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY |
-                        VMX_TERTIARY_EXEC_MSR_LIST,
+                        VMX_TERTIARY_EXEC_MSR_LIST |
+                        VMX_TERTIARY_EXEC_HLAT,
     },
 
     [FEAT_14_0_ECX] = {

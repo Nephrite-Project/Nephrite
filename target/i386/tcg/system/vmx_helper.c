@@ -68,6 +68,7 @@
 #define VMCS_VPID 0x0000
 #define VMCS_PI_NOTIFICATION_VECTOR 0x0002
 #define VMCS_EPTP_INDEX 0x0004
+#define VMCS_HLAT_PREFIX_SIZE 0x0006
 #define VMCS_LAST_PID_INDEX 0x0008
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
@@ -95,6 +96,7 @@
 #define VMCS_XSS_EXIT_BITMAP 0x202c
 #define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_PROC3_CONTROLS 0x2034
+#define VMCS_HLATP 0x2040
 #define VMCS_PID_TABLE_ADDR 0x2042
 #define VMCS_EXIT2_CONTROLS 0x2044
 #define VMCS_SPEC_CTRL_MASK 0x204a
@@ -261,6 +263,7 @@ static const uint16_t vmcs_fields[] = {
     0x0000, /* virtual-processor identifier */
     0x0002, /* posted-interrupt notification vector */
     0x0004, /* EPTP index */
+    0x0006, /* HLAT prefix size */
     0x0008, /* last PID-pointer index */
     0x0800, /* guest ES selector */
     0x0802, /* guest CS selector */
@@ -305,6 +308,7 @@ static const uint16_t vmcs_fields[] = {
     0x202c, /* XSS-exiting bitmap */
     0x2032, /* TSC multiplier */
     0x2034, /* tertiary processor-based VM-execution controls */
+    0x2040, /* HLAT pointer */
     0x2042, /* PID-pointer table address */
     0x2044, /* secondary VM-exit controls */
     0x204a, /* IA32_SPEC_CTRL mask */
@@ -973,6 +977,14 @@ static uint64_t vmx_ept_caps(CPUX86State *env)
 
     if (!x86_has_shstk(env)) {
         caps &= ~MSR_VMX_EPT_SUPERVISOR_SHADOW_STACK;
+    }
+    /*
+     * Bits 53:48, the largest HLAT prefix size: 1, which makes bit 63 of
+     * a linear address choose HLAT paging (Intel SDM 325462-093 Vol. 3D,
+     * A.10; Vol. 3A, 5.5.1).
+     */
+    if (env->features[FEAT_VMX_TERTIARY_CTLS] & VMX_TERTIARY_EXEC_HLAT) {
+        caps |= 1ULL << 48;
     }
     return caps;
 }
@@ -3159,6 +3171,14 @@ static bool vmx_controls_valid(CPUX86State *env)
                (proc3 & VMX_TERTIARY_EXEC_IPI_VIRT)) {
         return false;
     }
+    /*
+     * HLATP's bits 2:0 and 11:5 are reserved, and its address within the
+     * physical-address width (Intel SDM 325462-093 Vol. 3C, 29.2.1.1).
+     */
+    if ((proc3 & VMX_TERTIARY_EXEC_HLAT) &&
+        ((VMCS(HLATP) & 0xfe7) || !vmx_addr_valid(env, VMCS(HLATP), 1))) {
+        return false;
+    }
     if ((proc3 & VMX_TERTIARY_EXEC_IPI_VIRT) &&
         (!vmx_addr_valid(env, VMCS(PID_TABLE_ADDR), 8) ||
          !vmx_addr_valid(env, VMCS(PID_TABLE_ADDR) +
@@ -3241,7 +3261,8 @@ static bool vmx_controls_valid(CPUX86State *env)
     if (((proc2 & (VMX_SECONDARY_EXEC_UNRESTRICTED_GUEST |
                    VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC)) ||
          (proc3 & (VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
-                   VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY))) &&
+                   VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY |
+                   VMX_TERTIARY_EXEC_HLAT))) &&
         !(proc2 & VMX_SECONDARY_EXEC_ENABLE_EPT)) {
         return false;
     }
@@ -4525,6 +4546,22 @@ uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay)
 bool x86_vmx_user_wait_enabled(CPUX86State *env)
 {
     return vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE;
+}
+
+/*
+ * Whether "enable HLAT" has 4-level and 5-level paging translate ADDR with
+ * HLAT paging, from HLATP: every address with an HLAT prefix size of 0,
+ * else those with bit 63 set (Intel SDM 325462-093 Vol. 3A, 5.5.1 and
+ * 5.5.3), where the largest prefix size, 1, is the only one defined.
+ */
+bool x86_vmx_hlat(CPUX86State *env, target_ulong addr, uint64_t *hlatp)
+{
+    if (!(vmx_proc3(env) & VMX_TERTIARY_EXEC_HLAT) ||
+        (VMCS(HLAT_PREFIX_SIZE) && !((uint64_t)addr >> 63))) {
+        return false;
+    }
+    *hlatp = VMCS(HLATP);
+    return true;
 }
 
 /*

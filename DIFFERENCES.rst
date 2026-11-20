@@ -204,7 +204,8 @@ Intel VMX, which QEMU's TCG does not have:
   mode-based execute control, supervisor shadow-stack control, EPT
   paging-write control and guest-paging verification, EPT violations'
   advanced information and shadow-stack bits, and EPT violations as
-  virtualization exceptions (#VE); VPID.
+  virtualization exceptions (#VE); VPID; HLAT paging, with HLATP and the
+  HLAT prefix size.
 * The TPR shadow, the APIC-access page, APIC-register virtualization,
   virtual-interrupt delivery, posted-interrupt processing, x2APIC
   virtualization, and IPI virtualization with the tertiary controls.

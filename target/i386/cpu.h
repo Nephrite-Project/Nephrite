@@ -416,6 +416,8 @@ typedef enum X86Seg {
 #define PG_PSE_PAT_MASK  (1 << PG_PSE_PAT_BIT)
 #define PG_ADDRESS_MASK  0x000ffffffffff000LL
 #define PG_HI_USER_MASK  0x7ff0000000000000LL
+/* HLAT paging's restart bit (Intel SDM 325462-093 Vol. 3A, 5.5.4). */
+#define PG_HLAT_RESTART_MASK (1 << 11)
 #define PG_PKRU_MASK     (15ULL << PG_PKRU_BIT)
 /* Nested page table leaf bits of Verify Paging-Write and Paging-Write. */
 #define PG_NPT_VPW_MASK  (1ULL << 57)
@@ -431,6 +433,7 @@ typedef enum X86Seg {
 #define PG_ERROR_I_D_MASK  0x10
 #define PG_ERROR_PK_MASK   0x20
 #define PG_ERROR_SS_MASK   0x40
+#define PG_ERROR_HLAT_MASK 0x80
 
 #define PG_MODE_PAE      (1 << 0)
 #define PG_MODE_LMA      (1 << 1)
@@ -1711,6 +1714,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE   0x04000000
 #define VMX_SECONDARY_EXEC_BUS_LOCK_DETECTION       0x40000000
 
+#define VMX_TERTIARY_EXEC_HLAT                      (1ULL << 1)
 #define VMX_TERTIARY_EXEC_EPT_PAGING_WRITE          (1ULL << 2)
 #define VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY       (1ULL << 3)
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
@@ -2441,7 +2445,7 @@ struct hv_vp_register_page;
 #define VMX_EXIT_ENTRY_FAILURE (1U << 31)
 
 /* The VMCS fields TCG keeps (see vmx_helper.c), at most this many. */
-#define VMX_VMCS_SLOTS 192
+#define VMX_VMCS_SLOTS 256
 
 /*
  * VMX operation: whether the processor is in it, and in non-root operation;
