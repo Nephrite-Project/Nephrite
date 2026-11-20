@@ -1012,6 +1012,30 @@ static const X86OpEntry opcodes_0F38_00toEF[240] = {
  * four rows for no prefix, 66, F3, F2 (including 66+F2 operand size override).
  * all VEX13 instructions extend to APX, while MOVBE/CRC32 move to EVEX map4
  */
+/*
+ * URDMSR r64, r64 and UWRMSR r64, r64, F2 0F 38 F8 and F3 0F 38 F8 with a
+ * register operand, in 64-bit mode (Intel SDM 325462-093 Vol. 2B, URDMSR
+ * and UWRMSR): URDMSR's MSR is in ModRM.reg and its destination in
+ * ModRM.r/m, UWRMSR's MSR in ModRM.reg and its source in ModRM.r/m.
+ */
+static void decode_0F38_F8(DisasContext *s, CPUX86State *env,
+                           X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry urdmsr =
+        X86_OP_ENTRYwr(URDMSR, E,q, G,q, cpuid(USER_MSR) chk(o64));
+    static const X86OpEntry uwrmsr =
+        X86_OP_ENTRYrr(UWRMSR, G,q, E,q, cpuid(USER_MSR) chk(o64));
+    int modrm = get_modrm(s, env);
+
+    if ((modrm >> 6) != 3) {
+        *entry = UNKNOWN_OPCODE;
+    } else if (s->prefix & PREFIX_REPNZ) {
+        *entry = urdmsr;
+    } else {
+        *entry = uwrmsr;
+    }
+}
+
 static const X86OpEntry opcodes_0F38_F0toFF[16][4] = {
     /*
      * MOVBE and CRC32 are incorrectly listed as always doing 32-bit operation
@@ -1058,6 +1082,13 @@ static const X86OpEntry opcodes_0F38_F0toFF[16][4] = {
         X86_OP_ENTRY3(SHLX, G,y, E,y, B,y, vex13 chk(nf0) cpuid(BMI1)),
         X86_OP_ENTRY3(SARX, G,y, E,y, B,y, vex13 chk(nf0) sextT0 cpuid(BMI1)),
         X86_OP_ENTRY3(SHRX, G,y, E,y, B,y, vex13 chk(nf0) zextT0 cpuid(BMI1)),
+    },
+    /* Missing: MOVDIR64B, ENQCMD, ENQCMDS (their memory forms).  */
+    [8] = {
+        {},
+        {},
+        X86_OP_GROUP0(0F38_F8),
+        X86_OP_GROUP0(0F38_F8),
     },
 };
 
@@ -2298,9 +2329,33 @@ static void decode_EVEX4_FF(DisasContext *s, CPUX86State *env, X86OpEntry *entry
 }
 
 /*
+ * URDMSR and UWRMSR promoted to EVEX, EVEX.LLZ.F2.MAP4.W0 F8 and
+ * EVEX.LLZ.F3.MAP4.W0 F8 with a register operand (Intel APX 355828-009,
+ * 6.68 and 6.69).
+ */
+static void decode_EVEX4_F8(DisasContext *s, CPUX86State *env,
+                            X86OpEntry *entry, uint8_t *b)
+{
+    static const X86OpEntry urdmsr =
+        X86_OP_ENTRYwr(URDMSR, E,q, G,q, evex_apx cpuid(USER_MSR)
+                       chk_msr_imm p_f2);
+    static const X86OpEntry uwrmsr =
+        X86_OP_ENTRYrr(UWRMSR, G,q, E,q, evex_apx cpuid(USER_MSR)
+                       chk_msr_imm p_f3);
+    int modrm = get_modrm(s, env);
+
+    if ((modrm >> 6) != 3) {
+        *entry = UNKNOWN_OPCODE;
+    } else if (s->prefix & PREFIX_REPNZ) {
+        *entry = urdmsr;
+    } else {
+        *entry = uwrmsr;
+    }
+}
+
+/*
  * Missing: ENQCMD, ENQCMDS, KMOVD, KMOVW, KMOVD, KMOVQ, MOVDIR64B,
- * MOVDIRI, URDMSR, UWRMSR, LDTILECFG, STTILECFG, TILELOADD,
- * TILELOADDDT1, TILESTORED.
+ * MOVDIRI, LDTILECFG, STTILECFG, TILELOADD, TILELOADDDT1, TILESTORED.
  */
 static const X86OpEntry opcodes_EVEX_map4[256] = {
     [0x00] = X86_OP_ENTRY3(ADD, B,b, E,b, G,b, evex_apx p_00 lock),
@@ -2397,6 +2452,7 @@ static const X86OpEntry opcodes_EVEX_map4[256] = {
     [0xF4] = X86_OP_ENTRYwr(TZCNT,   G,v, E,v,          evex_apx zextT0 p_00_66),
     [0xF5] = X86_OP_ENTRYwr(LZCNT,   G,v, E,v,          evex_apx zextT0 p_00_66),
     [0xF6] = X86_OP_GROUP1(group3,   E,b),
+    [0xF8] = X86_OP_GROUP0(EVEX4_F8),
     [0xF7] = X86_OP_GROUP1(group3,   E,v),
     [0xFE] = X86_OP_GROUP1(group4_5, E,b),
     [0xFF] = X86_OP_GROUP1(EVEX4_FF, E,v),
@@ -2411,12 +2467,14 @@ static void decode_EVEX_map4(DisasContext *s, CPUX86State *env, X86OpEntry *entr
 /*
  * The immediate forms of RDMSR and WRMSRNS: VEX.128.F2.MAP7.W0 F6 /0 and
  * VEX.128.F3.MAP7.W0 F6 /0 with a register operand and imm32 (Intel SDM
- * 325462-093 Vol. 2B, RDMSR, and Vol. 2D, WRMSRNS), and their EVEX forms
- * with Intel APX (Intel APX 355828-009, 6.49 and 6.70). VEX.vvvv, which
- * they do not use, must be 1111b (Intel SDM 325462-093 Vol. 2A, 2.3.6).
+ * 325462-093 Vol. 2B, RDMSR, and Vol. 2D, WRMSRNS); and of URDMSR and
+ * UWRMSR, the same with F8 (Vol. 2B, URDMSR and UWRMSR); and their EVEX
+ * forms with Intel APX (Intel APX 355828-009, 6.49, 6.68, 6.69, and
+ * 6.70). VEX.vvvv, which they do not use, must be 1111b (Intel SDM
+ * 325462-093 Vol. 2A, 2.3.6).
  */
-static void decode_MAP7_F6(DisasContext *s, CPUX86State *env,
-                           X86OpEntry *entry, uint8_t *b)
+static void decode_MAP7_msr(DisasContext *s, CPUX86State *env,
+                            X86OpEntry *entry, uint8_t *b)
 {
     static const X86OpEntry rdmsr =
         X86_OP_ENTRYwr(RDMSR_imm, E,q, I,d, vex13 vex_nov cpuid(MSR_IMM)
@@ -2424,19 +2482,27 @@ static void decode_MAP7_F6(DisasContext *s, CPUX86State *env,
     static const X86OpEntry wrmsrns =
         X86_OP_ENTRYrr(WRMSRNS_imm, E,q, I,d, vex13 vex_nov cpuid(MSR_IMM)
                        chk_msr_imm p_f3);
+    static const X86OpEntry urdmsr =
+        X86_OP_ENTRYwr(URDMSR_imm, E,q, I,d, vex13 vex_nov cpuid(USER_MSR)
+                       chk_msr_imm p_f2);
+    static const X86OpEntry uwrmsr =
+        X86_OP_ENTRYrr(UWRMSR_imm, E,q, I,d, vex13 vex_nov cpuid(USER_MSR)
+                       chk_msr_imm p_f3);
+    bool read = s->prefix & PREFIX_REPNZ;
     int modrm = get_modrm(s, env);
 
     if ((modrm & 0xf8) != 0xc0) {
         *entry = UNKNOWN_OPCODE;
-    } else if (s->prefix & PREFIX_REPNZ) {
-        *entry = rdmsr;
+    } else if (*b == 0xF6) {
+        *entry = read ? rdmsr : wrmsrns;
     } else {
-        *entry = wrmsrns;
+        *entry = read ? urdmsr : uwrmsr;
     }
 }
 
 static const X86OpEntry opcodes_MAP7[256] = {
-    [0xF6] = X86_OP_GROUP0(MAP7_F6),
+    [0xF6] = X86_OP_GROUP0(MAP7_msr),
+    [0xF8] = X86_OP_GROUP0(MAP7_msr),
 };
 
 /* VEX and EVEX map 7, which exist in 64-bit mode only. */
@@ -3168,6 +3234,8 @@ static bool has_cpuid_feature(DisasContext *s, X86CPUIDFeature cpuid)
         return (s->cpuid_7_1_eax_features & CPUID_7_1_EAX_CMPCCXADD);
     case X86_FEAT_MSR_IMM:
         return s->cpuid_7_1_ecx_features & CPUID_7_1_ECX_MSR_IMM;
+    case X86_FEAT_USER_MSR:
+        return s->cpuid_7_1_edx_features & CPUID_7_1_EDX_USER_MSR;
 
     case X86_FEAT_XSAVEC:
         return (s->cpuid_xsave_features & CPUID_XSAVE_XSAVEC);

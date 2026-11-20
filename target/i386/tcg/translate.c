@@ -141,6 +141,7 @@ typedef struct DisasContext {
     int cpuid_7_0_edx_features;
     int cpuid_7_1_eax_features;
     int cpuid_7_1_ecx_features;
+    int cpuid_7_1_edx_features;
     int cpuid_xsave_features;
     int cpuid_8000_0008_ebx_features;
 
@@ -4606,6 +4607,7 @@ static void i386_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cpu)
     dc->cpuid_7_0_edx_features = env->features[FEAT_7_0_EDX];
     dc->cpuid_7_1_eax_features = env->features[FEAT_7_1_EAX];
     dc->cpuid_7_1_ecx_features = env->features[FEAT_7_1_ECX];
+    dc->cpuid_7_1_edx_features = env->features[FEAT_7_1_EDX];
     dc->cpuid_xsave_features = env->features[FEAT_XSAVE];
     dc->cpuid_8000_0008_ebx_features = env->features[FEAT_8000_0008_EBX];
     dc->jmp_opt = !((cflags & CF_NO_GOTO_TB) ||

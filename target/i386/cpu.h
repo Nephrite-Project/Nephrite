@@ -527,6 +527,7 @@ typedef enum X86Seg {
         (~(uint64_t)(MSR_IA32_APICBASE_BSP | MSR_IA32_APICBASE_ENABLE \
                      | MSR_IA32_APICBASE_EXTD | MSR_IA32_APICBASE_BASE))
 
+#define MSR_IA32_USER_MSR_CTL           0x0000001c
 #define MSR_IA32_BARRIER                0x0000002f
 #define MSR_IA32_FEATURE_CONTROL        0x0000003a
 #define MSR_TSC_ADJUST                  0x0000003b
@@ -1325,6 +1326,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_7_1_EDX_AVX_VNNI_INT8     (1U << 4)
 /* AVX NE CONVERT Instructions */
 #define CPUID_7_1_EDX_AVX_NE_CONVERT    (1U << 5)
+/* URDMSR, UWRMSR, and IA32_USER_MSR_CTL */
+#define CPUID_7_1_EDX_USER_MSR          (1U << 15)
 /* AMX COMPLEX Instructions */
 #define CPUID_7_1_EDX_AMX_COMPLEX       (1U << 8)
 /* AVX-VNNI-INT16 Instructions */
@@ -2427,6 +2430,8 @@ struct hv_vp_register_page;
 #define VMX_EXIT_BUS_LOCK 74
 #define VMX_EXIT_RDMSRLIST 78
 #define VMX_EXIT_WRMSRLIST 79
+#define VMX_EXIT_URDMSR 80
+#define VMX_EXIT_UWRMSR 81
 #define VMX_EXIT_RDMSR_IMM 84
 #define VMX_EXIT_WRMSRNS_IMM 85
 /* The exit made a shadow stack prematurely busy. */
@@ -3084,6 +3089,8 @@ typedef struct CPUArchState {
     uint64_t debugctl;
     /* MSR_MEMORY_CTRL's split-lock and UC-lock disable bits. */
     uint64_t memory_ctrl;
+    /* IA32_USER_MSR_CTL: URDMSR's and UWRMSR's enable and bitmap. */
+    uint64_t user_msr_ctl;
     target_ulong lbr_from;
     target_ulong lbr_to;
     target_ulong lbr_int_from;

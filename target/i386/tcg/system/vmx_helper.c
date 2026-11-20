@@ -4584,6 +4584,22 @@ void x86_vmx_msr_imm_exit(CPUX86State *env, uint32_t msr, int reg,
 }
 
 /*
+ * URDMSR and UWRMSR exit without "use MSR bitmaps", for addresses from
+ * 2000H, and where the bitmap for low MSRs has the MSR's bit set, with the
+ * MSR's address as the exit qualification and their data register in the
+ * instruction information and the extended instruction information (Intel
+ * SDM 325462-093 Vol. 3C, 28.1.3; Intel APX 355828-009, 6.68.2.1).
+ */
+void x86_vmx_user_msr_exit(CPUX86State *env, uint32_t msr, int reg,
+                           bool write, uintptr_t ra)
+{
+    if (vmx_msr_exits(env, msr, write)) {
+        vmx_set_insn_info(env, (reg & 0xf) << 3, (uint64_t)reg << 16);
+        x86_vmx_exit(env, write ? VMX_EXIT_UWRMSR : VMX_EXIT_URDMSR, msr, ra);
+    }
+}
+
+/*
  * With "RDTSC exiting" too, UMWAIT and TPAUSE exit, with their source
  * register in the instruction information (Intel SDM 325462-093 Vol. 3C,
  * 28.1.3 and Table 30-13).

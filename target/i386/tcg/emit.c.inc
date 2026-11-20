@@ -4214,9 +4214,50 @@ static void gen_WRMSRNS_imm(DisasContext *s, X86DecodedInsn *decode)
                          s->T0, tcg_constant_i32(decode->op[1].n));
     s->base.is_jmp = DISAS_EOB_NEXT;
 }
+
+static void gen_URDMSR(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_urdmsr(s->T0, tcg_env, s->T0,
+                      tcg_constant_i32(decode->op[0].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+
+static void gen_URDMSR_imm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_urdmsr(s->T0, tcg_env,
+                      tcg_constant_i64((uint32_t)decode->immediate),
+                      tcg_constant_i32(decode->op[0].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+
+static void gen_UWRMSR(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_uwrmsr(tcg_env, s->T0, s->T1,
+                      tcg_constant_i32(decode->op[2].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
+
+static void gen_UWRMSR_imm(DisasContext *s, X86DecodedInsn *decode)
+{
+    gen_update_cc_op(s);
+    gen_update_eip_cur(s);
+    gen_helper_uwrmsr(tcg_env, tcg_constant_i64((uint32_t)decode->immediate),
+                      s->T0, tcg_constant_i32(decode->op[1].n));
+    s->base.is_jmp = DISAS_EOB_NEXT;
+}
 #else
 #define gen_RDMSR_imm gen_unreachable
 #define gen_WRMSRNS_imm gen_unreachable
+#define gen_URDMSR gen_unreachable
+#define gen_URDMSR_imm gen_unreachable
+#define gen_UWRMSR gen_unreachable
+#define gen_UWRMSR_imm gen_unreachable
 #endif
 
 static void gen_RDPMC(DisasContext *s, X86DecodedInsn *decode)

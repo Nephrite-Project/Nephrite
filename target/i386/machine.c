@@ -1540,6 +1540,24 @@ static const VMStateDescription vmstate_memory_ctrl = {
     }
 };
 
+static bool user_msr_ctl_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.user_msr_ctl != 0;
+}
+
+static const VMStateDescription vmstate_user_msr_ctl = {
+    .name = "cpu/user_msr_ctl",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = user_msr_ctl_needed,
+    .fields = (const VMStateField[]){
+        VMSTATE_UINT64(env.user_msr_ctl, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static const VMStateDescription vmstate_svm_gpat = {
     .name = "cpu/svm_gpat",
     .version_id = 1,
@@ -2203,6 +2221,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_svm_gpat,
         &vmstate_svm_lock,
         &vmstate_memory_ctrl,
+        &vmstate_user_msr_ctl,
         &vmstate_svm_bus_lock,
         &vmstate_svm_guest,
         &vmstate_smm,

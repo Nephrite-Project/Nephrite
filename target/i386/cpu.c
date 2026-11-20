@@ -1183,18 +1183,21 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_1_EAX_FRED 0
 #define TCG_7_1_EAX_MSRLIST 0
 #define TCG_7_1_ECX_MSR_IMM 0
+#define TCG_7_1_EDX_USER_MSR 0
 #else
 #define TCG_7_1_EAX_LKGS CPUID_7_1_EAX_LKGS
 #define TCG_7_1_EAX_FRED (CPUID_7_1_EAX_FRED | CPUID_7_1_EAX_NMI_SRC)
 #define TCG_7_1_EAX_MSRLIST CPUID_7_1_EAX_MSRLIST
 #define TCG_7_1_ECX_MSR_IMM CPUID_7_1_ECX_MSR_IMM
+#define TCG_7_1_EDX_USER_MSR CPUID_7_1_EDX_USER_MSR
 #endif
 #define TCG_7_1_EAX_FEATURES (CPUID_7_1_EAX_FZRM | CPUID_7_1_EAX_FSRS | \
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
           CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS | TCG_7_1_EAX_LKGS | \
           TCG_7_1_EAX_FRED | TCG_7_1_EAX_MSRLIST)
 #define TCG_7_1_ECX_FEATURES TCG_7_1_ECX_MSR_IMM
-#define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
+#define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF | \
+          TCG_7_1_EDX_USER_MSR)
 #ifdef CONFIG_USER_ONLY
 #define TCG_7_2_EDX_UC_LOCK_DISABLE 0
 /* IA32_CORE_CAPABILITIES cannot be read from user mode. */
@@ -1533,7 +1536,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, NULL, NULL,
             "avx-vnni-int8", "avx-ne-convert", NULL, NULL,
             "amx-complex", NULL, "avx-vnni-int16", NULL,
-            NULL, NULL, "prefetchiti", NULL,
+            NULL, NULL, "prefetchiti", "user-msr",
             NULL, "uiret-uif", NULL, "avx10",
             NULL, "apxf", NULL, NULL,
             NULL, NULL, NULL, NULL,

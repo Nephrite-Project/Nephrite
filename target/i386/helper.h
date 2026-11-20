@@ -159,6 +159,8 @@ DEF_HELPER_1(fred_ud, void, env)
 DEF_HELPER_2(msrlist, void, env, i32)
 DEF_HELPER_3(rdmsr_imm, tl, env, i32, i32)
 DEF_HELPER_4(wrmsr_imm, void, env, i32, tl, i32)
+DEF_HELPER_3(urdmsr, tl, env, i64, i32)
+DEF_HELPER_4(uwrmsr, void, env, i64, tl, i32)
 #endif
 DEF_HELPER_FLAGS_3(seg_check, TCG_CALL_NO_WG, void, env, i32, tl)
 DEF_HELPER_FLAGS_2(seg_fault, TCG_CALL_NO_WG, noreturn, env, i32)

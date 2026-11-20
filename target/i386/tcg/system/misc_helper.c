@@ -30,6 +30,7 @@
 #include "exec/cputlb.h"
 #include "exec/target_page.h"
 #include "tcg/helper-tcg.h"
+#include "tcg/seg_helper.h"
 #include "hw/i386/apic.h"
 
 void HELPER(outb)(CPUX86State *env, uint32_t port, uint32_t data)
@@ -858,6 +859,17 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
         }
         break;
 #ifdef TARGET_X86_64
+    case MSR_IA32_USER_MSR_CTL:
+        /*
+         * The enable bit and the bitmap's linear address, canonical for
+         * the processor (Intel SDM 325462-093 Vol. 4, Table 2-2).
+         */
+        if (!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_USER_MSR) ||
+            (val & 0xffe) || !x86_canonical(env, val, false)) {
+            return false;
+        }
+        env->user_msr_ctl = val;
+        break;
     case MSR_LSTAR:
         if (!x86_canonical(env, val, false)) {
             return false;
@@ -1664,6 +1676,14 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         }
         val = env->msr_ia32_feature_control;
         break;
+#ifdef TARGET_X86_64
+    case MSR_IA32_USER_MSR_CTL:
+        if (!(env->features[FEAT_7_1_EDX] & CPUID_7_1_EDX_USER_MSR)) {
+            return false;
+        }
+        val = env->user_msr_ctl;
+        break;
+#endif
     case MSR_IA32_BARRIER:
         /*
          * It orders the reads of RDMSRLIST, which reads its MSRs in order
@@ -1909,6 +1929,61 @@ void HELPER(wrmsr_imm)(CPUX86State *env, uint32_t msr, target_ulong val,
         x86_vmx_msr_imm_exit(env, msr, reg, true, ra);
     }
     msr_write(env, msr, val, ra);
+}
+
+/*
+ * URDMSR's and UWRMSR's checks of the MSR at MSR, with REG their register
+ * operand of the data (Intel SDM 325462-093 Vol. 2B, URDMSR and UWRMSR):
+ * #UD without IA32_USER_MSR_CTL's enable bit, #GP for addresses past
+ * 3FFFH and for those whose bit in the user-MSR bitmap is clear, read
+ * with an implicit supervisor access from the half of the bitmap that
+ * WRITE picks, then their VM exits (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3), which come after those faults.
+ */
+static void user_msr_check(CPUX86State *env, uint64_t msr, int reg,
+                           bool write, uintptr_t ra)
+{
+    target_ulong bitmap = env->user_msr_ctl & ~(target_ulong)0xfff;
+    uint8_t bits;
+
+    svm_msr_insn_check(env, ra);
+    if (!(env->user_msr_ctl & 1)) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+    if (msr >> 14) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    bits = cpu_ldub_mmuidx_ra(env, bitmap + (write ? 2048 : 0) + msr / 8,
+                              cpu_mmu_index_kernel(env), ra);
+    if (!(bits & (1 << (msr & 7)))) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (env->vmx.nonroot) {
+        x86_vmx_user_msr_exit(env, msr, reg, write, ra);
+    }
+}
+
+/* URDMSR reads its MSR as RDMSR does. */
+target_ulong HELPER(urdmsr)(CPUX86State *env, uint64_t msr, uint32_t reg)
+{
+    uintptr_t ra = GETPC();
+
+    user_msr_check(env, msr, reg, false, ra);
+    return msr_read(env, msr, ra);
+}
+
+/*
+ * UWRMSR writes IA32_UARCH_MISC_CTL only (Intel SDM 325462-093 Vol. 2B,
+ * UWRMSR), an MSR that comes with DOITM (Vol. 4, Table 2-2), which TCG
+ * does not have: past its checks and VM exits, it raises #GP.
+ */
+void HELPER(uwrmsr)(CPUX86State *env, uint64_t msr, target_ulong val,
+                    uint32_t reg)
+{
+    uintptr_t ra = GETPC();
+
+    user_msr_check(env, msr, reg, true, ra);
+    raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
 }
 #endif
 
