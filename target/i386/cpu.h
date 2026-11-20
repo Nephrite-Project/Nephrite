@@ -1713,6 +1713,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_VM_EXIT2_SAVE_FRED                      (1ULL << 0)
 #define VMX_VM_EXIT2_LOAD_FRED                      (1ULL << 1)
 #define VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL            (1ULL << 2)
+#define VMX_VM_EXIT2_PREMATURELY_BUSY_SS            (1ULL << 3)
 
 #define VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS            0x00000004
 #define VMX_VM_ENTRY_IA32E_MODE                     0x00000200
@@ -2394,6 +2395,8 @@ struct hv_vp_register_page;
 #define VMX_EXIT_UMWAIT 67
 #define VMX_EXIT_TPAUSE 68
 #define VMX_EXIT_BUS_LOCK 74
+/* The exit made a shadow stack prematurely busy. */
+#define VMX_EXIT_PREMATURELY_BUSY_SS (1U << 25)
 /* The exit came after a bus lock under "VMM bus-lock detection". */
 #define VMX_EXIT_AFTER_BUS_LOCK (1U << 26)
 #define VMX_EXIT_ENTRY_FAILURE (1U << 31)
@@ -2465,6 +2468,11 @@ typedef struct X86VMXState {
     /* "VMM bus-lock detection", and its VM exit pending. */
     bool bus_lock;
     bool bus_lock_pending;
+    /*
+     * The pushes onto a new shadow stack whose supervisor token the event
+     * delivery or far CALL under way has marked busy.
+     */
+    bool shstk_pushes;
     /*
      * The VMX-preemption timer: running, the value VM entry loaded, and
      * the TSC shifted right by the timer's rate then.

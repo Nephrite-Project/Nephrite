@@ -179,7 +179,9 @@ static void shstk_switch_in(CPUX86State *env, uint64_t new_ssp, bool to64,
         raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
     if (push) {
+        env->vmx.shstk_pushes = true;
         shstk_push_frame(env, &ssp, cs, lip, env->guest_ssp, false, ra);
+        env->vmx.shstk_pushes = false;
     }
     env->guest_ssp = ssp;
 }
@@ -238,9 +240,11 @@ void x86_shstk_enter(CPUX86State *env, int cpl, int dpl, int ist, bool to64,
             !x86_shstk_acquire(env, new_ssp, ra)) {
             raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
         }
+        env->vmx.shstk_pushes = true;
     }
 #endif
     shstk_push_aligned(env, new_ssp, cs, lip, cpl == 3, ra);
+    env->vmx.shstk_pushes = false;
 }
 
 /*

@@ -151,6 +151,11 @@ void raise_interrupt2(CPUX86State *env, int intno,
     CPUState *cs = env_cpu(env);
     uint64_t last_pc = env->eip + env->segs[R_CS].base;
 
+    /*
+     * A fault in the pushes onto a new shadow stack is no VM exit of
+     * theirs, though one may come of it.
+     */
+    env->vmx.shstk_pushes = false;
     if (!is_int) {
         /*
          * The DR6 bits of a #DB are its event data under FRED (Intel SDM

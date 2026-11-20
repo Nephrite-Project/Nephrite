@@ -842,7 +842,9 @@ static void switch_tss_ra(CPUX86State *env, int tss_selector,
             }
             env->guest_ssp = new_ssp;
             if (shstk_push) {
+                env->vmx.shstk_pushes = true;
                 x86_shstk_task_push(env, &shstk_frame, retaddr);
+                env->vmx.shstk_pushes = false;
             }
         }
         x86_ibt_far(env, env->hflags & HF_CPL_MASK);

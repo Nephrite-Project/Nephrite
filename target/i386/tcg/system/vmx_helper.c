@@ -997,8 +997,9 @@ static uint32_t vmx_entry_features(CPUX86State *env)
 }
 
 /*
- * The secondary VM-exit controls, with their primary control: FRED's, and
- * "load IA32_SPEC_CTRL" with IA32_SPEC_CTRL.
+ * The secondary VM-exit controls, with their primary control: FRED's,
+ * "load IA32_SPEC_CTRL" with IA32_SPEC_CTRL, and "prematurely busy shadow
+ * stack" with shadow stacks.
  */
 static uint64_t vmx_exit2_features(CPUX86State *env)
 {
@@ -1009,6 +1010,9 @@ static uint64_t vmx_exit2_features(CPUX86State *env)
     }
     if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_SPEC_CTRL) {
         features |= VMX_VM_EXIT2_LOAD_IA32_SPEC_CTRL;
+    }
+    if (x86_has_shstk(env)) {
+        features |= VMX_VM_EXIT2_PREMATURELY_BUSY_SS;
     }
     return features;
 }
@@ -1357,6 +1361,16 @@ G_NORETURN void x86_vmx_exit_full(CPUX86State *env, uint32_t reason,
         reason |= VMX_EXIT_AFTER_BUS_LOCK;
         env->vmx.bus_lock_pending = false;
     }
+    /*
+     * So does one in the pushes after a shadow-stack switch marked the new
+     * stack's token busy, under "prematurely busy shadow stack" (Intel SDM
+     * 325462-093 Vol. 3C, 28.4.3 and 30.2.1).
+     */
+    if (env->vmx.shstk_pushes &&
+        (vmx_exit2(env) & VMX_VM_EXIT2_PREMATURELY_BUSY_SS)) {
+        reason |= VMX_EXIT_PREMATURELY_BUSY_SS;
+    }
+    env->vmx.shstk_pushes = false;
     VMCS_SET(EXIT_REASON, reason);
     VMCS_SET(EXIT_QUALIFICATION, qual);
     VMCS_SET(EXIT_INTR_INFO, intr_info);
@@ -5022,6 +5036,15 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
                     vmx_iret_unblocking(env, -1);
 
     VMCS_SET(GUEST_PHYS_ADDR, gpa);
+    /*
+     * Those that make a shadow stack prematurely busy, under "prematurely
+     * busy shadow stack", give the linear address too (Intel SDM 325462-093
+     * Vol. 3C, 30.2.1).
+     */
+    if (env->vmx.shstk_pushes &&
+        (vmx_exit2(env) & VMX_VM_EXIT2_PREMATURELY_BUSY_SS)) {
+        VMCS_SET(GUEST_LINEAR_ADDR, linear);
+    }
     if (env->vmx.ept_misconfig) {
         x86_vmx_exit(env, VMX_EXIT_EPT_MISCONFIG, 0, ra);
     }
