@@ -427,6 +427,11 @@ Processor emulation (TCG):
   takes them in ExtINT mode, or as the INTR pin of a globally disabled local
   APIC; in fixed mode, LINT0 delivers its own vector instead of the 8259's
   (SDM Vol. 3A, 7.3.1 and 13.5.1).
+* LINT0 in fixed mode, level-triggered, holds the 8259's output back with
+  its Remote IRR flag from the vector's acceptance to its EOI, after which
+  the output, still asserted, requests the vector again, and a request
+  stays when the output falls; LINT1 is edge-triggered whatever its entry's
+  trigger mode, as only LINT0 is level-sensitive (SDM Vol. 3A, 13.5.1).
 * Reserved-bit page faults set the P bit of their error codes, as do the
   nested page faults of reserved bits in nested page tables (SDM Vol. 3A,
   5.7), and AMD's processors reserve bit 8 of PML5Es and PML4Es, which

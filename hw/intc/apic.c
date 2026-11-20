@@ -240,9 +240,18 @@ static void apic_local_deliver(APICCommonState *s, int vector)
 
     case APIC_DM_FIXED:
         trigger_mode = APIC_TRIGGER_EDGE;
-        if ((vector == APIC_LVT_LINT0 || vector == APIC_LVT_LINT1) &&
-            (lvt & APIC_LVT_LEVEL_TRIGGER))
+        /*
+         * Only LINT0 is level-sensitive, and its Remote IRR flag holds the
+         * pin back from the vector's acceptance to its EOI (Intel SDM
+         * 325462-093 Vol. 3A, 13.5.1).
+         */
+        if (vector == APIC_LVT_LINT0 && (lvt & APIC_LVT_LEVEL_TRIGGER)) {
+            if (lvt & APIC_LVT_REMOTE_IRR) {
+                break;
+            }
+            s->lvt[APIC_LVT_LINT0] |= APIC_LVT_REMOTE_IRR;
             trigger_mode = APIC_TRIGGER_LEVEL;
+        }
         apic_set_irq(s, lvt & 0xff, trigger_mode);
     }
 }
@@ -262,23 +271,16 @@ void apic_deliver_pmi(APICCommonState *s, bool mask)
     }
 }
 
+/*
+ * The 8259's output at LINT0. A fixed vector it requested stays requested
+ * when the output falls, as Remote IRR holds the pin until the vector's EOI.
+ */
 void apic_deliver_pic_intr(APICCommonState *s, int level)
 {
     if (level) {
         apic_local_deliver(s, APIC_LVT_LINT0);
-    } else {
-        uint32_t lvt = s->lvt[APIC_LVT_LINT0];
-
-        switch ((lvt >> 8) & 7) {
-        case APIC_DM_FIXED:
-            if (!(lvt & APIC_LVT_LEVEL_TRIGGER))
-                break;
-            apic_reset_bit(s->irr, lvt & 0xff);
-            /* fall through */
-        case APIC_DM_EXTINT:
-            apic_update_irq(s);
-            break;
-        }
+    } else if (((s->lvt[APIC_LVT_LINT0] >> 8) & 7) == APIC_DM_EXTINT) {
+        apic_update_irq(s);
     }
 }
 
@@ -603,6 +605,23 @@ static void apic_set_irq(APICCommonState *s, int vector_num, int trigger_mode)
     apic_update_irq(s);
 }
 
+static bool apic_check_pic(APICCommonState *s);
+
+/*
+ * The EOI of LINT0's level-triggered vector clears its Remote IRR flag, after
+ * which the 8259's output, still asserted, requests the vector again (Intel
+ * SDM 325462-093 Vol. 3A, 13.5.1).
+ */
+static void apic_lint0_eoi(APICCommonState *s, int vector)
+{
+    uint32_t lvt = s->lvt[APIC_LVT_LINT0];
+
+    if ((lvt & APIC_LVT_REMOTE_IRR) && (lvt & 0xff) == vector) {
+        s->lvt[APIC_LVT_LINT0] &= ~APIC_LVT_REMOTE_IRR;
+        apic_check_pic(s);
+    }
+}
+
 static void apic_eoi(APICCommonState *s)
 {
     int isrv;
@@ -613,6 +632,7 @@ static void apic_eoi(APICCommonState *s)
     if (!(s->spurious_vec & APIC_SV_DIRECTED_IO) && apic_get_bit(s->tmr, isrv)) {
         ioapic_eoi_broadcast(isrv);
     }
+    apic_lint0_eoi(s, isrv);
     apic_sync_vapic(s, SYNC_FROM_VAPIC | SYNC_TO_VAPIC);
     apic_update_irq(s);
 }
@@ -632,6 +652,7 @@ static void apic_specific_eoi(APICCommonState *s, int vector)
         apic_get_bit(s->tmr, vector)) {
         ioapic_eoi_broadcast(vector);
     }
+    apic_lint0_eoi(s, vector);
     apic_sync_vapic(s, SYNC_FROM_VAPIC | SYNC_TO_VAPIC);
     apic_update_irq(s);
 }
@@ -1354,6 +1375,14 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
 
             if (mode_change) {
                 count = apic_get_current_count(s);
+            }
+            /*
+             * Remote IRR is read-only (Intel SDM 325462-093 Vol. 3A,
+             * 13.5.1).
+             */
+            if (n == APIC_LVT_LINT0 || n == APIC_LVT_LINT1) {
+                val = (val & ~APIC_LVT_REMOTE_IRR) |
+                      (s->lvt[n] & APIC_LVT_REMOTE_IRR);
             }
             s->lvt[n] = val;
             if (n == APIC_LVT_TIMER) {
