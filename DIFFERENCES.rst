@@ -475,6 +475,9 @@ Processor emulation (TCG):
   bits 19:16 with the access rights, as processors do; Windows 95 writes
   them back into the descriptors it changes, and lost the limits of its
   segments above 64 KiB.
+* In IA-32e mode, LAR and LSL take only LDTs, 64-bit TSSs, and for LAR
+  64-bit call gates among system descriptors, as 16-byte descriptors whose
+  upper type field is clear.
 
 AMD SVM (TCG):
 

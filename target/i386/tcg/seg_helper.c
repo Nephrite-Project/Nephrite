@@ -3340,11 +3340,69 @@ void HELPER(sysexit)(CPUX86State *env, int dflag)
 #endif
 }
 
+/*
+ * Whether LAR (LAR set) or LSL takes the system descriptor of SELECTOR,
+ * whose high doubleword is E2 (Intel SDM 325462-093 Vol. 2A, LAR, Table
+ * 1-49, and LSL, Table 1-53; AMD64 Architecture Programmer's Manual
+ * Volume 3, 24594 rev. 3.39, LAR and LSL). In IA-32e mode only LDTs,
+ * 64-bit TSSs, and for LAR 64-bit call gates count, as 16-byte descriptors
+ * whose upper type field, bits 12:8 of their doubleword +12, is clear;
+ * AMD's processors check that field of LDTs and TSSs in 64-bit mode only.
+ */
+static bool lar_lsl_system_ok(CPUX86State *env, int selector, uint32_t e2,
+                              bool lar, uintptr_t retaddr)
+{
+    int type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
+
+#ifdef TARGET_X86_64
+    if (env->hflags & HF_LMA_MASK) {
+        SegmentCache *dt = selector & 4 ? &env->ldt : &env->gdt;
+        int index = selector & ~7;
+
+        switch (type) {
+        case 2:
+        case 9:
+        case 11:
+            if (IS_AMD_CPU(env) && !(env->hflags & HF_CS64_MASK)) {
+                return true;
+            }
+            break;
+        case 12:
+            if (lar) {
+                break;
+            }
+            return false;
+        default:
+            return false;
+        }
+        if (index + 15 > dt->limit) {
+            return false;
+        }
+        return !(cpu_ldl_kernel_ra(env, dt->base + index + 12, retaddr) &
+                 0x1f00);
+    }
+#endif
+    switch (type) {
+    case 1:
+    case 2:
+    case 3:
+    case 9:
+    case 11:
+        return true;
+    case 4:
+    case 5:
+    case 12:
+        return lar;
+    default:
+        return false;
+    }
+}
+
 target_ulong HELPER(lsl)(CPUX86State *env, target_ulong selector1)
 {
     unsigned int limit;
     uint32_t e1, e2, selector;
-    int rpl, dpl, cpl, type;
+    int rpl, dpl, cpl;
 
     selector = selector1 & 0xffff;
     assert(CC_OP == CC_OP_EFLAGS);
@@ -3366,15 +3424,7 @@ target_ulong HELPER(lsl)(CPUX86State *env, target_ulong selector1)
             }
         }
     } else {
-        type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
-        switch (type) {
-        case 1:
-        case 2:
-        case 3:
-        case 9:
-        case 11:
-            break;
-        default:
+        if (!lar_lsl_system_ok(env, selector, e2, false, GETPC())) {
             goto fail;
         }
         if (dpl < cpl || dpl < rpl) {
@@ -3391,7 +3441,7 @@ target_ulong HELPER(lsl)(CPUX86State *env, target_ulong selector1)
 target_ulong HELPER(lar)(CPUX86State *env, target_ulong selector1)
 {
     uint32_t e1, e2, selector;
-    int rpl, dpl, cpl, type;
+    int rpl, dpl, cpl;
 
     selector = selector1 & 0xffff;
     assert(CC_OP == CC_OP_EFLAGS);
@@ -3413,18 +3463,7 @@ target_ulong HELPER(lar)(CPUX86State *env, target_ulong selector1)
             }
         }
     } else {
-        type = (e2 >> DESC_TYPE_SHIFT) & 0xf;
-        switch (type) {
-        case 1:
-        case 2:
-        case 3:
-        case 4:
-        case 5:
-        case 9:
-        case 11:
-        case 12:
-            break;
-        default:
+        if (!lar_lsl_system_ok(env, selector, e2, true, GETPC())) {
             goto fail;
         }
         if (dpl < cpl || dpl < rpl) {
