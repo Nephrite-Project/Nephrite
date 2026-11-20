@@ -101,6 +101,7 @@
 #define VMCS_SPEC_CTRL_SHADOW 0x204c
 #define VMCS_INJECTED_EVENT_DATA 0x2052
 #define VMCS_GUEST_PHYS_ADDR 0x2400
+#define VMCS_MSR_DATA 0x2402
 #define VMCS_ORIGINAL_EVENT_DATA 0x2404
 #define VMCS_EXIT_EII 0x2406
 #define VMCS_LINK_POINTER 0x2800
@@ -310,6 +311,7 @@ static const uint16_t vmcs_fields[] = {
     0x204c, /* IA32_SPEC_CTRL shadow */
     0x2052, /* injected-event data */
     0x2400, /* guest-physical address */
+    0x2402, /* MSR data */
     0x2404, /* original-event data */
     0x2406, /* VM-exit extended instruction information */
     0x2800, /* VMCS link pointer */
@@ -4523,6 +4525,46 @@ uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay)
 bool x86_vmx_user_wait_enabled(CPUX86State *env)
 {
     return vmx_proc2(env) & VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE;
+}
+
+/*
+ * RDMSRLIST and WRMSRLIST run in non-root operation with "enable MSR-list
+ * instructions" (Intel SDM 325462-093 Vol. 3C, 28.3).
+ */
+bool x86_vmx_msrlist_enabled(CPUX86State *env)
+{
+    return vmx_proc3(env) & VMX_TERTIARY_EXEC_MSR_LIST;
+}
+
+/*
+ * Without "use MSR bitmaps", RDMSRLIST and WRMSRLIST exit before they use
+ * their operands, with an exit qualification of 0 (Intel SDM 325462-093
+ * Vol. 3C, 28.1.3 and 30.2.1).
+ */
+void x86_vmx_msrlist_exit(CPUX86State *env, bool write, uintptr_t ra)
+{
+    if (!(VMCS(PROC_CONTROLS) & VMX_CPU_BASED_USE_MSR_BITMAPS)) {
+        x86_vmx_exit(env, write ? VMX_EXIT_WRMSRLIST : VMX_EXIT_RDMSRLIST, 0,
+                     ra);
+    }
+}
+
+/*
+ * RDMSRLIST and WRMSRLIST exit at an MSR whose access the MSR bitmaps make
+ * exit, with the MSR's address as the exit qualification, RCX's bit for it
+ * left set, and, for WRMSRLIST, VAL, which it read, in the MSR-data field
+ * (Intel SDM 325462-093 Vol. 3C, 28.1.3, 30.2.1, and 30.2.5).
+ */
+void x86_vmx_msrlist_msr_exit(CPUX86State *env, uint32_t msr, uint64_t val,
+                              bool write, uintptr_t ra)
+{
+    if (vmx_msr_exits(env, msr, write)) {
+        if (write) {
+            VMCS_SET(MSR_DATA, val);
+        }
+        x86_vmx_exit(env, write ? VMX_EXIT_WRMSRLIST : VMX_EXIT_RDMSRLIST,
+                     msr, ra);
+    }
 }
 
 /*

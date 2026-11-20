@@ -527,6 +527,7 @@ typedef enum X86Seg {
         (~(uint64_t)(MSR_IA32_APICBASE_BSP | MSR_IA32_APICBASE_ENABLE \
                      | MSR_IA32_APICBASE_EXTD | MSR_IA32_APICBASE_BASE))
 
+#define MSR_IA32_BARRIER                0x0000002f
 #define MSR_IA32_FEATURE_CONTROL        0x0000003a
 #define MSR_TSC_ADJUST                  0x0000003b
 #define MSR_IA32_SPEC_CTRL              0x48
@@ -1312,6 +1313,8 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_7_1_EAX_AVX_IFMA          (1U << 23)
 /* Linear Address Masking */
 #define CPUID_7_1_EAX_LAM               (1U << 26)
+/* RDMSRLIST, WRMSRLIST, and IA32_BARRIER */
+#define CPUID_7_1_EAX_MSRLIST           (1U << 27)
 /* MOVRS Instructions */
 #define CPUID_7_1_EAX_MOVRS             (1U << 31)
 
@@ -1708,6 +1711,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_TERTIARY_EXEC_EPT_PAGING_WRITE          (1ULL << 2)
 #define VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY       (1ULL << 3)
 #define VMX_TERTIARY_EXEC_IPI_VIRT                  (1ULL << 4)
+#define VMX_TERTIARY_EXEC_MSR_LIST                  (1ULL << 6)
 #define VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL            (1ULL << 7)
 
 #define VMX_PIN_BASED_EXT_INTR_MASK                 0x00000001
@@ -2421,6 +2425,8 @@ struct hv_vp_register_page;
 #define VMX_EXIT_UMWAIT 67
 #define VMX_EXIT_TPAUSE 68
 #define VMX_EXIT_BUS_LOCK 74
+#define VMX_EXIT_RDMSRLIST 78
+#define VMX_EXIT_WRMSRLIST 79
 /* The exit made a shadow stack prematurely busy. */
 #define VMX_EXIT_PREMATURELY_BUSY_SS (1U << 25)
 /* The exit came after a bus lock under "VMM bus-lock detection". */

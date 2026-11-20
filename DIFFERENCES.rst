@@ -216,7 +216,8 @@ Intel VMX, which QEMU's TCG does not have:
   IA32_PERF_GLOBAL_CTRL and CET load controls, the IA32_PKRS controls with
   PKS and the IA32_BNDCFGS controls with MPX, IA32_SPEC_CTRL's
   virtualization and its loads on VM entry and VM exit, the "prematurely
-  busy shadow stack" VM-exit control, and exception injection with or
+  busy shadow stack" VM-exit control, the "enable MSR-list instructions"
+  control with the MSR-data field, and exception injection with or
   without error codes.
 * User interrupts: the guest UINV field, the "load UINV" and "clear UINV"
   controls, injected and virtual user-interrupt notifications, and
@@ -270,7 +271,9 @@ Processor features:
   IA32_TSC, the local APIC's TSC-deadline mode, whose deadline ``info
   lapic`` shows, XSAVEC, XSAVES, XRSTORS, and IA32_XSS, LAM, LASS, WAITPKG
   (UMONITOR, UMWAIT, TPAUSE, IA32_UMWAIT_CONTROL), CPUID faulting,
-  WRMSRNS, LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
+  WRMSRNS, RDMSRLIST and WRMSRLIST with IA32_BARRIER (which raise #UD in
+  SVM guest mode under the MSR intercept, as SVM has no intercept for
+  them), LKGS, the speculation control MSRs, IA32_ARCH_CAPABILITIES,
   AMD's CPUID override MSRs, AMD's breakpoint address masks, AMD's fast
   FXSAVE and FXRSTOR, AMD's OS-visible workaround MSRs, AMD's topology
   extensions, AMD's misaligned SSE mode, AMD's upper address ignore, AMD's

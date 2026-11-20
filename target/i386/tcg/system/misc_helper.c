@@ -1203,6 +1203,7 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     case MSR_IA32_CORE_CAPABILITY:
     case MSR_IA32_XAPIC_DISABLE_STATUS:
     case MSR_MTRRcap:
+    case MSR_IA32_BARRIER:
         /* Read-only (Intel SDM 325462-093 Vol. 4, Table 2-2). */
         return false;
     case MSR_MEMORY_CTRL:
@@ -1264,37 +1265,47 @@ bool x86_cpu_wrmsr(CPUX86State *env, uint32_t msr, uint64_t val)
     return true;
 }
 
-void HELPER(wrmsr)(CPUX86State *env)
+/*
+ * WRMSR of VAL to MSR past its intercept: the virtualised x2APIC and
+ * IA32_SPEC_CTRL of guest mode first, then the MSR, raising #GP where WRMSR
+ * does. WRMSRNS and WRMSRLIST write their MSRs here too.
+ */
+static void msr_write(CPUX86State *env, uint32_t msr, uint64_t val,
+                      uintptr_t ra)
 {
-    uint64_t val;
     bool ok;
 
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 1, GETPC());
-
-    val = ((uint32_t)env->regs[R_EAX]) |
-        ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
-
     if (unlikely(env->svm_x2avic) &&
-        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
-        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
-        if (!svm_x2avic_wrmsr(env, env->regs[R_ECX], val, GETPC())) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        msr >= MSR_APIC_START && msr <= MSR_APIC_END) {
+        if (!svm_x2avic_wrmsr(env, msr, val, ra)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
         }
         return;
     }
     if (unlikely(env->vmx.nonroot) &&
-        (x86_vmx_x2apic_wrmsr(env, env->regs[R_ECX], val, GETPC()) ||
-         x86_vmx_spec_ctrl_wrmsr(env, env->regs[R_ECX], val, GETPC()))) {
+        (x86_vmx_x2apic_wrmsr(env, msr, val, ra) ||
+         x86_vmx_spec_ctrl_wrmsr(env, msr, val, ra))) {
         return;
     }
 
     /* WRMSR has not retired for the PMU it accesses. */
     env->pmu.unretired = 1;
-    ok = x86_cpu_wrmsr(env, (uint32_t)env->regs[R_ECX], val);
+    ok = x86_cpu_wrmsr(env, msr, val);
     env->pmu.unretired = 0;
     if (!ok) {
-        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
+}
+
+void HELPER(wrmsr)(CPUX86State *env)
+{
+    uint64_t val;
+
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 1, GETPC());
+
+    val = ((uint32_t)env->regs[R_EAX]) |
+        ((uint64_t)((uint32_t)env->regs[R_EDX]) << 32);
+    msr_write(env, env->regs[R_ECX], val, GETPC());
 }
 
 /* RDMSR's value, false where it raises #GP. */
@@ -1653,6 +1664,16 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
         }
         val = env->msr_ia32_feature_control;
         break;
+    case MSR_IA32_BARRIER:
+        /*
+         * It orders the reads of RDMSRLIST, which reads its MSRs in order
+         * here, and reads 0 (Intel SDM 325462-093 Vol. 4, Table 2-2).
+         */
+        if (!(env->features[FEAT_7_1_EAX] & CPUID_7_1_EAX_MSRLIST)) {
+            return false;
+        }
+        val = 0;
+        break;
     case MSR_IA32_VMX_BASIC ... MSR_IA32_VMX_EXIT_CTLS2:
         if (!x86_vmx_read_msr(env, msr, &val)) {
             return false;
@@ -1714,44 +1735,139 @@ bool x86_cpu_rdmsr(CPUX86State *env, uint32_t msr, uint64_t *valp)
     return true;
 }
 
-void HELPER(rdmsr)(CPUX86State *env)
+/*
+ * RDMSR of MSR past its intercept: the virtualised x2APIC and
+ * IA32_SPEC_CTRL of guest mode first, then the MSR, raising #GP where RDMSR
+ * does. RDMSRLIST reads its MSRs here too.
+ */
+static uint64_t msr_read(CPUX86State *env, uint32_t msr, uintptr_t ra)
 {
     uint64_t val;
     bool ok;
 
-    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
-
     if (unlikely(env->svm_x2avic) &&
-        (uint32_t)env->regs[R_ECX] >= MSR_APIC_START &&
-        (uint32_t)env->regs[R_ECX] <= MSR_APIC_END) {
-        if (!svm_x2avic_rdmsr(env, env->regs[R_ECX], &val, GETPC())) {
-            raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        msr >= MSR_APIC_START && msr <= MSR_APIC_END) {
+        if (!svm_x2avic_rdmsr(env, msr, &val, ra)) {
+            raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
         }
-        env->regs[R_EAX] = (uint32_t)val;
-        env->regs[R_EDX] = (uint32_t)(val >> 32);
-        return;
+        return val;
     }
     if (unlikely(env->vmx.nonroot) &&
-        (x86_vmx_x2apic_rdmsr(env, env->regs[R_ECX], &val) ||
-         x86_vmx_spec_ctrl_rdmsr(env, env->regs[R_ECX], &val))) {
-        env->regs[R_EAX] = (uint32_t)val;
-        env->regs[R_EDX] = (uint32_t)(val >> 32);
-        return;
+        (x86_vmx_x2apic_rdmsr(env, msr, &val) ||
+         x86_vmx_spec_ctrl_rdmsr(env, msr, &val))) {
+        return val;
     }
 
     /* RDMSR has not retired for the PMU it accesses. */
     env->pmu.unretired = 1;
-    ok = x86_cpu_rdmsr(env, (uint32_t)env->regs[R_ECX], &val);
+    ok = x86_cpu_rdmsr(env, msr, &val);
     env->pmu.unretired = 0;
     if (!ok) {
-        raise_exception_err_ra(env, EXCP0D_GPF, 0, GETPC());
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
     }
-    env->regs[R_EAX] = (uint32_t)(val);
-    env->regs[R_EDX] = (uint32_t)(val >> 32);
-    if ((uint32_t)env->regs[R_ECX] == MSR_IA32_TSC) {
+    if (msr == MSR_IA32_TSC) {
         x86_vmx_tsc_seen(env);
     }
+    return val;
 }
+
+void HELPER(rdmsr)(CPUX86State *env)
+{
+    uint64_t val;
+
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MSR, 0, GETPC());
+
+    val = msr_read(env, env->regs[R_ECX], GETPC());
+    env->regs[R_EAX] = (uint32_t)(val);
+    env->regs[R_EDX] = (uint32_t)(val >> 32);
+}
+
+#ifdef TARGET_X86_64
+/*
+ * LAM's untagging of a data address (Intel SDM 325462-093 Vol. 3A, 4.4.2),
+ * as gen_lam_untag() generates it for the translated accesses.
+ */
+static target_ulong lam_untag(CPUX86State *env, target_ulong addr)
+{
+    int shift = (int64_t)addr < 0 ? env->lam_shift_sup : env->lam_shift_user;
+
+    if (!(env->hflags & HF_LAM_MASK) || !shift) {
+        return addr;
+    }
+    return (addr & (1ULL << 63)) |
+           ((target_ulong)((int64_t)(addr << shift) >> shift) &
+            ~(1ULL << 63));
+}
+
+/*
+ * One MSR of RDMSRLIST (WRITE 0) or WRMSRLIST (WRITE 1), the one that the
+ * lowest bit set in RCX names, whose bit it clears once done (Intel SDM
+ * 325462-093 Vol. 2A, RDMSRLIST, and Vol. 2D, WRMSRLIST); the translator
+ * starts the instruction again while RCX is not 0, which gives interrupts
+ * and traps their way in between MSRs. RSI holds the linear address of
+ * the table of MSR addresses, RDI that of the table of data.
+ *
+ * In VMX non-root operation, the instructions raise #UD without "enable
+ * MSR-list instructions", ahead of every other fault, and with it, after
+ * the #GP of CPL > 0, exit without "use MSR bitmaps", and else exit at an
+ * MSR whose access the MSR bitmaps would make exit, before reading or
+ * writing it, with the MSR's address as the exit qualification and, for
+ * WRMSRLIST, the data in the MSR-data field (Intel SDM 325462-093 Vol. 3C,
+ * 28.1.3, 28.3, 30.2.1, and 30.2.5). AMD's processors lack the
+ * instructions, and SVM has no intercept for them: in guest mode with the
+ * MSR intercept, they raise #UD, so that a guest reaches no MSR past the
+ * MSR permission map.
+ */
+void HELPER(msrlist)(CPUX86State *env, uint32_t write)
+{
+    uintptr_t ra = GETPC();
+    uint64_t rcx = env->regs[R_ECX], entry, val;
+    target_ulong table = env->regs[R_ESI], data = env->regs[R_EDI];
+    uint32_t msr;
+    int n;
+
+    if (env->vmx.nonroot && !x86_vmx_msrlist_enabled(env)) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+    if ((env->hflags & HF_GUEST_MASK) && !env->vmx.nonroot &&
+        cpu_svm_has_intercept(env, SVM_EXIT_MSR)) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+    if (env->hflags & HF_CPL_MASK) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (env->vmx.nonroot) {
+        x86_vmx_msrlist_exit(env, write, ra);
+    }
+    if ((table | data) & 7) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    if (!rcx) {
+        return;
+    }
+
+    n = ctz64(rcx);
+    entry = cpu_ldq_le_data_ra(env, lam_untag(env, table + n * 8), ra);
+    if (entry >> 32) {
+        raise_exception_err_ra(env, EXCP0D_GPF, 0, ra);
+    }
+    msr = entry;
+    if (write) {
+        val = cpu_ldq_le_data_ra(env, lam_untag(env, data + n * 8), ra);
+        if (env->vmx.nonroot) {
+            x86_vmx_msrlist_msr_exit(env, msr, val, true, ra);
+        }
+        msr_write(env, msr, val, ra);
+    } else {
+        if (env->vmx.nonroot) {
+            x86_vmx_msrlist_msr_exit(env, msr, 0, false, ra);
+        }
+        val = msr_read(env, msr, ra);
+        cpu_stq_le_data_ra(env, lam_untag(env, data + n * 8), val, ra);
+    }
+    env->regs[R_ECX] = rcx & (rcx - 1);
+}
+#endif
 
 /*
  * INVPCID: its SVM intercept comes before all its checks but CPL's (AMD64

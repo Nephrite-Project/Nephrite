@@ -1181,14 +1181,16 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #if defined(CONFIG_USER_ONLY) || !defined(TARGET_X86_64)
 #define TCG_7_1_EAX_LKGS 0
 #define TCG_7_1_EAX_FRED 0
+#define TCG_7_1_EAX_MSRLIST 0
 #else
 #define TCG_7_1_EAX_LKGS CPUID_7_1_EAX_LKGS
 #define TCG_7_1_EAX_FRED (CPUID_7_1_EAX_FRED | CPUID_7_1_EAX_NMI_SRC)
+#define TCG_7_1_EAX_MSRLIST CPUID_7_1_EAX_MSRLIST
 #endif
 #define TCG_7_1_EAX_FEATURES (CPUID_7_1_EAX_FZRM | CPUID_7_1_EAX_FSRS | \
           CPUID_7_1_EAX_FSRC | CPUID_7_1_EAX_CMPCCXADD | CPUID_7_1_EAX_LAM | \
           CPUID_7_1_EAX_WRMSRNS | TCG_7_1_EAX_LASS | TCG_7_1_EAX_LKGS | \
-          TCG_7_1_EAX_FRED)
+          TCG_7_1_EAX_FRED | TCG_7_1_EAX_MSRLIST)
 #define TCG_7_1_ECX_FEATURES 0
 #define TCG_7_1_EDX_FEATURES (CPUID_7_1_EDX_APXF | TCG_7_1_EDX_UIRET_UIF)
 #ifdef CONFIG_USER_ONLY
@@ -1494,7 +1496,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "fsrc", NULL, NULL, NULL,
             NULL, "fred", "lkgs", "wrmsrns",
             "nmi-src", "amx-fp16", NULL, "avx-ifma",
-            NULL, NULL, "lam", NULL,
+            NULL, NULL, "lam", "msrlist",
             NULL, NULL, NULL, "movrs",
         },
         .cpuid = {
@@ -2058,6 +2060,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             [2] = "vmx-ept-paging-write",
             [3] = "vmx-guest-paging-verify",
             [4] = "vmx-ipi-virt",
+            [6] = "vmx-msr-list",
             [7] = "vmx-virt-spec-ctrl",
         },
         .msr = {
@@ -2066,7 +2069,8 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
         .tcg_features = VMX_TERTIARY_EXEC_IPI_VIRT |
                         VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL |
                         VMX_TERTIARY_EXEC_EPT_PAGING_WRITE |
-                        VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY,
+                        VMX_TERTIARY_EXEC_GUEST_PAGING_VERIFY |
+                        VMX_TERTIARY_EXEC_MSR_LIST,
     },
 
     [FEAT_14_0_ECX] = {
@@ -2270,6 +2274,10 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_EDX,             CPUID_7_0_EDX_SPEC_CTRL },
         .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_VIRT_SPEC_CTRL },
+    },
+    {
+        .from = { FEAT_7_1_EAX,             CPUID_7_1_EAX_MSRLIST },
+        .to = { FEAT_VMX_TERTIARY_CTLS,     VMX_TERTIARY_EXEC_MSR_LIST },
     },
     {
         .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },

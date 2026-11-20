@@ -225,6 +225,10 @@ uint64_t x86_vmx_tsc(CPUX86State *env, uint64_t tsc);
 void x86_vmx_tsc_seen(CPUX86State *env);
 uint64_t x86_vmx_tsc_delay(CPUX86State *env, uint64_t delay);
 bool x86_vmx_user_wait_enabled(CPUX86State *env);
+bool x86_vmx_msrlist_enabled(CPUX86State *env);
+void x86_vmx_msrlist_exit(CPUX86State *env, bool write, uintptr_t ra);
+void x86_vmx_msrlist_msr_exit(CPUX86State *env, uint32_t msr, uint64_t val,
+                              bool write, uintptr_t ra);
 void x86_vmx_user_wait_exit(CPUX86State *env, uint32_t reason, int reg,
                             uintptr_t ra);
 void x86_vmx_invpcid(CPUX86State *env, uint32_t info, uint64_t eii,

@@ -3667,7 +3667,44 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             s->base.is_jmp = DISAS_EOB_NEXT;
             break;
 
-        case 0xc6: /* wrmsrns */
+        case 0xc6: /* wrmsrns, rdmsrlist with f2, wrmsrlist with f3 */
+#ifdef TARGET_X86_64
+            if (prefixes & (PREFIX_REPZ | PREFIX_REPNZ)) {
+                TCGLabel *done;
+                uint32_t kept;
+                bool write;
+
+                if (!(s->cpuid_7_1_eax_features & CPUID_7_1_EAX_MSRLIST) ||
+                    !CODE64(s) || (prefixes & (PREFIX_LOCK | PREFIX_DATA))) {
+                    goto illegal_op;
+                }
+                gen_update_cc_op(s);
+                gen_update_eip_cur(s);
+                write = !!(prefixes & PREFIX_REPZ);
+                gen_helper_msrlist(tcg_env, tcg_constant_i32(write));
+                /*
+                 * With MSRs left, start the instruction again through the
+                 * main loop, where interrupts and traps get their way in,
+                 * with RF set for them, as after an iteration of a
+                 * repeated string instruction but the last (Intel SDM
+                 * 325462-093 Vol. 3B, 20.3.1.1); the end of the block then
+                 * leaves RF and an interrupt shadow, which lasts until the
+                 * instruction completes, as they are. The MSRs written may
+                 * change the hidden flags, so the block ends either way.
+                 */
+                done = gen_new_label();
+                tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_regs[R_ECX], 0, done);
+                gen_set_eflags(s, RF_MASK);
+                kept = s->flags & (HF_RF_MASK | HF_INHIBIT_IRQ_MASK);
+                s->flags &= ~kept;
+                gen_eob(s, DISAS_EOB_ONLY);
+                s->flags |= kept;
+                gen_set_label(done);
+                gen_update_eip_next(s);
+                gen_eob(s, DISAS_EOB_ONLY);
+                break;
+            }
+#endif
             /* WRMSR without serialization: here, WRMSR. */
             if (!(s->cpuid_7_1_eax_features & CPUID_7_1_EAX_WRMSRNS)
                 || (s->prefix & (PREFIX_REPZ | PREFIX_REPNZ | PREFIX_DATA))) {
