@@ -960,6 +960,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_SECONDARY_EXEC_PAUSE_LOOP_EXITING | \
           VMX_SECONDARY_EXEC_RDRAND_EXITING | \
           VMX_SECONDARY_EXEC_ENABLE_VMFUNC | VMX_SECONDARY_EXEC_ENABLE_PML | \
+          VMX_SECONDARY_EXEC_EPT_VIOLATION_VE | \
           VMX_SECONDARY_EXEC_RDSEED_EXITING | VMX_SECONDARY_EXEC_XSAVES | \
           VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC | \
           VMX_SECONDARY_EXEC_ENABLE_USER_WAIT_PAUSE | \
@@ -1905,7 +1906,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "vmx-apicv-x2apic", "vmx-vpid", "vmx-wbinvd-exit", "vmx-unrestricted-guest",
             "vmx-apicv-register", "vmx-apicv-vid", "vmx-ple", "vmx-rdrand-exit",
             "vmx-invpcid-exit", "vmx-vmfunc", "vmx-shadow-vmcs", "vmx-encls-exit",
-            "vmx-rdseed-exit", "vmx-pml", NULL, NULL,
+            "vmx-rdseed-exit", "vmx-pml", "vmx-ept-violation-ve", NULL,
             "vmx-xsaves", NULL, "vmx-mbec", NULL,
             NULL, "vmx-tsc-scaling", "vmx-enable-user-wait-pause", NULL,
             NULL, NULL, "vmx-bus-lock-detection", NULL,
@@ -2287,6 +2288,11 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_EPT },
         .to = { FEAT_VMX_SECONDARY_CTLS,    VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC },
+    },
+    {
+        .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_EPT },
+        .to = { FEAT_VMX_SECONDARY_CTLS,
+                VMX_SECONDARY_EXEC_EPT_VIOLATION_VE },
     },
     {
         .from = { FEAT_VMX_SECONDARY_CTLS,  VMX_SECONDARY_EXEC_ENABLE_VPID },
@@ -9910,6 +9916,7 @@ const char *x86_exception_name(int excp)
         [EXCP10_COPR]       = "COPR",
         [EXCP11_ALGN]       = "ALGN",
         [EXCP12_MCHK]       = "MCHK",
+        [EXCP14_VE]         = "VE",
         [EXCP15_CP]         = "CP",
         [EXCP_VMEXIT]       = "VMEXIT",
         [EXCP_SYSCALL]      = "SYSCALL",

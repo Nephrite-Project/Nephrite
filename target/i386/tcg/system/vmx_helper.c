@@ -67,6 +67,7 @@
  */
 #define VMCS_VPID 0x0000
 #define VMCS_PI_NOTIFICATION_VECTOR 0x0002
+#define VMCS_EPTP_INDEX 0x0004
 #define VMCS_LAST_PID_INDEX 0x0008
 #define VMCS_GUEST_SEL(seg) (0x0800 + 2 * (seg))
 #define VMCS_GUEST_INTR_STATUS 0x0810
@@ -90,6 +91,7 @@
 #define VMCS_EPTP_LIST_ADDR 0x2024
 #define VMCS_VMREAD_BITMAP 0x2026
 #define VMCS_VMWRITE_BITMAP 0x2028
+#define VMCS_VE_INFO_ADDR 0x202a
 #define VMCS_XSS_EXIT_BITMAP 0x202c
 #define VMCS_TSC_MULTIPLIER 0x2032
 #define VMCS_PROC3_CONTROLS 0x2034
@@ -3192,6 +3194,10 @@ static bool vmx_controls_valid(CPUX86State *env)
          !vmx_addr_valid(env, VMCS(EPTP_LIST_ADDR), 4096))) {
         return false;
     }
+    if ((proc2 & VMX_SECONDARY_EXEC_EPT_VIOLATION_VE) &&
+        !vmx_addr_valid(env, VMCS(VE_INFO_ADDR), 4096)) {
+        return false;
+    }
     if ((proc2 & VMX_SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY) &&
         !(pin & VMX_PIN_BASED_EXT_INTR_MASK)) {
         return false;
@@ -4835,6 +4841,14 @@ void HELPER(vmfunc)(CPUX86State *env)
         x86_vmx_exit(env, VMX_EXIT_VMFUNC, 0, GETPC());
     }
     VMCS_SET(EPT_POINTER, eptp);
+    /*
+     * Where "EPT-violation #VE" exists, the EPTP index follows (Intel SDM
+     * 325462-093 Vol. 3C, 28.5.7.3).
+     */
+    if (env->features[FEAT_VMX_SECONDARY_CTLS] &
+        VMX_SECONDARY_EXEC_EPT_VIOLATION_VE) {
+        VMCS_SET(EPTP_INDEX, index);
+    }
     x86_guest_tlb_current(env)->pointer = eptp;
     tlb_flush_by_mmuidx(cs, x86_mmu_context_map(env) |
                             MMU_NESTED_SET_MAP(x86_guest_set(env)));
@@ -5000,6 +5014,11 @@ bool x86_vmx_ept_translate(CPUX86State *env, hwaddr gpa,
     return true;
 
 violation:
+    /*
+     * The entry not present, or the leaf, decides whether the violation is
+     * convertible (Intel SDM 325462-093 Vol. 3C, 28.5.8.1).
+     */
+    env->vmx.ept_suppress_ve = entry >> 63;
     env->vmx.ept_qual = access == MMU_DATA_STORE ? 2 :
                         access == MMU_INST_FETCH ? 4 : 1;
     if (level < 1 || (entry & present)) {
@@ -5017,6 +5036,35 @@ misconfig:
 pml_full:
     env->vmx.pml_full = true;
     return false;
+}
+
+/*
+ * A convertible EPT violation under "EPT-violation #VE" is a virtualization
+ * exception instead, in protected mode, outside event delivery, where it
+ * leaves no shadow stack prematurely busy and the information area's dword
+ * at offset 4 is 0: the area takes what the VM exit would have saved, and
+ * that dword becomes FFFFFFFFH (Intel SDM 325462-093 Vol. 3C, 28.5.8). TCG
+ * has no Intel PT or PEBS, whose accesses would not convert.
+ */
+static void vmx_ept_ve(CPUX86State *env, hwaddr gpa, target_ulong linear,
+                       uint64_t qual, uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+    hwaddr info = VMCS(VE_INFO_ADDR);
+
+    if (!(vmx_proc2(env) & VMX_SECONDARY_EXEC_EPT_VIOLATION_VE) ||
+        env->vmx.ept_suppress_ve || !(env->cr[0] & CR0_PE_MASK) ||
+        (env->vmx.idt_vectoring_info & VMX_INTR_VALID) ||
+        env->vmx.shstk_pushes || x86_ldl_phys(cs, info + 4)) {
+        return;
+    }
+    x86_stl_phys(cs, info, VMX_EXIT_EPT_VIOLATION);
+    x86_stl_phys(cs, info + 4, 0xffffffff);
+    x86_stq_phys(cs, info + 8, qual);
+    x86_stq_phys(cs, info + 16, linear);
+    x86_stq_phys(cs, info + 24, gpa);
+    x86_stw_phys(cs, info + 32, VMCS(EPTP_INDEX));
+    raise_exception_ra(env, EXCP14_VE, ra);
 }
 
 /*
@@ -5055,6 +5103,7 @@ G_NORETURN void x86_vmx_ept_exit(CPUX86State *env, hwaddr gpa,
     if (!final && (qual & 2)) {
         qual |= 1;
     }
+    vmx_ept_ve(env, gpa, linear, qual, ra);
     VMCS_SET(GUEST_LINEAR_ADDR, linear);
     x86_vmx_exit(env, VMX_EXIT_EPT_VIOLATION, qual, ra);
 }

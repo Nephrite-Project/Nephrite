@@ -61,13 +61,13 @@ static bool exception_contributory(int intno)
 /*
  * Records exception INTNO, whose delivery starts, as the one in delivery
  * where the conditions for double faults take it into account: a
- * contributory exception, #PF, or #DF (Intel SDM 325462-093 Vol. 3A, Table
- * 7-5).
+ * contributory exception, #PF, #VE, which is as severe (Intel SDM
+ * 325462-093 Vol. 3C, 28.5.8.3), or #DF (Vol. 3A, Table 7-5).
  */
 void x86_exception_in_delivery(CPUX86State *env, int intno)
 {
     if (exception_contributory(intno) || intno == EXCP0E_PAGE ||
-        intno == EXCP08_DBLE) {
+        intno == EXCP14_VE || intno == EXCP08_DBLE) {
         env->old_exception = intno;
     }
 }
@@ -106,7 +106,8 @@ static int check_exception(CPUX86State *env, int intno, int *error_code,
 #endif
 
     if ((first_contributory && second_contributory)
-        || (env->old_exception == EXCP0E_PAGE &&
+        || ((env->old_exception == EXCP0E_PAGE ||
+             env->old_exception == EXCP14_VE) &&
             (second_contributory || (intno == EXCP0E_PAGE)))) {
         intno = EXCP08_DBLE;
         *error_code = 0;

@@ -1677,6 +1677,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define VMX_SECONDARY_EXEC_ENCLS_EXITING            0x00008000
 #define VMX_SECONDARY_EXEC_RDSEED_EXITING           0x00010000
 #define VMX_SECONDARY_EXEC_ENABLE_PML               0x00020000
+#define VMX_SECONDARY_EXEC_EPT_VIOLATION_VE         0x00040000
 #define VMX_SECONDARY_EXEC_XSAVES                   0x00100000
 #define VMX_SECONDARY_EXEC_MODE_BASED_EPT_EXEC      0x00400000
 #define VMX_SECONDARY_EXEC_TSC_SCALING              0x02000000
@@ -1777,6 +1778,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define EXCP10_COPR     16
 #define EXCP11_ALGN     17
 #define EXCP12_MCHK     18
+#define EXCP14_VE       20
 #define EXCP15_CP       21
 
 #define EXCP_VMEXIT     0x100 /* only for system emulation */
@@ -2474,6 +2476,8 @@ typedef struct X86VMXState {
      * delivery or far CALL under way has marked busy.
      */
     bool shstk_pushes;
+    /* Bit 63, "suppress #VE", of the EPT entry an EPT violation found. */
+    bool ept_suppress_ve;
     /*
      * The VMX-preemption timer: running, the value VM entry loaded, and
      * the TSC shifted right by the timer's rate then.
