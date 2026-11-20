@@ -432,6 +432,10 @@ Processor emulation (TCG):
   the output, still asserted, requests the vector again, and a request
   stays when the output falls; LINT1 is edge-triggered whatever its entry's
   trigger mode, as only LINT0 is level-sensitive (SDM Vol. 3A, 13.5.1).
+* APIC errors raise the interrupt that the LVT error entry asks for, the
+  first after each write of the ESR, which shows the errors since the write
+  before; sending a vector of 0 to 15 is an error too, as is receiving one,
+  which never reaches the IRR (SDM Vol. 3A, 13.5.3).
 * Reserved-bit page faults set the P bit of their error codes, as do the
   nested page faults of reserved bits in nested page tables (SDM Vol. 3A,
   5.7), and AMD's processors reserve bit 8 of PML5Es and PML4Es, which

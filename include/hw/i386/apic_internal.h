@@ -184,6 +184,13 @@ struct APICCommonState {
     uint32_t lvt[APIC_LVT_NB];
     uint32_t esr; /* error register */
     /*
+     * The errors since the ESR's last write, which its next write shows, and
+     * whether one raised the error interrupt since (Intel SDM 325462-093 Vol.
+     * 3A, 13.5.3).
+     */
+    uint32_t esr_pending;
+    bool error_disarmed;
+    /*
      * AMD's extended APIC space (AMD64 Architecture Programmer's Manual
      * Volume 2, 24593 rev. 3.45, 16.3.5, 16.3.6, 16.4.5, and 16.7): the
      * extended control register, the interrupt enable registers, and the

@@ -215,6 +215,22 @@ static void apic_raise_nmi(X86CPU *cpu, int vector)
     cpu_interrupt(cs, CPU_INTERRUPT_NMI);
 }
 
+static void apic_local_deliver(APICCommonState *s, int vector);
+
+/*
+ * An APIC error, which the ESR shows from its next write: the first since the
+ * last write, or the reset, raises the error interrupt where the LVT error
+ * entry lets one through (Intel SDM 325462-093 Vol. 3A, 13.5.3).
+ */
+static void apic_error(APICCommonState *s, uint32_t error)
+{
+    s->esr_pending |= error;
+    if (!s->error_disarmed && !(s->lvt[APIC_LVT_ERROR] & APIC_LVT_MASKED)) {
+        s->error_disarmed = true;
+        apic_local_deliver(s, APIC_LVT_ERROR);
+    }
+}
+
 static void apic_local_deliver(APICCommonState *s, int vector)
 {
     uint32_t lvt = s->lvt[vector];
@@ -585,6 +601,14 @@ void apic_poll_irq(APICCommonState *s)
 
 static void apic_set_irq(APICCommonState *s, int vector_num, int trigger_mode)
 {
+    /*
+     * A vector of 0 to 15 is an error and never reaches the IRR (Intel SDM
+     * 325462-093 Vol. 3A, 13.5.3).
+     */
+    if (vector_num < 16) {
+        apic_error(s, APIC_ESR_RECV_ILLEGAL_VECT);
+        return;
+    }
     kvm_report_irq_delivered(!apic_get_bit(s->irr, vector_num));
 
     apic_set_bit(s->irr, vector_num);
@@ -829,6 +853,15 @@ static void apic_deliver(APICCommonState *s, uint32_t dest, uint8_t dest_mode,
     APICCommonState *apic_iter;
     uint32_t deliver_bitmask_size = max_apic_words * sizeof(uint32_t);
     g_autofree uint32_t *deliver_bitmask = g_new(uint32_t, max_apic_words);
+
+    /*
+     * Sending a vector of 0 to 15 is an error of the sender's, as well as
+     * of its targets' (Intel SDM 325462-093 Vol. 3A, 13.5.3).
+     */
+    if ((delivery_mode == APIC_DM_FIXED || delivery_mode == APIC_DM_LOWPRI) &&
+        vector_num < 16) {
+        apic_error(s, APIC_ESR_SEND_ILLEGAL_VECT);
+    }
 
     switch (dest_shorthand) {
     case 0:
@@ -1163,7 +1196,7 @@ static int apic_register_read(APICCommonState *s, int index, uint64_t *value)
         break;
     default:
     illegal:
-        s->esr |= APIC_ESR_ILLEGAL_ADDRESS;
+        apic_error(s, APIC_ESR_ILLEGAL_ADDRESS);
         val = 0;
         ret = -1;
         break;
@@ -1340,7 +1373,15 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
     case 0x10 ... 0x17:
     case 0x18 ... 0x1f:
     case 0x20 ... 0x27:
+        break;
     case 0x28:
+        /*
+         * A write shows the errors since the last one and rearms the error
+         * interrupt (Intel SDM 325462-093 Vol. 3A, 13.5.3).
+         */
+        s->esr = s->esr_pending;
+        s->esr_pending = 0;
+        s->error_disarmed = false;
         break;
     case 0x30: {
         uint32_t dest;
@@ -1486,7 +1527,7 @@ static int apic_register_write(APICCommonState *s, int index, uint64_t val)
         break;
     default:
     illegal:
-        s->esr |= APIC_ESR_ILLEGAL_ADDRESS;
+        apic_error(s, APIC_ESR_ILLEGAL_ADDRESS);
         return -1;
     }
 

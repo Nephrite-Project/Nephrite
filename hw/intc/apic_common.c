@@ -202,6 +202,8 @@ void apic_init_reset(APICCommonState *s)
         s->lvt[i] = APIC_LVT_MASKED;
     }
     s->esr = 0;
+    s->esr_pending = 0;
+    s->error_disarmed = false;
     s->ext_ctrl = 0;
     memset(s->ier, 0xff, sizeof(s->ier));
     for (i = 0; i < APIC_EILVT_NB; i++) {
@@ -335,6 +337,8 @@ static int apic_pre_load(void *opaque)
      * absent.
      */
     s->wait_for_sipi = 0;
+    s->esr_pending = 0;
+    s->error_disarmed = false;
     return 0;
 }
 
@@ -399,6 +403,25 @@ static const VMStateDescription vmstate_apic_common_ext = {
     }
 };
 
+static bool apic_common_error_needed(void *opaque)
+{
+    APICCommonState *s = APIC_COMMON(opaque);
+
+    return s->esr_pending || s->error_disarmed;
+}
+
+static const VMStateDescription vmstate_apic_common_error = {
+    .name = "apic_error",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = apic_common_error_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT32(esr_pending, APICCommonState),
+        VMSTATE_BOOL(error_disarmed, APICCommonState),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static const VMStateDescription vmstate_apic_common = {
     .name = "apic",
     .version_id = 3,
@@ -433,6 +456,7 @@ static const VMStateDescription vmstate_apic_common = {
     .subsections = (const VMStateDescription * const []) {
         &vmstate_apic_common_sipi,
         &vmstate_apic_common_ext,
+        &vmstate_apic_common_error,
         NULL
     }
 };
