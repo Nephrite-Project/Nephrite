@@ -1053,8 +1053,14 @@ do_check_pk:
         }
         if (unlikely(!translated)) {
             x86_vmx_ept_guest_page(env, ptep, ss);
+            /*
+             * A nested page fault that a shadow-stack access causes sets
+             * EXITINFO1's SS bit (AMD64 Architecture Programmer's Manual
+             * Volume 2, 24593 rev. 3.46, 15.25.7).
+             */
             *err = (TranslateFault){
-                .error_code = env->error_code,
+                .error_code = env->error_code |
+                              (ss && !env->vmx.nonroot ? PG_ERROR_SS_MASK : 0),
                 .cr2 = paddr,
                 .stage2 = S2_GPA,
                 .npf_bits = env->svm_npf_bits,

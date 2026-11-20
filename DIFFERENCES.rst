@@ -489,6 +489,8 @@ AMD SVM (TCG):
 * Machine checks take the #MC intercept, and in guests with CR4.MCE clear
   the shutdown intercept, where QEMU delivered #MC to the guest or reset
   the machine.
+* Nested page faults that shadow-stack accesses cause set EXITINFO1's SS
+  bit.
 
 Devices:
 
@@ -630,8 +632,7 @@ Known deviations and limits
 * Architectural LBRs: MISPRED marks the near indirect jumps and calls, as
   the PMU's branch-miss model has it, and there are no cycle times or
   event logging.
-* CET: shadow-stack accesses without paging are allowed, nested page
-  fault exit information lacks the shadow-stack bit, and ENDBR is
+* CET: shadow-stack accesses without paging are allowed, and ENDBR is
   recognized only as exactly ``F3 0F 1E FA`` and ``F3 0F 1E FB``.
 * FRED: SYSCALL under FRED does not need IA32_EFER.SCE, as the SDM's
   operation of SYSCALL has it. SVM keeps the FRED MSRs at the state-save
