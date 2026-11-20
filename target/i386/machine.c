@@ -1650,6 +1650,24 @@ static const VMStateDescription vmstate_mwait_halted = {
 };
 
 /* An MWAIT's halt that interrupts IF masks end too. */
+static bool mwait_deadline_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return cpu->env.mwait_deadline;
+}
+
+static const VMStateDescription vmstate_mwait_deadline = {
+    .name = "cpu/mwait_deadline",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = mwait_deadline_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT64(env.mwait_deadline, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool mwait_masked_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2235,6 +2253,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_svm_smm,
         &vmstate_mwait_halted,
         &vmstate_mwait_masked,
+        &vmstate_mwait_deadline,
 #ifndef TARGET_X86_64
         &vmstate_efer32,
 #endif

@@ -313,6 +313,8 @@ Processor features:
 * Hybrid parts: CPUID's hybrid bit, with leaf 1AH giving every core as an
   Intel Core, so that Linux's hybrid PMU driver finds its PMU on the models
   it knows as hybrid.
+* AMD's MONITORX and MWAITX (``mwaitx``), at any CPL, with MWAITX's timer,
+  under SVM's MONITOR and MWAIT intercepts.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
 * The virtual-8086 mode extensions and protected-mode virtual interrupts
@@ -467,6 +469,8 @@ Processor emulation (TCG):
   MONITOR monitors, or for an interrupt, instead of continuing at once, and
   MONITOR takes a byte load's faults and accessed flag; CPUID leaf 5 gives
   the line's 64 bytes.
+* MONITOR and MWAIT run at CPL > 0 on AMD's processors with HWCR's
+  MonMwaitUserEn.
 
 AMD SVM (TCG):
 

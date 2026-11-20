@@ -2398,6 +2398,29 @@ static void monitor_set(CPUX86State *env, hwaddr line, MemTxAttrs attrs,
 /* How often a wait looks for a store to the monitored line. */
 #define MONITOR_POLL_NS 20000
 
+/*
+ * Has the wait's timer look for a store to the monitored line where it is
+ * memory, and fire at MWAITX's deadline.
+ */
+static void mwait_arm(CPUX86State *env)
+{
+    int64_t ns = INT64_MAX;
+
+    if (env->monitor_memory) {
+        ns = MONITOR_POLL_NS;
+    }
+    if (env->mwait_deadline) {
+        uint64_t now = x86_tsc_read(env);
+
+        ns = MIN(ns, now < env->mwait_deadline ?
+                     cpu_tsc_ticks_ns(env, env->mwait_deadline - now) : 0);
+    }
+    if (ns != INT64_MAX) {
+        timer_mod(env_archcpu(env)->wait_timer,
+                  qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + ns);
+    }
+}
+
 /* Whether a store changed the bytes of the monitored line since it armed. */
 static bool monitor_stored(CPUX86State *env)
 {
@@ -2427,6 +2450,20 @@ static target_ulong monitor_extensions(CPUX86State *env)
 }
 
 /*
+ * MONITOR and MWAIT are for CPL 0, and on AMD's processors also for CPL > 0
+ * with HWCR's MonMwaitUserEn (Intel SDM 325462-093 Vol. 2B, MONITOR and
+ * MWAIT; AMD64 Architecture Programmer's Manual Volume 3, 24594 rev. 3.39,
+ * MONITOR and MWAIT): #UD otherwise, before any VM exit or intercept.
+ */
+static void monitor_cpl_check(CPUX86State *env, uintptr_t ra)
+{
+    if ((env->hflags & HF_CPL_MASK) &&
+        !(IS_AMD_CPU(env) && (env->msr_hwcr & HWCR_MON_MWAIT_USER_EN))) {
+        raise_exception_ra(env, EXCP06_ILLOP, ra);
+    }
+}
+
+/*
  * MONITOR and MWAIT exit VMX non-root operation before their faults (Intel
  * SDM 325462-093 Vol. 3C, 28.1.1), but SVM checks all their exceptions
  * before its intercepts (AMD64 Architecture Programmer's Manual Volume 2,
@@ -2438,6 +2475,7 @@ void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
     hwaddr line;
     bool memory;
 
+    monitor_cpl_check(env, GETPC());
     if (env->vmx.nonroot) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
     }
@@ -2469,6 +2507,7 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     CPUState *cs = env_cpu(env);
     target_ulong valid = 0;
 
+    monitor_cpl_check(env, GETPC());
     if (env_archcpu(env)->mwait.ecx & CPUID_MWAIT_IBE) {
         valid |= 1;
     }
@@ -2505,11 +2544,75 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     env->monitor_armed = false;
     env->mwait_halted = true;
     env->mwait_masked = monitor_extensions(env) & 1;
+    env->mwait_deadline = 0;
     qatomic_set(&env->wait_over, false);
-    if (env->monitor_memory) {
-        timer_mod(env_archcpu(env)->wait_timer,
-                  qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + MONITOR_POLL_NS);
+    mwait_arm(env);
+    do_hlt(env);
+}
+
+/*
+ * MONITORX, at any CPL, arms the monitor that MWAIT and MWAITX use, as
+ * MONITOR does; any bit of ECX makes #GP. SVM's MONITOR intercept takes it
+ * after its exceptions (AMD64 Architecture Programmer's Manual Volume 3,
+ * 24594 rev. 3.39, MONITORX; Volume 2, 24593 rev. 3.46, 15.9 and Table
+ * 15-7).
+ */
+void HELPER(monitorx)(CPUX86State *env, target_ulong ptr)
+{
+    MemTxAttrs attrs;
+    hwaddr line;
+    bool memory;
+
+    if ((uint32_t)env->regs[R_ECX]) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
+    memory = monitor_probe(env, ptr, &line, &attrs, GETPC());
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
+    monitor_set(env, line, attrs, memory);
+    env->monitor_armed = true;
+    env->umonitor_armed = false;
+}
+
+/*
+ * MWAITX, at any CPL, waits as MWAIT does; ECX[1] with EBX non-zero also
+ * ends the wait after EBX TSC ticks, and ECX bits past those it has make
+ * #GP (AMD64 Architecture Programmer's Manual Volume 3, 24594 rev. 3.39,
+ * MWAITX). SVM's MWAIT intercepts take it after its exceptions.
+ */
+G_NORETURN void HELPER(mwaitx)(CPUX86State *env, int next_eip_addend)
+{
+    CPUState *cs = env_cpu(env);
+    uint32_t ecx = env->regs[R_ECX];
+    uint32_t valid = 2;
+
+    if (env_archcpu(env)->mwait.ecx & CPUID_MWAIT_IBE) {
+        valid |= 1;
+    }
+    if (env->monitor_armed && monitor_stored(env)) {
+        env->monitor_armed = false;
+    }
+    if (ecx & ~valid) {
+        raise_exception_ra(env, EXCP0D_GPF, GETPC());
+    }
+    if (env->monitor_armed) {
+        cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT_COND, 0, GETPC());
+    }
+    cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
+    env->eip += next_eip_addend;
+
+    if (!env->monitor_armed || x86_vmx_mtf(env)) {
+        env->monitor_armed = false;
+        do_end_instruction(env);
+        HELPER(rechecking_single_step)(env);
+        cpu_loop_exit(cs);
+    }
+    env->monitor_armed = false;
+    env->mwait_halted = true;
+    env->mwait_masked = ecx & 1;
+    env->mwait_deadline = (ecx & 2) && (uint32_t)env->regs[R_EBX] ?
+                          x86_tsc_read(env) + (uint32_t)env->regs[R_EBX] : 0;
+    qatomic_set(&env->wait_over, false);
+    mwait_arm(env);
     do_hlt(env);
 }
 
@@ -2562,9 +2665,10 @@ static void wait_cb(void *opaque)
     CPUX86State *env = &cpu->env;
 
     if (env->mwait_halted) {
-        if (!monitor_stored(env)) {
-            timer_mod(cpu->wait_timer,
-                      qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + MONITOR_POLL_NS);
+        if (!monitor_stored(env) &&
+            !(env->mwait_deadline &&
+              x86_tsc_read(env) >= env->mwait_deadline)) {
+            mwait_arm(env);
             return;
         }
     } else if (!env->user_wait) {

@@ -916,12 +916,14 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #ifdef CONFIG_USER_ONLY
 #define TCG_EXT_PMU 0
 #define TCG_EXT3_PMU 0
+#define TCG_EXT3_MWAITX 0
 #define TCG_PERF_CAPABILITIES 0
 #define TCG_VMX_EXIT_PMU 0
 #define TCG_VMX_ENTRY_PMU 0
 #else
 #define TCG_EXT_PMU CPUID_EXT_PDCM
 #define TCG_EXT3_PMU CPUID_EXT3_PERFCORE
+#define TCG_EXT3_MWAITX CPUID_EXT3_MWAITX
 #define TCG_PERF_CAPABILITIES PERF_CAP_FW_WRITE
 #define TCG_VMX_EXIT_PMU (VMX_VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL | \
           VMX_VM_EXIT_SAVE_IA32_PERF_GLOBAL_CTRL | \
@@ -1054,7 +1056,7 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           CPUID_EXT3_MISALIGNSSE | \
           CPUID_EXT3_KERNEL_FEATURES | \
           CPUID_EXT3_CMP_LEG | CPUID_EXT3_BPEXT | CPUID_EXT3_ADDRMASKEXT | \
-          CPUID_EXT3_EXTAPIC | \
+          CPUID_EXT3_EXTAPIC | TCG_EXT3_MWAITX | \
           TCG_EXT3_PMU)
 
 #define TCG_EXT4_FEATURES 0
@@ -1342,7 +1344,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             "fma4", "tce", NULL, "nodeid-msr",
             NULL, "tbm", "topoext", "perfctr-core",
             "perfctr-nb", NULL, "bpext", NULL,
-            NULL, NULL, "addrmaskext", NULL,
+            NULL, "mwaitx", "addrmaskext", NULL,
         },
         .cpuid = { .eax = 0x80000001, .reg = R_ECX, },
         .tcg_features = TCG_EXT3_FEATURES,

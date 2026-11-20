@@ -746,6 +746,7 @@ typedef enum X86Seg {
 #define MSR_K7_HWCR                     0xc0010015
 #define MSR_AMD_IRPERF_COUNT            0xc00000e9
 #define HWCR_MC_STATUS_WR_EN            (1ULL << 18)
+#define HWCR_MON_MWAIT_USER_EN          (1ULL << 10)
 #define HWCR_IRPERF_EN                  (1ULL << 30)
 #define HWCR_CPUID_USER_DIS             (1ULL << 35)
 
@@ -1120,6 +1121,7 @@ uint64_t x86_cpu_get_supported_feature_word(X86CPU *cpu, FeatureWord w);
 #define CPUID_EXT3_PERFCORE (1U << 23)
 #define CPUID_EXT3_PERFNB  (1U << 24)
 #define CPUID_EXT3_BPEXT   (1U << 26) /* DataBkptExt: DR0_ADDR_MASK */
+#define CPUID_EXT3_MWAITX  (1U << 29) /* MONITORX and MWAITX */
 #define CPUID_EXT3_ADDRMASKEXT (1U << 30) /* DR1-3_ADDR_MASK too */
 
 #define CPUID_SVM_NPT             (1U << 0)
@@ -3035,6 +3037,8 @@ typedef struct CPUArchState {
     bool hlt_woke;
     bool mwait_halted;
     bool mwait_masked;
+    /* The TSC at which MWAITX's timer ends its wait, or 0. */
+    uint64_t mwait_deadline;
     /*
      * FRED: an event's delivery is under way, so that an exception now is
      * one nested on it, whose saved CS takes fred_nested_ibt as bit 18

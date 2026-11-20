@@ -3738,9 +3738,13 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
 #endif
 
         case 0xc8: /* monitor */
-            if (!(s->cpuid_ext_features & CPUID_EXT_MONITOR) || CPL(s) != 0) {
+            if (!(s->cpuid_ext_features & CPUID_EXT_MONITOR)) {
                 goto illegal_op;
             }
+#ifdef CONFIG_USER_ONLY
+            /* User mode runs at CPL 3, without MonMwaitUserEn. */
+            goto illegal_op;
+#endif
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_lea_v_seg(s, cpu_regs[R_EAX], R_DS, s->override, SEG_R(1));
@@ -3748,9 +3752,12 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
             break;
 
         case 0xc9: /* mwait */
-            if (!(s->cpuid_ext_features & CPUID_EXT_MONITOR) || CPL(s) != 0) {
+            if (!(s->cpuid_ext_features & CPUID_EXT_MONITOR)) {
                 goto illegal_op;
             }
+#ifdef CONFIG_USER_ONLY
+            goto illegal_op;
+#endif
             gen_update_cc_op(s);
             gen_update_eip_cur(s);
             gen_helper_mwait(tcg_env, cur_insn_len_i32(s));
@@ -4198,6 +4205,28 @@ static void gen_multi0F(DisasContext *s, X86DecodedInsn *decode)
                 s->base.is_jmp = DISAS_EOB_NEXT;
             }
             break;
+
+#ifndef CONFIG_USER_ONLY
+        case 0xfa: /* MONITORX */
+            if (!(s->cpuid_ext3_features & CPUID_EXT3_MWAITX)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_lea_v_seg(s, cpu_regs[R_EAX], R_DS, s->override, SEG_R(1));
+            gen_helper_monitorx(tcg_env, s->A0);
+            break;
+
+        case 0xfb: /* MWAITX */
+            if (!(s->cpuid_ext3_features & CPUID_EXT3_MWAITX)) {
+                goto illegal_op;
+            }
+            gen_update_cc_op(s);
+            gen_update_eip_cur(s);
+            gen_helper_mwaitx(tcg_env, cur_insn_len_i32(s));
+            s->base.is_jmp = DISAS_NORETURN;
+            break;
+#endif
 
         case 0xfc: /* CLZERO */
             if (!(s->cpuid_8000_0008_ebx_features &
