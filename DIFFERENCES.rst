@@ -494,6 +494,8 @@ Devices:
   that ends it with DATAUNDERRUN, and advances its data toggle, as after
   any packet that went through; a TD retired with an error gives the ED's
   toggleCarry its data toggle.
+* OHCI resumes a suspended root hub port at a write of ClearSuspendStatus,
+  which it ignored.
 
 Memory and KVM:
 

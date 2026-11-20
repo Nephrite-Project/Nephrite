@@ -1573,6 +1573,16 @@ static void ohci_port_set_status(OHCIState *ohci, int portnum, uint32_t val)
         trace_usb_ohci_port_suspend(portnum);
     }
 
+    /*
+     * ClearSuspendStatus resumes a suspended port; the end of the resume
+     * clears PortSuspendStatus and sets PortSuspendStatusChange (OHCI 1.0a,
+     * 7.4.4).
+     */
+    if ((val & OHCI_PORT_POCI) && (port->ctrl & OHCI_PORT_PSS)) {
+        port->ctrl &= ~OHCI_PORT_PSS;
+        port->ctrl |= OHCI_PORT_PSSC;
+    }
+
     if (ohci_port_set_if_connected(ohci, portnum, val & OHCI_PORT_PRS)) {
         trace_usb_ohci_port_reset(portnum);
         usb_device_reset(port->port.dev);
