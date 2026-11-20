@@ -416,6 +416,10 @@ Processor emulation (TCG):
 * CR4's upper half, which holds CR4.FRED, survives TCG's and the gdbstub's
   CR4 writes and SMM, whose state-save area has a quadword for CR4, and
   register dumps show it.
+* A store to code that another processor translates while the store is
+  under way no longer leaves a translation of the old code behind: Linux,
+  patching its static branches with INT3 on several processors, oopsed at
+  INT3s it had already taken out.
 * MONITOR and MWAIT exit VMX non-root operation before the #GP of reserved
   ECX bits, but meet SVM's intercepts, the conditional MWAIT one too, after
   it; MWAIT takes ECX[0], which leaf 5 reports, for interrupts that IF

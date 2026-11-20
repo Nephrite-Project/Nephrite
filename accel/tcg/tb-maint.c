@@ -191,6 +191,8 @@ struct PageDesc {
     QemuSpin lock;
     /* list of TBs intersecting this ram page */
     uintptr_t first_tb;
+    /* the translations begun from this page, which notdirty_write() reads */
+    uint32_t translations;
 };
 
 void page_table_config_init(void)
@@ -406,9 +408,37 @@ static void page_unlock(PageDesc *pd)
     page_unlock__debug(pd);
 }
 
+/*
+ * Begins a translation from the page that @pd describes, whose lock is
+ * held, before it reads the page: protects the page, as the TB will, so
+ * that stores to it take the slow path from now on, then counts the
+ * translation, which a store that found no TB to invalidate before its
+ * write looks for after it (see notdirty_write()).
+ */
+static void page_translate_begin(PageDesc *pd, tb_page_addr_t paddr)
+{
+    assert_page_locked(pd);
+    if (!pd->first_tb) {
+        tlb_protect_code(paddr & TARGET_PAGE_MASK);
+    }
+    qatomic_inc(&pd->translations);
+    /* The count before the code that the translation reads, against stores. */
+    smp_mb();
+}
+
+uint32_t tb_page_translations(ram_addr_t ram_addr)
+{
+    PageDesc *pd = page_find(ram_addr >> TARGET_PAGE_BITS);
+
+    return pd ? qatomic_read(&pd->translations) : 0;
+}
+
 void tb_lock_page0(tb_page_addr_t paddr)
 {
-    page_lock(page_find_alloc(paddr >> TARGET_PAGE_BITS, true));
+    PageDesc *pd = page_find_alloc(paddr >> TARGET_PAGE_BITS, true);
+
+    page_lock(pd);
+    page_translate_begin(pd, paddr);
 }
 
 void tb_lock_page1(tb_page_addr_t paddr0, tb_page_addr_t paddr1)
@@ -426,22 +456,26 @@ void tb_lock_page1(tb_page_addr_t paddr0, tb_page_addr_t paddr1)
     if (pindex0 < pindex1) {
         /* Correct locking order, we may block. */
         page_lock(pd1);
+        page_translate_begin(pd1, paddr1);
         return;
     }
 
     /* Incorrect locking order, we cannot block lest we deadlock. */
     if (!page_trylock(pd1)) {
+        page_translate_begin(pd1, paddr1);
         return;
     }
 
     /*
      * Drop the lock on page0 and get both page locks in the right order.
-     * Restart translation via longjmp.
+     * Restart translation via longjmp, which reads page0 again.
      */
     pd0 = page_find_alloc(pindex0, false);
     page_unlock(pd0);
     page_lock(pd1);
     page_lock(pd0);
+    page_translate_begin(pd1, paddr1);
+    page_translate_begin(pd0, paddr0);
     siglongjmp(tcg_ctx->jmp_trans, -3);
 }
 
@@ -693,27 +727,15 @@ static void tb_remove_all(void)
 }
 
 /*
- * Add the tb in the target page and protect it if necessary.
+ * Add the tb in the target page, which page_translate_begin() protected.
  * Called with @p->lock held.
  */
 static void tb_page_add(PageDesc *p, TranslationBlock *tb, unsigned int n)
 {
-    bool page_already_protected;
-
     assert_page_locked(p);
 
     tb->page_next[n] = p->first_tb;
-    page_already_protected = p->first_tb != 0;
     p->first_tb = (uintptr_t)tb | n;
-
-    /*
-     * If some code is already present, then the pages are already
-     * protected. So we handle the case where only the first TB is
-     * allocated in a physical page.
-     */
-    if (!page_already_protected) {
-        tlb_protect_code(tb->page_addr[n] & TARGET_PAGE_MASK);
-    }
 }
 
 static void tb_record(TranslationBlock *tb)
@@ -1205,21 +1227,25 @@ void tb_invalidate_phys_range(CPUState *cpu, tb_page_addr_t start,
 /*
  * len must be <= 8 and start must be a multiple of len.
  * Called via softmmu_template.h when code areas are written to with
- * iothread mutex not held.
+ * iothread mutex not held. Returns the page's translations, counted under
+ * its lock.
  */
-void tb_invalidate_phys_range_fast(CPUState *cpu, ram_addr_t start,
-                                   unsigned len, uintptr_t ra)
+uint32_t tb_invalidate_phys_range_fast(CPUState *cpu, ram_addr_t start,
+                                       unsigned len, uintptr_t ra)
 {
     PageDesc *p = page_find(start >> TARGET_PAGE_BITS);
+    uint32_t translations = 0;
 
     if (p) {
         ram_addr_t last = start + len - 1;
         struct page_collection *pages = page_collection_lock(start, last);
 
+        translations = p->translations;
         tb_invalidate_phys_page_range__locked(cpu, pages, p,
                                               start, last, ra);
         page_collection_unlock(pages);
     }
+    return translations;
 }
 
 #endif /* CONFIG_USER_ONLY */

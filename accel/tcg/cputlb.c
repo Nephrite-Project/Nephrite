@@ -1348,16 +1348,71 @@ static bool victim_tlb_hit(CPUState *cpu, size_t mmu_idx, size_t index,
     return false;
 }
 
+/*
+ * The writes that notdirty_write() let through: the translations begun from
+ * each one's page when it invalidated the page's TBs, which a translation
+ * begun before its write lands, reading the old code, will have changed.
+ * The writes of TCG's slow path end with notdirty_done(); those of helpers
+ * that write through probed host addresses meet a later one.
+ */
+typedef struct NotdirtyWrite {
+    ram_addr_t ram_addr;
+    unsigned size;
+    uint32_t translations;
+} NotdirtyWrite;
+
+static __thread NotdirtyWrite notdirty_writes[8];
+static __thread unsigned notdirty_count;
+
+/* Invalidates the TBs begun from the old code that a write replaced. */
+static void notdirty_done(CPUState *cpu)
+{
+    unsigned i;
+
+    if (likely(!notdirty_count)) {
+        return;
+    }
+    /* The writes before the counts, as page_translate_begin() has it. */
+    smp_mb();
+    for (i = 0; i < notdirty_count; i++) {
+        NotdirtyWrite *w = &notdirty_writes[i];
+
+        if (tb_page_translations(w->ram_addr) != w->translations) {
+            tb_invalidate_phys_range(cpu, w->ram_addr,
+                                     w->ram_addr + w->size - 1);
+        }
+    }
+    notdirty_count = 0;
+}
+
 static void notdirty_write(CPUState *cpu, vaddr mem_vaddr, unsigned size,
                            CPUTLBEntryFull *full, uintptr_t retaddr)
 {
     ram_addr_t ram_addr = mem_vaddr + full->xlat_offset;
+    uint32_t translations;
 
     trace_memory_notdirty_write_access(mem_vaddr, ram_addr, size);
 
+    /*
+     * A translation counted before this read protected the page first, so
+     * that the page then has TBs to invalidate, under its lock, or one being
+     * made, whose lock tb_invalidate_phys_range_fast() waits for.
+     */
+    translations = tb_page_translations(ram_addr);
+    /* The count before the flag, which page_translate_begin() clears first. */
+    smp_rmb();
     if (!physical_memory_get_dirty_flag(ram_addr, DIRTY_MEMORY_CODE)) {
-        tb_invalidate_phys_range_fast(cpu, ram_addr, size, retaddr);
+        translations = tb_invalidate_phys_range_fast(cpu, ram_addr, size,
+                                                     retaddr);
     }
+    if (notdirty_count == ARRAY_SIZE(notdirty_writes)) {
+        notdirty_done(cpu);
+    }
+    notdirty_writes[notdirty_count++] = (NotdirtyWrite) {
+        .ram_addr = ram_addr,
+        .size = size,
+        .translations = translations,
+    };
 
     /*
      * Set both VGA and migration bits for simplicity and to remove
@@ -2710,6 +2765,7 @@ static void do_st1_mmu(CPUState *cpu, vaddr addr, uint8_t val,
     tcg_debug_assert(!crosspage);
 
     do_st_1(cpu, &l.page[0], val, l.mmu_idx, ra);
+    notdirty_done(cpu);
 }
 
 static void do_st2_mmu(CPUState *cpu, vaddr addr, uint16_t val,
@@ -2723,6 +2779,7 @@ static void do_st2_mmu(CPUState *cpu, vaddr addr, uint16_t val,
     crosspage = mmu_lookup(cpu, addr, oi, ra, MMU_DATA_STORE, &l);
     if (likely(!crosspage)) {
         do_st_2(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
+        notdirty_done(cpu);
         return;
     }
 
@@ -2733,6 +2790,7 @@ static void do_st2_mmu(CPUState *cpu, vaddr addr, uint16_t val,
     }
     do_st_1(cpu, &l.page[0], a, l.mmu_idx, ra);
     do_st_1(cpu, &l.page[1], b, l.mmu_idx, ra);
+    notdirty_done(cpu);
 }
 
 static void do_st4_mmu(CPUState *cpu, vaddr addr, uint32_t val,
@@ -2745,6 +2803,7 @@ static void do_st4_mmu(CPUState *cpu, vaddr addr, uint32_t val,
     crosspage = mmu_lookup(cpu, addr, oi, ra, MMU_DATA_STORE, &l);
     if (likely(!crosspage)) {
         do_st_4(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
+        notdirty_done(cpu);
         return;
     }
 
@@ -2754,6 +2813,7 @@ static void do_st4_mmu(CPUState *cpu, vaddr addr, uint32_t val,
     }
     val = do_st_leN(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
     (void) do_st_leN(cpu, &l.page[1], val, l.mmu_idx, l.memop, ra);
+    notdirty_done(cpu);
 }
 
 static void do_st8_mmu(CPUState *cpu, vaddr addr, uint64_t val,
@@ -2766,6 +2826,7 @@ static void do_st8_mmu(CPUState *cpu, vaddr addr, uint64_t val,
     crosspage = mmu_lookup(cpu, addr, oi, ra, MMU_DATA_STORE, &l);
     if (likely(!crosspage)) {
         do_st_8(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
+        notdirty_done(cpu);
         return;
     }
 
@@ -2775,6 +2836,7 @@ static void do_st8_mmu(CPUState *cpu, vaddr addr, uint64_t val,
     }
     val = do_st_leN(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
     (void) do_st_leN(cpu, &l.page[1], val, l.mmu_idx, l.memop, ra);
+    notdirty_done(cpu);
 }
 
 static void do_st16_mmu(CPUState *cpu, vaddr addr, Int128 val,
@@ -2802,6 +2864,7 @@ static void do_st16_mmu(CPUState *cpu, vaddr addr, Int128 val,
             }
             store_atom_16(cpu, ra, l.page[0].haddr, l.memop, val);
         }
+        notdirty_done(cpu);
         return;
     }
 
@@ -2819,6 +2882,7 @@ static void do_st16_mmu(CPUState *cpu, vaddr addr, Int128 val,
         }
         do_st_8(cpu, &l.page[0], a, l.mmu_idx, mop8, ra);
         do_st_8(cpu, &l.page[1], b, l.mmu_idx, mop8, ra);
+        notdirty_done(cpu);
         return;
     }
 
@@ -2833,6 +2897,7 @@ static void do_st16_mmu(CPUState *cpu, vaddr addr, Int128 val,
         b = do_st16_leN(cpu, &l.page[0], val, l.mmu_idx, l.memop, ra);
         do_st_leN(cpu, &l.page[1], b, l.mmu_idx, l.memop, ra);
     }
+    notdirty_done(cpu);
 }
 
 #include "ldst_common.c.inc"
@@ -2845,7 +2910,7 @@ static void do_st16_mmu(CPUState *cpu, vaddr addr, Int128 val,
 #define ATOMIC_NAME(X) \
     glue(glue(glue(cpu_atomic_ ## X, SUFFIX), END), _mmu)
 
-#define ATOMIC_MMU_CLEANUP
+#define ATOMIC_MMU_CLEANUP notdirty_done(env_cpu(env))
 
 #include "atomic_common.c.inc"
 
