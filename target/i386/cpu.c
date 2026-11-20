@@ -981,11 +981,13 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
           VMX_VM_EXIT_LOAD_IA32_PAT | VMX_VM_EXIT_SAVE_IA32_EFER | \
           VMX_VM_EXIT_LOAD_IA32_EFER | VMX_VM_EXIT_SAVE_VMX_PREEMPTION_TIMER | \
           VMX_VM_EXIT_SAVE_CET | VMX_VM_EXIT_CLEAR_UINV | TCG_VMX_EXIT_PMU | \
+          VMX_VM_EXIT_CLEAR_BNDCFGS | VMX_VM_EXIT_LOAD_IA32_PKRS | \
           VMX_VM_EXIT_ACTIVATE_SECONDARY_CONTROLS)
 #define TCG_VMX_ENTRY (VMX_VM_ENTRY_LOAD_DEBUG_CONTROLS | \
           VMX_VM_ENTRY_IA32E_MODE | VMX_VM_ENTRY_LOAD_IA32_PAT | \
           VMX_VM_ENTRY_LOAD_IA32_EFER | VMX_VM_ENTRY_LOAD_CET | \
           VMX_VM_ENTRY_LOAD_UINV | VMX_VM_ENTRY_LOAD_IA32_FRED | \
+          VMX_VM_ENTRY_LOAD_BNDCFGS | VMX_VM_ENTRY_LOAD_IA32_PKRS | \
           TCG_VMX_ENTRY_PMU)
 
 #define TCG_EXT_FEATURES (CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ | \
@@ -2246,6 +2248,14 @@ static FeatureDep feature_dependencies[] = {
     {
         .from = { FEAT_7_0_EBX,             CPUID_7_0_EBX_RDSEED },
         .to = { FEAT_VMX_SECONDARY_CTLS,    VMX_SECONDARY_EXEC_RDSEED_EXITING },
+    },
+    {
+        .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },
+        .to = { FEAT_VMX_EXIT_CTLS,         VMX_VM_EXIT_LOAD_IA32_PKRS },
+    },
+    {
+        .from = { FEAT_7_0_ECX,             CPUID_7_0_ECX_PKS },
+        .to = { FEAT_VMX_ENTRY_CTLS,        VMX_VM_ENTRY_LOAD_IA32_PKRS },
     },
     {
         .from = { FEAT_7_0_EBX,             CPUID_7_0_EBX_INTEL_PT },

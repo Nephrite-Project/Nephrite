@@ -105,6 +105,8 @@
 #define VMCS_GUEST_EFER 0x2806
 #define VMCS_GUEST_PERF_GLOBAL_CTRL 0x2808
 #define VMCS_GUEST_PDPTE(n) (0x280a + 2 * (n))
+#define VMCS_GUEST_BNDCFGS 0x2812
+#define VMCS_GUEST_PKRS 0x2818
 /*
  * IA32_FRED_CONFIG, IA32_FRED_RSP1 to 3, IA32_FRED_STKLVLS, and
  * IA32_FRED_SSP1 to 3, the guest's and the host's, 2 encodings apart.
@@ -113,6 +115,7 @@
 #define VMCS_HOST_PAT 0x2c00
 #define VMCS_HOST_EFER 0x2c02
 #define VMCS_HOST_PERF_GLOBAL_CTRL 0x2c04
+#define VMCS_HOST_PKRS 0x2c06
 #define VMCS_HOST_FRED 0x2c08
 #define VMCS_PIN_CONTROLS 0x4000
 #define VMCS_PROC_CONTROLS 0x4002
@@ -310,6 +313,7 @@ static const uint16_t vmcs_fields[] = {
     0x280c, /* guest PDPTE1 */
     0x280e, /* guest PDPTE2 */
     0x2810, /* guest PDPTE3 */
+    0x2812, /* guest IA32_BNDCFGS */
     0x2818, /* guest IA32_PKRS */
     0x281a, /* guest IA32_FRED_CONFIG */
     0x281c, /* guest IA32_FRED_RSP1 */
@@ -2573,6 +2577,17 @@ static void vmx_save_guest(CPUX86State *env)
         VMCS_SET(GUEST_SSP, env->guest_ssp);
     }
     /*
+     * Where their controls exist, every VM exit saves IA32_BNDCFGS and
+     * IA32_PKRS (Intel SDM 325462-093 Vol. 3C, 30.3.3).
+     */
+    if ((vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_BNDCFGS) ||
+        (vmx_exit_features(env) & VMX_VM_EXIT_CLEAR_BNDCFGS)) {
+        VMCS_SET(GUEST_BNDCFGS, env->msr_bndcfgs);
+    }
+    if (vmx_entry_features(env) & VMX_VM_ENTRY_LOAD_IA32_PKRS) {
+        VMCS_SET(GUEST_PKRS, env->pkrs);
+    }
+    /*
      * With user interrupts, every VM exit saves UINV (Intel SDM 325462-093
      * Vol. 3C, 30.3.1).
      */
@@ -2796,6 +2811,17 @@ static void vmx_load_host(CPUX86State *env)
         env->int_ssp_table = VMCS(HOST_ISST);
 #endif
         env->guest_ssp = VMCS(HOST_SSP);
+    }
+    /*
+     * "Clear IA32_BNDCFGS" and "load PKRS" (Intel SDM 325462-093 Vol. 3C,
+     * 30.5.1).
+     */
+    if (exit_ctl & VMX_VM_EXIT_CLEAR_BNDCFGS) {
+        env->msr_bndcfgs = 0;
+        cpu_sync_bndcs_hflags(env);
+    }
+    if (exit_ctl & VMX_VM_EXIT_LOAD_IA32_PKRS) {
+        env->pkrs = (uint32_t)VMCS(HOST_PKRS);
     }
     /* "Clear UINV" (Intel SDM 325462-093 Vol. 3C, 30.5.1). */
     if (exit_ctl & VMX_VM_EXIT_CLEAR_UINV) {
@@ -3222,6 +3248,9 @@ static bool vmx_host_state_valid(CPUX86State *env)
         !x86_pmu_global_ctrl_valid(VMCS(HOST_PERF_GLOBAL_CTRL))) {
         return false;
     }
+    if ((exit_ctl & VMX_VM_EXIT_LOAD_IA32_PKRS) && VMCS(HOST_PKRS) >> 32) {
+        return false;
+    }
     if (exit_ctl & VMX_VM_EXIT_LOAD_CET) {
         uint64_t s_cet = VMCS(HOST_S_CET), ssp = VMCS(HOST_SSP);
 
@@ -3501,6 +3530,14 @@ static int vmx_guest_state_check(CPUX86State *env)
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_UINV) && (VMCS(GUEST_UINV) & 0xff00)) {
         return 1;
     }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_BNDCFGS) &&
+        ((VMCS(GUEST_BNDCFGS) & 0xffc) ||
+         !vmx_canonical(env, VMCS(GUEST_BNDCFGS) & ~0xfffULL))) {
+        return 1;
+    }
+    if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) && VMCS(GUEST_PKRS) >> 32) {
+        return 1;
+    }
     if ((entry_ctl & VMX_VM_ENTRY_LOAD_IA32_FRED) &&
         !vmx_fred_fields_valid(env, VMCS_GUEST_FRED)) {
         return 1;
@@ -3666,6 +3703,13 @@ static void vmx_load_guest(CPUX86State *env)
         env->int_ssp_table = VMCS(GUEST_ISST);
 #endif
         env->guest_ssp = VMCS(GUEST_SSP);
+    }
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_BNDCFGS) {
+        env->msr_bndcfgs = VMCS(GUEST_BNDCFGS);
+        cpu_sync_bndcs_hflags(env);
+    }
+    if (entry_ctl & VMX_VM_ENTRY_LOAD_IA32_PKRS) {
+        env->pkrs = VMCS(GUEST_PKRS);
     }
     /* "Load UINV" (Intel SDM 325462-093 Vol. 3C, 29.3.2.1). */
     if (entry_ctl & VMX_VM_ENTRY_LOAD_UINV) {
