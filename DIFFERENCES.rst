@@ -596,9 +596,13 @@ Behaviour changes
 * KVM's in-kernel PIT drops the ticks that a guest missed, as an 8254 and
   TCG's PIT do, where QEMU redelivers them back to back;
   ``-global kvm-pit.lost_tick_policy=delay`` brings QEMU's behaviour back.
-* TCG's ``max`` CPU model has VMX, user interrupts, and FRED; SVM tests,
-  written for AMD processors without them, need
-  ``-cpu max,+svm,-vmx,-uintr,-fred``.
+* TCG's ``max`` CPU model has, of what TCG offers, the features of the
+  vendor it models, and leaves out those that only the other vendor's
+  processors have, unless they are named, as ``+vmx`` with the default
+  AMD vendor is: VMX, user interrupts, and Intel's other features come
+  with ``vendor=GenuineIntel``, SVM and AMD's other features without it.
+  FRED, which both vendors define, stays; SVM tests written for AMD
+  processors without it need ``-cpu max,+svm,-fred``.
 * MWAIT without an armed monitor continues at once.
 * The STI and MOV SS shadows hold external-interrupt and NMI VM exits.
 * VMX MSR lists of more than 512 entries fail VM entry, as with Linux's

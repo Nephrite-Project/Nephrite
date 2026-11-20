@@ -10399,6 +10399,96 @@ static void x86_cpu_enable_xsave_components(X86CPU *cpu)
 /* Expand CPU configuration data, based on configured features
  * and host/accelerator capabilities when appropriate.
  */
+/*
+ * The feature bits that only Intel's processors have and those that only
+ * AMD's have, which TCG's max model, offering what TCG has of both, leaves
+ * out for the other vendor's model: what one vendor's manual defines and
+ * the other's leaves reserved (Intel SDM 325462-093 Vol. 1, Chapter 21;
+ * AMD64 Architecture Programmer's Manual Volume 3, 24594 rev. 3.39,
+ * Appendix E), but for PCID, FSRM, and AVX512_VP2INTERSECT, which the APM
+ * leaves out but AMD's processors report. Leaf C000_0001H is neither's.
+ * The words that hang off one feature bit, such as VMX's and SVM's, follow
+ * it through feature_dependencies[], so that a vendor's feature added on
+ * purpose to the other vendor's model keeps them.
+ */
+static const uint64_t intel_only_features[FEATURE_WORDS] = {
+    [FEAT_1_ECX] = (uint32_t)~(CPUID_EXT_SSE3 | CPUID_EXT_PCLMULQDQ |
+        CPUID_EXT_MONITOR | CPUID_EXT_SSSE3 | CPUID_EXT_FMA | CPUID_EXT_CX16 |
+        CPUID_EXT_PCID | CPUID_EXT_SSE41 | CPUID_EXT_SSE42 |
+        CPUID_EXT_X2APIC | CPUID_EXT_MOVBE | CPUID_EXT_POPCNT |
+        CPUID_EXT_AES | CPUID_EXT_XSAVE | CPUID_EXT_OSXSAVE | CPUID_EXT_AVX |
+        CPUID_EXT_F16C | CPUID_EXT_RDRAND | CPUID_EXT_HYPERVISOR),
+    [FEAT_1_EDX] = (uint32_t)~(CPUID_FP87 | CPUID_VME | CPUID_DE |
+        CPUID_PSE | CPUID_TSC | CPUID_MSR | CPUID_PAE | CPUID_MCE |
+        CPUID_CX8 | CPUID_APIC | CPUID_SEP | CPUID_MTRR | CPUID_PGE |
+        CPUID_MCA | CPUID_CMOV | CPUID_PAT | CPUID_PSE36 | CPUID_CLFLUSH |
+        CPUID_MMX | CPUID_FXSR | CPUID_SSE | CPUID_SSE2 | CPUID_HT),
+    [FEAT_7_0_EBX] = (uint32_t)~(CPUID_7_0_EBX_FSGSBASE |
+        CPUID_7_0_EBX_TSC_ADJUST | CPUID_7_0_EBX_BMI1 | CPUID_7_0_EBX_AVX2 |
+        CPUID_7_0_EBX_SMEP | CPUID_7_0_EBX_BMI2 | CPUID_7_0_EBX_ERMS |
+        CPUID_7_0_EBX_INVPCID | 1U << 12 /* PQM */ | 1U << 15 /* PQE */ |
+        CPUID_7_0_EBX_AVX512F | CPUID_7_0_EBX_AVX512DQ |
+        CPUID_7_0_EBX_RDSEED | CPUID_7_0_EBX_ADX | CPUID_7_0_EBX_SMAP |
+        CPUID_7_0_EBX_AVX512IFMA | CPUID_7_0_EBX_CLFLUSHOPT |
+        CPUID_7_0_EBX_CLWB | CPUID_7_0_EBX_AVX512CD | CPUID_7_0_EBX_SHA_NI |
+        CPUID_7_0_EBX_AVX512BW | CPUID_7_0_EBX_AVX512VL),
+    [FEAT_7_0_ECX] = (uint32_t)~(CPUID_7_0_ECX_AVX512_VBMI |
+        CPUID_7_0_ECX_UMIP | CPUID_7_0_ECX_PKU | CPUID_7_0_ECX_OSPKE |
+        CPUID_7_0_ECX_AVX512_VBMI2 | CPUID_7_0_ECX_CET_SHSTK |
+        CPUID_7_0_ECX_GFNI | CPUID_7_0_ECX_VAES | CPUID_7_0_ECX_VPCLMULQDQ |
+        CPUID_7_0_ECX_AVX512VNNI | CPUID_7_0_ECX_AVX512BITALG |
+        CPUID_7_0_ECX_AVX512_VPOPCNTDQ | CPUID_7_0_ECX_LA57 |
+        CPUID_7_0_ECX_RDPID | CPUID_7_0_ECX_BUS_LOCK_DETECT |
+        CPUID_7_0_ECX_MOVDIRI | CPUID_7_0_ECX_MOVDIR64B),
+    [FEAT_7_0_EDX] = (uint32_t)~(CPUID_7_0_EDX_FSRM |
+        CPUID_7_0_EDX_AVX512_VP2INTERSECT | CPUID_7_0_EDX_AVX512_FP16 |
+        CPUID_7_0_EDX_FLUSH_L1D),
+    [FEAT_7_1_EAX] = (uint32_t)~(CPUID_7_1_EAX_AVX_VNNI |
+        CPUID_7_1_EAX_AVX512_BF16 | CPUID_7_1_EAX_FRED | CPUID_7_1_EAX_LKGS |
+        CPUID_7_1_EAX_AVX_IFMA),
+    [FEAT_7_1_ECX] = UINT32_MAX,
+    [FEAT_7_1_EDX] = (uint32_t)~(CPUID_7_1_EDX_AVX_VNNI_INT8 |
+        CPUID_7_1_EDX_AVX_NE_CONVERT),
+    [FEAT_7_2_EDX] = UINT32_MAX,
+    [FEAT_XSAVE] = CPUID_D_1_EAX_XFD,
+    [FEAT_1E_1_EAX] = UINT32_MAX,
+    [FEAT_24_1_ECX] = UINT32_MAX,
+    [FEAT_29_0_EBX] = UINT32_MAX,
+    [FEAT_C000_0001_EDX] = UINT32_MAX,
+};
+
+static const uint64_t amd_only_features[FEATURE_WORDS] = {
+    [FEAT_8000_0001_ECX] = (uint32_t)~(CPUID_EXT3_LAHF_LM | CPUID_EXT3_ABM |
+        CPUID_EXT3_3DNOWPREFETCH),
+    [FEAT_8000_0001_EDX] = (uint32_t)~(CPUID_EXT2_SYSCALL | CPUID_EXT2_NX |
+        CPUID_EXT2_PDPE1GB | CPUID_EXT2_RDTSCP | CPUID_EXT2_LM),
+    [FEAT_8000_0007_EBX] = UINT32_MAX,
+    [FEAT_8000_0007_EDX] = (uint32_t)~CPUID_APM_INVTSC,
+    [FEAT_8000_0008_EBX] = (uint32_t)~CPUID_8000_0008_EBX_WBNOINVD,
+    [FEAT_8000_0021_EAX] = UINT32_MAX,
+    [FEAT_8000_0021_EBX] = UINT32_MAX,
+    [FEAT_8000_0021_ECX] = UINT32_MAX,
+    [FEAT_8000_0022_EAX] = UINT32_MAX,
+    [FEAT_C000_0001_EDX] = UINT32_MAX,
+};
+
+/* What TCG's max model leaves out of feature word W, as the other vendor's. */
+static uint64_t x86_cpu_other_vendor_features(X86CPU *cpu, FeatureWord w)
+{
+    CPUX86State *env = &cpu->env;
+
+    if (!tcg_enabled()) {
+        return 0;
+    }
+    if (IS_INTEL_CPU(env)) {
+        return amd_only_features[w];
+    }
+    if (IS_AMD_CPU(env)) {
+        return intel_only_features[w];
+    }
+    return 0;
+}
+
 void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
 {
     X86CPUClass *xcc = X86_CPU_GET_CLASS(cpu);
@@ -10459,6 +10549,7 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
                 no_autoenable_flags |= CPUID_7_0_EBX_MPX;
             }
 
+            no_autoenable_flags |= x86_cpu_other_vendor_features(cpu, w);
             env->features[w] |= x86_cpu_get_supported_feature_word(cpu, w) & ~no_autoenable_flags;
         }
 
