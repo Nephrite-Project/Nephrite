@@ -473,6 +473,9 @@ Processor emulation (TCG):
   promises, which raised #GP: IA32_CLOCK_MODULATION and
   IA32_THERM_INTERRUPT hold their bits, and IA32_THERM_STATUS reports no
   thermal events.
+* VMX instructions raise #UD in compatibility mode, before their VM exit
+  in VMX non-root operation: VMXON, VMCLEAR, VMPTRLD, and VMPTRST did
+  nothing there, and INVEPT and INVVPID exited.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs

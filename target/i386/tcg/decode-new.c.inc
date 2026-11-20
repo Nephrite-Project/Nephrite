@@ -494,6 +494,7 @@ static void decode_group9(DisasContext *s, CPUX86State *env, X86OpEntry *entry, 
     } else if (op >= 6) {
         /* VMX instructions #UD in compatibility mode. */
         if (LMA(s) && !CODE64(s)) {
+            *entry = UNKNOWN_OPCODE;
             return;
         }
         if (op == 7) {
