@@ -113,7 +113,7 @@ int cpu_get_pic_interrupt(CPUX86State *env)
             return intno;
         }
         /* read the irq from the PIC */
-        if (!apic_accept_pic_intr(cpu->apic_state)) {
+        if (!apic_extint_open(cpu->apic_state)) {
             return -1;
         }
     }

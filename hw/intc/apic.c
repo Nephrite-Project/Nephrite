@@ -570,7 +570,7 @@ static void apic_update_irq(APICCommonState *s)
         cpu_interrupt(cpu, CPU_INTERRUPT_POLL);
     } else if (apic_irq_pending(s) > 0) {
         cpu_interrupt(cpu, CPU_INTERRUPT_HARD);
-    } else if (!apic_accept_pic_intr(s) || !pic_get_output(isa_pic)) {
+    } else if (!apic_extint_open(s) || !pic_get_output(isa_pic)) {
         cpu_reset_interrupt(cpu, CPU_INTERRUPT_HARD);
     }
 }
@@ -880,7 +880,8 @@ int apic_get_interrupt(APICCommonState *s)
     /* if there is an interrupt from the 8259, let the caller handle
      * that first since ExtINT interrupts ignore the priority.
      */
-    if (intno == 0 || apic_check_pic(s)) {
+    if (intno == 0 ||
+        (apic_extint_open(s) && pic_get_output(isa_pic) && apic_check_pic(s))) {
         apic_sync_vapic(s, SYNC_TO_VAPIC);
         return -1;
     } else if (intno < 0) {
@@ -910,6 +911,27 @@ int apic_accept_pic_intr(APICCommonState *s)
         return isa_pic != NULL;
 
     return 0;
+}
+
+/*
+ * Whether the processor acknowledges the 8259 for its interrupts: where LINT0
+ * takes them in ExtINT mode, or as the INTR pin of a globally disabled local
+ * APIC, or of a processor without one; in fixed mode, LINT0 delivers its own
+ * vector (Intel SDM 325462-093 Vol. 3A, 7.3.1 and 13.5.1).
+ */
+bool apic_extint_open(APICCommonState *s)
+{
+    uint32_t lvt0;
+
+    if (!s) {
+        return true;
+    }
+    lvt0 = s->lvt[APIC_LVT_LINT0];
+    if ((s->apicbase & MSR_IA32_APICBASE_ENABLE) == 0) {
+        return isa_pic != NULL;
+    }
+    return !(lvt0 & APIC_LVT_MASKED) && ((lvt0 >> 8) & 7) == APIC_DM_EXTINT &&
+           isa_pic != NULL;
 }
 
 /*

@@ -423,6 +423,10 @@ Processor emulation (TCG):
 * TCG's processors can move their local APIC's registers to another base
   address, after which their accesses to the default base no longer reach
   them.
+* The processor acknowledges the 8259 for its interrupts only where LINT0
+  takes them in ExtINT mode, or as the INTR pin of a globally disabled local
+  APIC; in fixed mode, LINT0 delivers its own vector instead of the 8259's
+  (SDM Vol. 3A, 7.3.1 and 13.5.1).
 * Reserved-bit page faults set the P bit of their error codes, as do the
   nested page faults of reserved bits in nested page tables (SDM Vol. 3A,
   5.7), and AMD's processors reserve bit 8 of PML5Es and PML4Es, which
