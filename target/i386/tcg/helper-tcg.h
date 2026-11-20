@@ -172,7 +172,7 @@ bool x86_vmx_holds_init(CPUX86State *env);
 /* HELPER(user_wait)'s INFO: the source register, and UMWAIT not TPAUSE. */
 #define USER_WAIT_REG 31
 #define USER_WAIT_UMWAIT 32
-void x86_user_wait_init(X86CPU *cpu);
+void x86_wait_init(X86CPU *cpu);
 void x86_user_wait_end(CPUX86State *env);
 void x86_vmx_smm_save_ept(CPUX86State *env, hwaddr sm_state);
 void x86_vmx_smm_enter(CPUX86State *env);

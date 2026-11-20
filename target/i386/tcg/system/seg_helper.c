@@ -234,6 +234,9 @@ void x86_cpu_leaving_halt(CPUState *cpu)
         env->vmx.hlt_wake = env->vmx.nonroot && !env->mwait_halted;
         env->hlt_woke = !env->mwait_halted;
     }
+    if (env->mwait_halted) {
+        timer_del(x86_cpu->wait_timer);
+    }
     env->mwait_halted = false;
     env->mwait_masked = false;
     /* Complete HLT, UMWAIT, or TPAUSE instruction.  */

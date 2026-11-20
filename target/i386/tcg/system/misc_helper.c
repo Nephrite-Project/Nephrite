@@ -1956,6 +1956,57 @@ G_NORETURN void HELPER(hlt)(CPUX86State *env)
 }
 
 /*
+ * MONITOR and UMONITOR arm address-range monitoring of the line holding an
+ * address, with the faults and accessed flag of a byte load (Intel SDM
+ * 325462-093 Vol. 2B, MONITOR and UMONITOR; AMD64 Architecture Programmer's
+ * Manual Volume 3, 24594 rev. 3.39, MONITOR). Returns the line's physical
+ * address in *LINE, and whether it is memory, on which a store shows as a
+ * change of the line's bytes.
+ */
+static bool monitor_probe(CPUX86State *env, target_ulong addr, hwaddr *line,
+                          MemTxAttrs *attrs, uintptr_t ra)
+{
+    CPUState *cs = env_cpu(env);
+    CPUTLBEntryFull *full;
+    void *host;
+
+    probe_access_full(env, addr, 1, MMU_DATA_LOAD, cpu_mmu_index(cs, false),
+                      false, &host, &full, ra);
+    *line = full->phys_addr | (addr & 0xfc0);
+    *attrs = full->attrs;
+    return host;
+}
+
+/* Monitors LINE, keeping what it holds where it is memory. */
+static void monitor_set(CPUX86State *env, hwaddr line, MemTxAttrs attrs,
+                        bool memory)
+{
+    env->monitor_line = line;
+    env->monitor_attrs = attrs;
+    env->monitor_memory =
+        memory && address_space_read(cpu_addressspace(env_cpu(env), attrs),
+                                     line, attrs, env->monitor_bytes,
+                                     sizeof(env->monitor_bytes)) == MEMTX_OK;
+}
+
+/* How often a wait looks for a store to the monitored line. */
+#define MONITOR_POLL_NS 20000
+
+/* Whether a store changed the bytes of the monitored line since it armed. */
+static bool monitor_stored(CPUX86State *env)
+{
+    AddressSpace *as = cpu_addressspace(env_cpu(env), env->monitor_attrs);
+    uint8_t bytes[sizeof(env->monitor_bytes)];
+
+    if (!env->monitor_memory) {
+        return false;
+    }
+    return address_space_read(as, env->monitor_line, env->monitor_attrs,
+                              bytes, sizeof(bytes)) != MEMTX_OK ||
+           memcmp(bytes, env->monitor_bytes, sizeof(bytes));
+}
+
+/*
  * MONITOR's and MWAIT's extensions: RCX in 64-bit mode on Intel processors,
  * ECX elsewhere (Intel SDM 325462-093 Vol. 2B, MONITOR and MWAIT; AMD64
  * Architecture Programmer's Manual Volume 3, 24594 rev. 3.39, MONITOR and
@@ -1970,22 +2021,28 @@ static target_ulong monitor_extensions(CPUX86State *env)
 }
 
 /*
- * MONITOR and MWAIT exit VMX non-root operation before their #GP (Intel SDM
- * 325462-093 Vol. 3C, 28.1.1), but SVM checks all their exceptions before
- * its intercepts (AMD64 Architecture Programmer's Manual Volume 2, 24593 rev.
- * 3.46, Table 15-7).
+ * MONITOR and MWAIT exit VMX non-root operation before their faults (Intel
+ * SDM 325462-093 Vol. 3C, 28.1.1), but SVM checks all their exceptions
+ * before its intercepts (AMD64 Architecture Programmer's Manual Volume 2,
+ * 24593 rev. 3.46, Table 15-7).
  */
 void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
 {
+    MemTxAttrs attrs;
+    hwaddr line;
+    bool memory;
+
     if (env->vmx.nonroot) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
     }
     if (monitor_extensions(env)) {
         raise_exception_ra(env, EXCP0D_GPF, GETPC());
     }
+    memory = monitor_probe(env, ptr, &line, &attrs, GETPC());
     if (!env->vmx.nonroot) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_MONITOR, 0, GETPC());
     }
+    monitor_set(env, line, attrs, memory);
     env->monitor_armed = true;
     /*
      * UMWAIT does not wait after a MONITOR (Intel SDM 325462-093 Vol. 2B,
@@ -1995,10 +2052,11 @@ void HELPER(monitor)(CPUX86State *env, target_ulong ptr)
 }
 
 /*
- * MWAIT takes ECX[0], masked interrupts as break events, where CPUID.05H
- * reports it (Intel SDM 325462-093 Vol. 2B, MWAIT). SVM's conditional MWAIT
- * intercept, checked first, takes an MWAIT that would wait (AMD64
- * Architecture Programmer's Manual Volume 2, 24593 rev. 3.46, Table 15-7).
+ * MWAIT waits for a store to MONITOR's line, or for an interrupt, which it
+ * takes where IF masks it too with ECX[0], where CPUID.05H reports it (Intel
+ * SDM 325462-093 Vol. 2B, MWAIT). SVM's conditional MWAIT intercept, checked
+ * first, takes an MWAIT that would wait (AMD64 Architecture Programmer's
+ * Manual Volume 2, 24593 rev. 3.46, Table 15-7).
  */
 G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
 {
@@ -2007,6 +2065,10 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
 
     if (env_archcpu(env)->mwait.ecx & CPUID_MWAIT_IBE) {
         valid |= 1;
+    }
+    /* A store since MONITOR, this processor's too, triggered it. */
+    if (env->monitor_armed && monitor_stored(env)) {
+        env->monitor_armed = false;
     }
     if (env->vmx.nonroot) {
         cpu_svm_check_intercept_param(env, SVM_EXIT_MWAIT, 0, GETPC());
@@ -2024,70 +2086,44 @@ G_NORETURN void HELPER(mwait)(CPUX86State *env, int next_eip_addend)
     env->eip += next_eip_addend;
 
     /*
-     * Without monitoring armed, MWAIT continues at once (Intel SDM
-     * 325462-093 Vol. 2B, MWAIT); so it does under VMX's monitor trap
-     * flag, as any event may end its wait, here the MTF VM exit.
+     * Without monitoring armed, MWAIT continues at once; so it does under
+     * VMX's monitor trap flag, as any event may end its wait, here the MTF
+     * VM exit. Monitoring ends clear either way.
      */
     if (!env->monitor_armed || x86_vmx_mtf(env)) {
+        env->monitor_armed = false;
         do_end_instruction(env);
         HELPER(rechecking_single_step)(env);
         cpu_loop_exit(cs);
     }
     env->monitor_armed = false;
-    /* XXX: not complete but not completely erroneous */
-    if (cs->cpu_index != 0 || CPU_NEXT(cs) != NULL) {
-        HELPER(pause)(env);
-    } else {
-        env->mwait_halted = true;
-        env->mwait_masked = monitor_extensions(env) & 1;
-        do_hlt(env);
+    env->mwait_halted = true;
+    env->mwait_masked = monitor_extensions(env) & 1;
+    qatomic_set(&env->wait_over, false);
+    if (env->monitor_memory) {
+        timer_mod(env_archcpu(env)->wait_timer,
+                  qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + MONITOR_POLL_NS);
     }
+    do_hlt(env);
 }
 
 /*
- * UMONITOR arms address-range monitoring of the line holding ADDR, with the
- * faults and accessed flag of a byte load (Intel SDM 325462-093 Vol. 2B,
- * UMONITOR), where VMX non-root operation has "enable user wait and pause"
- * (Intel SDM 325462-093 Vol. 3C, 28.3). On memory, a store shows as a change
- * of the line's bytes.
+ * UMONITOR arms address-range monitoring where VMX non-root operation has
+ * "enable user wait and pause" (Intel SDM 325462-093 Vol. 3C, 28.3).
  */
 void HELPER(umonitor)(CPUX86State *env, target_ulong addr)
 {
-    CPUState *cs = env_cpu(env);
-    CPUTLBEntryFull *full;
-    void *host;
+    MemTxAttrs attrs;
+    hwaddr line;
+    bool memory;
 
     if (env->vmx.nonroot && !x86_vmx_user_wait_enabled(env)) {
         raise_exception_ra(env, EXCP06_ILLOP, GETPC());
     }
-    probe_access_full(env, addr, 1, MMU_DATA_LOAD, cpu_mmu_index(cs, false),
-                      false, &host, &full, GETPC());
+    memory = monitor_probe(env, addr, &line, &attrs, GETPC());
+    monitor_set(env, line, attrs, memory);
     env->monitor_armed = false;
     env->umonitor_armed = true;
-    env->umonitor_line = full->phys_addr | (addr & 0xfc0);
-    env->umonitor_attrs = full->attrs;
-    env->umonitor_memory =
-        host && address_space_read(cpu_addressspace(cs, full->attrs),
-                                   env->umonitor_line, full->attrs,
-                                   env->umonitor_bytes,
-                                   sizeof(env->umonitor_bytes)) == MEMTX_OK;
-}
-
-/* How often an UMWAIT looks for a store to UMONITOR's line. */
-#define USER_WAIT_POLL_NS 20000
-
-/* Whether a store changed the bytes of UMONITOR's line since it armed. */
-static bool umonitor_stored(CPUX86State *env)
-{
-    AddressSpace *as = cpu_addressspace(env_cpu(env), env->umonitor_attrs);
-    uint8_t bytes[sizeof(env->umonitor_bytes)];
-
-    if (!env->umonitor_memory) {
-        return false;
-    }
-    return address_space_read(as, env->umonitor_line, env->umonitor_attrs,
-                              bytes, sizeof(bytes)) != MEMTX_OK ||
-           memcmp(bytes, env->umonitor_bytes, sizeof(bytes));
 }
 
 /* Has the wait's timer fire at its deadline, or at UMWAIT's next look. */
@@ -2104,33 +2140,41 @@ static void user_wait_arm(CPUX86State *env)
         ns = cpu_tsc_ticks_ns(env, delay);
     }
     if (env->user_wait_umwait) {
-        ns = MIN(ns, USER_WAIT_POLL_NS);
+        ns = MIN(ns, MONITOR_POLL_NS);
     }
-    timer_mod(env_archcpu(env)->user_wait_timer,
+    timer_mod(env_archcpu(env)->wait_timer,
               qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + ns);
 }
 
-/* The deadline or a store to UMWAIT's line ends the wait; else arm again. */
-static void user_wait_cb(void *opaque)
+/*
+ * A store to the monitored line ends MWAIT's wait, and UMWAIT's, which
+ * TPAUSE's shares its deadline with; else the timer looks again.
+ */
+static void wait_cb(void *opaque)
 {
     X86CPU *cpu = opaque;
     CPUX86State *env = &cpu->env;
 
-    if (!env->user_wait) {
+    if (env->mwait_halted) {
+        if (!monitor_stored(env)) {
+            timer_mod(cpu->wait_timer,
+                      qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + MONITOR_POLL_NS);
+            return;
+        }
+    } else if (!env->user_wait) {
         return;
-    }
-    if (x86_tsc_read(env) < env->user_wait_deadline &&
-        !(env->user_wait_umwait && umonitor_stored(env))) {
+    } else if (x86_tsc_read(env) < env->user_wait_deadline &&
+               !(env->user_wait_umwait && monitor_stored(env))) {
         user_wait_arm(env);
         return;
     }
-    qatomic_set(&env->user_wait_over, true);
+    qatomic_set(&env->wait_over, true);
     qemu_cpu_kick(CPU(cpu));
 }
 
-void x86_user_wait_init(X86CPU *cpu)
+void x86_wait_init(X86CPU *cpu)
 {
-    cpu->user_wait_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, user_wait_cb, cpu);
+    cpu->wait_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, wait_cb, cpu);
 }
 
 /*
@@ -2141,7 +2185,7 @@ void x86_user_wait_init(X86CPU *cpu)
 void x86_user_wait_end(CPUX86State *env)
 {
     env->user_wait = false;
-    timer_del(env_archcpu(env)->user_wait_timer);
+    timer_del(env_archcpu(env)->wait_timer);
     if (env->user_wait_limited &&
         x86_tsc_read(env) >= env->user_wait_deadline) {
         if (env_archcpu(env)->eflags_in_tcg) {
@@ -2196,7 +2240,7 @@ G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
     env->user_wait_limited = limit && now + limit < deadline;
     env->user_wait_deadline = env->user_wait_limited ? now + limit : deadline;
     /* A store since UMONITOR, this processor's too, triggered it. */
-    if (umwait && env->umonitor_armed && umonitor_stored(env)) {
+    if (umwait && env->umonitor_armed && monitor_stored(env)) {
         env->umonitor_armed = false;
     }
     /*
@@ -2214,7 +2258,7 @@ G_NORETURN void HELPER(user_wait)(CPUX86State *env, target_ulong src,
         env->umonitor_armed = false;
     }
     env->user_wait = true;
-    qatomic_set(&env->user_wait_over, false);
+    qatomic_set(&env->wait_over, false);
     user_wait_arm(env);
     do_hlt(env);
 }

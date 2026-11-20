@@ -11282,7 +11282,7 @@ static bool x86_cpu_has_work(CPUState *cs)
      * (Intel SDM 325462-093 Vol. 2B, UMWAIT and TPAUSE), as INIT does.
      */
     if (env->user_wait &&
-        (qatomic_read(&env->user_wait_over) ||
+        (qatomic_read(&env->wait_over) ||
          (pending_interrupts & (CPU_INTERRUPT_HARD | CPU_INTERRUPT_INIT)))) {
         return true;
     }
@@ -11292,11 +11292,13 @@ static bool x86_cpu_has_work(CPUState *cs)
         return true;
     }
     /*
-     * An MWAIT with ECX[0] set ends its wait for interrupts that IF masks
-     * (Intel SDM 325462-093 Vol. 2B, MWAIT).
+     * A store to the monitored line ends MWAIT's wait, and so do interrupts
+     * that IF masks where ECX[0] is set (Intel SDM 325462-093 Vol. 2B,
+     * MWAIT).
      */
-    if (env->mwait_halted && env->mwait_masked &&
-        (pending_interrupts & CPU_INTERRUPT_HARD)) {
+    if (env->mwait_halted &&
+        (qatomic_read(&env->wait_over) ||
+         (env->mwait_masked && (pending_interrupts & CPU_INTERRUPT_HARD)))) {
         return true;
     }
     /*

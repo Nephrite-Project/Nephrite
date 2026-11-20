@@ -398,8 +398,8 @@ Processor emulation (TCG):
   bits clear and a canonical base.
 * An SMI in the HLT state sets the state-save area's auto-halt restart
   field, for which RSM returns to the HLT state. MWAIT, which TCG takes as
-  a halt on a single processor, no longer counts as the HLT state there or
-  for user-interrupt notifications.
+  a halt, no longer counts as the HLT state there or for user-interrupt
+  notifications.
 * SMIs put CR4.VMXE aside, which is reserved in SMM, and RSM restores it,
   shutting down where the state-save area sets it, and sets the CR0 and
   CR4 bits that VMX operation fixes, as the SDM's default treatment of SMIs
@@ -421,6 +421,10 @@ Processor emulation (TCG):
   it; MWAIT takes ECX[0], which leaf 5 reports, for interrupts that IF
   masks to end its wait; and Intel processors check all of RCX in 64-bit
   mode.
+* MWAIT on more than one processor waits for a store to the line that
+  MONITOR monitors, or for an interrupt, instead of continuing at once, and
+  MONITOR takes a byte load's faults and accessed flag; CPUID leaf 5 gives
+  the line's 64 bytes.
 
 AMD SVM (TCG):
 

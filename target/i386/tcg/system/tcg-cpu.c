@@ -77,7 +77,13 @@ bool tcg_cpu_realizefn(CPUState *cs, Error **errp)
     cpu_address_space_init(cs, X86ASIdx_SMM, "cpu-smm", cpu->cpu_as_root);
     svm_avic_init(cpu);
     x86_vmx_init(cpu);
-    x86_user_wait_init(cpu);
+    x86_wait_init(cpu);
+    /*
+     * MONITOR monitors a 64-byte line, which CPUID.05H gives, as Intel's and
+     * AMD's processors do (Intel SDM 325462-093 Vol. 2A, CPUID).
+     */
+    cpu->mwait.eax = 64;
+    cpu->mwait.ebx = 64;
 
     /* ... SMRAM with higher priority, linked from /machine/smram.  */
     cpu->machine_done.notify = tcg_cpu_machine_done;
