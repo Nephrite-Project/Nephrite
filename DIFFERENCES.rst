@@ -290,6 +290,9 @@ Processor features:
   register dumps show, SYSCALL and SYSENTER as FRED events, the far
   transfers and instructions that FRED transitions refuse, and NMI-source
   reporting, in FRED's event data and VMX's NMI exits.
+* Hybrid parts: CPUID's hybrid bit, with leaf 1AH giving every core as an
+  Intel Core, so that Linux's hybrid PMU driver finds its PMU on the models
+  it knows as hybrid.
 * DebugCtl's branch recording (LBRs) and branch single-stepping, which
   register dumps show.
 * OS bus-lock detection (DebugCtl.BLD): a trap-like #DB that clears

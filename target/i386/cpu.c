@@ -1147,7 +1147,8 @@ void x86_cpu_vendor_words2str(char *dst, uint32_t vendor1,
 #define TCG_7_0_EDX_FEATURES (CPUID_7_0_EDX_FSRM | \
           CPUID_7_0_EDX_KERNEL_FEATURES | TCG_7_0_EDX_SPEC_CTRL | \
           TCG_7_0_EDX_CET_IBT | CPUID_7_0_EDX_ARCH_CAPABILITIES | \
-          TCG_7_0_EDX_UINTR | CPUID_7_0_EDX_CORE_CAPABILITY)
+          TCG_7_0_EDX_UINTR | CPUID_7_0_EDX_CORE_CAPABILITY | \
+          CPUID_7_0_EDX_HYBRID)
 
 #ifdef CONFIG_USER_ONLY
 /*
@@ -1465,7 +1466,7 @@ FeatureWordInfo feature_word_info[FEATURE_WORDS] = {
             NULL, NULL, "avx512-4vnniw", "avx512-4fmaps",
             "fsrm", "uintr", NULL, NULL,
             "avx512-vp2intersect", NULL, "md-clear", NULL,
-            NULL, NULL, "serialize", NULL,
+            NULL, NULL, "serialize", "hybrid",
             "tsx-ldtrk", NULL, NULL /* pconfig */, "arch-lbr",
             "cet-ibt", NULL, "amx-bf16", "avx512-fp16",
             "amx-tile", "amx-int8", "spec-ctrl", "stibp",
@@ -9457,6 +9458,18 @@ void cpu_x86_cpuid(CPUX86State *env, uint32_t index, uint32_t count,
         }
         break;
     }
+    case 0x1A:
+        /*
+         * Hybrid parts tell their cores apart: under TCG, every one is an
+         * Intel Core, core type 40H, with a native model ID of 0 (Intel SDM
+         * 325462-093 Vol. 2A, CPUID, leaf 1AH).
+         */
+        *eax = env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_HYBRID ?
+               0x40u << 24 : 0;
+        *ebx = 0;
+        *ecx = 0;
+        *edx = 0;
+        break;
     case 0x1C: /* Last Branch Records Information Leaf */
         *eax = 0;
         *ebx = 0;
@@ -10403,6 +10416,11 @@ void x86_cpu_expand_features(X86CPU *cpu, Error **errp)
     x86_cpu_adjust_feat_level(cpu, FEAT_C000_0001_EDX);
     x86_cpu_adjust_feat_level(cpu, FEAT_SVM);
     x86_cpu_adjust_feat_level(cpu, FEAT_XSAVE);
+
+    /* Hybrid parts have CPUID[0x1A] */
+    if (env->features[FEAT_7_0_EDX] & CPUID_7_0_EDX_HYBRID) {
+        x86_cpu_adjust_level(cpu, &env->cpuid_min_level, 0x1A);
+    }
 
     /* Intel Processor Trace requires CPUID[0x14] */
     if ((env->features[FEAT_7_0_EBX] & CPUID_7_0_EBX_INTEL_PT)) {
