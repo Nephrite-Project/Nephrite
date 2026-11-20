@@ -586,6 +586,25 @@ static const VMStateDescription vmstate_msr_tsc_adjust = {
     }
 };
 
+/* How far WRMSR to IA32_TSC, or to IA32_TSC_ADJUST, moved TCG's TSC. */
+static bool tsc_written_delta_needed(void *opaque)
+{
+    X86CPU *cpu = opaque;
+
+    return tcg_enabled() && cpu->env.tsc_written_delta;
+}
+
+static const VMStateDescription vmstate_tsc_written_delta = {
+    .name = "cpu/tsc_written_delta",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = tsc_written_delta_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_INT64(env.tsc_written_delta, X86CPU),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static bool msr_smi_count_needed(void *opaque)
 {
     X86CPU *cpu = opaque;
@@ -2376,6 +2395,7 @@ const VMStateDescription vmstate_x86_cpu = {
         &vmstate_poll_control_msr,
         &vmstate_fpop_ip_dp,
         &vmstate_msr_tsc_adjust,
+        &vmstate_tsc_written_delta,
         &vmstate_msr_tscdeadline,
         &vmstate_msr_ia32_misc_enable,
         &vmstate_msr_ia32_feature_control,

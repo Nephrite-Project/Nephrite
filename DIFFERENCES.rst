@@ -488,6 +488,8 @@ Processor emulation (TCG):
   and MSR permission maps' addresses, AVIC's, and the pause filter's.
 * Snapshots and migration keep the address-range monitoring that MONITOR
   or UMONITOR armed, and a wait of MWAIT, UMWAIT, or TPAUSE under way.
+* Snapshots and migration keep TCG's TSC where WRMSR to IA32_TSC or
+  IA32_TSC_ADJUST moved it.
 
 AMD SVM (TCG):
 
