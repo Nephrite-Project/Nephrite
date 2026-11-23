@@ -20,12 +20,13 @@
 #endif /* COMPILING_PER_TARGET */
 
 #ifdef CONFIG_BHYVE_IS_POSSIBLE
-int bhyve_enabled(void);
-#else /* !CONFIG_BHYVE_IS_POSSIBLE */
-#define bhyve_enabled() (0)
-#endif /* CONFIG_BHYVE_IS_POSSIBLE */
-
+extern bool bhyve_allowed;
+#define bhyve_enabled() (bhyve_allowed)
 bool bhyve_apic_in_platform(void);
+#else /* !CONFIG_BHYVE_IS_POSSIBLE */
+#define bhyve_enabled() 0
+#define bhyve_apic_in_platform() false
+#endif /* CONFIG_BHYVE_IS_POSSIBLE */
 
 int bhyve_name2segid(const char *name);
 void *bhyve_ram_alloc(size_t mr, uint64_t *alignment, int flags,

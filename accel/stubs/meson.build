@@ -1,4 +1,5 @@
 stub_ss.add(files(
+  'bhyve-stub.c',
   'hvf-stub.c',
   'kvm-stub.c',
   'nitro-stub.c',

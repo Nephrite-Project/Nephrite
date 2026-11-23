@@ -50,13 +50,7 @@ struct AccelCPUState {
 
 /* -------------------------------------------------------------------------- */
 
-static bool bhyve_allowed;
-
-int
-bhyve_enabled(void)
-{
-    return bhyve_allowed;
-}
+bool bhyve_allowed;
 
 static enum host_vendor get_cpu_vendor(void)
 {
